@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aios"
+version = "0.0.0"
+description = "Мультиагентная система управления фондом скважин — трек 2 AIOS"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+# Пакеты добавляются сюда по мере появления: schedule, economics, bridge,
+# surrogate, optimizer, connectivity, policy, robustness, ui, llm, config.
+# Сейчас реально существует только contracts/ — общие типы.
+[tool.setuptools]
+packages = ["contracts"]
+
+[tool.pytest.ini_options]
+testpaths = ["contracts/tests"]
