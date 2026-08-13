@@ -27,7 +27,7 @@ from .config import (
 from .connectivity import Groups, Lambda
 from .constraints import Constraints, WellOutage
 from .economics import LineItems, NpvTable
-from .hashing import canonical_bytes, canonical_schedule_hash, content_hash, schedule_hash
+from .hashing import canonical_bytes, canonical_schedule_hash, content_hash, hash_schedule
 from .policy import OptimizerResult, Rule, ScenarioViolation, Theta, TraceEntry
 from .response import (
     ActiveControlMode,
@@ -114,7 +114,7 @@ __all__ = [
     "canonical_bytes",
     "canonical_schedule_hash",
     "content_hash",
+    "hash_schedule",
     "join_by_control_step",
-    "schedule_hash",
     "watercut",
 ]

@@ -76,8 +76,13 @@ def canonical_schedule_hash(
     return digest
 
 
-def schedule_hash(schedule: Schedule) -> str:
-    """canonical_schedule_hash для готового Schedule целиком."""
+def hash_schedule(schedule: Schedule) -> str:
+    """canonical_schedule_hash для готового Schedule целиком.
+
+    Названо `hash_schedule`, не `schedule_hash` — второе запрещено §1.6
+    (единственное имя величины — `canonical_schedule_hash`, без
+    сокращений и синонимов).
+    """
     return canonical_schedule_hash(
         schedule.initial_state, schedule.fixed_deck_events, schedule.control_events
     )
