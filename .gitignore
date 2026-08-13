@@ -1,0 +1,22 @@
+# Артефакты прогонов и датасеты — вне git, адресуются хешами
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Frontend
+node_modules/
+dist/
+build/
+
+# Локальное окружение
+.env
+.env.local
+.DS_Store
