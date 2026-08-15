@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { WellsFile } from '../../api/types';
 import { useT } from '../../i18n/I18nContext';
+import { useTimeline } from '../../state/TimelineContext';
 import { layerColors } from '../../theme/tokens';
 import { LayerSwitch, type LayerFilter } from './LayerSwitch';
 import { WellsPlot } from './WellsPlot';
@@ -20,6 +21,7 @@ const legendItems = [
 
 export const FieldMap = () => {
   const t = useT();
+  const { selectedWell, selectWell } = useTimeline();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [filter, setFilter] = useState<LayerFilter>('all');
 
@@ -66,7 +68,13 @@ export const FieldMap = () => {
           {t('map.shown', { shown, total: wells.length })}
         </span>
       </div>
-      <WellsPlot wells={wells} grid={grid} filter={filter} />
+      <WellsPlot
+        wells={wells}
+        grid={grid}
+        filter={filter}
+        selectedWell={selectedWell}
+        onSelectWell={selectWell}
+      />
       <p className="field-map-axes">{t('map.axes', { ni: grid.ni, nj: grid.nj })}</p>
       <ul className="field-map-legend">
         {legendItems.map((item) => (

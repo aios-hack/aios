@@ -4,12 +4,14 @@ import { DASH, formatNumber, formatPercent } from './format';
 
 interface WellsTableProps {
   wells: TimelineWellRow[];
+  selectedWell: string | null;
+  onSelectWell: (well: string) => void;
 }
 
 const actualRate = (row: TimelineWellRow): number =>
   row.role === 'INJ' ? row.injection_rate : row.liquid_rate;
 
-export const WellsTable = ({ wells }: WellsTableProps) => {
+export const WellsTable = ({ wells, selectedWell, onSelectWell }: WellsTableProps) => {
   const { t, lang } = useI18n();
   const sorted = [...wells].sort((a, b) => a.well.localeCompare(b.well));
 
@@ -44,8 +46,15 @@ export const WellsTable = ({ wells }: WellsTableProps) => {
                 key={row.well}
                 data-well-id={row.well}
                 data-not-commissioned={notCommissioned}
+                data-selected={row.well === selectedWell}
+                data-clickable="true"
+                onClick={() => onSelectWell(row.well)}
               >
-                <th scope="row">{row.well}</th>
+                <th scope="row">
+                  <button type="button" className="timeline-well-button">
+                    {row.well}
+                  </button>
+                </th>
                 <td>{t(`steps.availability.${row.availability}`)}</td>
                 <td>{notCommissioned ? DASH : t(`steps.role.${row.role}`)}</td>
                 <td>

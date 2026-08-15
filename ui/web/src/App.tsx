@@ -3,6 +3,7 @@ import { useI18n } from './i18n/I18nContext';
 import { useTheme } from './theme/ThemeContext';
 import { FieldMap } from './views/FieldMap';
 import { Timeline } from './views/Timeline';
+import { WellCard } from './views/WellCard';
 
 type ViewId = 'map' | 'steps';
 
@@ -48,6 +49,7 @@ export const App = () => {
         </h2>
         {view === 'map' ? <FieldMap /> : <Timeline />}
       </main>
+      <WellCard />
     </div>
   );
 };

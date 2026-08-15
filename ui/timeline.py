@@ -12,6 +12,7 @@ from contracts import (
     IntervalResponse,
     RunArtifact,
     Schedule,
+    StateAtDate,
     watercut,
 )
 
@@ -54,6 +55,18 @@ def _apply_control(state: dict[str, Any], event: ControlEvent) -> None:
         state["setpoint"] = 0.0
 
 
+def _fact_to_target(state: dict[str, Any], row: StateAtDate) -> float | None:
+    if state["availability"] != "AVAILABLE":
+        return None
+    if state["operating_status"] != "OPEN":
+        return None
+    setpoint = float(state["setpoint"])
+    if setpoint <= 0:
+        return None
+    fact = row.injection_rate if state["role"] == "INJ" else row.liquid_rate
+    return fact / setpoint
+
+
 def _interval_watercut(
     response: IntervalResponse, densities: dict[str, float]
 ) -> float:
@@ -83,6 +96,7 @@ def build_timeline(artifact: RunArtifact, densities: dict[str, float]) -> dict[s
     for event in schedule.control_events:
         control_by_step.setdefault(event.control_step, []).append(event)
     fold = _initial_fold(schedule)
+    cumulative = {well: 0.0 for well in wells}
     by_month = artifact.npv_table.by_month
     npv_cumulative = 0.0
     steps: list[dict[str, Any]] = []
@@ -108,13 +122,16 @@ def build_timeline(artifact: RunArtifact, densities: dict[str, float]) -> dict[s
             entry["liquid_rate"] = row.liquid_rate
             entry["injection_rate"] = row.injection_rate
             entry["bhp"] = row.bhp
+            entry["fact_to_target"] = _fact_to_target(fold[well], row)
             if terminal:
                 entry["watercut"] = None
             else:
                 response = responses[(control_step, well)]
                 production += response.liquid_volume_delta
                 injection += response.injection_volume_delta
+                cumulative[well] += response.liquid_volume_delta
                 entry["watercut"] = _interval_watercut(response, densities)
+            entry["cumulative_liquid"] = cumulative[well]
             well_rows.append(entry)
         compensation = injection / production if production > 0 else None
         steps.append(
@@ -142,10 +159,21 @@ def build_timeline(artifact: RunArtifact, densities: dict[str, float]) -> dict[s
     }
 
 
-def export_timeline_json(
-    artifact: RunArtifact, densities: dict[str, float], out_path: str | Path
-) -> Path:
-    data = build_timeline(artifact, densities)
+def build_trace(artifact: RunArtifact) -> dict[str, dict[str, list[dict[str, Any]]]]:
+    grouped: dict[str, dict[str, list[dict[str, Any]]]] = {}
+    for entry in artifact.trace:
+        by_step = grouped.setdefault(entry.well, {})
+        by_step.setdefault(str(entry.control_step), []).append(
+            {
+                "rule": entry.rule.name,
+                "inputs": dict(entry.inputs),
+                "decision": entry.decision,
+            }
+        )
+    return grouped
+
+
+def _write_json(data: dict[str, Any], out_path: str | Path) -> Path:
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(
@@ -153,3 +181,13 @@ def export_timeline_json(
         encoding="utf-8",
     )
     return out
+
+
+def export_timeline_json(
+    artifact: RunArtifact, densities: dict[str, float], out_path: str | Path
+) -> Path:
+    return _write_json(build_timeline(artifact, densities), out_path)
+
+
+def export_trace_json(artifact: RunArtifact, out_path: str | Path) -> Path:
+    return _write_json(build_trace(artifact), out_path)

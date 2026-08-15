@@ -151,3 +151,27 @@
 .timeline-table tbody tr[data-not-commissioned='true'] td {
   color: var(--color-text-muted);
 }
+
+.timeline-table tbody tr[data-clickable='true'] {
+  cursor: pointer;
+}
+
+.timeline-table tbody tr[data-clickable='true']:hover {
+  background: var(--color-bg);
+}
+
+.timeline-table tbody tr[data-selected='true'],
+.timeline-table tbody tr[data-selected='true']:hover {
+  background: var(--color-selected-bg);
+}
+
+.timeline-well-button {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-accent);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}

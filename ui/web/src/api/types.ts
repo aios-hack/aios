@@ -34,7 +34,18 @@ export interface TimelineWellRow {
   injection_rate: number;
   bhp: number;
   watercut: number | null;
+  fact_to_target: number | null;
+  cumulative_liquid: number;
+  explanation?: string | null;
 }
+
+export interface TraceRecord {
+  rule: string;
+  inputs: Record<string, number>;
+  decision: string;
+}
+
+export type TraceFile = Record<string, Record<string, TraceRecord[]>>;
 
 export interface TimelineFieldStats {
   production: number | null;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { TimelineFile } from '../../api/types';
 import { useT } from '../../i18n/I18nContext';
+import { useTimeline } from '../../state/TimelineContext';
 import { FieldStats } from './FieldStats';
 import { StepControls } from './StepControls';
 import { WellsTable } from './WellsTable';
@@ -8,44 +8,12 @@ import './Timeline.css';
 
 const PLAY_INTERVAL_MS = 300;
 
-type LoadState =
-  | { status: 'loading' }
-  | { status: 'error' }
-  | { status: 'ready'; data: TimelineFile };
-
 export const Timeline = () => {
   const t = useT();
-  const [state, setState] = useState<LoadState>({ status: 'loading' });
-  const [stepIndex, setStepIndex] = useState(0);
+  const { timeline, stepIndex, setStepIndex, selectedWell, selectWell } = useTimeline();
   const [playing, setPlaying] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/data/timeline.json')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(String(response.status));
-        }
-        return response.json();
-      })
-      .then((data: TimelineFile) => {
-        if (!cancelled) {
-          setState(
-            data.steps.length > 0 ? { status: 'ready', data } : { status: 'error' }
-          );
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setState({ status: 'error' });
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const stepCount = state.status === 'ready' ? state.data.steps.length : 0;
+  const stepCount = timeline.status === 'ready' ? timeline.data.steps.length : 0;
 
   useEffect(() => {
     if (!playing || stepCount === 0) {
@@ -55,7 +23,7 @@ export const Timeline = () => {
       setStepIndex((current) => Math.min(current + 1, stepCount - 1));
     }, PLAY_INTERVAL_MS);
     return () => window.clearInterval(id);
-  }, [playing, stepCount]);
+  }, [playing, stepCount, setStepIndex]);
 
   useEffect(() => {
     if (playing && stepCount > 0 && stepIndex >= stepCount - 1) {
@@ -63,14 +31,14 @@ export const Timeline = () => {
     }
   }, [playing, stepIndex, stepCount]);
 
-  if (state.status === 'loading') {
+  if (timeline.status === 'loading') {
     return <p className="timeline-status">{t('steps.loading')}</p>;
   }
-  if (state.status === 'error') {
+  if (timeline.status === 'error') {
     return <p className="timeline-status timeline-error">{t('steps.error')}</p>;
   }
 
-  const steps = state.data.steps;
+  const steps = timeline.data.steps;
   const current = Math.min(stepIndex, steps.length - 1);
   const step = steps[current];
 
@@ -97,7 +65,11 @@ export const Timeline = () => {
         onTogglePlay={togglePlay}
       />
       <FieldStats field={step.field} />
-      <WellsTable wells={step.wells} />
+      <WellsTable
+        wells={step.wells}
+        selectedWell={selectedWell}
+        onSelectWell={selectWell}
+      />
     </section>
   );
 };

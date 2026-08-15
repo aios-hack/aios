@@ -7,10 +7,15 @@ from typing import Any
 
 import pytest
 
-from contracts import ControlEvent, EventKind, RunArtifact
+from contracts import ControlEvent, EventKind, Rule, RunArtifact, TraceEntry
 
 from ui.fixtures import make_synthetic_artifact
-from ui.timeline import build_timeline, export_timeline_json
+from ui.timeline import (
+    build_timeline,
+    build_trace,
+    export_timeline_json,
+    export_trace_json,
+)
 
 DENSITIES = {"10": 900.0, "11": 910.0, "12": 920.0, "13": 930.0, "14": 940.0}
 
@@ -140,6 +145,89 @@ def test_export_writes_dates_and_frames(tmp_path: Path) -> None:
     assert data["steps"][0]["date"] == "2007-01-01"
     assert data["steps"][1]["date"] == "2007-02-01"
     assert data["steps"][-1]["date"] == "2007-07-01"
+
+
+def test_fact_to_target_for_active_wells_with_setpoint() -> None:
+    artifact = make_synthetic_artifact()
+    steps = build_timeline(artifact, DENSITIES)["steps"]
+    for k in (0, 3):
+        prod = _well_entry(steps[k], "11")
+        assert prod["fact_to_target"] == pytest.approx(
+            prod["liquid_rate"] / prod["setpoint"]
+        )
+        inj = _well_entry(steps[k], "10")
+        assert inj["fact_to_target"] == pytest.approx(
+            inj["injection_rate"] / inj["setpoint"]
+        )
+
+
+def test_fact_to_target_null_when_ratio_is_forbidden() -> None:
+    artifact = _with_events(
+        make_synthetic_artifact(),
+        ControlEvent(control_step=2, well="11", kind=EventKind.SHUT),
+        ControlEvent(control_step=4, well="13", kind=EventKind.CONVERT_INJ),
+    )
+    steps = build_timeline(artifact, DENSITIES)["steps"]
+    assert _well_entry(steps[2], "11")["fact_to_target"] is None
+    assert _well_entry(steps[4], "13")["fact_to_target"] is None
+    for step in steps:
+        assert _well_entry(step, "14")["fact_to_target"] is None
+
+
+def test_cumulative_liquid_matches_manual_sum() -> None:
+    artifact = make_synthetic_artifact()
+    responses = {
+        (row.control_step, row.well): row for row in artifact.interval_response
+    }
+    steps = build_timeline(artifact, DENSITIES)["steps"]
+    n_intervals = artifact.schedule.meta.n_intervals
+    for well in ("10", "11", "13", "14"):
+        for k in range(n_intervals):
+            expected = sum(
+                responses[(j, well)].liquid_volume_delta for j in range(k + 1)
+            )
+            assert _well_entry(steps[k], well)["cumulative_liquid"] == pytest.approx(
+                expected
+            )
+        total = sum(
+            responses[(j, well)].liquid_volume_delta for j in range(n_intervals)
+        )
+        assert _well_entry(steps[-1], well)["cumulative_liquid"] == pytest.approx(total)
+
+
+def test_trace_groups_by_well_and_step_without_loss() -> None:
+    artifact = make_synthetic_artifact()
+    extra = (
+        TraceEntry(
+            control_step=0,
+            well="11",
+            rule=Rule.R2,
+            inputs={"bhp": 91.0},
+            decision="KEEP",
+        ),
+    )
+    artifact = replace(artifact, trace=tuple(artifact.trace) + extra)
+    grouped = build_trace(artifact)
+    total = sum(
+        len(records) for by_step in grouped.values() for records in by_step.values()
+    )
+    assert total == len(artifact.trace)
+    for entry in artifact.trace:
+        records = grouped[entry.well][str(entry.control_step)]
+        assert {
+            "rule": entry.rule.name,
+            "inputs": dict(entry.inputs),
+            "decision": entry.decision,
+        } in records
+    assert [record["rule"] for record in grouped["11"]["0"]] == ["R1", "R2"]
+
+
+def test_export_trace_writes_grouped_json(tmp_path: Path) -> None:
+    artifact = make_synthetic_artifact()
+    out = export_trace_json(artifact, tmp_path / "trace.json")
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data == build_trace(artifact)
+    assert data["11"]["0"][0]["inputs"]["watercut"] == 0.83
 
 
 def test_no_deck_scale_literals_in_source() -> None:

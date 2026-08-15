@@ -63,6 +63,17 @@
   border-radius: var(--radius-md);
 }
 
+.wells-plot circle {
+  cursor: pointer;
+}
+
+.wells-plot circle[data-selected='true'],
+.wells-plot circle:focus-visible {
+  outline: none;
+  stroke: var(--color-accent);
+  stroke-width: 0.6px;
+}
+
 .field-map-axes {
   margin: 0;
   text-align: center;

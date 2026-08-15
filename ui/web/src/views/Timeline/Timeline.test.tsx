@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import type { TimelineFile, TimelineStep, TimelineWellRow } from '../../api/types';
 import { dictionaries } from '../../i18n/dictionaries';
 import { I18nProvider } from '../../i18n/I18nContext';
+import { TimelineProvider } from '../../state/TimelineContext';
 import { Timeline } from './Timeline';
 
 const { ru, en } = dictionaries;
@@ -18,7 +19,9 @@ const makeWells = (k: number, terminal: boolean): TimelineWellRow[] => [
     liquid_rate: 0,
     injection_rate: 140 + k,
     bhp: 250,
-    watercut: terminal ? null : 0
+    watercut: terminal ? null : 0,
+    fact_to_target: (140 + k) / 160,
+    cumulative_liquid: 0
   },
   {
     well: '11',
@@ -29,7 +32,9 @@ const makeWells = (k: number, terminal: boolean): TimelineWellRow[] => [
     liquid_rate: 70 + 10 * k,
     injection_rate: 0,
     bhp: 91,
-    watercut: terminal ? null : 0.5
+    watercut: terminal ? null : 0.5,
+    fact_to_target: (70 + 10 * k) / 50,
+    cumulative_liquid: 2100 * (k + 1)
   },
   {
     well: '14',
@@ -40,7 +45,9 @@ const makeWells = (k: number, terminal: boolean): TimelineWellRow[] => [
     liquid_rate: 0,
     injection_rate: 0,
     bhp: 0,
-    watercut: terminal ? null : 0
+    watercut: terminal ? null : 0,
+    fact_to_target: null,
+    cumulative_liquid: 0
   }
 ];
 
@@ -67,7 +74,11 @@ const fixture: TimelineFile = {
   steps: [makeStep(0, false), makeStep(1, false), makeStep(2, false), makeStep(3, true)]
 };
 
-const withProviders = (node: ReactNode) => <I18nProvider>{node}</I18nProvider>;
+const withProviders = (node: ReactNode) => (
+  <I18nProvider>
+    <TimelineProvider>{node}</TimelineProvider>
+  </I18nProvider>
+);
 
 const mockFetchWith = (payload: TimelineFile) => {
   vi.stubGlobal(

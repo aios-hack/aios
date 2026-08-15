@@ -12,6 +12,12 @@
   --color-layer-2: #0f766e;
   --color-layer-both: #7c3aed;
   --color-well-dim: #c3cad1;
+  --color-selected-bg: #e7f0fd;
+
+  --shadow-drawer: 0 16px 48px rgba(28, 39, 51, 0.18);
+  --duration-drawer: 240ms;
+  --ease-out-drawer: cubic-bezier(0.16, 1, 0.3, 1);
+  --z-drawer: 20;
 
   --font-family-base: 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-size-xs: 12px;
@@ -40,6 +46,7 @@
   --size-content-max: 960px;
   --size-stat-min: 150px;
   --size-table-min: 640px;
+  --size-card-max: 420px;
 }
 
 [data-theme='dark'] {
@@ -56,4 +63,7 @@
   --color-layer-2: #35c2b4;
   --color-layer-both: #ab84ff;
   --color-well-dim: #3c4650;
+  --color-selected-bg: #223650;
+
+  --shadow-drawer: 0 16px 48px rgba(0, 0, 0, 0.55);
 }

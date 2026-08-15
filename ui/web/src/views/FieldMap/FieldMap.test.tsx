@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import type { WellsFile } from '../../api/types';
 import { dictionaries } from '../../i18n/dictionaries';
 import { I18nProvider } from '../../i18n/I18nContext';
+import { TimelineProvider } from '../../state/TimelineContext';
 import { FieldMap } from './FieldMap';
 
 const { ru, en } = dictionaries;
@@ -21,7 +22,11 @@ const fixture: WellsFile = {
   ]
 };
 
-const withProviders = (node: ReactNode) => <I18nProvider>{node}</I18nProvider>;
+const withProviders = (node: ReactNode) => (
+  <I18nProvider>
+    <TimelineProvider>{node}</TimelineProvider>
+  </I18nProvider>
+);
 
 const mockFetchWith = (payload: WellsFile) => {
   vi.stubGlobal(

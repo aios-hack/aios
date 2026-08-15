@@ -16,9 +16,17 @@ interface WellsPlotProps {
   wells: WellPoint[];
   grid: GridSize;
   filter: LayerFilter;
+  selectedWell: string | null;
+  onSelectWell: (well: string) => void;
 }
 
-export const WellsPlot = ({ wells, grid, filter }: WellsPlotProps) => {
+export const WellsPlot = ({
+  wells,
+  grid,
+  filter,
+  selectedWell,
+  onSelectWell
+}: WellsPlotProps) => {
   const t = useT();
   return (
     <svg
@@ -53,6 +61,17 @@ export const WellsPlot = ({ wells, grid, filter }: WellsPlotProps) => {
             fill={active ? wellColor(well.layers) : layerColors.dim}
             data-well-id={well.id}
             data-active={active}
+            data-selected={well.id === selectedWell}
+            tabIndex={0}
+            role="button"
+            aria-label={well.id}
+            onClick={() => onSelectWell(well.id)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onSelectWell(well.id);
+              }
+            }}
           >
             <title>{`${well.id} (I=${well.i}, J=${well.j})`}</title>
           </circle>

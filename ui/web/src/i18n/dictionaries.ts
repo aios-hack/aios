@@ -1,9 +1,11 @@
 import enCommon from './en/common.json';
 import enMap from './en/map.json';
 import enSteps from './en/steps.json';
+import enWellcard from './en/wellcard.json';
 import ruCommon from './ru/common.json';
 import ruMap from './ru/map.json';
 import ruSteps from './ru/steps.json';
+import ruWellcard from './ru/wellcard.json';
 
 export type Lang = 'ru' | 'en';
 
@@ -18,14 +20,16 @@ const withNamespace = (
 const buildDictionary = (
   common: Record<string, string>,
   map: Record<string, string>,
-  steps: Record<string, string>
+  steps: Record<string, string>,
+  wellcard: Record<string, string>
 ): Record<string, string> => ({
   ...common,
   ...withNamespace('map', map),
-  ...withNamespace('steps', steps)
+  ...withNamespace('steps', steps),
+  ...withNamespace('wellcard', wellcard)
 });
 
 export const dictionaries: Record<Lang, Record<string, string>> = {
-  ru: buildDictionary(ruCommon, ruMap, ruSteps),
-  en: buildDictionary(enCommon, enMap, enSteps)
+  ru: buildDictionary(ruCommon, ruMap, ruSteps, ruWellcard),
+  en: buildDictionary(enCommon, enMap, enSteps, enWellcard)
 };
