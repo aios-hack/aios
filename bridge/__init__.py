@@ -1,5 +1,6 @@
 """Мост между контрактным расписанием и OPM Flow."""
 
+from .cache import CachingOpmRunner, RunCache, cache_key
 from .opm_deck import EmittedOpmDeck, OpmDeckEmitter, OpmDeckError, bundle_hash
 from .runner import (
     DEFAULT_FLOW_ARGS,
@@ -22,6 +23,8 @@ from .summary import (
 __all__ = [
     "build_summary_plan",
     "bundle_hash",
+    "cache_key",
+    "CachingOpmRunner",
     "deck_hashes",
     "DeckHashes",
     "DEFAULT_FLOW_ARGS",
@@ -32,6 +35,7 @@ __all__ = [
     "OpmRunner",
     "OpmRunnerError",
     "render_summary_include",
+    "RunCache",
     "static_deck_hash",
     "SummaryConnection",
     "SummaryPlan",
