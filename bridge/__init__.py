@@ -1,6 +1,7 @@
 """Мост между контрактным расписанием и OPM Flow."""
 
 from .opm_deck import EmittedOpmDeck, OpmDeckEmitter, OpmDeckError, bundle_hash
+from .response_loader import ResponseLoader, ResponseLoaderError, load_density_by_pvtnum
 from .runner import (
     DEFAULT_FLOW_ARGS,
     DEFAULT_OPM_IMAGE,
@@ -27,11 +28,14 @@ __all__ = [
     "DEFAULT_FLOW_ARGS",
     "DEFAULT_OPM_IMAGE",
     "EmittedOpmDeck",
+    "load_density_by_pvtnum",
     "OpmDeckEmitter",
     "OpmDeckError",
     "OpmRunner",
     "OpmRunnerError",
     "render_summary_include",
+    "ResponseLoader",
+    "ResponseLoaderError",
     "static_deck_hash",
     "SummaryConnection",
     "SummaryPlan",
