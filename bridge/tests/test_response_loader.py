@@ -204,20 +204,25 @@ def test_state_at_date_wrong_length_raises(wrong_length: int) -> None:
 def test_interval_response_axis_boundaries_and_per_well_isolation() -> None:
     """control_step 0…223 ровно, 224 никогда не строится, приросты не текут
 
-    между скважинами даже когда их накопленные величины на порядки разного
-    масштаба (ровно та ошибка, для которой существует задача 59).
+    между скважинами, а неравномерные накопления ловят сдвиг оси на один
+    deck_date_index (ровно две ошибки, для которых существует задача 59).
     """
 
     wells = ("A", "B")
     rows = []
     for d in range(N_DECK_DATES):
+        cumulative = float(d * d)
         rows.append(
             {
-                "A": _well_row(liquid_cum=float(d), oil_mass_cum=10.0 * d, injection_cum=100.0 * d),
+                "A": _well_row(
+                    liquid_cum=cumulative,
+                    oil_mass_cum=10.0 * cumulative,
+                    injection_cum=100.0 * cumulative,
+                ),
                 "B": _well_row(
-                    liquid_cum=1_000_000.0 + 2.0 * d,
-                    oil_mass_cum=2_000_000.0 + 20.0 * d,
-                    injection_cum=3_000_000.0 + 30.0 * d,
+                    liquid_cum=1_000_000.0 + 2.0 * cumulative,
+                    oil_mass_cum=2_000_000.0 + 20.0 * cumulative,
+                    injection_cum=3_000_000.0 + 200.0 * cumulative,
                 ),
             }
         )
@@ -229,21 +234,26 @@ def test_interval_response_axis_boundaries_and_per_well_isolation() -> None:
     assert min(r.control_step for r in result) == 0
     assert {r.control_step for r in result if r.well == "A"} == set(range(N_INTERVALS))
 
-    for r in result:
-        if r.well == "A":
-            assert r.liquid_volume_delta == pytest.approx(1.0)
-            assert r.oil_mass_delta == pytest.approx(10.0)
-            assert r.injection_volume_delta == pytest.approx(100.0)
-        else:
-            assert r.liquid_volume_delta == pytest.approx(2.0)
-            assert r.oil_mass_delta == pytest.approx(20.0)
-            assert r.injection_volume_delta == pytest.approx(30.0)
+    by_key = {(r.control_step, r.well): r for r in result}
+    for k in (0, 112, N_INTERVALS - 1):
+        # raw_diff[146+k] = (147+k)^2 - (146+k)^2. Неравномерный
+        # прирост отличает правильный индекс от обоих соседних.
+        expected = float((147 + k) ** 2 - (146 + k) ** 2)
+        response_a = by_key[(k, "A")]
+        assert response_a.liquid_volume_delta == pytest.approx(expected)
+        assert response_a.oil_mass_delta == pytest.approx(10.0 * expected)
+        assert response_a.injection_volume_delta == pytest.approx(100.0 * expected)
 
-    first_a = next(r for r in result if r.well == "A" and r.control_step == 0)
-    last_a = next(r for r in result if r.well == "A" and r.control_step == N_INTERVALS - 1)
-    # k=0 -> raw_diff[146] = cum[147]-cum[146]; k=223 -> raw_diff[369] = cum[370]-cum[369].
-    assert first_a.liquid_volume_delta == pytest.approx(1.0)
-    assert last_a.liquid_volume_delta == pytest.approx(1.0)
+        # Большое смещение накопленного у B не переносится через границу
+        # скважин; меняется только собственный множитель её ряда.
+        response_b = by_key[(k, "B")]
+        assert response_b.liquid_volume_delta == pytest.approx(2.0 * expected)
+        assert response_b.oil_mass_delta == pytest.approx(20.0 * expected)
+        assert response_b.injection_volume_delta == pytest.approx(200.0 * expected)
+
+    # Последний интервал использует даты 369→370. Терминального k=224 нет.
+    assert (N_INTERVALS - 1, "A") in by_key
+    assert (N_INTERVALS, "A") not in by_key
 
 
 @pytest.mark.parametrize("wrong_length", [370, 372, 0])
