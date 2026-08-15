@@ -38,6 +38,8 @@
   --size-swatch: 12px;
   --size-map-max: 560px;
   --size-content-max: 960px;
+  --size-stat-min: 150px;
+  --size-table-min: 640px;
 }
 
 [data-theme='dark'] {
