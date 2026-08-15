@@ -95,7 +95,7 @@ def _raw_keyword_block(raw: bytes, keyword: bytes) -> bytes:
     return matches[0]
 
 
-def _bundle_hash(files: Iterable[Path], root: Path) -> str:
+def bundle_hash(files: Iterable[Path], root: Path) -> str:
     """Хеширует имена и байты всех входов без неоднозначной конкатенации."""
 
     digest = hashlib.sha256()
@@ -346,5 +346,5 @@ class OpmDeckEmitter:
             summary_file=emitted_summary,
             summary_plan=summary_plan,
             input_files=output_files,
-            content_hash_opm=_bundle_hash(output_files, destination),
+            content_hash_opm=bundle_hash(output_files, destination),
         )

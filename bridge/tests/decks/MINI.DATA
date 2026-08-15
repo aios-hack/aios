@@ -1,0 +1,83 @@
+-- Настоящий двухфазный дек на 50 ячеек: приёмка Runner требует успешного
+-- прогона Flow, а не заглушки. Model_Z для теста не годится — её время
+-- прогона неизвестно и замеряется отдельно, задачей 7.
+RUNSPEC
+TITLE
+  MINI RUNNER FIXTURE
+DIMENS
+ 5 5 2 /
+OIL
+WATER
+METRIC
+START
+ 1 'JAN' 2020 /
+WELLDIMS
+ 2 10 1 2 /
+TABDIMS
+ 1 1 20 20 /
+UNIFOUT
+
+GRID
+INIT
+DX
+ 50*100 /
+DY
+ 50*100 /
+DZ
+ 50*10 /
+TOPS
+ 25*2000 /
+PORO
+ 50*0.2 /
+PERMX
+ 50*100 /
+PERMY
+ 50*100 /
+PERMZ
+ 50*10 /
+
+PROPS
+SWOF
+ 0.2 0.0 1.0 0.0
+ 1.0 1.0 0.0 0.0 /
+PVTW
+ 250 1.0 4.0E-5 0.5 0.0 /
+PVCDO
+ 250 1.05 1.0E-4 2.0 0.0 /
+DENSITY
+ 850 1000 1.0 /
+ROCK
+ 250 5.0E-5 /
+
+SOLUTION
+EQUIL
+ 2000 250 2100 0 1500 0 1 1 0 /
+
+SUMMARY
+WBHP
+/
+WLPT
+/
+WOPT
+/
+WWIT
+/
+
+SCHEDULE
+WELSPECS
+ 'PROD' 'G1' 1 1 2000 'OIL' /
+ 'INJ'  'G1' 5 5 2000 'WATER' /
+/
+COMPDAT
+ 'PROD' 1 1 1 2 'OPEN' 1* 1* 0.2 /
+ 'INJ'  5 5 1 2 'OPEN' 1* 1* 0.2 /
+/
+WCONPROD
+ 'PROD' 'OPEN' 'LRAT' 3* 100 1* 50 /
+/
+WCONINJE
+ 'INJ' 'WATER' 'OPEN' 'RATE' 100 1* 400 /
+/
+TSTEP
+ 10*30 /
+END
