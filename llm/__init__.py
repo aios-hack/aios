@@ -12,8 +12,20 @@ from .diagnostics import (
     detect_wct_rise_without_oil,
     diagnose,
 )
+from .explainer import (
+    DecisionExplanation,
+    build_explanation_prompt,
+    explain,
+    explain_decision,
+    export_explanations_json,
+)
 
 __all__ = [
+    "DecisionExplanation",
+    "build_explanation_prompt",
+    "explain",
+    "explain_decision",
+    "export_explanations_json",
     "Finding",
     "PATTERNS",
     "Thresholds",
