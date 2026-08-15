@@ -71,3 +71,20 @@ export interface TimelineFile {
   wells: string[];
   steps: TimelineStep[];
 }
+
+export interface NpvWellRow {
+  well: string;
+  pre_tax: number;
+  with_allocated_tax: number;
+}
+
+export interface NpvTotals {
+  pre_tax: number;
+  with_allocated_tax: number;
+}
+
+export interface NpvFile {
+  wells: NpvWellRow[];
+  total: NpvTotals;
+  npv_methodology: number;
+}

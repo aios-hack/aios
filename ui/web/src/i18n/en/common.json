@@ -4,5 +4,6 @@
   "theme.dark": "Dark theme",
   "lang.toggle": "Русский",
   "tab.map": "Map",
-  "tab.steps": "Steps"
+  "tab.steps": "Steps",
+  "tab.npv": "NPV contribution"
 }

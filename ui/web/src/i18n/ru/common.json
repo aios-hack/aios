@@ -4,5 +4,6 @@
   "theme.dark": "Тёмная тема",
   "lang.toggle": "English",
   "tab.map": "Карта",
-  "tab.steps": "Шаги"
+  "tab.steps": "Шаги",
+  "tab.npv": "Вклад в ЧДД"
 }

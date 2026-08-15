@@ -2,10 +2,13 @@ import { useState } from 'react';
 import { useI18n } from './i18n/I18nContext';
 import { useTheme } from './theme/ThemeContext';
 import { FieldMap } from './views/FieldMap';
+import { NpvRank } from './views/NpvRank';
 import { Timeline } from './views/Timeline';
 import { WellCard } from './views/WellCard';
 
-type ViewId = 'map' | 'steps';
+type ViewId = 'map' | 'steps' | 'npv';
+
+const VIEWS: ViewId[] = ['map', 'steps', 'npv'];
 
 export const App = () => {
   const { theme, toggleTheme } = useTheme();
@@ -26,28 +29,23 @@ export const App = () => {
         </div>
       </header>
       <nav className="app-tabs">
-        <button
-          type="button"
-          className="app-tab"
-          aria-pressed={view === 'map'}
-          onClick={() => setView('map')}
-        >
-          {t('tab.map')}
-        </button>
-        <button
-          type="button"
-          className="app-tab"
-          aria-pressed={view === 'steps'}
-          onClick={() => setView('steps')}
-        >
-          {t('tab.steps')}
-        </button>
+        {VIEWS.map((id) => (
+          <button
+            key={id}
+            type="button"
+            className="app-tab"
+            aria-pressed={view === id}
+            onClick={() => setView(id)}
+          >
+            {t(`tab.${id}`)}
+          </button>
+        ))}
       </nav>
       <main className="app-main">
-        <h2 className="app-view-title">
-          {view === 'map' ? t('map.title') : t('steps.title')}
-        </h2>
-        {view === 'map' ? <FieldMap /> : <Timeline />}
+        <h2 className="app-view-title">{t(`${view}.title`)}</h2>
+        {view === 'map' && <FieldMap />}
+        {view === 'steps' && <Timeline />}
+        {view === 'npv' && <NpvRank />}
       </main>
       <WellCard />
     </div>

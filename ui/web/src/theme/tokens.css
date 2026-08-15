@@ -7,6 +7,7 @@
   --color-accent: #0d6efd;
   --color-accent-contrast: #ffffff;
   --color-error: #c22f2f;
+  --color-danger: #b3261e;
   --color-map-frame: #9aa7b4;
   --color-layer-1: #d97706;
   --color-layer-2: #0f766e;
@@ -58,6 +59,7 @@
   --color-accent: #4d9cff;
   --color-accent-contrast: #10151b;
   --color-error: #ff7a7a;
+  --color-danger: #ff8a80;
   --color-map-frame: #55636f;
   --color-layer-1: #f5a340;
   --color-layer-2: #35c2b4;
