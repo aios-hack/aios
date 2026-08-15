@@ -11,12 +11,19 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+llm = ["anthropic>=0.40"]
 
 # Пакеты добавляются сюда по мере появления: schedule, economics, bridge,
 # surrogate, optimizer, connectivity, policy, robustness, ui, llm, config.
 # Сейчас реально существует только contracts/ — общие типы.
 [tool.setuptools]
-packages = ["contracts"]
+packages = [
+    "contracts",
+    "llm",
+]
 
 [tool.pytest.ini_options]
-testpaths = ["contracts/tests"]
+testpaths = [
+    "contracts/tests",
+    "llm/tests",
+]
