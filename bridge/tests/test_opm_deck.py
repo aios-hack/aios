@@ -9,7 +9,13 @@ from pathlib import Path
 import pytest
 
 from bridge import OpmDeckEmitter, OpmDeckError
-from contracts import EventKind, Schedule, ScheduleMeta
+from contracts import (
+    OPM_CONNECTION_SUMMARY_KEYS,
+    OPM_WELL_SUMMARY_KEYS,
+    EventKind,
+    Schedule,
+    ScheduleMeta,
+)
 from schedule import parse_schedule
 
 
@@ -65,7 +71,16 @@ def test_emits_complete_model_z_without_changing_fixed_layer(tmp_path: Path) -> 
     assert {event.control_step for event in emitted_parsed.control_events} == set(range(224))
     assert len(artifact.content_hash_opm) == 64
     assert artifact.data_file.is_file()
+    assert artifact.summary_file.is_file()
+    assert artifact.summary_plan.wells == emitter.source_wells
+    assert len(artifact.summary_plan.connections) == 1368
     assert all(path.is_file() for path in artifact.input_files)
+
+    summary = artifact.summary_file.read_bytes()
+    for keyword in (*OPM_WELL_SUMMARY_KEYS, *OPM_CONNECTION_SUMMARY_KEYS):
+        assert f"\n{keyword}\n".encode("ascii") in summary
+    assert b"\nWOMT\n" not in summary
+    assert b"\nWOMR\n" not in summary
 
 
 def test_rejects_changed_fixed_layer(tmp_path: Path) -> None:

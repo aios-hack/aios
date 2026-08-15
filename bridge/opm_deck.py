@@ -18,12 +18,16 @@ from contracts import (
     EventKind,
     FixedDeckEvent,
     Schedule,
+    SummarySpec,
 )
 from schedule import LosslessBlock, parse_schedule
+
+from .summary import SummaryPlan, build_summary_plan, render_summary_include
 
 
 _MODEL_DATA = "Model_Z.data"
 _SCHEDULE_INCLUDE = "Model_Z_sch.inc"
+_SUMMARY_INCLUDE = "Model_Z_summary.inc"
 _INPUT_SUFFIXES = frozenset({".data", ".inc"})
 _TOKEN_RE = re.compile(rb"'([^']*)'|([^\s/]+)")
 
@@ -38,6 +42,8 @@ class EmittedOpmDeck:
 
     data_file: Path
     schedule_file: Path
+    summary_file: Path
+    summary_plan: SummaryPlan
     input_files: tuple[Path, ...]
     content_hash_opm: str
 
@@ -202,7 +208,7 @@ def _render_controls(events: Iterable[ControlEvent], step: int) -> bytes:
 
 
 class OpmDeckEmitter:
-    """Заменяет только управляющий слой Model_Z и сохраняет его статику.
+    """Заменяет управляющий слой и SUMMARY Model_Z, сохраняя его статику.
 
     Входной ``Schedule`` обязан быть материализован в плотный слой: на каждом
     шаге 0…223 каждая адресованная скважина несёт уставку и статус. Фиксированный
@@ -291,7 +297,13 @@ class OpmDeckEmitter:
         flush(active_step)
         return b"".join(chunks)
 
-    def emit(self, schedule: Schedule, destination: Path | str) -> EmittedOpmDeck:
+    def emit(
+        self,
+        schedule: Schedule,
+        destination: Path | str,
+        *,
+        summary_spec: SummarySpec | None = None,
+    ) -> EmittedOpmDeck:
         """Собрать самодостаточный каталог, не перезаписывая существующие данные."""
 
         self._validate(schedule)
@@ -314,10 +326,25 @@ class OpmDeckEmitter:
 
         emitted_schedule = destination / _SCHEDULE_INCLUDE
         emitted_schedule.write_bytes(self._emit_schedule(schedule))
-        output_files = tuple(destination / source.name for source in source_files)
+        summary_plan = build_summary_plan(
+            self.model_dir,
+            self.source_wells,
+            spec=summary_spec,
+        )
+        emitted_summary = destination / _SUMMARY_INCLUDE
+        emitted_summary.write_bytes(render_summary_include(summary_plan))
+        output_files = tuple(
+            sorted(
+                path
+                for path in destination.iterdir()
+                if path.is_file() and path.suffix.lower() in _INPUT_SUFFIXES
+            )
+        )
         return EmittedOpmDeck(
             data_file=destination / _MODEL_DATA,
             schedule_file=emitted_schedule,
+            summary_file=emitted_summary,
+            summary_plan=summary_plan,
             input_files=output_files,
             content_hash_opm=_bundle_hash(output_files, destination),
         )
