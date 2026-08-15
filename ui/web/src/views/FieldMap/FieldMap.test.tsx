@@ -2,10 +2,11 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import type { WellsFile } from '../../api/types';
-import en from '../../i18n/en.json';
+import { dictionaries } from '../../i18n/dictionaries';
 import { I18nProvider } from '../../i18n/I18nContext';
-import ru from '../../i18n/ru.json';
 import { FieldMap } from './FieldMap';
+
+const { ru, en } = dictionaries;
 
 const fixture: WellsFile = {
   grid: { ni: 10, nj: 12, nk: 6 },

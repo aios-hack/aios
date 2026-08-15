@@ -1,12 +1,10 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
-import en from './en.json';
-import ru from './ru.json';
+import { dictionaries, type Lang } from './dictionaries';
 
-export type Lang = 'ru' | 'en';
+export type { Lang } from './dictionaries';
 export type Translate = (key: string, params?: Record<string, string | number>) => string;
 
 const STORAGE_KEY = 'aios-lang';
-const dictionaries: Record<Lang, Record<string, string>> = { ru, en };
 
 interface I18nContextValue {
   lang: Lang;
