@@ -52,10 +52,13 @@ from .schedule import (
 )
 from .simulation import (
     FinalNpvArtifact,
+    OPM_CONNECTION_SUMMARY_KEYS,
+    OPM_WELL_SUMMARY_KEYS,
     OpmRunArtifact,
     ResponseArtifact,
     RunResult,
     RunStatus,
+    SUMMARY_EXPORT_KEYS,
     SubmissionArtifact,
     SummarySpec,
 )
@@ -90,6 +93,8 @@ __all__ = [
     "NormativeSet",
     "NpvTable",
     "OperatingStatus",
+    "OPM_CONNECTION_SUMMARY_KEYS",
+    "OPM_WELL_SUMMARY_KEYS",
     "OpmRunArtifact",
     "OptimizerResult",
     "Policies",
@@ -103,6 +108,7 @@ __all__ = [
     "ScenarioViolation",
     "Schedule",
     "ScheduleMeta",
+    "SUMMARY_EXPORT_KEYS",
     "StateAtDate",
     "StatePair",
     "SubmissionArtifact",

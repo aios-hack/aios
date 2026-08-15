@@ -8,34 +8,64 @@ from enum import Enum
 from .economics import NpvTable
 from .response import IntervalResponse, StateAtDate
 
-# Состав задан форматом входа эталонного расчётчика ЧДД: REQUIRED_COLUMNS в
-# ../models/CHDD_PYTHON/chdd_model.py. Накопленные, мгновенные и три
-# столбца *_Diff, которые расчётчик требует на входе и сам не вычисляет —
-# их считает ResponseLoader (response.py).
-# Добавлены 15.08 против прежнего списка: WOMR, WTHP, WEFF.
-REQUIRED_SUMMARY_KEYS = (
+# Девять логических выходов заданы форматом входа эталонного расчётчика ЧДД:
+# REQUIRED_COLUMNS в ../models/CHDD_PYTHON/chdd_model.py. Это не буквальный
+# список ключей OPM: Flow 2026.04 не поддерживает массовые WOMT/WOMR.
+SUMMARY_EXPORT_KEYS = (
     "WLPT", "WOMT", "WWIT",  # накопленные
     "WLPR", "WOMR", "WWIR",  # мгновенные дебиты и приёмистость
     "WTHP", "WBHP",  # устьевое и забойное давление
     "WEFF",  # в экономику не входит, но колонка входного файла обязательна
 )
 
+# Прямые well-level векторы, которые реально запрашиваются у OPM. WMCTL
+# подтверждён настоящим прогоном Flow 2026.04 и поэтому больше не опционален.
+OPM_WELL_SUMMARY_KEYS = (
+    "WLPT", "WWIT",
+    "WLPR", "WWIR",
+    "WTHP", "WBHP", "WEFF",
+    "WMCTL",
+)
+
+# Масса нефти собирается из объёмов подключений с плотностью PVT-региона
+# каждой ячейки. Одна плотность на скважину неверна: 23 скважины Model_Z
+# вскрывают оба PVTNUM.
+OPM_CONNECTION_SUMMARY_KEYS = ("COPT", "COPR")
+
+# Временный псевдоним для веток, начатых до разведения экспортных и OPM-ключей.
+# Новый код должен использовать SUMMARY_EXPORT_KEYS.
+REQUIRED_SUMMARY_KEYS = SUMMARY_EXPORT_KEYS
+
 
 @dataclass(frozen=True, slots=True)
 class SummarySpec:
-    """Состав секции SUMMARY. Секция в деке организаторов пустая — только
-    шапка с копирайтом, — пишем её целиком мы.
+    """Логический экспорт и фактические векторы секции SUMMARY.
 
-    Без обязательных ключей не считаются ни оба типа отклика, ни вход
-    эталонного расчётчика. WMCTL опционален: в списке эталона его нет, это
-    наша диагностика для active_control_mode (§4.3 базы знаний)."""
+    ``export_keys`` — девять полей, которые обязан получить эталонный
+    расчётчик. ``opm_well_keys`` и ``opm_connection_keys`` — буквальные
+    ключи, которые пишет OpmDeckEmitter. WOMT/WOMR восстанавливает
+    ResponseLoader из COPT/COPR по PVTNUM и DENSITY каждой ячейки.
+    """
 
-    keys: tuple[str, ...]
+    export_keys: tuple[str, ...] = SUMMARY_EXPORT_KEYS
+    opm_well_keys: tuple[str, ...] = OPM_WELL_SUMMARY_KEYS
+    opm_connection_keys: tuple[str, ...] = OPM_CONNECTION_SUMMARY_KEYS
 
     def __post_init__(self) -> None:
-        missing = [k for k in REQUIRED_SUMMARY_KEYS if k not in self.keys]
-        if missing:
-            raise ValueError(f"SummarySpec без обязательных ключей: {missing}")
+        expected = (
+            ("export_keys", self.export_keys, SUMMARY_EXPORT_KEYS),
+            ("opm_well_keys", self.opm_well_keys, OPM_WELL_SUMMARY_KEYS),
+            (
+                "opm_connection_keys",
+                self.opm_connection_keys,
+                OPM_CONNECTION_SUMMARY_KEYS,
+            ),
+        )
+        for field, actual, required in expected:
+            if actual != required:
+                raise ValueError(
+                    f"SummarySpec.{field}: ожидалось {required!r}, получено {actual!r}"
+                )
 
 
 class RunStatus(Enum):

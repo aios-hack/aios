@@ -1,7 +1,16 @@
+from dataclasses import replace
+
 import pytest
 
-from contracts import FinalNpvArtifact, LineItems, NpvTable, SummarySpec
-from contracts.simulation import REQUIRED_SUMMARY_KEYS
+from contracts import (
+    FinalNpvArtifact,
+    LineItems,
+    NpvTable,
+    OPM_CONNECTION_SUMMARY_KEYS,
+    OPM_WELL_SUMMARY_KEYS,
+    SUMMARY_EXPORT_KEYS,
+    SummarySpec,
+)
 
 
 def _empty_line() -> LineItems:
@@ -9,22 +18,34 @@ def _empty_line() -> LineItems:
     return LineItems(**{name: (1.0 if name == "df" else 0.0) for name in fields})
 
 
-def test_summary_spec_requires_mandatory_keys() -> None:
-    with pytest.raises(ValueError):
-        SummarySpec(keys=("WOMT", "WLPT"))
-    SummarySpec(keys=REQUIRED_SUMMARY_KEYS)
+def test_summary_spec_separates_export_from_literal_opm_keys() -> None:
+    spec = SummarySpec()
+
+    assert spec.export_keys == SUMMARY_EXPORT_KEYS
+    assert spec.opm_well_keys == OPM_WELL_SUMMARY_KEYS
+    assert spec.opm_connection_keys == OPM_CONNECTION_SUMMARY_KEYS
+    assert {"WOMT", "WOMR"}.issubset(spec.export_keys)
+    assert {"WOMT", "WOMR"}.isdisjoint(spec.opm_well_keys)
+    assert spec.opm_connection_keys == ("COPT", "COPR")
+    assert "WMCTL" in spec.opm_well_keys
 
 
-def test_summary_spec_rejects_dropping_any_single_key() -> None:
-    """Каждый ключ обязателен по отдельности, а не «список примерно такой».
-
-    Состав задан форматом входа эталонного расчётчика ЧДД; выпадение любого
-    столбца означает, что выгрузку не примет проверяющая сторона.
-    """
-    for dropped in REQUIRED_SUMMARY_KEYS:
-        keys = tuple(k for k in REQUIRED_SUMMARY_KEYS if k != dropped)
-        with pytest.raises(ValueError, match=dropped):
-            SummarySpec(keys=keys)
+@pytest.mark.parametrize(
+    ("field", "required"),
+    [
+        ("export_keys", SUMMARY_EXPORT_KEYS),
+        ("opm_well_keys", OPM_WELL_SUMMARY_KEYS),
+        ("opm_connection_keys", OPM_CONNECTION_SUMMARY_KEYS),
+    ],
+)
+def test_summary_spec_rejects_dropping_or_reordering_keys(
+    field: str, required: tuple[str, ...]
+) -> None:
+    spec = SummarySpec()
+    with pytest.raises(ValueError, match=field):
+        replace(spec, **{field: required[:-1]})
+    with pytest.raises(ValueError, match=field):
+        replace(spec, **{field: tuple(reversed(required))})
 
 
 def test_summary_spec_covers_reference_calculator_columns() -> None:
@@ -34,7 +55,7 @@ def test_summary_spec_covers_reference_calculator_columns() -> None:
     WEFF не использует, но требует наличия столбца.
     """
     for key in ("WOMR", "WTHP", "WEFF"):
-        assert key in REQUIRED_SUMMARY_KEYS
+        assert key in SUMMARY_EXPORT_KEYS
 
 
 def test_final_npv_artifact_rejects_mismatched_methodology_value() -> None:
