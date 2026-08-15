@@ -1,0 +1,22 @@
+{
+  "app.title": "AIOS — Field Map",
+  "theme.light": "Light theme",
+  "theme.dark": "Dark theme",
+  "lang.toggle": "Русский",
+  "map.title": "Wells in plan view (Model_Z)",
+  "map.axes": "Axes — grid indices: I right (1–{ni}), J down (1–{nj})",
+  "map.axisI": "I",
+  "map.axisJ": "J",
+  "map.ariaLabel": "Well map by grid indices",
+  "map.layerLabel": "Layer",
+  "map.layer.all": "All",
+  "map.layer.1": "Layer 1",
+  "map.layer.2": "Layer 2",
+  "map.legend.layer1": "Layer 1 only",
+  "map.legend.layer2": "Layer 2 only",
+  "map.legend.both": "Both layers",
+  "map.legend.dim": "Outside selected layer",
+  "map.shown": "Wells shown: {shown} of {total}",
+  "map.loading": "Loading data…",
+  "map.error": "Failed to load well data"
+}
