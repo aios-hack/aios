@@ -8,13 +8,27 @@ from enum import Enum
 from .economics import NpvTable
 from .response import IntervalResponse, StateAtDate
 
-REQUIRED_SUMMARY_KEYS = ("WOMT", "WLPT", "WWIT", "WLPR", "WWIR", "WBHP")
+# Состав задан форматом входа эталонного расчётчика ЧДД: REQUIRED_COLUMNS в
+# ../models/CHDD_PYTHON/chdd_model.py. Накопленные, мгновенные и три
+# столбца *_Diff, которые расчётчик требует на входе и сам не вычисляет —
+# их считает ResponseLoader (response.py).
+# Добавлены 15.08 против прежнего списка: WOMR, WTHP, WEFF.
+REQUIRED_SUMMARY_KEYS = (
+    "WLPT", "WOMT", "WWIT",  # накопленные
+    "WLPR", "WOMR", "WWIR",  # мгновенные дебиты и приёмистость
+    "WTHP", "WBHP",  # устьевое и забойное давление
+    "WEFF",  # в экономику не входит, но колонка входного файла обязательна
+)
 
 
 @dataclass(frozen=True, slots=True)
 class SummarySpec:
-    """Состав секции SUMMARY. Обязательные ключи без них не считаются оба
-    типа отклика. WMCTL опционален (§4.3 базы знаний)."""
+    """Состав секции SUMMARY. Секция в деке организаторов пустая — только
+    шапка с копирайтом, — пишем её целиком мы.
+
+    Без обязательных ключей не считаются ни оба типа отклика, ни вход
+    эталонного расчётчика. WMCTL опционален: в списке эталона его нет, это
+    наша диагностика для active_control_mode (§4.3 базы знаний)."""
 
     keys: tuple[str, ...]
 

@@ -11,6 +11,15 @@ N_CONTROL_DATES = 225
 N_INTERVALS = 224
 T0 = date(2007, 1, 1)
 
+# Жёсткий потолок Методики: «Дебит жидкости добывающей скважины свыше
+# 500 м³/сут не допускается». Эталонный расчётчик на таком входе не считает,
+# а падает с ошибкой и перечисляет нарушившие скважины. Проверка стоит здесь,
+# в конструкторе события, а не только в validate_static: попытка на сдаче
+# одна, и узнать об этом от проверяющей стороны нельзя.
+# В базовом деке максимум 110 м³/сут — нарушить потолок способен только
+# наш оптимизатор.
+MAX_LRAT_M3_PER_DAY = 500.0
+
 
 class Availability(Enum):
     NOT_COMMISSIONED = "NOT_COMMISSIONED"
@@ -67,11 +76,15 @@ class FixedDeckEvent:
     """Неуправляемый оператор дека внутри горизонта — перфорации, WPIMULT и т.п.
 
     Не решение агента: переносится в эмитированный файл как есть (README.md §2).
+
+    В редакции дека от 15.08 заканчивание задано стандартным `COMPDAT` с
+    индексами ячеек; tNavigator-специфичного `COMPDATMD` в деке больше нет.
+    Блоков заканчивания внутри горизонта 25, `WPIMULT` один, на 01.05.2025.
     """
 
     control_step: int  # 0…224 — фиксированные события деком не ограничены
     well: str
-    operator: str  # "COMPDATMD", "WPIMULT", ...
+    operator: str  # "COMPDAT", "WPIMULT", ...
     raw_args: tuple[str, ...]  # аргументы оператора как в исходном деке
 
 
@@ -96,6 +109,15 @@ class ControlEvent:
             raise ValueError(f"{self.kind} требует value")
         if not needs_value and self.value is not None:
             raise ValueError(f"{self.kind} не принимает value")
+        if self.value is not None and self.value < 0:
+            raise ValueError(f"{self.kind}: отрицательная уставка {self.value}")
+        if self.kind is EventKind.SET_LRAT and self.value is not None:
+            if self.value > MAX_LRAT_M3_PER_DAY:
+                raise ValueError(
+                    f"SET_LRAT={self.value} превышает потолок Методики "
+                    f"{MAX_LRAT_M3_PER_DAY} м³/сут: эталонный расчётчик ЧДД на "
+                    f"таком входе падает с ошибкой, а попытка на сдаче одна"
+                )
 
 
 @dataclass(frozen=True, slots=True)

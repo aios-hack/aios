@@ -6,32 +6,54 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 
 from .policy import Rule
 
 
-class TaxPolicy(Enum):
-    """Считать ли налоги вообще — ветка, не ставка (04_models.md §6.1)."""
+# Снято 15.08 вместе с ответами организаторов. Три политики существовали
+# потому, что первая редакция Методики о них молчала; скорректированная
+# редакция и эталонный расчётчик CHDD_PYTHON ответили на все три, и ветвление
+# превратилось бы в возможность посчитать не так, как считает проверяющая
+# сторона (docs/context/04_models.md §4.0):
+#
+#   TaxPolicy        -> налоги считаются всегда. FCF = EBITDA - налог на
+#                       прибыль - CAPEX, ставка живёт в NormativeSet.
+#   LiquidOpexPolicy -> норматив руб/т применяется к WLPT_Diff как есть.
+#                       Методика объявляет WLPT_Diff массой в тоннах,
+#                       пересчёт плотностью не производится.
+#   InitialEspPolicy -> см. ChargeInitialEsp ниже: ветка осталась, но
+#                       умолчание сменилось на противоположное.
 
-    WITH_TAXES = "WITH_TAXES"
-    WITHOUT_TAXES = "WITHOUT_TAXES"
 
+class ChargeInitialEsp(Enum):
+    """Оплачивается ли первичное оснащение фонда ЭЦН.
 
-class InitialEspPolicy(Enum):
-    CAPEX_AT_START = "CAPEX_AT_START"
-    ALREADY_INSTALLED = "ALREADY_INSTALLED"
+    Зеркалит флаг `chargeInitialPump` эталонного расчётчика. Методика:
+    «На первом расчетном шаге стоимость исходно установленного ЭЦН может
+    учитываться только при включении соответствующей опции расчета; по
+    умолчанию первичное оснащение фонда отдельно не начисляется».
+
+    NOT_CHARGED — то, чем считает проверяющая сторона. Ветка сохранена
+    только потому, что опция существует и в кейсе может быть включена;
+    менять умолчание без письменного основания от организаторов нельзя.
+
+    Правило распространяется одинаково на 81 скважину, действующую на t0,
+    и на 22 вводимые внутри горизонта: типоразмер подбирается всегда (он
+    нужен храповику для верного отсчёта последующих замен), CAPEX за
+    первичную установку не начисляется.
+    """
+
+    NOT_CHARGED = "NOT_CHARGED"
+    CHARGED_AT_FIRST_STEP = "CHARGED_AT_FIRST_STEP"
 
 
 class QuantizationPolicy(Enum):
+    """Сетка допустимых уставок. Ответа организаторов нет (§3.1), ветка живая."""
+
     NONE = "NONE"
     STEP_5 = "STEP_5"
-
-
-class LiquidOpexPolicy(Enum):
-    BY_VOLUME = "BY_VOLUME"
-    BY_MASS_VIA_DENSITY = "BY_MASS_VIA_DENSITY"
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,10 +66,18 @@ class EspCatalogEntry:
 
 @dataclass(frozen=True, slots=True)
 class NormativeSet:
-    """Базовые значения Методики (docs/context/04_models.md §4).
+    """Нормативы Методики (docs/context/04_models.md §4).
 
     Деньги в рублях (не тысячах, не миллионах) — 1.8 млн руб/операцию из
     Методики кладётся как 1_800_000, ставки — доля, не проценты.
+
+    Значения сверены с ../models/CHDD_PYTHON/input/Нормативы_ЧДД.xlsx.
+    Источник истины — этот файл, а не выписки из текста Методики.
+
+    Семь величин Методика запирает (METHODOLOGY_LOCKS в chdd_model.py):
+    event_cost_rub, conversion_base_cost_rub, порог понижения типоразмера
+    ЭЦН и четыре флага режима расчёта. Эталон перетирает поданные значения
+    своими, так что подобрать их «под себя» невозможно.
     """
 
     price_oil_rub_per_t: float
@@ -56,12 +86,17 @@ class NormativeSet:
     opex_liquid_rub_per_t: float
     opex_injection_rub_per_m3: float
     opex_wellstock_rub_per_well_year: float
-    esp_swap_opex_rub: float
+    esp_swap_opex_rub: float  # операция смены, в OPEX; цена насоса — в CAPEX
     event_cost_rub: float
-    conversion_base_cost_rub: float  # без стоимости ЭЦН, та отдельно из esp_catalog
+    # Полная стоимость перевода под закачку. ЭЦН к ней НЕ добавляется:
+    # «Все затраты перевода учитываются в OPEX один раз», и эталонный
+    # расчётчик выставляет conversionPumpCostM = 0.0. Первая редакция
+    # Методики задавала OPEX_ВНС = 5.0 + C_ki^ESP — слагаемое убрано
+    # 13.08 (docs/context/04_models.md §4.0 п.2).
+    conversion_base_cost_rub: float
     wacc: float
-    property_tax_rate: float
-    income_tax_rate: float
+    property_tax_rate: float  # входит в OPEX
+    income_tax_rate: float  # входит в FCF, считается на годовой прибыли
     esp_catalog: tuple[EspCatalogEntry, ...]
 
 
@@ -85,55 +120,27 @@ DEFAULT_NORMATIVES_2007 = dict(
 )
 
 
-@dataclass(frozen=True, slots=True)
-class PartialNormativeSet:
-    """Те же поля, что NormativeSet, но все опциональны — только
-    изменённые поля года. Остальные наследуются из normatives.base."""
-
-    price_oil_rub_per_t: float | None = None
-    deductions_rub_per_t: float | None = None
-    opex_oil_rub_per_t: float | None = None
-    opex_liquid_rub_per_t: float | None = None
-    opex_injection_rub_per_m3: float | None = None
-    opex_wellstock_rub_per_well_year: float | None = None
-    esp_swap_opex_rub: float | None = None
-    event_cost_rub: float | None = None
-    conversion_base_cost_rub: float | None = None
-    wacc: float | None = None
-    property_tax_rate: float | None = None
-    income_tax_rate: float | None = None
-    esp_catalog: tuple[EspCatalogEntry, ...] | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class Normatives:
-    base: NormativeSet
-    by_year: dict[str, PartialNormativeSet] = field(default_factory=dict)  # ключ "YYYY"
-
-    def __post_init__(self) -> None:
-        for key in self.by_year:
-            if not (isinstance(key, str) and len(key) == 4 and key.isdigit()):
-                raise ValueError(f'by_year ключ должен быть строкой "YYYY", получено {key!r}')
-
-    def for_year(self, year: int) -> NormativeSet:
-        """base с точечными полями by_year[year] поверх — не два
-        независимых объекта для ручного мержа в каждом месте использования."""
-        override = self.by_year.get(str(year))
-        if override is None:
-            return self.base
-        merged = {
-            f: (getattr(override, f) if getattr(override, f) is not None else getattr(self.base, f))
-            for f in self.base.__dataclass_fields__
-        }
-        return NormativeSet(**merged)
+# Годовых переопределений нормативов больше нет. Механизм `Normatives.base +
+# by_year` и тип PartialNormativeSet сняты 15.08: они стояли на формулировке
+# первой редакции Методики «используются как базовые и могут изменяться по
+# годам в зависимости от условий сценария». Скорректированная редакция
+# говорит прямо обратное — «применяются без изменения на всем расчетном
+# горизонте до последнего расчетного шага», — и эталонный расчётчик читает
+# ровно один скалярный набор. Ось лет у нормативов создавала бы экономику,
+# которой у проверяющей стороны нет (docs/context/04_models.md §4.0 п.4).
 
 
 @dataclass(frozen=True, slots=True)
 class Policies:
-    tax_policy: TaxPolicy
-    initial_esp_policy: InitialEspPolicy
+    """Ветки, у которых ответа организаторов ещё нет либо опция существует.
+
+    Политик было четыре, осталось две: tax_policy и liquid_opex_policy
+    закрыты разбором эталонного расчётчика и превратились в единственно
+    верное поведение, ветвиться там больше не по чему.
+    """
+
+    charge_initial_esp: ChargeInitialEsp
     quantization_policy: QuantizationPolicy
-    liquid_opex_policy: LiquidOpexPolicy
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,7 +166,7 @@ class Config:
 
     seeds: dict[str, int]  # "global" и по компонентам
     policies: Policies
-    normatives: Normatives
+    normatives: NormativeSet  # один скалярный набор на весь горизонт
     theta: dict[str, float]
     rules: dict[Rule, bool]
     budgets: Budgets
