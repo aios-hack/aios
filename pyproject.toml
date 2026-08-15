@@ -19,4 +19,4 @@ dev = ["pytest>=8"]
 packages = ["contracts", "ui"]
 
 [tool.pytest.ini_options]
-testpaths = ["contracts/tests"]
+testpaths = ["contracts/tests", "ui/tests"]
