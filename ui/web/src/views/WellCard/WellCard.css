@@ -1,0 +1,212 @@
+.wellcard {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-drawer);
+  display: flex;
+  flex-direction: column;
+  width: min(var(--size-card-max), 100%);
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  box-shadow: var(--shadow-drawer);
+  animation: wellcard-in var(--duration-drawer) var(--ease-out-drawer);
+}
+
+.wellcard:focus {
+  outline: none;
+}
+
+@keyframes wellcard-in {
+  from {
+    transform: translateX(var(--space-6));
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wellcard {
+    animation: none;
+  }
+}
+
+.wellcard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.wellcard-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+}
+
+.wellcard-step {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  margin: var(--space-1) 0 0;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.wellcard-step-date {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-normal);
+}
+
+.wellcard-close {
+  flex: none;
+  width: var(--size-control-height);
+  height: var(--size-control-height);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-md);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.wellcard-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-4);
+  overflow-y: auto;
+}
+
+.wellcard-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.wellcard-section-title {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.wellcard-params {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+}
+
+.wellcard-param {
+  display: contents;
+}
+
+.wellcard-param-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.wellcard-param-value {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.wellcard-trace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wellcard-trace-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.wellcard-trace-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.wellcard-rule {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  color: var(--color-accent);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.wellcard-decision {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.wellcard-inputs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-xs);
+}
+
+.wellcard-inputs th,
+.wellcard-inputs td {
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.wellcard-inputs thead th {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+}
+
+.wellcard-inputs tbody th {
+  color: var(--color-text);
+  font-weight: var(--font-weight-normal);
+}
+
+.wellcard-inputs td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.wellcard-inputs thead th:last-child {
+  text-align: right;
+}
+
+.wellcard-inputs tbody tr:last-child th,
+.wellcard-inputs tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.wellcard-empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.wellcard-explanation {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}

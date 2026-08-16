@@ -1,0 +1,18 @@
+{
+  "app.title": "AIOS — Field",
+  "app.subtitle": "Model_Z well stock control",
+  "theme.light": "Light theme",
+  "theme.dark": "Dark theme",
+  "lang.toggle": "Русский",
+  "tab.graph": "Influence graph",
+  "tab.map": "Map",
+  "tab.steps": "Steps",
+  "tab.npv": "NPV contribution",
+  "tab.scenarios": "Scenarios",
+  "tabs.label": "Interface sections",
+  "synthetic.title": "Demonstration data",
+  "synthetic.note": "Not a computed result: a synthetic artifact at the same scale, showing shape and pipeline. The NPV figures carry no meaning.",
+  "status.loading": "Loading data…",
+  "status.error": "Data unavailable",
+  "status.empty": "Nothing to show"
+}

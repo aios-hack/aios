@@ -1,0 +1,188 @@
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.timeline-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.timeline-buttons {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.timeline-button {
+  height: var(--size-control-height);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.timeline-button:disabled {
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
+.timeline-slider {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+
+.timeline-step-label {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.timeline-step-date {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-normal);
+}
+
+.timeline-terminal-badge {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  color: var(--color-accent);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.timeline-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.timeline-stat {
+  flex: 1 1 var(--size-stat-min);
+  min-width: var(--size-stat-min);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.timeline-stat-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.timeline-stat-value {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.timeline-table {
+  width: 100%;
+  min-width: var(--size-table-min);
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.timeline-table th,
+.timeline-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.timeline-table thead th {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.timeline-table tbody tr:last-child th,
+.timeline-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.timeline-table tbody th {
+  font-weight: var(--font-weight-medium);
+}
+
+.timeline-cell-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-table th.timeline-cell-num,
+.timeline-table td.timeline-cell-num {
+  text-align: right;
+}
+
+.timeline-table tbody tr[data-not-commissioned='true'] td {
+  color: var(--color-text-muted);
+}
+
+.timeline-table tbody tr[data-clickable='true'] {
+  cursor: pointer;
+}
+
+.timeline-table tbody tr[data-clickable='true']:hover {
+  background: var(--color-bg);
+}
+
+.timeline-table tbody tr[data-selected='true'],
+.timeline-table tbody tr[data-selected='true']:hover {
+  background: var(--color-selected-bg);
+}
+
+.timeline-well-button {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-accent);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.timeline-button {
+  transition: border-color var(--duration-fast) var(--ease-out-drawer),
+    color var(--duration-fast) var(--ease-out-drawer);
+}
+
+.timeline-button:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.timeline-table tbody tr {
+  transition: background var(--duration-fast) var(--ease-out-drawer);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline-button,
+  .timeline-table tbody tr {
+    transition: none;
+  }
+}
