@@ -140,7 +140,7 @@ def test_direct_conversion_costs_exactly_base_no_stop_no_esp() -> None:
     assert track.active_by_control_step[2] is True
 
 
-def test_commissioning_inside_horizon_is_not_a_start() -> None:
+def test_commissioning_inside_horizon_is_charged_as_start() -> None:
     rates = [(0.0, 0.0)] * 5 + [(50.0, 0.0)] * 3
     track = track_well("W1", build_states(rates), build_responses(5), NORMATIVES)
     assert track.state_by_control_step[0] is FundState.NOT_COMMISSIONED
@@ -150,7 +150,7 @@ def test_commissioning_inside_horizon_is_not_a_start() -> None:
     assert transition.control_step == 2
     assert transition.previous is FundState.NOT_COMMISSIONED
     assert transition.current is FundState.PROD_ACTIVE
-    assert transition.event_cost_rub == 0.0
+    assert transition.event_cost_rub == NORMATIVES.event_cost_rub
     assert transition.conversion_opex_rub == 0.0
     assert track.active_by_control_step[1] is False
     assert track.active_by_control_step[2] is True

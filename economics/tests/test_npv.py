@@ -482,7 +482,7 @@ def test_negative_row_does_not_charge_stop_event() -> None:
     assert excluded.by_year[2007].event_costs == 0.0
 
 
-def test_commissioning_inside_horizon_is_not_charged_as_start() -> None:
+def test_commissioning_inside_horizon_is_charged_as_start() -> None:
     n = 4
     deck = N_DECK_DATES_FOR(n)
     first_active_deck_step = deck - n + 2
@@ -494,8 +494,8 @@ def test_commissioning_inside_horizon_is_not_charged_as_start() -> None:
         {"W1": responses("W1", [0.0, 0.0, 400.0, 400.0], [0.0, 0.0, 4000.0, 4000.0])},
         month_starts(n),
     )
-    assert table.by_year[2007].event_costs == 0.0
-    assert table.by_month[2].event_costs == 0.0
+    assert table.by_year[2007].event_costs == NORMATIVES.event_cost_rub
+    assert table.by_month[2].event_costs == NORMATIVES.event_cost_rub
 
 
 def test_restart_after_shutdown_is_charged_as_start() -> None:

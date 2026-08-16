@@ -67,7 +67,7 @@ def transition_costs(
         raise ValueError(f"переход {previous.value} → NOT_COMMISSIONED невозможен")
     if previous is FundState.NOT_COMMISSIONED:
         if current in ACTIVE_FUND_STATES:
-            return 0.0, 0.0
+            return normatives.event_cost_rub, 0.0
         raise ValueError("переход NOT_COMMISSIONED → SHUT невозможен")
     if previous is FundState.PROD_ACTIVE and current is FundState.INJ_ACTIVE:
         return 0.0, normatives.conversion_base_cost_rub
