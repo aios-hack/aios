@@ -3,6 +3,7 @@
   "theme.light": "Светлая тема",
   "theme.dark": "Тёмная тема",
   "lang.toggle": "English",
+  "tab.graph": "Граф влияния",
   "tab.map": "Карта",
   "tab.steps": "Шаги",
   "tab.npv": "Вклад в ЧДД"

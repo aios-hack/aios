@@ -14,6 +14,17 @@
   --color-layer-both: #7c3aed;
   --color-well-dim: #c3cad1;
   --color-selected-bg: #e7f0fd;
+  --color-graph-injector: #1d4ed8;
+  --color-graph-producer: #0f766e;
+  --color-graph-edge: #64748b;
+  --color-graph-window: #b45309;
+  --color-graph-window-bg: #fff4e2;
+  --color-group-1: #7c3aed;
+  --color-group-2: #d97706;
+  --color-group-3: #0891b2;
+  --color-group-4: #be185d;
+  --color-group-5: #4d7c0f;
+  --color-group-6: #b45309;
 
   --shadow-drawer: 0 16px 48px rgba(28, 39, 51, 0.18);
   --duration-drawer: 240ms;
@@ -48,6 +59,9 @@
   --size-stat-min: 150px;
   --size-table-min: 640px;
   --size-card-max: 420px;
+  --size-graph-max: 720px;
+  --size-graph-node: 2.6;
+  --size-graph-label: 3.1;
 }
 
 [data-theme='dark'] {
@@ -66,6 +80,17 @@
   --color-layer-both: #ab84ff;
   --color-well-dim: #3c4650;
   --color-selected-bg: #223650;
+  --color-graph-injector: #7aa8ff;
+  --color-graph-producer: #35c2b4;
+  --color-graph-edge: #8496a8;
+  --color-graph-window: #ffc46b;
+  --color-graph-window-bg: #3a2c14;
+  --color-group-1: #ab84ff;
+  --color-group-2: #f5a340;
+  --color-group-3: #38bdf8;
+  --color-group-4: #f472b6;
+  --color-group-5: #a3e635;
+  --color-group-6: #fbbf24;
 
   --shadow-drawer: 0 16px 48px rgba(0, 0, 0, 0.55);
 }

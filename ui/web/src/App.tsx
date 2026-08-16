@@ -2,18 +2,19 @@ import { useState } from 'react';
 import { useI18n } from './i18n/I18nContext';
 import { useTheme } from './theme/ThemeContext';
 import { FieldMap } from './views/FieldMap';
+import { LambdaGraph } from './views/LambdaGraph';
 import { NpvRank } from './views/NpvRank';
 import { Timeline } from './views/Timeline';
 import { WellCard } from './views/WellCard';
 
-type ViewId = 'map' | 'steps' | 'npv';
+type ViewId = 'graph' | 'map' | 'steps' | 'npv';
 
-const VIEWS: ViewId[] = ['map', 'steps', 'npv'];
+const VIEWS: ViewId[] = ['graph', 'map', 'steps', 'npv'];
 
 export const App = () => {
   const { theme, toggleTheme } = useTheme();
   const { t, toggleLang } = useI18n();
-  const [view, setView] = useState<ViewId>('map');
+  const [view, setView] = useState<ViewId>('graph');
 
   return (
     <div className="app">
@@ -43,6 +44,7 @@ export const App = () => {
       </nav>
       <main className="app-main">
         <h2 className="app-view-title">{t(`${view}.title`)}</h2>
+        {view === 'graph' && <LambdaGraph />}
         {view === 'map' && <FieldMap />}
         {view === 'steps' && <Timeline />}
         {view === 'npv' && <NpvRank />}

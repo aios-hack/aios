@@ -1,9 +1,11 @@
 import enCommon from './en/common.json';
+import enGraph from './en/graph.json';
 import enMap from './en/map.json';
 import enNpv from './en/npv.json';
 import enSteps from './en/steps.json';
 import enWellcard from './en/wellcard.json';
 import ruCommon from './ru/common.json';
+import ruGraph from './ru/graph.json';
 import ruMap from './ru/map.json';
 import ruNpv from './ru/npv.json';
 import ruSteps from './ru/steps.json';
@@ -33,12 +35,14 @@ const buildDictionary = (
 
 export const dictionaries: Record<Lang, Record<string, string>> = {
   ru: buildDictionary(ruCommon, {
+    graph: ruGraph,
     map: ruMap,
     steps: ruSteps,
     wellcard: ruWellcard,
     npv: ruNpv
   }),
   en: buildDictionary(enCommon, {
+    graph: enGraph,
     map: enMap,
     steps: enSteps,
     wellcard: enWellcard,

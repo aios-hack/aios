@@ -9,3 +9,24 @@ export const mapColors = {
   frame: 'var(--color-map-frame)',
   axisText: 'var(--color-text-muted)'
 } as const;
+
+export const graphColors = {
+  injector: 'var(--color-graph-injector)',
+  producer: 'var(--color-graph-producer)',
+  edge: 'var(--color-graph-edge)',
+  dim: 'var(--color-well-dim)',
+  text: 'var(--color-text)',
+  muted: 'var(--color-text-muted)'
+} as const;
+
+export const groupPalette = [
+  'var(--color-group-1)',
+  'var(--color-group-2)',
+  'var(--color-group-3)',
+  'var(--color-group-4)',
+  'var(--color-group-5)',
+  'var(--color-group-6)'
+] as const;
+
+export const groupColor = (index: number): string =>
+  groupPalette[((index % groupPalette.length) + groupPalette.length) % groupPalette.length];
