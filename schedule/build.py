@@ -7,12 +7,9 @@ from datetime import date
 from pathlib import Path
 
 from contracts import (
-    Availability,
     ControlEvent,
     EventKind,
     FixedDeckEvent,
-    OperatingStatus,
-    Role,
     Schedule,
     ScheduleMeta,
     T0,
@@ -21,13 +18,8 @@ from contracts import (
     canonical_schedule_hash,
 )
 
-from .lossless import (
-    ParsedSchedule,
-    ScheduleParseError,
-    block_records,
-    line_keyword,
-    parse_schedule,
-)
+from .lossless import ParsedSchedule, ScheduleParseError, parse_schedule
+from .replay import ReplayError, replay_initial_state
 
 _WELSPECS_RE = re.compile(rb"^WELSPECS\b(.*?)^/\s*$", re.MULTILINE | re.DOTALL)
 _WELSPECS_WELL_RE = re.compile(rb"^\s*'([^']+)'", re.MULTILINE)
@@ -121,80 +113,13 @@ def canonical_fixed_events(
     return tuple(sorted(events, key=lambda event: event.control_step))
 
 
-def _status(token: str) -> OperatingStatus:
-    try:
-        return OperatingStatus[token]
-    except KeyError as error:
-        raise ScheduleBuildError(f"неизвестный статус скважины {token!r}") from error
-
-
-def _prod_status_and_setpoint(args: tuple[str, ...]) -> tuple[OperatingStatus, float]:
-    if len(args) < 6:
-        raise ScheduleBuildError(f"WCONPROD: недостаточно полей {args!r}")
-    return _status(args[0]), float(args[5])
-
-
-def _inj_status_and_setpoint(args: tuple[str, ...]) -> tuple[OperatingStatus, float]:
-    if len(args) < 4:
-        raise ScheduleBuildError(f"WCONINJE: недостаточно полей {args!r}")
-    return _status(args[1]), float(args[3])
-
-
-def _block_records(raw: bytes) -> list[tuple[str, ...]]:
-    lines = raw.splitlines(keepends=True)
-    return block_records(lines, line_keyword(lines[0]))
-
-
-def _apply_prefix_record(
-    keyword: str,
-    record: tuple[str, ...],
-    roles: dict[str, Role],
-    statuses: dict[str, OperatingStatus],
-    setpoints: dict[str, float],
-) -> None:
-    well, *args = record
-    if keyword == "WCONPROD":
-        roles[well] = Role.PROD
-        status, setpoint = _prod_status_and_setpoint(tuple(args))
-    else:
-        roles[well] = Role.INJ
-        status, setpoint = _inj_status_and_setpoint(tuple(args))
-    statuses[well] = status
-    setpoints[well] = setpoint
-
-
 def initial_state_from_prefix(
     parsed: ParsedSchedule, wells: tuple[str, ...]
 ) -> dict[str, WellState]:
-    roles: dict[str, Role] = {}
-    statuses: dict[str, OperatingStatus] = {}
-    setpoints: dict[str, float] = {}
-    for block in parsed.blocks:
-        if block.keyword not in ("WCONPROD", "WCONINJE"):
-            continue
-        if block.event_date is None or block.event_date >= T0:
-            continue
-        for record in _block_records(block.raw):
-            _apply_prefix_record(block.keyword, record, roles, statuses, setpoints)
-
-    state: dict[str, WellState] = {}
-    for well in wells:
-        role = roles.get(well)
-        if role is None:
-            state[well] = WellState(
-                availability=Availability.NOT_COMMISSIONED,
-                role=Role.NONE,
-                operating_status=OperatingStatus.SHUT,
-                setpoint=0.0,
-            )
-            continue
-        state[well] = WellState(
-            availability=Availability.AVAILABLE,
-            role=role,
-            operating_status=statuses.get(well, OperatingStatus.SHUT),
-            setpoint=setpoints.get(well, 0.0),
-        )
-    return state
+    try:
+        return replay_initial_state(parsed, wells, T0)
+    except ReplayError as error:
+        raise ScheduleBuildError(f"replay истории не сошёлся: {error}") from error
 
 
 def control_dates(parsed: ParsedSchedule) -> tuple[date, ...]:

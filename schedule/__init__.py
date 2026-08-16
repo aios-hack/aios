@@ -20,12 +20,23 @@ from .lossless import (
     ScheduleParseError,
     parse_schedule,
 )
+from .replay import (
+    Conversion,
+    ReplayError,
+    ReplayResult,
+    history_blocks,
+    replay,
+    replay_initial_state,
+)
 
 __all__ = [
     "ControlEventConflict",
+    "Conversion",
     "LosslessBlock",
     "LosslessEmitter",
     "ParsedSchedule",
+    "ReplayError",
+    "ReplayResult",
     "ScheduleBuildError",
     "ScheduleParseError",
     "build_schedule",
@@ -34,8 +45,11 @@ __all__ = [
     "control_dates",
     "deck_well_axis",
     "detect_control_conflicts",
+    "history_blocks",
     "initial_state_from_prefix",
     "load_schedule",
     "parse_schedule",
+    "replay",
+    "replay_initial_state",
     "schedule_hash_parts",
 ]
