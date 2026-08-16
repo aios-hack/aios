@@ -21,7 +21,13 @@ from economics import (
 from economics.reference_parity import compare_with_reference, run_reference
 
 from .loader import load_example_input
-from .paths import chdd_python_dir, example_input_xlsx, normatives_xlsx, require
+from .paths import (
+    chdd_python_dir,
+    default_seed,
+    example_input_xlsx,
+    normatives_xlsx,
+    require,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -31,7 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--out", type=Path, default=Path("/out"))
     parser.add_argument("--input", type=Path, default=None)
-    parser.add_argument("--seed", type=int, default=20260816)
+    parser.add_argument("--seed", type=int, default=default_seed())
     parser.add_argument("--no-reference", action="store_true")
     return parser
 

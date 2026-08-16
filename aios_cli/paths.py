@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 
 DOCS_ROOT_ENV_VAR = "AIOS_DOCS_ROOT"
+SEED_ENV_VAR = "AIOS_SEED"
+DEFAULT_SEED = 20260816
 
 MODEL_Z_SCHEDULE_RELATIVE = Path("models") / "Model_Z" / "Model_Z_sch.inc"
 CHDD_PYTHON_RELATIVE = Path("models") / "CHDD_PYTHON"
@@ -48,6 +50,18 @@ def normatives_xlsx() -> Path | None:
 
 def example_input_xlsx() -> Path | None:
     return _docs_path(EXAMPLE_INPUT_RELATIVE)
+
+
+def default_seed() -> int:
+    raw = os.environ.get(SEED_ENV_VAR)
+    if raw is None or not raw.strip():
+        return DEFAULT_SEED
+    try:
+        return int(raw)
+    except ValueError as error:
+        raise SystemExit(
+            f"{SEED_ENV_VAR}={raw!r} — не целое число"
+        ) from error
 
 
 def require(path: Path | None, what: str) -> Path:
