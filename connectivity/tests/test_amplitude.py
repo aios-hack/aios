@@ -232,6 +232,101 @@ def test_shortfall_measured_on_the_real_base_run_of_model_z() -> None:
     assert probe.systematic_shortfall(TOLERANCE)
 
 
+def test_full_sweep_on_pinned_wells_refuses_to_name_an_amplitude() -> None:
+    """Полный свип 16.08 по трём точкам, три настоящих прогона OPM (975 / 948 /
+
+    1036 с). Скважины выбраны первым, ошибочным отбором — по одной плотности
+    окружения, без проверки запаса по давлению, поэтому 17 и 110 зажаты
+    пределом 300 бар.
+
+    Замеренные числа по точкам +17% / +33% / +50%:
+
+    - фактическое воздействие почти не растёт: 64.1 → 68.9 → 74.0 м³/сут,
+      хотя план требовал роста втрое, — двигается только скважина 25;
+    - недобор растёт: 110 — 26% → 41% → 51%, 17 — 67% → 69% → 70%;
+    - отношение отклика к воздействию не постоянно вовсе:
+      15.0 → 39.4 → 63.9, дрейф 0% → 163% → 326%.
+
+    Ни одна точка не проходит: недобор систематический на всех трёх.
+    Протокол §8.3 в этом случае обязан отказаться назвать амплитуду, а не
+    выбрать «наименее плохую» — и отказывается.
+    """
+
+    baseline = {
+        "110": 13.89351499080658,
+        "17": 31.495544751485188,
+        "25": 35.833333333333336,
+    }
+    points = (
+        (
+            0.17,
+            5.1,
+            {"110": 20.1, "17": 95.1, "25": 40.1},
+            {
+                "110": 14.811504364013672,
+                "17": 31.19031302134196,
+                "25": 40.099998474121094,
+            },
+            105_181.85986328125,
+        ),
+        (
+            0.33,
+            9.9,
+            {"110": 24.9, "17": 99.9, "25": 44.9},
+            {
+                "110": 14.810107588768005,
+                "17": 31.187350908915203,
+                "25": 44.900001525878906,
+            },
+            105_766.09033203125,
+        ),
+        (
+            0.50,
+            15.0,
+            {"110": 30.0, "17": 105.0, "25": 50.0},
+            {
+                "110": 14.810977737108866,
+                "17": 31.185065587361652,
+                "25": 50.0,
+            },
+            106_437.53466796875,
+        ),
+    )
+    base_cumulative = 104_861.36181640625
+    probes = []
+    for relative, step, targets, actual, cumulative in points:
+        runs = tuple(
+            SweepRun(
+                relative_amplitude=relative,
+                well=well,
+                level=Level.HIGH,
+                target_m3_per_day=targets[well],
+                baseline_rate_m3_per_day=baseline[well],
+                actual_m3_per_day=actual[well],
+                baseline_cumulative_m3=base_cumulative,
+                perturbed_cumulative_m3=cumulative,
+            )
+            for well in ("110", "17", "25")
+        )
+        probes.append(build_probe(relative, a_amplitude(step), runs, 0.0409))
+
+    measurement = AmplitudeMeasurement(
+        probes=tuple(probes),
+        achievability_tolerance=TOLERANCE,
+        linearity_tolerance=LINEARITY,
+    )
+
+    assert all(p.systematic_shortfall(TOLERANCE) for p in probes)
+    assert all(p.distinguishable() for p in probes)
+    gains = measurement.gains()
+    assert gains[0] == pytest.approx(15.0, abs=0.1)
+    assert gains[2] == pytest.approx(63.9, abs=0.1)
+    assert measurement.gain_drift()[2] > 3.0
+    assert measurement.admissible_probes() == ()
+    with pytest.raises(ValueError, match="не замерена"):
+        choose_amplitude(measurement)
+
+
 def test_first_sweep_point_measured_on_model_z_is_rejected_by_achievability() -> None:
     """Первая точка свипа, замеренная настоящими прогонами OPM 16.08.
 
