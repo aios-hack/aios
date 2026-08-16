@@ -46,13 +46,26 @@ _OUTPUT_DIR = "output"
 # рапортует «Wasted: 100%» только в статистике. Поэтому код возврата
 # несходимость не ловит, и единственный признак — текст лога.
 _NOT_CONVERGED_MARKERS: tuple[str, ...] = (
-    # покрывает и «...but timestep X is smaller or equal to Y», и
-    # «...after cutting timestep N times» — оба означают принятый или
-    # брошенный несошедшийся шаг
+    # «...but timestep X is smaller or equal to Y» — таймшаг уже на минимуме,
+    # решатель не сошёлся, и Flow всё равно принимает шаг таким.
     "Solver failed to converge",
-    # текст NumericalProblem, с которым Flow снимает прогон
-    "Solver convergence failure",
 )
+
+# «Problem: Solver convergence failure - Iteration limit reached» —
+# отдельно от _NOT_CONVERGED_MARKERS (задача 7, настоящий базовый прогон
+# Model_Z 16.08): текст не всегда значит «Flow снимает прогон». На полном
+# 371-датном прогоне маркер встретился один раз в 2000 году, за семь лет до
+# начала горизонта управления, и сразу сопровождался «Timestep chopped to
+# 10.23 days» — Flow отбросил несошедшийся шаг целиком и пересчитал его
+# заново на меньшем таймшаге, который сошёлся; расчёт дошёл до всех 371
+# report step без единого дальнейшего срабатывания. Это не «принятый
+# несошедшийся шаг», как у `_NOT_CONVERGED_MARKERS`, а ровно противоположное:
+# шаг, который Flow не принял и пересчитал. Только когда за этим маркером НЕ
+# следует успешный chop — тот случай, когда Flow действительно снимает
+# прогон.
+_ITERATION_LIMIT_MARKER = "Solver convergence failure"
+_CHOP_RECOVERY_MARKER = "Timestep chopped to"
+_CHOP_RECOVERY_LOOKAHEAD_LINES = 5
 
 # Восстановимые сообщения того же семейства, которые встречаются и в успешном
 # прогоне: линейный решатель промахнулся, Flow срезал шаг и сошёлся дальше.
@@ -126,6 +139,28 @@ def _tail(path: Path, *, max_lines: int = 15, max_chars: int = 2000) -> str:
         return f"<лог не прочитан: {error}>"
     text = "\n".join(lines[-max_lines:])
     return text[-max_chars:]
+
+
+def _unrecovered_iteration_limit_failure(path: Path) -> bool:
+    """True — `_ITERATION_LIMIT_MARKER` встретился и Flow его не пересчитал.
+
+    Каждое вхождение маркера проверяется на своё окно в
+    `_CHOP_RECOVERY_LOOKAHEAD_LINES` строк: если внутри окна есть
+    `_CHOP_RECOVERY_MARKER`, Flow отбросил несошедшийся шаг и успешно
+    пересчитал его меньшим таймшагом — не отказ прогона.
+    """
+
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return False
+    for index, line in enumerate(lines):
+        if _ITERATION_LIMIT_MARKER not in line:
+            continue
+        window = lines[index : index + 1 + _CHOP_RECOVERY_LOOKAHEAD_LINES]
+        if not any(_CHOP_RECOVERY_MARKER in window_line for window_line in window):
+            return True
+    return False
 
 
 def _first_marker(path: Path, markers: Sequence[str]) -> str | None:
@@ -276,6 +311,8 @@ class OpmRunner:
 
         returncode = completed.returncode
         marker = _first_marker(log_file, _NOT_CONVERGED_MARKERS)
+        if marker is None and _unrecovered_iteration_limit_failure(log_file):
+            marker = _ITERATION_LIMIT_MARKER
         if marker is not None:
             return result(
                 RunStatus.NOT_CONVERGED,

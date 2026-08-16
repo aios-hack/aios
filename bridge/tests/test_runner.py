@@ -7,9 +7,11 @@ import pytest
 
 from bridge import OpmDeckEmitter, OpmRunner, deck_hashes
 from bridge.runner import (
+    _ITERATION_LIMIT_MARKER,
     _NOT_CONVERGED_MARKERS,
     _RECOVERABLE_MARKERS,
     _first_marker,
+    _unrecovered_iteration_limit_failure,
     summary_spec_hash,
 )
 from contracts import RunStatus, Schedule, ScheduleMeta, SummarySpec, hash_schedule
@@ -141,6 +143,37 @@ def test_recoverable_linear_solver_messages_are_not_non_convergence(tmp_path: Pa
     log.write_text("\n".join(_RECOVERABLE_MARKERS) + "\n")
 
     assert _first_marker(log, _NOT_CONVERGED_MARKERS) is None
+
+
+def test_iteration_limit_followed_by_chop_is_not_a_failure(tmp_path: Path) -> None:
+    """Настоящий Model_Z 16.08: маркер встретился раз, Flow пересчитал шаг
+
+    меньшим таймшагом и досчитал все 371 report step без дальнейших сбоев —
+    не отказ прогона (§4.7 базы знаний).
+    """
+
+    log = tmp_path / "flow.log"
+    log.write_text(
+        f"    Oscillating behavior detected: Relaxation set to 0.500000\n\n"
+        f"Problem: {_ITERATION_LIMIT_MARKER} - Iteration limit reached\n"
+        f"Timestep chopped to 10.23 days\n\n\n"
+        f"Starting time step 0, stepsize 10.23 days, at day 3257/3288\n"
+    )
+
+    assert _unrecovered_iteration_limit_failure(log) is False
+
+
+def test_iteration_limit_without_chop_is_a_failure(tmp_path: Path) -> None:
+    """Тот же маркер без пересчёта следом — Flow действительно снял прогон."""
+
+    log = tmp_path / "flow.log"
+    log.write_text(
+        f"Problem: {_ITERATION_LIMIT_MARKER} - Iteration limit reached\n"
+        "\n\n\n\n\n"
+        "================    End of simulation     ===============\n"
+    )
+
+    assert _unrecovered_iteration_limit_failure(log) is True
 
 
 def test_runs_emitted_model_z_deck_through_real_flow(tmp_path: Path) -> None:
