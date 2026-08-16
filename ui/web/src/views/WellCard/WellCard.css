@@ -86,16 +86,6 @@
   overflow-y: auto;
 }
 
-.wellcard-status {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-md);
-}
-
-.wellcard-status-error {
-  color: var(--color-error);
-}
-
 .wellcard-section {
   display: flex;
   flex-direction: column;

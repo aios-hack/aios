@@ -4,16 +4,6 @@
   gap: var(--space-4);
 }
 
-.timeline-status {
-  margin: var(--space-5) 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-md);
-}
-
-.timeline-error {
-  color: var(--color-error);
-}
-
 .timeline-controls {
   display: flex;
   flex-direction: column;
@@ -174,4 +164,25 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
+}
+
+.timeline-button {
+  transition: border-color var(--duration-fast) var(--ease-out-drawer),
+    color var(--duration-fast) var(--ease-out-drawer);
+}
+
+.timeline-button:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.timeline-table tbody tr {
+  transition: background var(--duration-fast) var(--ease-out-drawer);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline-button,
+  .timeline-table tbody tr {
+    transition: none;
+  }
 }

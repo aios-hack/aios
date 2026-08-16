@@ -76,5 +76,7 @@
   "load.error.outageRange": "well_outages[{index}]: шаг «от» больше шага «до».",
   "load.error.infrastructureShape": "Раздел infrastructure: ожидается объект ключ-значение.",
   "load.error.infrastructureValue": "infrastructure[{name}]: значение должно быть строкой или числом.",
-  "preview.title": "Документ, который будет сохранён"
+  "preview.title": "Документ, который будет сохранён",
+  "library.errorHint": "Соберите индекс: python -m ui.demo.",
+  "library.emptyHint": "Добавьте артефакт прогона и пересоберите индекс."
 }

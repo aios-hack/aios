@@ -13,5 +13,6 @@
   "table.bar": "Share of maximum",
   "table.total": "Fund total",
   "sort.desc": "descending",
-  "sort.asc": "ascending"
+  "sort.asc": "ascending",
+  "errorHint": "Build npv.json: python -m ui.demo."
 }

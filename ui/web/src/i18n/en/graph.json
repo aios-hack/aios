@@ -29,5 +29,7 @@
   "node.injector": "injector",
   "node.producer": "producer",
   "edge.title": "{injector} → {producer}: λ = {weight}",
-  "thesis": "Distance between wells is set by λ, not by metres"
+  "thesis": "Distance between wells is set by λ, not by metres",
+  "errorHint": "Build graph.json: python -m ui.demo.",
+  "emptyHint": "The threshold hides every edge, or the λ matrix is zero in this window."
 }

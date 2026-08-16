@@ -1,0 +1,46 @@
+.synthetic-banner {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-synthetic-border);
+  border-radius: var(--radius-md);
+  background: var(--color-synthetic-bg);
+}
+
+.synthetic-banner-mark {
+  align-self: center;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: 50%;
+  background: var(--color-synthetic);
+}
+
+.synthetic-banner-text {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  max-width: var(--size-prose-max);
+  margin: 0;
+  flex: 1 1 var(--size-stat-min);
+}
+
+.synthetic-banner-title {
+  color: var(--color-synthetic);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.synthetic-banner-note {
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  text-wrap: pretty;
+}
+
+.synthetic-banner-tag {
+  color: var(--color-synthetic);
+  font-family: ui-monospace, monospace;
+  font-size: var(--font-size-xs);
+}

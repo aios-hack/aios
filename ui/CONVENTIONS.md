@@ -24,6 +24,23 @@
   переключатель в шапке, обе темы полноценные (`src/theme/ThemeContext.tsx`).
 - Интерфейс НИЧЕГО не вычисляет (ни экономику, ни физику) —
   только отображает готовые данные из JSON (`public/data/`, генерируется Python-стороной).
+- **Синтетика обязана быть помечена.** Любой сгенерированный набор несёт в
+  метаданных `provenance` и `synthetic: true` (см. `ui/demo.py`), а интерфейс
+  показывает плашку `SyntheticBanner` в шапке. Флаг читается из данных
+  (`state/ProvenanceContext.tsx`), а не зашивается в компонент: набор из
+  настоящего прогона плашку не покажет. Выдавать синтетическое число за
+  результат расчёта запрещено.
+- Состояния загрузки / ошибки / пустоты — только через общий компонент
+  `src/ui/ViewStatus.tsx` (`kind="loading" | "error" | "empty"`), у ошибки
+  `role="alert"`, у загрузки `aria-busy`. Свои `<p class="...-status">` в видах
+  не заводить: состояния во всех видах выглядят одинаково.
+- Фокус: глобальное правило `:focus-visible` в `styles.css` через токены
+  `--color-focus`, `--focus-ring-width`, `--focus-ring-offset`. Не отключать
+  `outline` без замены. Вкладки — `role="tablist"` с навигацией стрелками
+  и `tabIndex` только у активной.
+- Анимации: длительности и кривые из токенов (`--duration-fast`,
+  `--duration-drawer`, `--ease-out-drawer`), у каждой — ветка
+  `@media (prefers-reduced-motion: reduce)`.
 
 ## Структура
 - `src/theme/` — токены и тема; `src/i18n/` — словари и контекст языка.
@@ -35,7 +52,8 @@
 Из корня `aios`:
 
 ```
-.venv\Scripts\python -m ui.webdata   # генерирует ui/web/public/data/wells.json из дека
+.venv\Scripts\python -m ui.webdata   # только wells.json из дека
+.venv\Scripts\python -m ui.demo      # весь демонстрационный набор (см. ui/DEMO.md)
 cd ui/web
 npm install --silent
 npm run dev       # дев-сервер

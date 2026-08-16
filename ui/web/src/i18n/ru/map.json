@@ -14,5 +14,6 @@
   "legend.dim": "Вне выбранного пласта",
   "shown": "Показано скважин: {shown} из {total}",
   "loading": "Загрузка данных…",
-  "error": "Не удалось загрузить данные скважин"
+  "error": "Не удалось загрузить данные скважин",
+  "errorHint": "Соберите wells.json: python -m ui.webdata или python -m ui.demo."
 }

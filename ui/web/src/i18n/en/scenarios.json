@@ -76,5 +76,7 @@
   "load.error.outageRange": "well_outages[{index}]: step \"from\" is greater than step \"to\".",
   "load.error.infrastructureShape": "Section infrastructure: a key-value object is expected.",
   "load.error.infrastructureValue": "infrastructure[{name}]: the value must be a string or a number.",
-  "preview.title": "The document that will be saved"
+  "preview.title": "The document that will be saved",
+  "library.errorHint": "Build the index: python -m ui.demo.",
+  "library.emptyHint": "Add a run artifact and rebuild the index."
 }

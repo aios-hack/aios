@@ -4,16 +4,6 @@
   gap: var(--space-4);
 }
 
-.npv-status {
-  margin: var(--space-5) 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-md);
-}
-
-.npv-status-error {
-  color: var(--color-error);
-}
-
 .npv-controls {
   display: flex;
   align-items: center;
@@ -183,6 +173,25 @@
 
 @media (prefers-reduced-motion: reduce) {
   .npv-bar {
+    transition: none;
+  }
+}
+
+.npv-mode-button {
+  transition: background var(--duration-fast) var(--ease-out-drawer);
+}
+
+.npv-mode-button:hover:not([aria-pressed='true']) {
+  background: var(--color-surface-sunken);
+}
+
+.npv-table tbody tr {
+  transition: background var(--duration-fast) var(--ease-out-drawer);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .npv-mode-button,
+  .npv-table tbody tr {
     transition: none;
   }
 }

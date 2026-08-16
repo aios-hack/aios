@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useI18n } from '../../i18n/I18nContext';
 import { useTimeline } from '../../state/TimelineContext';
+import { ViewStatus } from '../../ui/ViewStatus';
 import { formatStepDate } from '../Timeline/format';
 import { TraceBlock } from './TraceBlock';
 import { WellParams } from './WellParams';
@@ -76,12 +77,12 @@ export const WellCard = () => {
       </header>
       <div className="wellcard-body">
         {timeline.status === 'loading' && (
-          <p className="wellcard-status">{t('wellcard.loading')}</p>
+          <ViewStatus kind="loading" title={t('wellcard.loading')} />
         )}
         {timeline.status === 'error' && (
-          <p className="wellcard-status wellcard-status-error">{t('wellcard.error')}</p>
+          <ViewStatus kind="error" title={t('wellcard.error')} />
         )}
-        {step && !row && <p className="wellcard-status">{t('wellcard.noData')}</p>}
+        {step && !row && <ViewStatus kind="empty" title={t('wellcard.noData')} />}
         {row && (
           <>
             <section className="wellcard-section">

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { NpvFile } from '../../api/types';
 import { useT } from '../../i18n/I18nContext';
 import { useTimeline, type ResourceState } from '../../state/TimelineContext';
+import { ViewStatus } from '../../ui/ViewStatus';
 import { NpvTable } from './NpvTable';
 import { TaxModeSwitch } from './TaxModeSwitch';
 import type { SortDir, TaxMode } from './types';
@@ -52,10 +53,10 @@ export const NpvRank = () => {
   const [dir, setDir] = useState<SortDir>('desc');
 
   if (npv.status === 'loading') {
-    return <p className="npv-status">{t('npv.loading')}</p>;
+    return <ViewStatus kind="loading" title={t('npv.loading')} />;
   }
   if (npv.status === 'error') {
-    return <p className="npv-status npv-status-error">{t('npv.error')}</p>;
+    return <ViewStatus kind="error" title={t('npv.error')} hint={t('npv.errorHint')} />;
   }
 
   return (

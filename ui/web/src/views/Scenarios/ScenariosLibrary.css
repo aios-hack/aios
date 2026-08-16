@@ -17,16 +17,6 @@
   font-weight: var(--font-weight-bold);
 }
 
-.scenarios-status {
-  margin: var(--space-5) 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-md);
-}
-
-.scenarios-status-error {
-  color: var(--color-error);
-}
-
 .scenarios-library {
   display: flex;
   flex-direction: column;

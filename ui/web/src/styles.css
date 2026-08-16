@@ -9,9 +9,19 @@ body {
   font-family: var(--font-family-base);
   font-size: var(--font-size-md);
   line-height: var(--line-height-base);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
 }
 
 .app {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
   max-width: var(--size-content-max);
   margin: 0 auto;
   padding: var(--space-4) var(--space-4) var(--space-6);
@@ -19,7 +29,7 @@ body {
 
 .app-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: var(--space-3);
@@ -27,10 +37,24 @@ body {
   border-bottom: 1px solid var(--color-border);
 }
 
+.app-identity {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
 .app-title {
   margin: 0;
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.app-subtitle {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
 }
 
 .app-actions {
@@ -48,12 +72,20 @@ body {
   font-family: var(--font-family-base);
   font-size: var(--font-size-sm);
   cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-out-drawer),
+    color var(--duration-fast) var(--ease-out-drawer);
+}
+
+.app-action-button:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 .app-tabs {
-  display: inline-flex;
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-1);
-  margin-top: var(--space-4);
+  align-self: flex-start;
   padding: var(--space-1);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -71,19 +103,33 @@ body {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out-drawer);
 }
 
-.app-tab[aria-pressed='true'] {
+.app-tab:hover:not([aria-selected='true']) {
+  background: var(--color-surface-sunken);
+}
+
+.app-tab[aria-selected='true'] {
   background: var(--color-accent);
   color: var(--color-accent-contrast);
 }
 
-.app-main {
-  padding-top: var(--space-4);
+.app-main:focus {
+  outline: none;
 }
 
 .app-view-title {
   margin: 0 0 var(--space-4);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-action-button,
+  .app-tab {
+    transition: none;
+  }
 }

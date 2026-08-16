@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { I18nProvider } from './i18n/I18nContext';
+import { ProvenanceProvider } from './state/ProvenanceContext';
 import { ScenarioProvider } from './state/ScenarioContext';
 import { TimelineProvider } from './state/TimelineContext';
 import { ThemeProvider } from './theme/ThemeContext';
@@ -18,9 +19,11 @@ createRoot(container).render(
     <ThemeProvider>
       <I18nProvider>
         <ScenarioProvider>
-          <TimelineProvider>
-            <App />
-          </TimelineProvider>
+          <ProvenanceProvider>
+            <TimelineProvider>
+              <App />
+            </TimelineProvider>
+          </ProvenanceProvider>
         </ScenarioProvider>
       </I18nProvider>
     </ThemeProvider>

@@ -29,5 +29,7 @@
   "node.injector": "нагнетательная",
   "node.producer": "добывающая",
   "edge.title": "{injector} → {producer}: λ = {weight}",
-  "thesis": "Расстояние между скважинами задаёт λ, а не метры"
+  "thesis": "Расстояние между скважинами задаёт λ, а не метры",
+  "errorHint": "Соберите graph.json: python -m ui.demo.",
+  "emptyHint": "Порог отсекает все связи либо матрица λ в этом окне нулевая."
 }

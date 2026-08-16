@@ -3,6 +3,7 @@ import type { WellsFile } from '../../api/types';
 import { useT } from '../../i18n/I18nContext';
 import { useTimeline } from '../../state/TimelineContext';
 import { layerColors } from '../../theme/tokens';
+import { ViewStatus } from '../../ui/ViewStatus';
 import { LayerSwitch, type LayerFilter } from './LayerSwitch';
 import { WellsPlot } from './WellsPlot';
 import './FieldMap.css';
@@ -50,10 +51,10 @@ export const FieldMap = () => {
   }, []);
 
   if (state.status === 'loading') {
-    return <p className="field-map-status">{t('map.loading')}</p>;
+    return <ViewStatus kind="loading" title={t('map.loading')} />;
   }
   if (state.status === 'error') {
-    return <p className="field-map-status field-map-error">{t('map.error')}</p>;
+    return <ViewStatus kind="error" title={t('map.error')} hint={t('map.errorHint')} />;
   }
 
   const { wells, grid } = state.data;

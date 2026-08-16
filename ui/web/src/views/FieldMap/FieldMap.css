@@ -4,16 +4,6 @@
   gap: var(--space-3);
 }
 
-.field-map-status {
-  margin: var(--space-5) 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-md);
-}
-
-.field-map-error {
-  color: var(--color-error);
-}
-
 .field-map-toolbar {
   display: flex;
   align-items: center;
@@ -103,4 +93,23 @@
   width: var(--size-swatch);
   height: var(--size-swatch);
   border-radius: var(--radius-sm);
+}
+
+.layer-switch-button {
+  transition: background var(--duration-fast) var(--ease-out-drawer);
+}
+
+.layer-switch-button:hover:not([aria-pressed='true']) {
+  background: var(--color-surface-sunken);
+}
+
+.wells-plot circle {
+  transition: opacity var(--duration-fast) var(--ease-out-drawer);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layer-switch-button,
+  .wells-plot circle {
+    transition: none;
+  }
 }

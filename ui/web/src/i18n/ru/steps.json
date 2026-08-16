@@ -28,5 +28,6 @@
   "role.INJ": "нагнетательная",
   "role.NONE": "без роли",
   "status.OPEN": "работает",
-  "status.SHUT": "остановлена"
+  "status.SHUT": "остановлена",
+  "errorHint": "Соберите timeline.json: python -m ui.demo."
 }

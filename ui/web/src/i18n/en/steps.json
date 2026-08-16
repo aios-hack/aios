@@ -28,5 +28,6 @@
   "role.INJ": "injector",
   "role.NONE": "no role",
   "status.OPEN": "operating",
-  "status.SHUT": "shut"
+  "status.SHUT": "shut",
+  "errorHint": "Build timeline.json: python -m ui.demo."
 }

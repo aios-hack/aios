@@ -14,5 +14,6 @@
   "legend.dim": "Outside selected layer",
   "shown": "Wells shown: {shown} of {total}",
   "loading": "Loading data…",
-  "error": "Failed to load well data"
+  "error": "Failed to load well data",
+  "errorHint": "Build wells.json: python -m ui.webdata or python -m ui.demo."
 }

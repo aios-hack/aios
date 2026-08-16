@@ -4,16 +4,6 @@
   gap: var(--space-3);
 }
 
-.lambda-graph-status {
-  margin: var(--space-5) 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-md);
-}
-
-.lambda-graph-status-error {
-  color: var(--color-error);
-}
-
 .lambda-graph-window {
   display: flex;
   flex-direction: column;
@@ -225,4 +215,20 @@
 .lambda-graph-clear:hover {
   border-color: var(--color-accent);
   color: var(--color-accent);
+}
+
+.lambda-graph-clear {
+  transition: border-color var(--duration-fast) var(--ease-out-drawer),
+    color var(--duration-fast) var(--ease-out-drawer);
+}
+
+.lambda-graph-node {
+  transition: opacity var(--duration-fast) var(--ease-out-drawer);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lambda-graph-clear,
+  .lambda-graph-node {
+    transition: none;
+  }
 }

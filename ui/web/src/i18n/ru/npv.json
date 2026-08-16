@@ -13,5 +13,6 @@
   "table.bar": "Доля от максимума",
   "table.total": "Итого по фонду",
   "sort.desc": "по убыванию",
-  "sort.asc": "по возрастанию"
+  "sort.asc": "по возрастанию",
+  "errorHint": "Соберите npv.json: python -m ui.demo."
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { GraphFile } from '../../api/types';
 import { useT } from '../../i18n/I18nContext';
 import { useTimeline, type ResourceState } from '../../state/TimelineContext';
+import { ViewStatus } from '../../ui/ViewStatus';
 import { GroupLegend, MetaPanel, SelectionPanel, ThresholdControl, WindowBadge } from './GraphPanels';
 import { GraphPlot } from './GraphPlot';
 import { buildSelection, isGraphFile, visibleEdges } from './model';
@@ -65,12 +66,10 @@ export const LambdaGraph = () => {
   );
 
   if (graph.status === 'loading') {
-    return <p className="lambda-graph-status">{t('graph.loading')}</p>;
+    return <ViewStatus kind="loading" title={t('graph.loading')} />;
   }
   if (graph.status === 'error' || data === null) {
-    return (
-      <p className="lambda-graph-status lambda-graph-status-error">{t('graph.error')}</p>
-    );
+    return <ViewStatus kind="error" title={t('graph.error')} hint={t('graph.errorHint')} />;
   }
 
   const shown = visibleEdges(data.edges, active).length;
@@ -89,7 +88,7 @@ export const LambdaGraph = () => {
       />
       <div className="lambda-graph-canvas">
         {data.edges.length === 0 ? (
-          <p className="lambda-graph-status">{t('graph.empty')}</p>
+          <ViewStatus kind="empty" title={t('graph.empty')} hint={t('graph.emptyHint')} />
         ) : (
           <GraphPlot
             data={data}
