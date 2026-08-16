@@ -40,8 +40,16 @@ from contracts import (
 from contracts.response import N_DECK_DATES
 
 
+from conftest import missing_reason, model_z_dir
+
 DECKS = Path(__file__).resolve().parent / "decks"
-MODEL_Z = Path(__file__).resolve().parents[3] / "docs" / "models" / "Model_Z"
+
+# Через conftest, а не через parents[3]: см. тот же комментарий в test_runner.py.
+MODEL_Z = model_z_dir()
+
+requires_model_z = pytest.mark.skipif(
+    MODEL_Z is None, reason=missing_reason("каталог Model_Z")
+)
 
 _PVT_WELLS = ("INJ", "MULTI", "PROD2")
 _PVT_CONNECTIONS = (
@@ -144,6 +152,7 @@ def test_load_rejects_wrong_report_step_count_real(tmp_path: Path) -> None:
         ResponseLoader().load(result, plan, _EMPTY_SCHEDULE, _PVT_DENSITY)
 
 
+@requires_model_z
 def test_load_density_by_pvtnum_real_model_z() -> None:
     density = load_density_by_pvtnum(MODEL_Z)
     assert density == {

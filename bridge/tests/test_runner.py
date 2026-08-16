@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
 
@@ -7,6 +8,7 @@ import pytest
 
 from bridge import OpmDeckEmitter, OpmRunner, deck_hashes
 from bridge.runner import (
+    OPM_USER_ENV,
     _ITERATION_LIMIT_MARKER,
     _NOT_CONVERGED_MARKERS,
     _RECOVERABLE_MARKERS,
@@ -18,8 +20,20 @@ from contracts import RunStatus, Schedule, ScheduleMeta, SummarySpec, hash_sched
 from schedule import parse_schedule
 
 
+from conftest import missing_reason, model_z_dir
+
 DECKS = Path(__file__).resolve().parent / "decks"
-MODEL_Z = Path(__file__).resolve().parents[3] / "docs" / "models" / "Model_Z"
+
+# Через conftest, а не через parents[3]: сиблинг-раскладка `../docs` — не
+# единственная, docs бывает склонирован и внутрь рабочей копии, и задан
+# переменной AIOS_DOCS_ROOT. Ровно этот хардкод интеграция уже снимала в ui.
+MODEL_Z = model_z_dir()
+
+# Скипается только то, что действительно смотрит в дек: остальным тестам
+# файла хватает своих минимальных деков из DECKS.
+requires_model_z = pytest.mark.skipif(
+    MODEL_Z is None, reason=missing_reason("каталог Model_Z")
+)
 
 # Плейсхолдеры ключа: задача 4 отвечает за то, что RunResult донёс их без
 # искажения, а не за их вычисление из Model_Z — это проверяется отдельно.
@@ -179,6 +193,7 @@ def test_iteration_limit_without_chop_is_a_failure(tmp_path: Path) -> None:
     assert _unrecovered_iteration_limit_failure(log) is True
 
 
+@requires_model_z
 def test_runs_emitted_model_z_deck_through_real_flow(tmp_path: Path) -> None:
     """Путь `run(EmittedOpmDeck)` целиком, на настоящей Model_Z.
 
@@ -205,6 +220,7 @@ def test_runs_emitted_model_z_deck_through_real_flow(tmp_path: Path) -> None:
     assert all(Path(path).is_file() for path in result.artifacts)
 
 
+@requires_model_z
 def test_deck_hashes_bind_static_deck_schedule_and_summary_spec(tmp_path: Path) -> None:
     emitter = OpmDeckEmitter(MODEL_Z)
     schedule = _baseline_schedule(emitter)
@@ -217,3 +233,57 @@ def test_deck_hashes_bind_static_deck_schedule_and_summary_spec(tmp_path: Path) 
     # Статика — не весь дек: content_hash_opm накрывает и управляющий слой.
     assert hashes.deck_hash != deck.content_hash_opm
     assert len(hashes.deck_hash) == 64
+
+
+# --- Владелец файлов прогона -----------------------------------------------
+#
+# Образ opmreleases работает под uid 1001 (opm), каталог прогона создаёт хост.
+# Совпадение uid — свойство одной машины, а не инварианта, и его расхождение
+# отказывает не как отказ прав: Flow валится на «Failed to create valid
+# EclipseState object», а настоящая причина уходит в .PRT, который он не смог
+# открыть. Ниже — приёмка того, что uid хоста передаётся всегда.
+
+
+def test_container_runs_as_the_host_user_by_default(tmp_path: Path) -> None:
+    runner = OpmRunner(tmp_path / "runs")
+    command = runner._command(
+        tmp_path / "deck" / "X.DATA", tmp_path / "out", "opm-run-test", None
+    )
+
+    assert "--user" in command
+    expected = f"{os.getuid()}:{os.getgid()}"
+    assert command[command.index("--user") + 1] == expected
+
+
+def test_run_as_user_is_overridable_from_the_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(OPM_USER_ENV, "4242:4243")
+    runner = OpmRunner(tmp_path / "runs")
+    command = runner._command(
+        tmp_path / "deck" / "X.DATA", tmp_path / "out", "opm-run-test", None
+    )
+
+    assert command[command.index("--user") + 1] == "4242:4243"
+
+
+def test_empty_override_restores_the_image_default_user(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Пустая переменная — способ отдать выбор образу: в rootless-docker и
+    podman отображение уже сделано демоном, и навязывать --user там вредно."""
+
+    monkeypatch.setenv(OPM_USER_ENV, "")
+    runner = OpmRunner(tmp_path / "runs")
+    command = runner._command(
+        tmp_path / "deck" / "X.DATA", tmp_path / "out", "opm-run-test", None
+    )
+
+    assert "--user" not in command
+
+
+# Регрессия на сам дефект — уже существующий
+# `test_broken_deck_is_failed_without_raising`: он требует «Unknown keyword» в
+# сообщении, и до этой правки получал «Failed opening file /out/BROKEN.PRT for
+# StreamLog» — текст ошибки разбора оставался в файле, который Flow не смог
+# создать. Отдельный тест на то же самое здесь был бы копией.
