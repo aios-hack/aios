@@ -13,6 +13,7 @@ IMPLEMENTED_RULES: tuple[Rule, ...] = (
     Rule.R4,
     Rule.R5,
     Rule.R6,
+    Rule.R7,
 )
 
 DEFAULT_RULE_FLAGS: Mapping[Rule, bool] = {
