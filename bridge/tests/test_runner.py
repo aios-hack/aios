@@ -84,7 +84,10 @@ def test_broken_deck_is_failed_without_raising(tmp_path: Path) -> None:
     broken_dir.mkdir()
     broken = broken_dir / "BROKEN.DATA"
     broken.write_text(
-        (DECKS / "MINI.DATA").read_text().replace("\nDIMENS\n", "\nDIMENSXX\n")
+        (DECKS / "MINI.DATA")
+        .read_text(encoding="utf-8")
+        .replace("\nDIMENS\n", "\nDIMENSXX\n"),
+        encoding="utf-8",
     )
 
     runner = OpmRunner(tmp_path / "runs")
