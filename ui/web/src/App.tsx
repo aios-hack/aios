@@ -4,12 +4,13 @@ import { useTheme } from './theme/ThemeContext';
 import { FieldMap } from './views/FieldMap';
 import { LambdaGraph } from './views/LambdaGraph';
 import { NpvRank } from './views/NpvRank';
+import { Scenarios } from './views/Scenarios';
 import { Timeline } from './views/Timeline';
 import { WellCard } from './views/WellCard';
 
-type ViewId = 'graph' | 'map' | 'steps' | 'npv';
+type ViewId = 'graph' | 'map' | 'steps' | 'npv' | 'scenarios';
 
-const VIEWS: ViewId[] = ['graph', 'map', 'steps', 'npv'];
+const VIEWS: ViewId[] = ['graph', 'map', 'steps', 'npv', 'scenarios'];
 
 export const App = () => {
   const { theme, toggleTheme } = useTheme();
@@ -48,6 +49,7 @@ export const App = () => {
         {view === 'map' && <FieldMap />}
         {view === 'steps' && <Timeline />}
         {view === 'npv' && <NpvRank />}
+        {view === 'scenarios' && <Scenarios />}
       </main>
       <WellCard />
     </div>

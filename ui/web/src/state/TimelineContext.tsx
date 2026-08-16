@@ -9,6 +9,7 @@ import {
   type SetStateAction
 } from 'react';
 import type { TimelineFile, TraceFile } from '../api/types';
+import { useOptionalScenario } from './ScenarioContext';
 
 export type ResourceState<T> =
   | { status: 'loading' }
@@ -35,7 +36,7 @@ const isTimelineFile = (data: unknown): data is TimelineFile =>
 const isTraceFile = (data: unknown): data is TraceFile =>
   typeof data === 'object' && data !== null && !Array.isArray(data);
 
-const useJsonResource = <T,>(
+export const useJsonResource = <T,>(
   url: string,
   validate: (data: unknown) => data is T
 ): ResourceState<T> => {
@@ -69,11 +70,17 @@ const useJsonResource = <T,>(
 };
 
 export const TimelineProvider = ({ children }: { children: ReactNode }) => {
-  const timeline = useJsonResource('/data/timeline.json', isTimelineFile);
-  const trace = useJsonResource('/data/trace.json', isTraceFile);
+  const { activeId, dataUrl } = useOptionalScenario();
+  const timeline = useJsonResource(dataUrl('timeline.json'), isTimelineFile);
+  const trace = useJsonResource(dataUrl('trace.json'), isTraceFile);
   const [stepIndex, setStepIndex] = useState(0);
   const [selectedWell, setSelectedWell] = useState<string | null>(null);
   const selectWell = useCallback((well: string | null) => setSelectedWell(well), []);
+
+  useEffect(() => {
+    setStepIndex(0);
+    setSelectedWell(null);
+  }, [activeId]);
 
   return (
     <TimelineContext.Provider

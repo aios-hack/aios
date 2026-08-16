@@ -6,5 +6,6 @@
   "tab.graph": "Граф влияния",
   "tab.map": "Карта",
   "tab.steps": "Шаги",
-  "tab.npv": "Вклад в ЧДД"
+  "tab.npv": "Вклад в ЧДД",
+  "tab.scenarios": "Сценарии"
 }

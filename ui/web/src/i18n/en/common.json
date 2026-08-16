@@ -6,5 +6,6 @@
   "tab.graph": "Influence graph",
   "tab.map": "Map",
   "tab.steps": "Steps",
-  "tab.npv": "NPV contribution"
+  "tab.npv": "NPV contribution",
+  "tab.scenarios": "Scenarios"
 }

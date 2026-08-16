@@ -1,0 +1,135 @@
+.scenarios {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.scenarios-lead,
+.scenarios-note {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.scenarios-heading {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+}
+
+.scenarios-status {
+  margin: var(--space-5) 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-md);
+}
+
+.scenarios-status-error {
+  color: var(--color-error);
+}
+
+.scenarios-library {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.scenarios-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--size-stat-min), 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scenarios-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  height: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.scenarios-item[data-active='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-selected-bg);
+}
+
+.scenarios-item[data-submitted='true'] {
+  border-color: var(--color-submitted);
+}
+
+.scenarios-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.scenarios-item-id {
+  font-weight: var(--font-weight-bold);
+}
+
+.scenarios-badge {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.scenarios-badge[data-kind='submitted'] {
+  background: var(--color-submitted-bg);
+  color: var(--color-submitted);
+}
+
+.scenarios-badge[data-kind='whatif'] {
+  background: var(--color-whatif-bg);
+  color: var(--color-whatif);
+}
+
+.scenarios-item-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.scenarios-flag {
+  font-size: var(--font-size-xs);
+  color: var(--color-error);
+}
+
+.scenarios-flag[data-ok='true'] {
+  color: var(--color-text-muted);
+}
+
+.scenarios-item-npv,
+.scenarios-item-summary {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.scenarios-item-npv {
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+}
+
+
+.scenarios-item {
+  transition: border-color var(--duration-drawer) var(--ease-out-drawer);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scenarios-item {
+    transition: none;
+  }
+}

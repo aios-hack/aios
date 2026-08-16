@@ -231,7 +231,8 @@ describe('App tabs', () => {
       ru['tab.graph'],
       ru['tab.map'],
       ru['tab.steps'],
-      ru['tab.npv']
+      ru['tab.npv'],
+      ru['tab.scenarios']
     ]);
     expect(container.querySelector('.app-tab')?.getAttribute('aria-pressed')).toBe('true');
     await screen.findByTestId('lambda-graph-plot');

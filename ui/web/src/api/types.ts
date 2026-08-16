@@ -89,6 +89,48 @@ export interface NpvFile {
   npv_methodology: number;
 }
 
+export interface WellOutageDoc {
+  well: string;
+  control_step_from: number;
+  control_step_to: number;
+}
+
+export interface ConstraintsDoc {
+  injection_limits: Record<string, number>;
+  liquid_limits: Record<string, number>;
+  production_floors: Record<string, number>;
+  watercut_limits: Record<string, number>;
+  well_outages: WellOutageDoc[];
+  infrastructure: Record<string, string | number>;
+}
+
+export interface ScenarioConstraintsSummary {
+  injection_limits: number;
+  liquid_limits: number;
+  production_floors: number;
+  watercut_limits: number;
+  well_outages: number;
+  infrastructure: number;
+  years: number[];
+  outage_wells: string[];
+  empty: boolean;
+}
+
+export interface ScenarioEntry {
+  id: string;
+  config_hash: string;
+  converged: boolean;
+  self_consistent: boolean;
+  is_submitted: boolean;
+  npv_methodology: number | null;
+  constraints: ScenarioConstraintsSummary;
+}
+
+export interface ScenariosFile {
+  scenarios: ScenarioEntry[];
+  submitted: string | null;
+}
+
 export interface GraphNode {
   id: string;
   role: 'INJ' | 'PROD';

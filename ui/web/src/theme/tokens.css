@@ -25,6 +25,13 @@
   --color-group-4: #be185d;
   --color-group-5: #4d7c0f;
   --color-group-6: #b45309;
+  --color-submitted: #15803d;
+  --color-submitted-bg: #e8f6ec;
+  --color-whatif: #5c6b7a;
+  --color-whatif-bg: #eef1f4;
+  --color-ok: #15803d;
+  --color-error-bg: #fdecec;
+  --color-ok-bg: #e8f6ec;
 
   --shadow-drawer: 0 16px 48px rgba(28, 39, 51, 0.18);
   --duration-drawer: 240ms;
@@ -91,6 +98,13 @@
   --color-group-4: #f472b6;
   --color-group-5: #a3e635;
   --color-group-6: #fbbf24;
+  --color-submitted: #4ade80;
+  --color-submitted-bg: #16301f;
+  --color-whatif: #94a3b3;
+  --color-whatif-bg: #232a33;
+  --color-ok: #4ade80;
+  --color-error-bg: #3a1d1d;
+  --color-ok-bg: #16301f;
 
   --shadow-drawer: 0 16px 48px rgba(0, 0, 0, 0.55);
 }
