@@ -22,7 +22,7 @@ DEMO_NOTICE_EN = "Demonstration data, not a computed result"
 BASE_ID = "base"
 WHATIF_ID = "whatif-injection-cut"
 DEFAULT_OUT_DIR: Path = Path(__file__).resolve().parent / "web" / "public" / "data"
-_DEFAULT_DENSITY = 0.86
+_DEFAULT_DENSITY = 860.0
 
 
 def demo_meta(kind: str) -> dict[str, Any]:

@@ -34,6 +34,32 @@ export const groupIndex = (data: GraphFile): Map<string, number> =>
 export const visibleEdges = (edges: GraphEdge[], threshold: number): GraphEdge[] =>
   edges.filter((edge) => Math.abs(edge.weight) >= threshold);
 
+// Сколько сильнейших нагнетательных остаётся у каждой добывающей. До 2542
+// связей на 103 узлах — всё сразу читается как неумение рисовать графы,
+// а значимых связей у скважины единицы.
+export const EDGES_PER_PRODUCER = 4;
+
+// Порог по величине оставляет 181 ребро из 181 — граф читается как ком.
+// Оставляем сильнейшие связи каждой добывающей: у скважины редко больше
+// нескольких значимых нагнетательных, остальное — шум регрессии.
+export const topEdgesPerProducer = (edges: GraphEdge[], limit: number): GraphEdge[] => {
+  const byProducer = new Map<string, GraphEdge[]>();
+  for (const edge of edges) {
+    const bucket = byProducer.get(edge.producer);
+    if (bucket === undefined) {
+      byProducer.set(edge.producer, [edge]);
+    } else {
+      bucket.push(edge);
+    }
+  }
+  const kept: GraphEdge[] = [];
+  for (const bucket of byProducer.values()) {
+    bucket.sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight));
+    kept.push(...bucket.slice(0, limit));
+  }
+  return kept;
+};
+
 export const edgeOpacity = (weight: number, max: number): number => {
   if (max <= 0) {
     return 1;

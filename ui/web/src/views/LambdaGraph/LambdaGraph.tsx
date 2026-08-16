@@ -5,7 +5,14 @@ import { useTimeline, type ResourceState } from '../../state/TimelineContext';
 import { ViewStatus } from '../../ui/ViewStatus';
 import { GroupLegend, MetaPanel, SelectionPanel, ThresholdControl, WindowBadge } from './GraphPanels';
 import { GraphPlot } from './GraphPlot';
-import { buildSelection, isGraphFile, visibleEdges, type WellFluidState } from './model';
+import {
+  buildSelection,
+  EDGES_PER_PRODUCER,
+  isGraphFile,
+  topEdgesPerProducer,
+  visibleEdges,
+  type WellFluidState
+} from './model';
 import './LambdaGraph.css';
 
 const useGraphFile = (): ResourceState<GraphFile> => {
@@ -90,7 +97,7 @@ export const LambdaGraph = () => {
     return <ViewStatus kind="error" title={t('graph.error')} hint={t('graph.errorHint')} />;
   }
 
-  const shown = visibleEdges(data.edges, active).length;
+  const shown = topEdgesPerProducer(visibleEdges(data.edges, active), EDGES_PER_PRODUCER).length;
 
   return (
     <section className="lambda-graph">

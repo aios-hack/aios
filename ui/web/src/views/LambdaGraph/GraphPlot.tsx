@@ -1,14 +1,16 @@
 import { useEffect, useRef } from 'react';
 import type { GraphFile, GraphNode } from '../../api/types';
 import { useT } from '../../i18n/I18nContext';
-import { graphColors, groupColor } from '../../theme/tokens';
+import { fluidColors, graphColors, groupColor } from '../../theme/tokens';
 import {
   edgeHighlighted,
   edgeOpacity,
   edgeWidth,
   groupIndex,
   nodeState,
+  EDGES_PER_PRODUCER,
   roundWeight,
+  topEdgesPerProducer,
   visibleEdges,
   type Selection,
   type WellFluidState
@@ -91,7 +93,7 @@ export const GraphPlot = ({
   }, [zoomAtRatio]);
   const index = groupIndex(data);
   const positions = new Map(data.nodes.map((node) => [node.id, node]));
-  const shown = visibleEdges(data.edges, threshold);
+  const shown = topEdgesPerProducer(visibleEdges(data.edges, threshold), EDGES_PER_PRODUCER);
   const maxWeight = data.weight_range?.max ?? 0;
 
   // Во сколько раз приблизили относительно обзорного вида.
@@ -142,7 +144,7 @@ export const GraphPlot = ({
               y1={from.y}
               x2={to.x}
               y2={to.y}
-              stroke={strong ? graphColors.injector : graphColors.edge}
+              stroke={edge.weight >= 0 ? fluidColors.oil : fluidColors.water}
               strokeWidth={(edgeWidth(edge.weight, maxWeight) * (strong ? 2 : 1)) / scale}
               strokeOpacity={
                 selection === null || strong ? edgeOpacity(edge.weight, maxWeight) : 0.12
