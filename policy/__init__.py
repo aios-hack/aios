@@ -7,6 +7,13 @@ from policy.economics import (
     oil_margin_rub_per_m3_liquid,
     oil_margin_rub_per_t,
 )
+from policy.fixed_point import (
+    Evaluation,
+    Evaluator,
+    FixedPointResult,
+    Visited,
+    resolve,
+)
 from policy.flags import (
     DEFAULT_RULE_FLAGS,
     IMPLEMENTED_RULES,
@@ -83,7 +90,10 @@ __all__ = [
     "ADMISSION_CRITERIA",
     "DAYS_PER_YEAR",
     "DEFAULT_RULE_FLAGS",
+    "Evaluation",
+    "Evaluator",
     "FIELD_AGENT",
+    "FixedPointResult",
     "FieldAllocation",
     "GroupDecision",
     "GroupLimit",
@@ -137,6 +147,7 @@ __all__ = [
     "observations_by_group",
     "oil_margin_rub_per_m3_liquid",
     "oil_margin_rub_per_t",
+    "resolve",
     "restrict",
     "rules_for_group",
     "run_step",
@@ -145,5 +156,6 @@ __all__ = [
     "superseded",
     "to_payload",
     "trace_hash",
+    "Visited",
     "wells_without_group",
 ]

@@ -5,7 +5,7 @@ from typing import Callable
 from contracts import Rule, Theta
 
 from policy.flags import IMPLEMENTED_RULES, RuleFlags
-from policy.rules import r0, r1, r2, r3, r4, r5, r6
+from policy.rules import r0, r1, r2, r3, r4, r5, r6, r7
 from policy.rules.base import EMPTY_OUTCOME, PolicyRule, RuleOutcome, merge
 from policy.state import PolicyState, RuleContext
 
@@ -19,6 +19,7 @@ RULE_FUNCTIONS: dict[Rule, RuleFn] = {
     Rule.R4: r4.apply,
     Rule.R5: r5.apply,
     Rule.R6: r6.apply,
+    Rule.R7: r7.apply,
 }
 
 ADMISSION_CRITERIA: dict[Rule, str] = {
@@ -29,6 +30,7 @@ ADMISSION_CRITERIA: dict[Rule, str] = {
     Rule.R4: r4.ADMISSION_CRITERION,
     Rule.R5: r5.ADMISSION_CRITERION,
     Rule.R6: r6.ADMISSION_CRITERION,
+    Rule.R7: r7.ADMISSION_CRITERION,
 }
 
 THETA_NAMES_BY_RULE: dict[Rule, tuple[str, ...]] = {
@@ -39,6 +41,7 @@ THETA_NAMES_BY_RULE: dict[Rule, tuple[str, ...]] = {
     Rule.R4: r4.THETA_NAMES,
     Rule.R5: r5.THETA_NAMES,
     Rule.R6: r6.THETA_NAMES,
+    Rule.R7: r7.THETA_NAMES,
 }
 
 
@@ -105,4 +108,5 @@ __all__ = [
     "r4",
     "r5",
     "r6",
+    "r7",
 ]
