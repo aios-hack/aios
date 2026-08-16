@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import math
 from datetime import date
-from pathlib import Path
 
 import pytest
 
@@ -33,14 +32,19 @@ from economics import (
     monthly_income_tax_sum,
 )
 
+from conftest import missing_reason, normatives_xlsx
+
 NORMATIVES = NormativeSet(**DEFAULT_NORMATIVES_2007, esp_catalog=ESP_CATALOG_2007)
 POLICIES = Policies(
     charge_initial_esp=ChargeInitialEsp.NOT_CHARGED,
     quantization_policy=QuantizationPolicy.NONE,
 )
 
-NORMATIVES_XLSX = Path(
-    r"W:\Projects\hacks\aios\docs\models\CHDD_PYTHON\input\Нормативы_ЧДД.xlsx"
+NORMATIVES_XLSX = normatives_xlsx()
+
+requires_normatives_xlsx = pytest.mark.skipif(
+    NORMATIVES_XLSX is None,
+    reason=missing_reason("Нормативы_ЧДД.xlsx"),
 )
 
 N_HISTORY = 2
@@ -124,6 +128,7 @@ def evaluate(
     )
 
 
+@requires_normatives_xlsx
 def test_normatives_load_from_reference_workbook() -> None:
     loaded = load_normatives(NORMATIVES_XLSX)
     assert loaded.price_oil_rub_per_t == 28_000.0
@@ -145,12 +150,14 @@ def test_normatives_load_from_reference_workbook() -> None:
     assert loaded.esp_catalog[-1].cost_rub == pytest.approx(8_050_000.0)
 
 
+@requires_normatives_xlsx
 def test_normatives_loader_matches_declared_defaults() -> None:
     loaded = load_normatives(NORMATIVES_XLSX)
     for field, expected in DEFAULT_NORMATIVES_2007.items():
         assert getattr(loaded, field) == pytest.approx(expected), field
 
 
+@requires_normatives_xlsx
 def test_normatives_zip_fallback_matches_openpyxl() -> None:
     from economics import normatives_io
 

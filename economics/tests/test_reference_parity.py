@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import sys
 from datetime import date, datetime
-from pathlib import Path
 
 import pytest
 
@@ -30,11 +29,15 @@ from economics.reference_parity import (
     run_reference,
 )
 
-CHDD_PYTHON_DIR = Path(
-    r"W:\Projects\hacks\aios\docs\models\CHDD_PYTHON"
-)
+from conftest import chdd_python_dir, missing_reason
 
-EXAMPLE_INPUT_XLSX = CHDD_PYTHON_DIR / "input" / "Пример_исходных_данных.xlsx"
+CHDD_PYTHON_DIR = chdd_python_dir()
+
+EXAMPLE_INPUT_XLSX = (
+    None
+    if CHDD_PYTHON_DIR is None
+    else CHDD_PYTHON_DIR / "input" / "Пример_исходных_данных.xlsx"
+)
 
 NORMATIVES = NormativeSet(**DEFAULT_NORMATIVES_2007, esp_catalog=ESP_CATALOG_2007)
 POLICIES = Policies(
@@ -45,8 +48,8 @@ POLICIES = Policies(
 N_HISTORY = 2
 
 pytestmark = pytest.mark.skipif(
-    not CHDD_PYTHON_DIR.is_dir(),
-    reason=f"репозиторий docs с эталонным расчётчиком недоступен: {CHDD_PYTHON_DIR}",
+    CHDD_PYTHON_DIR is None,
+    reason=missing_reason("эталонный расчётчик CHDD_PYTHON"),
 )
 
 

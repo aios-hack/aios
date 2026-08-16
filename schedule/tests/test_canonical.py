@@ -2,7 +2,6 @@ import hashlib
 import json
 import random
 from dataclasses import replace
-from pathlib import Path
 
 import pytest
 
@@ -34,9 +33,14 @@ from schedule import (
     parse_schedule,
 )
 
+from conftest import missing_reason, model_z_schedule
 
-MODEL_Z_SCHEDULE = (
-    Path(__file__).resolve().parents[3] / "docs" / "models" / "Model_Z" / "Model_Z_sch.inc"
+
+MODEL_Z_SCHEDULE = model_z_schedule()
+
+pytestmark = pytest.mark.skipif(
+    MODEL_Z_SCHEDULE is None,
+    reason=missing_reason("дек Model_Z"),
 )
 
 
