@@ -16,7 +16,7 @@ dev = ["pytest>=8"]
 # surrogate, optimizer, connectivity, policy, robustness, ui, llm, config.
 # Сейчас реально существует только contracts/ — общие типы.
 [tool.setuptools]
-packages = ["contracts", "policy", "policy.rules"]
+packages = ["contracts", "policy", "policy.rules", "connectivity"]
 
 [tool.pytest.ini_options]
-testpaths = ["contracts/tests", "policy/tests"]
+testpaths = ["contracts/tests", "policy/tests", "connectivity/tests"]
