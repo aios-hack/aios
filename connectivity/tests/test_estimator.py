@@ -335,6 +335,58 @@ def test_high_r_squared_does_not_mean_separated_effects() -> None:
     assert first != pytest.approx(2.0, abs=0.1)
 
 
+def test_regression_on_facts_survives_a_well_pinned_at_the_pressure_limit() -> None:
+    """Скважина на 300 бар почти не двигается — регрессия на ФАКТ это переживает.
+
+    Вторая партия построена так, что I1 реализует 0.2 м³/сут вместо 6.0
+    (ровно поведение скважины 17 Model_Z, стоящей на пределе давления все
+    12 месяцев). Поскольку регрессия идёт на фактические ΔWWIR, а не на
+    проектные уровни плана, λ восстанавливается точно; порча видна там, где
+    ей и положено — в числе обусловленности, оно растёт с 1.0 до 2.0.
+
+    Регрессия на проектные уровни в этом месте дала бы неверные λ молча:
+    план обещал ±6.0 у всех, а реализовались другие воздействия.
+    """
+
+    healthy = a_drive()
+    starved = DriveMatrix(
+        injectors=INJECTORS,
+        rows=tuple((row[0] / 30.0, row[1], row[2]) for row in healthy.rows),
+    )
+    reference = estimate_lambda(
+        window=WINDOW,
+        producers=PRODUCERS,
+        batches=(
+            Batch(drive=healthy, observations=observations_for(healthy, 2)),
+            Batch(drive=healthy, observations=observations_for(healthy, 2)),
+        ),
+        lag_months=2,
+        amplitude=0.2,
+        achievability_ok={well: True for well in INJECTORS},
+        ridge=RIDGE,
+    )
+    pinned = estimate_lambda(
+        window=WINDOW,
+        producers=PRODUCERS,
+        batches=(
+            Batch(drive=healthy, observations=observations_for(healthy, 2)),
+            Batch(drive=starved, observations=observations_for(starved, 2)),
+        ),
+        lag_months=2,
+        amplitude=0.2,
+        achievability_ok={"I1": False, "I2": True, "I3": True},
+        ridge=RIDGE,
+    )
+
+    for row_index, producer in enumerate(PRODUCERS):
+        for col_index, expected in enumerate(TRUE_LAMBDA[producer]):
+            assert pinned.matrix[row_index][col_index] == pytest.approx(
+                expected, abs=1e-3
+            )
+    assert pinned.condition_number > reference.condition_number
+    assert pinned.achievability_ok["I1"] is False
+
+
 def test_degenerate_batch_pair_has_no_defined_stability() -> None:
     flat = ((0.0, 0.0), (0.0, 0.0))
     with pytest.raises(ValueError, match="устойчивость не определена"):
