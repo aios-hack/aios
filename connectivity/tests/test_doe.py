@@ -136,12 +136,30 @@ def test_half_high_half_low_per_run_when_the_design_needs_no_padding(
 
 
 def test_design_is_orthogonal_by_construction(deck: DeckSchedule) -> None:
+    """Обусловленность плана — не 1.0 (исправлено 16.08).
+
+    Столбец-константа матрицы Адамара в план не входит, поэтому недиагональ
+    матрицы Грама равна −1, а не нулю: Gram = `(n_runs + 1)·I − J`. Спектр —
+    `n_runs + 1` кратности `width − 1` и `n_runs + 1 − width` на собственном
+    векторе из единиц, то есть обусловленность
+    `(n_runs + 1) / (n_runs + 1 − width)`: 28 на квадратном плане в 27
+    прогонов и тем ближе к единице, чем больше в плане пустых колонок
+    (28 при width=27, 10.67 при width=29 и 31 прогоне).
+
+    Прежнее ожидание 1.0 закрепляло артефакт степенного метода, который
+    стартовал ровно с вектора `[1…1]` — тот попадал в собственный вектор
+    наименьшего значения, и «наибольшее» находилось равным ему. Полная
+    ортогональность плана по замыслу предъявляется корреляцией колонок
+    (`1 / n_runs`) и полным рангом, а не единичной обусловленностью.
+    """
+
     amp = amplitude(deck)
     for count in (27, 29, 38, 39, 41):
         plan = a_plan(count, amp)
         diagnosis = orthogonality_of(plan.design_matrix())
         assert diagnosis.rank == plan.plan_width
-        assert diagnosis.condition_number == pytest.approx(1.0)
+        expected = (plan.n_runs + 1) / (plan.n_runs + 1 - plan.plan_width)
+        assert diagnosis.condition_number == pytest.approx(expected)
         assert diagnosis.max_abs_correlation == pytest.approx(1.0 / plan.n_runs)
 
 

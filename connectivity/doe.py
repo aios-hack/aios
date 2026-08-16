@@ -259,17 +259,32 @@ def _gram(columns: Sequence[Sequence[float]]) -> list[list[float]]:
     return [[_dot(a, b) for b in columns] for a in columns]
 
 
+def _start_vectors(size: int) -> tuple[list[float], ...]:
+    starts = [[1.0] * size]
+    for index in range(size):
+        vector = [1.0] * size
+        vector[index] = -1.0
+        starts.append(vector)
+    for index in range(size):
+        vector = [0.0] * size
+        vector[index] = 1.0
+        starts.append(vector)
+    return tuple(starts)
+
+
 def _eigen_bounds(gram: list[list[float]]) -> tuple[float, float]:
     size = len(gram)
-    vector = [1.0] * size
-    largest = _power_iterate(gram, vector)
+    starts = _start_vectors(size)
+    largest = max(_power_iterate(gram, start) for start in starts)
+    if largest == 0.0:
+        return 0.0, 0.0
     shifted = [
         [(largest if i == j else 0.0) - gram[i][j] for j in range(size)]
         for i in range(size)
     ]
-    shifted_top = _power_iterate(shifted, [1.0] * size)
+    shifted_top = max(_power_iterate(shifted, start) for start in starts)
     smallest = largest - shifted_top
-    return largest, smallest
+    return largest, max(smallest, 0.0)
 
 
 def _power_iterate(
@@ -330,7 +345,7 @@ def orthogonality_of(
     rank = _column_rank(columns, tolerance)
     gram = _gram(columns)
     largest, smallest = _eigen_bounds(gram)
-    if smallest <= tolerance:
+    if rank < len(columns) or smallest <= tolerance:
         condition_number = float("inf")
     else:
         condition_number = largest / smallest
