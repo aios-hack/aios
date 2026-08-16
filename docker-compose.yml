@@ -1,0 +1,55 @@
+# Тонкие именованные обёртки над одним и тем же ENTRYPOINT.
+# Точка входа — docker/entrypoint.sh, свободный CMD выбирает команду.
+# Данные организаторов монтируются снаружи и в образ не входят.
+
+services:
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: aios:latest
+    command: ["tests", "-q"]
+    volumes:
+      - ${AIOS_DOCS:-./../docs}:/data/docs:ro
+      - ./out:/out
+
+  npv:
+    image: aios:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["npv"]
+    volumes:
+      - ${AIOS_DOCS:-./../docs}:/data/docs:ro
+      - ./out:/out
+
+  emit:
+    image: aios:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["emit"]
+    volumes:
+      - ${AIOS_DOCS:-./../docs}:/data/docs:ro
+      - ./out:/out
+
+  selfcheck:
+    image: aios:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["selfcheck"]
+    volumes:
+      - ${AIOS_DOCS:-./../docs}:/data/docs:ro
+
+  web:
+    image: aios:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["web"]
+    ports:
+      - "${AIOS_PORT:-8000}:8000"
+    volumes:
+      - ${AIOS_DOCS:-./../docs}:/data/docs:ro
+      - ./out:/out

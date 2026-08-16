@@ -7,7 +7,12 @@ name = "aios"
 version = "0.0.0"
 description = "Мультиагентная система управления фондом скважин — трек 2 AIOS"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    # economics/normatives_io.py читает docs/models/CHDD_PYTHON/input/Нормативы_ЧДД.xlsx —
+    # источник истины по нормативам. При отсутствии openpyxl загрузчик падает
+    # на разбор xlsx как zip+XML силами stdlib, значения те же.
+    "openpyxl>=3.1",
+]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
@@ -16,7 +21,22 @@ dev = ["pytest>=8"]
 # surrogate, optimizer, connectivity, policy, robustness, ui, llm, config.
 # Сейчас реально существует только contracts/ — общие типы.
 [tool.setuptools]
-packages = ["contracts", "bridge", "surrogate", "optimizer"]
+packages = [
+    "aios_cli",
+    "bridge",
+    "contracts",
+    "economics",
+    "optimizer",
+    "schedule",
+    "surrogate",
+]
 
 [tool.pytest.ini_options]
-testpaths = ["contracts/tests", "bridge/tests", "surrogate/tests", "optimizer/tests"]
+testpaths = [
+    "bridge/tests",
+    "contracts/tests",
+    "economics/tests",
+    "optimizer/tests",
+    "schedule/tests",
+    "surrogate/tests",
+]

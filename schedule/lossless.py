@@ -95,11 +95,11 @@ def _ascii(raw: bytes, what: str) -> str:
         raise ScheduleParseError(f"{what}: ожидался ASCII") from error
 
 
-def _line_token(line: bytes) -> str:
+def line_keyword(line: bytes) -> str:
     return _ascii(line.strip(), "ключевое слово")
 
 
-def _records(block_lines: list[bytes], keyword: str) -> list[tuple[str, ...]]:
+def block_records(block_lines: list[bytes], keyword: str) -> list[tuple[str, ...]]:
     records: list[tuple[str, ...]] = []
     for line in block_lines[1:-1]:
         body = line.split(b"--", 1)[0].strip()
@@ -179,7 +179,7 @@ def parse_schedule(raw: bytes) -> ParsedSchedule:
     i = 0
     segment_start = 0
     while i < len(lines):
-        keyword = _line_token(lines[i])
+        keyword = line_keyword(lines[i])
         if keyword not in _BLOCK_KEYWORDS:
             i += 1
             continue
@@ -195,7 +195,7 @@ def parse_schedule(raw: bytes) -> ParsedSchedule:
         if segment_start < block_start:
             chunks.append(raw[segment_start:block_start])
         block_raw = raw[block_start:block_end]
-        parsed_records = _records(lines[i : end_line + 1], keyword)
+        parsed_records = block_records(lines[i : end_line + 1], keyword)
 
         block_fixed: list[FixedDeckEvent] = []
         block_control: list[ControlEvent] = []
