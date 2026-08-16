@@ -288,6 +288,14 @@ def compute_npv_table(
     discount_base_year: int = DISCOUNT_BASE_YEAR,
 ) -> NpvTable:
     flows = build_cell_flows(ledger, states_by_well, normatives, policies, balance_sheet)
+    return npv_table_from_flows(flows, normatives, discount_base_year)
+
+
+def npv_table_from_flows(
+    flows: Sequence[CellFlows],
+    normatives: NormativeSet,
+    discount_base_year: int = DISCOUNT_BASE_YEAR,
+) -> NpvTable:
     months_by_year = _months_by_year(flows)
 
     tax_by_month: dict[int, float] = {}
@@ -434,3 +442,22 @@ class Economics:
             self._balance_sheet,
             self._discount_base_year,
         )
+
+    def evaluate_with_flows(
+        self,
+        ledger: ProductionLedger,
+        states_by_well: Mapping[str, Sequence[StateAtDate]],
+    ) -> tuple[NpvTable, tuple[CellFlows, ...]]:
+        flows = build_cell_flows(
+            ledger,
+            states_by_well,
+            self._normatives,
+            self._policies,
+            self._balance_sheet,
+        )
+        table = npv_table_from_flows(flows, self._normatives, self._discount_base_year)
+        return table, flows
+
+    @property
+    def discount_base_year(self) -> int:
+        return self._discount_base_year
