@@ -41,6 +41,29 @@ export const useViewBox = (initial: ViewBox) => {
     });
   }, []);
 
+  /**
+   * Зум по доле от размера окна, а не по координате viewBox.
+   *
+   * Нужен именно так, потому что колесо слушается нативно: обработчик живёт
+   * в effect и видел бы viewBox того рендера, на котором был навешан. Доля
+   * курсора от рамки от viewBox не зависит, а пересчёт в координаты идёт
+   * внутри функционального обновления, где текущее состояние всегда свежее.
+   */
+  const zoomAtRatio = useCallback((factor: number, ratioX: number, ratioY: number) => {
+    setViewBox((current) => {
+      const width = Math.min(MAX_SPAN, Math.max(MIN_SPAN, current.width * factor));
+      const height = Math.min(MAX_SPAN, Math.max(MIN_SPAN, current.height * factor));
+      const originX = current.x + ratioX * current.width;
+      const originY = current.y + ratioY * current.height;
+      return {
+        x: originX - ratioX * width,
+        y: originY - ratioY * height,
+        width,
+        height
+      };
+    });
+  }, []);
+
   const startPan = useCallback((clientX: number, clientY: number) => {
     dragRef.current = { x: clientX, y: clientY };
     movedRef.current = false;
@@ -82,5 +105,15 @@ export const useViewBox = (initial: ViewBox) => {
 
   const hasDragged = useCallback(() => movedRef.current, []);
 
-  return { viewBox, reset, zoomBy, startPan, panBy, endPan, isPanning, hasDragged };
+  return {
+    viewBox,
+    reset,
+    zoomBy,
+    zoomAtRatio,
+    startPan,
+    panBy,
+    endPan,
+    isPanning,
+    hasDragged
+  };
 };

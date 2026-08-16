@@ -70,6 +70,10 @@
   border-radius: var(--radius-md);
   background: var(--color-surface);
   overflow: hidden;
+  /* Прокрутка над графом принадлежит графу и не всплывает на страницу.
+     Основную работу делает preventDefault в GraphPlot; это подстраховка на
+     случай инерционной прокрутки, где событие приходит уже после жеста. */
+  overscroll-behavior: contain;
 }
 
 .lambda-graph-plot {
@@ -89,9 +93,23 @@
   cursor: pointer;
 }
 
+/* Обводка фокуса рисуется своим кружком, а не CSS-свойством outline.
+   На SVG-элементе `outline: 2px` трактуется в единицах viewBox, а не в
+   экранных пикселях: при зуме одна единица viewBox превращается в сотню
+   экранных, и обводка выходит кольцом в пол-экрана. Своя геометрия делится
+   на масштаб в GraphPlot и потому постоянна на экране. */
 .lambda-graph-node:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+  outline: none;
+}
+
+.lambda-graph-focus {
+  fill: none;
+  stroke: none;
+  pointer-events: none;
+}
+
+.lambda-graph-node:focus-visible .lambda-graph-focus {
+  stroke: var(--color-accent);
 }
 
 .lambda-graph-node[data-state='faded'] {

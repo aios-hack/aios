@@ -237,4 +237,64 @@ describe('App tabs', () => {
     expect(container.querySelector('.app-tab')?.getAttribute('aria-pressed')).toBe('true');
     await screen.findByTestId('lambda-graph-plot');
   });
+  it('keeps the wheel event to itself so the page does not zoom or scroll', async () => {
+    // Без preventDefault браузер обрабатывает то же колесо сам: обычным
+    // прокручивает страницу, а с Ctrl зумит её целиком вместе с графом.
+    const { container } = await renderGraph();
+    const plot = container.querySelector('[data-testid="lambda-graph-plot"]') as SVGSVGElement;
+
+    const wheel = new WheelEvent('wheel', { deltaY: -120, cancelable: true, bubbles: true });
+    plot.dispatchEvent(wheel);
+
+    expect(wheel.defaultPrevented).toBe(true);
+  });
+
+  it('zooms the viewBox on wheel without touching anything outside the plot', async () => {
+    const { container } = await renderGraph();
+    const plot = container.querySelector('[data-testid="lambda-graph-plot"]') as SVGSVGElement;
+    const before = plot.getAttribute('viewBox');
+
+    plot.dispatchEvent(new WheelEvent('wheel', { deltaY: -120, cancelable: true, bubbles: true }));
+
+    await waitFor(() => {
+      expect(plot.getAttribute('viewBox')).not.toBe(before);
+    });
+    const [, , width] = (plot.getAttribute('viewBox') as string).split(' ').map(Number);
+    const [, , widthBefore] = (before as string).split(' ').map(Number);
+    expect(width).toBeLessThan(widthBefore);
+  });
+
+  it('keeps node size constant on screen while zooming so nodes actually separate', async () => {
+    // Смысл зума: узлы обязаны разъезжаться, а не увеличиваться вместе с
+    // расстояниями. Радиус в единицах viewBox поэтому падает при увеличении.
+    const { container } = await renderGraph();
+    const plot = container.querySelector('[data-testid="lambda-graph-plot"]') as SVGSVGElement;
+    const radius = () =>
+      Number(container.querySelector('[data-well-id="P1"] circle')?.getAttribute('r'));
+    const before = radius();
+
+    plot.dispatchEvent(new WheelEvent('wheel', { deltaY: -120, cancelable: true, bubbles: true }));
+
+    await waitFor(() => {
+      expect(radius()).toBeLessThan(before);
+    });
+  });
+
+  it('draws the focus ring in its own geometry so it stays constant on screen', async () => {
+    // CSS `outline` на SVG трактуется в единицах viewBox: при зуме обводка
+    // раздувалась в кольцо на пол-экрана. Своя геометрия делится на масштаб.
+    const { container } = await renderGraph();
+    const plot = container.querySelector('[data-testid="lambda-graph-plot"]') as SVGSVGElement;
+    const ring = () =>
+      Number(container.querySelector('[data-well-id="P1"] .lambda-graph-focus')?.getAttribute('r'));
+
+    expect(ring()).toBeGreaterThan(0);
+    const before = ring();
+
+    plot.dispatchEvent(new WheelEvent('wheel', { deltaY: -120, cancelable: true, bubbles: true }));
+
+    await waitFor(() => {
+      expect(ring()).toBeLessThan(before);
+    });
+  });
 });
