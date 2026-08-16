@@ -110,14 +110,19 @@ def test_all_rules_off_gives_an_empty_run(context: RuleContext) -> None:
 def test_disabling_a_rule_removes_exactly_its_own_records(
     context: RuleContext,
 ) -> None:
-    baseline = run(context, RuleFlags()).trace.count_by_rule()
+    baseline_flags = RuleFlags()
+    baseline = run(context, baseline_flags).trace.count_by_rule()
     for rule in IMPLEMENTED_RULES:
-        flags = RuleFlags().with_disabled(rule)
+        if not baseline_flags.is_on(rule):
+            continue
+        flags = baseline_flags.with_disabled(rule)
         ablated = run(context, flags).trace.count_by_rule()
         assert rule not in ablated
-        released = superseded(RuleFlags()) - superseded(flags)
+        released = superseded(baseline_flags) - superseded(flags)
         for other in IMPLEMENTED_RULES:
             if other is rule or other in released:
+                continue
+            if not baseline_flags.is_on(other):
                 continue
             assert ablated[other] == baseline[other]
 
