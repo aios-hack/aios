@@ -8,12 +8,29 @@ from typing import Any
 from contracts import Groups, Lambda, RunArtifact
 
 LAYOUT_SEED: int = 20070101
-LAYOUT_ITERATIONS: int = 220
+LAYOUT_ITERATIONS: int = 420
 LAYOUT_SIZE: float = 100.0
-_SPRING_MIN: float = 8.0
-_SPRING_MAX: float = 46.0
-_REPULSION: float = 320.0
-_ATTRACTION: float = 0.12
+
+# Раскладка нормируется на LAYOUT_SIZE в конце, поэтому «сделать пошире»
+# изменением размера поля нельзя: рамка растянется вместе с комком. Плотность
+# задаёт только **отношение** отталкивания к притяжению и длины пружин.
+#
+# Прежние значения (_REPULSION 320, _ATTRACTION 0.12) стягивали 103 узла в
+# центральную треть поля: поля пустые, середина нечитаема. Отталкивание
+# усилено втрое, притяжение ослаблено вдвое — узлы расходятся до краёв, а
+# структура связей сохраняется, потому что относительные длины пружин
+# (сильная связь короче слабой) не изменились.
+_SPRING_MIN: float = 14.0
+_SPRING_MAX: float = 62.0
+_REPULSION: float = 1000.0
+_ATTRACTION: float = 0.06
+
+# Минимальное расстояние между узлами: ниже него отталкивание перестаёт
+# слабеть с расстоянием и работает как жёсткий разделитель. Без этого пара
+# случайно сблизившихся узлов слипается намертво — сила ~1/d² на малых d
+# огромна по величине, но шаг ограничен _MAX_STEP, и вытолкнуть их не успевает.
+_MIN_SEPARATION: float = 6.0
+
 _MAX_STEP: float = 6.0
 _EPS: float = 1e-9
 
@@ -93,7 +110,10 @@ def _layout(
                 distance = math.hypot(dx, dy)
                 if distance < _EPS:
                     dx, dy, distance = 0.01, 0.01, 0.0141
-                push = _REPULSION / (distance * distance)
+                # Ниже порога отталкивание не растёт дальше, а держится на
+                # значении порога: так узлы разъезжаются, а не выстреливают.
+                effective = max(distance, _MIN_SEPARATION)
+                push = _REPULSION / (effective * effective)
                 ux, uy = dx / distance, dy / distance
                 forces[first][0] += ux * push
                 forces[first][1] += uy * push

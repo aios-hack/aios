@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { GraphFile, GraphNode } from '../../api/types';
 import { useT } from '../../i18n/I18nContext';
 import { graphColors, groupColor } from '../../theme/tokens';
@@ -17,6 +17,15 @@ import { createViewBox, useViewBox } from './useViewBox';
 const PAD = 12;
 const NODE_R = 2.6;
 const LABEL_DY = -3.6;
+
+// Порог, ниже которого подписи не рисуются. При обзорном масштабе 103 подписи
+// занимают больше площади, чем сами узлы, и граф читается как каша: связность
+// видна, а номера всё равно нечитаемы. Появляются они при увеличении, когда
+// места под них действительно хватает.
+const LABEL_MIN_SCALE = 1.8;
+
+// Ниже этого масштаба подпись есть только у выбранного узла и его соседей.
+const LABEL_SELECTION_SCALE = 1.0;
 
 const nodeFill = (node: GraphNode, index: Map<string, number>): string => {
   if (node.group === null) {
@@ -39,12 +48,55 @@ export const GraphPlot = ({ data, threshold, selection, onSelect }: GraphPlotPro
   const t = useT();
   const svgRef = useRef<SVGSVGElement | null>(null);
   const initial = createViewBox(data.layout?.size ?? 100, PAD);
-  const { viewBox, zoomBy, startPan, panBy, endPan, isPanning, hasDragged } =
+  const { viewBox, zoomAtRatio, startPan, panBy, endPan, isPanning, hasDragged } =
     useViewBox(initial);
+
+  // Колесо слушается нативно, а не через onWheel, ради одной строки —
+  // preventDefault. Без неё браузер обрабатывает то же событие сам: обычным
+  // колесом прокручивает страницу, а с Ctrl зумит её целиком, и граф
+  // приближается вместе со всем интерфейсом.
+  //
+  // React вешает wheel на корневой контейнер пассивно, а в пассивном
+  // слушателе preventDefault игнорируется молча — отсюда явный
+  // addEventListener с { passive: false } на самом svg.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (svg === null) {
+      return;
+    }
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const factor = event.deltaY > 0 ? 1.12 : 1 / 1.12;
+      const rect = svg.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        zoomAtRatio(factor, 0.5, 0.5);
+        return;
+      }
+      zoomAtRatio(
+        factor,
+        (event.clientX - rect.left) / rect.width,
+        (event.clientY - rect.top) / rect.height
+      );
+    };
+    svg.addEventListener('wheel', onWheel, { passive: false });
+    return () => svg.removeEventListener('wheel', onWheel);
+  }, [zoomAtRatio]);
   const index = groupIndex(data);
   const positions = new Map(data.nodes.map((node) => [node.id, node]));
   const shown = visibleEdges(data.edges, threshold);
   const maxWeight = data.weight_range?.max ?? 0;
+
+  // Во сколько раз приблизили относительно обзорного вида.
+  //
+  // Размеры узлов, подписей и рёбер делятся на этот масштаб, то есть остаются
+  // постоянными в экранных пикселях. Без этого зум бесполезен: и узлы, и
+  // расстояния между ними заданы в единицах viewBox, растут одинаково, и
+  // приближение даёт ту же кашу, только крупнее.
+  const scale = initial.width / viewBox.width;
+  const nodeR = NODE_R / scale;
+  const labelSize = 3.1 / scale;
+  const labelDy = LABEL_DY / scale;
+  const strokeAt = (selected: boolean) => (selected ? 1.1 : 0.5) / scale;
 
   return (
     <svg
@@ -54,17 +106,6 @@ export const GraphPlot = ({ data, threshold, selection, onSelect }: GraphPlotPro
       role="img"
       aria-label={t('graph.ariaLabel')}
       data-testid="lambda-graph-plot"
-      onWheel={(event) => {
-        const rect = svgRef.current?.getBoundingClientRect();
-        const factor = event.deltaY > 0 ? 1.12 : 1 / 1.12;
-        if (!rect || rect.width === 0 || rect.height === 0) {
-          zoomBy(factor, viewBox.x + viewBox.width / 2, viewBox.y + viewBox.height / 2);
-          return;
-        }
-        const ratioX = (event.clientX - rect.left) / rect.width;
-        const ratioY = (event.clientY - rect.top) / rect.height;
-        zoomBy(factor, viewBox.x + ratioX * viewBox.width, viewBox.y + ratioY * viewBox.height);
-      }}
       onPointerDown={(event) => {
         startPan(event.clientX, event.clientY);
       }}
@@ -94,7 +135,7 @@ export const GraphPlot = ({ data, threshold, selection, onSelect }: GraphPlotPro
               x2={to.x}
               y2={to.y}
               stroke={strong ? graphColors.injector : graphColors.edge}
-              strokeWidth={edgeWidth(edge.weight, maxWeight) * (strong ? 2 : 1)}
+              strokeWidth={(edgeWidth(edge.weight, maxWeight) * (strong ? 2 : 1)) / scale}
               strokeOpacity={
                 selection === null || strong ? edgeOpacity(edge.weight, maxWeight) : 0.12
               }
@@ -119,6 +160,11 @@ export const GraphPlot = ({ data, threshold, selection, onSelect }: GraphPlotPro
           const fill = state === 'faded' ? graphColors.dim : nodeFill(node, index);
           const stroke =
             node.role === 'INJ' ? graphColors.injector : graphColors.producer;
+          // Подпись видна, когда под неё есть место: при обзорном масштабе —
+          // только у выбранного узла и его соседей, при увеличении — у всех.
+          const labelled =
+            scale >= LABEL_MIN_SCALE ||
+            (scale >= LABEL_SELECTION_SCALE && selection !== null && state !== 'faded');
           return (
             <g
               key={node.id}
@@ -147,31 +193,41 @@ export const GraphPlot = ({ data, threshold, selection, onSelect }: GraphPlotPro
             >
               {node.role === 'INJ' ? (
                 <path
-                  d={trianglePath(node.x, node.y, NODE_R)}
+                  d={trianglePath(node.x, node.y, nodeR)}
                   fill={fill}
                   stroke={stroke}
-                  strokeWidth={state === 'selected' ? 1.1 : 0.5}
+                  strokeWidth={strokeAt(state === 'selected')}
                 />
               ) : (
                 <circle
                   cx={node.x}
                   cy={node.y}
-                  r={NODE_R}
+                  r={nodeR}
                   fill={fill}
                   stroke={stroke}
-                  strokeWidth={state === 'selected' ? 1.1 : 0.5}
+                  strokeWidth={strokeAt(state === 'selected')}
                 />
               )}
-              <text
-                className="lambda-graph-label"
-                x={node.x}
-                y={node.y + LABEL_DY}
-                fontSize={3.1}
-                textAnchor="middle"
-                fill={state === 'faded' ? graphColors.muted : graphColors.text}
-              >
-                {node.id}
-              </text>
+              <circle
+                className="lambda-graph-focus"
+                cx={node.x}
+                cy={node.y}
+                r={nodeR * 1.9}
+                strokeWidth={1.4 / scale}
+              />
+              {labelled ? (
+                <text
+                  className="lambda-graph-label"
+                  x={node.x}
+                  y={node.y + labelDy}
+                  fontSize={labelSize}
+                  textAnchor="middle"
+                  fill={state === 'faded' ? graphColors.muted : graphColors.text}
+                >
+                  {node.id}
+                </text>
+              ) : null}
+              <title>{node.id}</title>
             </g>
           );
         })}
