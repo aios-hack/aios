@@ -46,6 +46,20 @@ from .dataset_plan import (
 )
 from .opm_deck import EmittedOpmDeck, OpmDeckEmitter, OpmDeckError, bundle_hash
 from .response_loader import ResponseLoader, ResponseLoaderError, load_density_by_pvtnum
+from .verification import (
+    CandidateCheck,
+    ConvergenceCriterion,
+    Retrainer,
+    RoundReport,
+    SurrogateVerdict,
+    SurrogateVersion,
+    TruthOracle,
+    TruthVerdict,
+    VerificationError,
+    VerificationReport,
+    run_verification_loop,
+    trust_region_objective,
+)
 from .runner import (
     DEFAULT_FLOW_ARGS,
     DEFAULT_OPM_IMAGE,
@@ -65,6 +79,18 @@ from .summary import (
 )
 
 __all__ = [
+    "CandidateCheck",
+    "ConvergenceCriterion",
+    "Retrainer",
+    "RoundReport",
+    "SurrogateVerdict",
+    "SurrogateVersion",
+    "TruthOracle",
+    "TruthVerdict",
+    "VerificationError",
+    "VerificationReport",
+    "run_verification_loop",
+    "trust_region_objective",
     "baseline_profile",
     "baseline_schedule",
     "BaselineProfile",
