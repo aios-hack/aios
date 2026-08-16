@@ -4,6 +4,11 @@ from connectivity.deck import (
     MONTHS,
     parse_deck_schedule,
 )
+from connectivity.setpoints import (
+    SetpointChange,
+    StepDistribution,
+    setpoint_changes,
+)
 from connectivity.fund import (
     ActiveFund,
     FundHistory,
@@ -20,10 +25,13 @@ __all__ = [
     "DeckWellRecord",
     "FundHistory",
     "MONTHS",
+    "SetpointChange",
+    "StepDistribution",
     "Window",
     "active_fund_at",
     "active_fund_in_window",
     "build_fund_history",
     "parse_deck_schedule",
+    "setpoint_changes",
     "slice_windows",
 ]
