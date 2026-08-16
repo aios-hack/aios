@@ -149,7 +149,7 @@ class EspStateMachine:
                     f"скважина {well}: исключённый шаг {deck_step} вне дека"
                 )
 
-        charge_from_deck_step = n_deck_dates - n_intervals - 1
+        charge_from_deck_step = n_deck_dates - n_intervals
         current: EspCatalogEntry | None = None
         nominal_track: list[float | None] = []
         events: list[EspEvent] = []

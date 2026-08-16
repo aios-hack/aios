@@ -64,11 +64,11 @@ def track(
 
 
 def test_start_size_determined_by_history_prefix() -> None:
-    control_tail = [90.0, 150.0, 150.0, 150.0, 150.0]
-    track_low = track([55.0, 55.0, 55.0] + control_tail)
-    track_high = track([90.0, 90.0, 90.0] + control_tail)
-    assert track_low.nominal_by_deck_step[2] == 50.0
-    assert track_high.nominal_by_deck_step[2] == 80.0
+    control_tail = [90.0, 150.0, 150.0, 150.0]
+    track_low = track([55.0, 55.0, 55.0, 55.0] + control_tail)
+    track_high = track([90.0, 90.0, 90.0, 90.0] + control_tail)
+    assert track_low.nominal_by_deck_step[3] == 50.0
+    assert track_high.nominal_by_deck_step[3] == 80.0
     assert [e.new_nominal for e in track_low.events] == [80.0, 125.0]
     assert [e.new_nominal for e in track_high.events] == [125.0]
     assert track_low.total_capex_rub == 1_850_000.0 + 2_750_000.0
@@ -76,7 +76,7 @@ def test_start_size_determined_by_history_prefix() -> None:
 
 
 def test_gradual_upsize_costs_8_65m() -> None:
-    result = track([90.0, 90.0, 90.0, 110.0, 150.0, 150.0, 150.0, 150.0])
+    result = track([90.0, 90.0, 90.0, 90.0, 110.0, 150.0, 150.0, 150.0])
     assert [e.kind for e in result.events] == [EspEventKind.UPSIZE, EspEventKind.UPSIZE]
     assert [(e.previous_nominal, e.new_nominal) for e in result.events] == [
         (80.0, 100.0),
@@ -88,7 +88,7 @@ def test_gradual_upsize_costs_8_65m() -> None:
 
 
 def test_jump_upsize_costs_4_55m() -> None:
-    result = track([90.0, 90.0, 90.0, 150.0, 150.0, 150.0, 150.0, 150.0])
+    result = track([90.0, 90.0, 90.0, 90.0, 150.0, 150.0, 150.0, 150.0])
     assert len(result.events) == 1
     event = result.events[0]
     assert event.kind is EspEventKind.UPSIZE
@@ -100,10 +100,10 @@ def test_jump_upsize_costs_4_55m() -> None:
 
 
 def test_history_upsize_not_charged_control_upsize_charged() -> None:
-    result = track([55.0, 90.0, 90.0, 150.0, 150.0, 150.0, 150.0, 150.0])
+    result = track([55.0, 90.0, 90.0, 90.0, 150.0, 150.0, 150.0, 150.0])
     assert result.nominal_by_deck_step[1] == 80.0
     assert len(result.events) == 1
-    assert result.events[0].deck_step == 3
+    assert result.events[0].deck_step == 4
     assert result.events[0].new_nominal == 125.0
 
 
@@ -142,7 +142,7 @@ def test_charged_option_mirrors_reference_branch() -> None:
     historical = track([90.0] * 8, charge=ChargeInitialEsp.CHARGED_AT_FIRST_STEP)
     assert len(historical.events) == 1
     assert historical.events[0].kind is EspEventKind.INITIAL
-    assert historical.events[0].deck_step == 3
+    assert historical.events[0].deck_step == 4
     assert historical.events[0].capex_rub == 1_850_000.0
     commissioned = track(
         [0.0, 0.0, 0.0, 0.0, 0.0, 90.0, 90.0, 90.0],
