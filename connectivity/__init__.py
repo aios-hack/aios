@@ -34,6 +34,18 @@ from connectivity.doe import (
     plans_for_windows,
     realized_matrix,
 )
+from connectivity.groups import (
+    GROUP_PREFIX,
+    GroupingParams,
+    GroupingReport,
+    build_groups,
+    coverage_of,
+    group_hash,
+    group_sizes,
+    lambda_hash,
+    moved_share,
+    validate_groups,
+)
 from connectivity.hadamard import hadamard, is_hadamard, is_prime, normalized
 
 __all__ = [
@@ -45,6 +57,9 @@ __all__ = [
     "DeckWellRecord",
     "DoEPlan",
     "FundHistory",
+    "GROUP_PREFIX",
+    "GroupingParams",
+    "GroupingReport",
     "Level",
     "MONTHS",
     "Orthogonality",
@@ -57,9 +72,15 @@ __all__ = [
     "active_fund_in_window",
     "amplitude_from_prior",
     "build_fund_history",
+    "build_groups",
+    "coverage_of",
+    "group_hash",
+    "group_sizes",
     "hadamard",
     "is_hadamard",
     "is_prime",
+    "lambda_hash",
+    "moved_share",
     "normalized",
     "orthogonality_of",
     "parse_deck_schedule",
@@ -69,4 +90,5 @@ __all__ = [
     "realized_matrix",
     "setpoint_changes",
     "slice_windows",
+    "validate_groups",
 ]
