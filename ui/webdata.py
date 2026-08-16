@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -7,7 +8,26 @@ from ui.deck import load_completions, load_wellheads
 GRID_NI: int = 91
 GRID_NJ: int = 102
 GRID_NK: int = 59
-DEFAULT_DECK_PATH: Path = Path(__file__).resolve().parents[2] / "docs" / "models" / "Model_Z" / "Model_Z_sch.inc"
+DECK_RELATIVE: Path = Path("models") / "Model_Z" / "Model_Z_sch.inc"
+
+
+def default_deck_path() -> Path:
+    from_env = os.environ.get("AIOS_DOCS_ROOT")
+    roots = (
+        (Path(from_env),)
+        if from_env
+        else tuple(
+            parent / "docs" for parent in Path(__file__).resolve().parents[1:4]
+        )
+    )
+    for root in roots:
+        candidate = root / DECK_RELATIVE
+        if candidate.exists():
+            return candidate
+    return roots[0] / DECK_RELATIVE
+
+
+DEFAULT_DECK_PATH: Path = default_deck_path()
 DEFAULT_OUT_PATH: Path = Path(__file__).resolve().parent / "web" / "public" / "data" / "wells.json"
 
 

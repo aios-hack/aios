@@ -7,7 +7,13 @@ import pytest
 from ui.deck import load_completions
 from ui.webdata import build_wells_data, export_wells_json, occupied_k_values, split_layers
 
-DECK_PATH: Path = Path(__file__).resolve().parents[3] / "docs" / "models" / "Model_Z" / "Model_Z_sch.inc"
+from conftest import missing_reason, model_z_schedule
+
+DECK_PATH: Path | None = model_z_schedule()
+
+pytestmark = pytest.mark.skipif(
+    DECK_PATH is None, reason=missing_reason("Model_Z_sch.inc")
+)
 EXPECTED_WELLS: int = 103
 
 
