@@ -1,0 +1,152 @@
+from __future__ import annotations
+
+from dataclasses import replace
+
+import pytest
+
+from contracts import EventKind, NormativeSet, Rule
+
+from policy import RuleContext, RuleFlags, apply_rule, default_theta
+from policy.rules import r1
+from policy.tests.conftest import (
+    OIL_DENSITY_T_PER_M3,
+    influence_of,
+    injector,
+    producer,
+    state_of,
+)
+
+
+def two_producer_context(context: RuleContext, budget: float = 400.0) -> RuleContext:
+    influence = influence_of(
+        producers=("42", "43"),
+        injectors=("101", "102"),
+        matrix=((0.6, 0.0), (0.0, 0.6)),
+    )
+    return replace(
+        context, influence=influence, injection_budget_m3_per_day=budget
+    )
+
+
+WASHED_OUT_WATERCUT = 0.9995
+
+
+def two_producer_state():
+    return state_of(
+        producer("42", liquid_rate_m3_per_day=40.0, watercut=0.50),
+        producer("43", liquid_rate_m3_per_day=40.0, watercut=WASHED_OUT_WATERCUT),
+        injector("101", injection_rate_m3_per_day=200.0),
+        injector("102", injection_rate_m3_per_day=200.0),
+    )
+
+
+def test_r1_has_one_theta_parameter() -> None:
+    assert r1.THETA_NAMES == ("r1_lag_months",)
+
+
+def test_marginal_value_dimension_is_rub_per_m3_of_injection(
+    context: RuleContext, normatives: NormativeSet
+) -> None:
+    ctx = two_producer_context(context)
+    state = two_producer_state()
+    value, inputs = r1.marginal_value_rub_per_m3(state, ctx, "101")
+    expected_gross = 0.6 * (1.0 - 0.50) * OIL_DENSITY_T_PER_M3 * 8360.0
+    assert inputs["gross_value_rub_per_m3"] == pytest.approx(expected_gross)
+    assert value == pytest.approx(
+        expected_gross - normatives.opex_injection_rub_per_m3
+    )
+
+
+def test_watercut_enters_as_separate_factor(context: RuleContext) -> None:
+    ctx = two_producer_context(context)
+    clean = state_of(
+        producer("42", liquid_rate_m3_per_day=40.0, watercut=0.0),
+        producer("43", liquid_rate_m3_per_day=40.0, watercut=0.98),
+        injector("101", injection_rate_m3_per_day=200.0),
+        injector("102", injection_rate_m3_per_day=200.0),
+    )
+    half = state_of(
+        producer("42", liquid_rate_m3_per_day=40.0, watercut=0.5),
+        producer("43", liquid_rate_m3_per_day=40.0, watercut=0.98),
+        injector("101", injection_rate_m3_per_day=200.0),
+        injector("102", injection_rate_m3_per_day=200.0),
+    )
+    gross_clean = r1.marginal_value_rub_per_m3(clean, ctx, "101")[1][
+        "gross_value_rub_per_m3"
+    ]
+    gross_half = r1.marginal_value_rub_per_m3(half, ctx, "101")[1][
+        "gross_value_rub_per_m3"
+    ]
+    assert gross_half == pytest.approx(gross_clean * 0.5)
+
+
+def test_water_goes_to_the_clean_side(context: RuleContext) -> None:
+    ctx = two_producer_context(context, budget=400.0)
+    outcome = apply_rule(Rule.R1, two_producer_state(), ctx, default_theta(), RuleFlags())
+    targets = {event.well: event.value for event in outcome.decisions}
+    assert targets["101"] == pytest.approx(400.0)
+    assert targets["102"] == pytest.approx(0.0)
+
+
+def test_budget_is_not_exceeded(context: RuleContext) -> None:
+    influence = influence_of(
+        producers=("42", "43"),
+        injectors=("101", "102"),
+        matrix=((0.6, 0.2), (0.1, 0.5)),
+    )
+    ctx = replace(context, influence=influence, injection_budget_m3_per_day=350.0)
+    outcome = apply_rule(Rule.R1, two_producer_state(), ctx, default_theta(), RuleFlags())
+    assert sum(event.value for event in outcome.decisions) == pytest.approx(350.0)
+
+
+def test_washed_out_zone_gets_nothing(context: RuleContext) -> None:
+    influence = influence_of(
+        producers=("43",), injectors=("102",), matrix=((0.6,),)
+    )
+    ctx = replace(context, influence=influence, injection_budget_m3_per_day=300.0)
+    state = state_of(
+        producer("43", liquid_rate_m3_per_day=40.0, watercut=0.999),
+        injector("102", injection_rate_m3_per_day=200.0),
+    )
+    outcome = apply_rule(Rule.R1, state, ctx, default_theta(), RuleFlags())
+    assert [event.value for event in outcome.decisions] == [0.0]
+    assert outcome.trace[0].inputs["marginal_value_rub_per_m3"] < 0.0
+
+
+def test_trace_carries_decision_numbers(context: RuleContext) -> None:
+    ctx = two_producer_context(context)
+    outcome = apply_rule(Rule.R1, two_producer_state(), ctx, default_theta(), RuleFlags())
+    entry = next(e for e in outcome.trace if e.well == "101")
+    assert entry.rule is Rule.R1
+    assert entry.decision == "SET_RATE"
+    for key in (
+        "marginal_value_rub_per_m3",
+        "opex_injection_rub_per_m3",
+        "injection_budget_m3_per_day",
+        "share_of_budget",
+        "target_rate_m3_per_day",
+        "theta_r1_lag_months",
+        "lambda_lag_months",
+    ):
+        assert key in entry.inputs
+
+
+def test_decisions_are_set_rate(context: RuleContext) -> None:
+    ctx = two_producer_context(context)
+    outcome = apply_rule(Rule.R1, two_producer_state(), ctx, default_theta(), RuleFlags())
+    assert {event.kind for event in outcome.decisions} == {EventKind.SET_RATE}
+
+
+def test_missing_lambda_raises_not_returns_zero(context: RuleContext) -> None:
+    ctx = replace(context, injection_budget_m3_per_day=300.0)
+    with pytest.raises(ValueError):
+        apply_rule(Rule.R1, two_producer_state(), ctx, default_theta(), RuleFlags())
+
+
+def test_missing_budget_raises(context: RuleContext) -> None:
+    influence = influence_of(
+        producers=("42",), injectors=("101",), matrix=((0.6,),)
+    )
+    ctx = replace(context, influence=influence)
+    with pytest.raises(ValueError):
+        apply_rule(Rule.R1, two_producer_state(), ctx, default_theta(), RuleFlags())

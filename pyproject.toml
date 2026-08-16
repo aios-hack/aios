@@ -24,19 +24,32 @@ dev = ["pytest>=8"]
 packages = [
     "aios_cli",
     "bridge",
+    "config",
+    "connectivity",
     "contracts",
     "economics",
+    "llm",
     "optimizer",
+    "policy",
+    "policy.rules",
+    "robustness",
     "schedule",
     "surrogate",
+    "ui",
 ]
 
 [tool.pytest.ini_options]
 testpaths = [
     "bridge/tests",
+    "config/tests",
+    "connectivity/tests",
     "contracts/tests",
     "economics/tests",
+    "llm/tests",
     "optimizer/tests",
+    "policy/tests",
+    "robustness/tests",
     "schedule/tests",
     "surrogate/tests",
+    "ui/tests",
 ]
