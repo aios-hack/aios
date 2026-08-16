@@ -21,29 +21,57 @@
 .scenarios-button,
 .scenarios-add-button,
 .scenarios-row-button {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text);
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-accent);
   font-family: var(--font-family-base);
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-bold);
   cursor: pointer;
+  transition: background var(--duration-state) var(--ease-out),
+    border-color var(--duration-state) var(--ease-out),
+    transform var(--duration-state) var(--ease-out),
+    box-shadow var(--duration-state) var(--ease-out);
+}
+
+.scenarios-button:hover:not(:disabled),
+.scenarios-add-button:hover:not(:disabled),
+.scenarios-row-button:hover:not(:disabled) {
+  background: var(--color-accent-dim);
+  border-color: var(--color-accent);
+  transform: translateY(-2px);
+}
+
+.scenarios-button:active:not(:disabled),
+.scenarios-add-button:active:not(:disabled),
+.scenarios-row-button:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .scenarios-button {
   height: var(--size-control-height);
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-5);
 }
 
 .scenarios-button-primary:not(:disabled) {
-  border-color: var(--color-accent);
+  border-color: transparent;
   background: var(--color-accent);
   color: var(--color-accent-contrast);
+  box-shadow: var(--shadow-accent);
 }
 
-.scenarios-button:disabled {
-  color: var(--color-text-muted);
+.scenarios-button-primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+  border-color: transparent;
+  box-shadow: var(--shadow-accent-hover);
+}
+
+.scenarios-button:disabled,
+.scenarios-add-button:disabled,
+.scenarios-row-button:disabled {
+  color: var(--color-text-faint);
+  border-color: var(--color-border);
   cursor: not-allowed;
 }
 
@@ -137,17 +165,31 @@
 .scenarios-input {
   width: 100%;
   height: var(--size-control-height);
-  padding: 0 var(--space-2);
-  border: 1px solid var(--color-border);
+  padding: 0 var(--space-3);
+  border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--color-bg);
+  background: var(--color-surface-solid);
   color: var(--color-text);
-  font-family: var(--font-family-base);
+  font-family: var(--font-family-mono);
   font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  transition: border-color var(--duration-state) var(--ease-out),
+    background var(--duration-state) var(--ease-out);
+}
+
+.scenarios-input:hover {
+  border-color: var(--color-border-strong);
+}
+
+.scenarios-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  background: var(--color-accent-dim);
 }
 
 .scenarios-input[aria-invalid='true'] {
   border-color: var(--color-error);
+  background: var(--color-error-bg);
 }
 
 .scenarios-field-error {

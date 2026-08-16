@@ -1,0 +1,17 @@
+{
+  "by_year": {
+    "2014": 47400499.999999985,
+    "2015": 6705636.363636359
+  },
+  "discrepancies": 0,
+  "input": "/data/docs/models/CHDD_PYTHON/input/Пример_исходных_данных.xlsx",
+  "matched": true,
+  "n_intervals": 24,
+  "n_wells": 2,
+  "normatives_source": "/data/docs/models/CHDD_PYTHON/input/Нормативы_ЧДД.xlsx",
+  "npv_absolute_difference": 1.4901161193847656e-08,
+  "npv_methodology": 54106136.363636345,
+  "npv_reference": 54106136.36363636,
+  "seed": 20260816,
+  "start_year": 2014
+}

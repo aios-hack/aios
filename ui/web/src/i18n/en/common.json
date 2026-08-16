@@ -1,9 +1,10 @@
 {
-  "app.title": "AIOS — Field",
+  "app.eyebrow": "Multi-agent system",
+  "app.title": "— Field",
   "app.subtitle": "Model_Z well stock control",
   "theme.light": "Light theme",
   "theme.dark": "Dark theme",
-  "lang.toggle": "Русский",
+  "lang.switch": "Switch language to Russian",
   "tab.graph": "Influence graph",
   "tab.map": "Map",
   "tab.steps": "Steps",

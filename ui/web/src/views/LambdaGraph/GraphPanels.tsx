@@ -1,6 +1,7 @@
 import type { GraphFile } from '../../api/types';
 import { useT } from '../../i18n/I18nContext';
 import { groupColor } from '../../theme/tokens';
+import { Slider } from '../../ui/Slider';
 import { formatWindowDate, groupIndex, roundWeight, type Selection } from './model';
 
 export const WindowBadge = ({ window }: { window: GraphFile['window'] }) => {
@@ -42,15 +43,14 @@ export const ThresholdControl = ({
       <label className="lambda-graph-threshold-label" htmlFor="lambda-threshold">
         {t('graph.threshold.label')}
       </label>
-      <input
+      <Slider
         id="lambda-threshold"
         className="lambda-graph-slider"
-        type="range"
         min={min}
         max={max}
         step={step}
         value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
+        onChange={onChange}
       />
       <output className="lambda-graph-threshold-value">{roundWeight(value)}</output>
       <span className="lambda-graph-count" data-testid="lambda-graph-count">

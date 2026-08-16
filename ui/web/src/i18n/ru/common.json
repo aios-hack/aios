@@ -1,9 +1,10 @@
 {
-  "app.title": "AIOS — месторождение",
+  "app.eyebrow": "Мультиагентная система",
+  "app.title": "— месторождение",
   "app.subtitle": "Управление фондом скважин Model_Z",
   "theme.light": "Светлая тема",
   "theme.dark": "Тёмная тема",
-  "lang.toggle": "English",
+  "lang.switch": "Переключить язык на английский",
   "tab.graph": "Граф влияния",
   "tab.map": "Карта",
   "tab.steps": "Шаги",

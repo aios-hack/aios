@@ -10,9 +10,11 @@ import {
   nodeState,
   roundWeight,
   visibleEdges,
-  type Selection
+  type Selection,
+  type WellFluidState
 } from './model';
 import { createViewBox, useViewBox } from './useViewBox';
+import { WellGauge } from './WellGauge';
 
 const PAD = 12;
 const NODE_R = 2.6;
@@ -27,24 +29,30 @@ const LABEL_MIN_SCALE = 1.8;
 // Ниже этого масштаба подпись есть только у выбранного узла и его соседей.
 const LABEL_SELECTION_SCALE = 1.0;
 
-const nodeFill = (node: GraphNode, index: Map<string, number>): string => {
+// Группа переехала с заливки на кольцо вокруг узла: заливка теперь занята
+// уровнем обводнённости (задача 67), а участок остаётся различимым.
+const groupRing = (node: GraphNode, index: Map<string, number>): string | null => {
   if (node.group === null) {
-    return graphColors.dim;
+    return null;
   }
   return groupColor(index.get(node.group) ?? 0);
 };
-
-const trianglePath = (x: number, y: number, r: number): string =>
-  `M ${x} ${y - r * 1.15} L ${x + r} ${y + r * 0.8} L ${x - r} ${y + r * 0.8} Z`;
 
 interface GraphPlotProps {
   data: GraphFile;
   threshold: number;
   selection: Selection | null;
+  wellStates: Map<string, WellFluidState>;
   onSelect: (well: string) => void;
 }
 
-export const GraphPlot = ({ data, threshold, selection, onSelect }: GraphPlotProps) => {
+export const GraphPlot = ({
+  data,
+  threshold,
+  selection,
+  wellStates,
+  onSelect
+}: GraphPlotProps) => {
   const t = useT();
   const svgRef = useRef<SVGSVGElement | null>(null);
   const initial = createViewBox(data.layout?.size ?? 100, PAD);
@@ -157,9 +165,6 @@ export const GraphPlot = ({ data, threshold, selection, onSelect }: GraphPlotPro
       <g className="lambda-graph-nodes">
         {data.nodes.map((node) => {
           const state = nodeState(node, selection);
-          const fill = state === 'faded' ? graphColors.dim : nodeFill(node, index);
-          const stroke =
-            node.role === 'INJ' ? graphColors.injector : graphColors.producer;
           // Подпись видна, когда под неё есть место: при обзорном масштабе —
           // только у выбранного узла и его соседей, при увеличении — у всех.
           const labelled =
@@ -191,23 +196,28 @@ export const GraphPlot = ({ data, threshold, selection, onSelect }: GraphPlotPro
                 }
               }}
             >
-              {node.role === 'INJ' ? (
-                <path
-                  d={trianglePath(node.x, node.y, nodeR)}
-                  fill={fill}
-                  stroke={stroke}
-                  strokeWidth={strokeAt(state === 'selected')}
-                />
-              ) : (
+              {groupRing(node, index) !== null && state !== 'faded' && (
                 <circle
                   cx={node.x}
                   cy={node.y}
-                  r={nodeR}
-                  fill={fill}
-                  stroke={stroke}
-                  strokeWidth={strokeAt(state === 'selected')}
+                  r={nodeR * 1.55}
+                  fill="none"
+                  stroke={groupRing(node, index) ?? ''}
+                  strokeWidth={0.4 / scale}
+                  opacity={0.55}
                 />
               )}
+              <WellGauge
+                id={node.id}
+                x={node.x}
+                y={node.y}
+                r={nodeR}
+                role={node.role}
+                watercut={wellStates.get(node.id)?.watercut ?? null}
+                commissioned={wellStates.get(node.id)?.commissioned ?? true}
+                state={state}
+                strokeWidth={strokeAt(state === 'selected')}
+              />
               <circle
                 className="lambda-graph-focus"
                 cx={node.x}

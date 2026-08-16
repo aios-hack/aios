@@ -49,7 +49,6 @@
   flex: 1 1 var(--size-stat-min);
   min-width: var(--size-stat-min);
   max-width: var(--size-card-max);
-  accent-color: var(--color-accent);
 }
 
 .lambda-graph-threshold-value {

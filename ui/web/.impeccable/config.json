@@ -1,0 +1,20 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "reason": "Шрифт фирменного стиля организаторов, замерен с сайта хакатона",
+        "createdAt": "2026-08-16T13:09:31.570Z"
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "reason": "Кривая фирменного стиля организаторов (.icon-toggle/.kp-dot), применяется только к переключателям, не к перетаскиваемым элементам",
+        "createdAt": "2026-08-16T13:10:00.645Z"
+      }
+    ]
+  }
+}

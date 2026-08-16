@@ -7,6 +7,11 @@ export interface Selection {
   neighbours: Set<string>;
 }
 
+export interface WellFluidState {
+  watercut: number | null;
+  commissioned: boolean;
+}
+
 export const isGraphFile = (data: unknown): data is GraphFile => {
   if (typeof data !== 'object' || data === null) {
     return false;

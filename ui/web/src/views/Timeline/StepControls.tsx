@@ -1,5 +1,6 @@
 import type { TimelineStep } from '../../api/types';
 import { useI18n } from '../../i18n/I18nContext';
+import { Slider } from '../../ui/Slider';
 import { formatStepDate } from './format';
 
 interface StepControlsProps {
@@ -46,15 +47,14 @@ export const StepControls = ({
           {t('steps.next')}
         </button>
       </div>
-      <input
-        type="range"
+      <Slider
         className="timeline-slider"
         min={0}
         max={last}
         step={1}
         value={stepIndex}
-        aria-label={t('steps.sliderLabel')}
-        onChange={(event) => onSelect(Number(event.target.value))}
+        ariaLabel={t('steps.sliderLabel')}
+        onChange={onSelect}
       />
       <p className="timeline-step-label">
         <span>{t('steps.position', { step: stepIndex + 1, total: steps.length })}</span>

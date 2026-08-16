@@ -19,6 +19,14 @@ export const graphColors = {
   muted: 'var(--color-text-muted)'
 } as const;
 
+export const fluidColors = {
+  oil: 'var(--color-oil)',
+  oilStrong: 'var(--color-oil-strong)',
+  water: 'var(--color-water)',
+  waterPale: 'var(--color-water-pale)',
+  unknown: 'var(--color-unknown)'
+} as const;
+
 export const groupPalette = [
   'var(--color-group-1)',
   'var(--color-group-2)',

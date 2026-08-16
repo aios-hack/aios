@@ -5,7 +5,7 @@ import { useTimeline, type ResourceState } from '../../state/TimelineContext';
 import { ViewStatus } from '../../ui/ViewStatus';
 import { GroupLegend, MetaPanel, SelectionPanel, ThresholdControl, WindowBadge } from './GraphPanels';
 import { GraphPlot } from './GraphPlot';
-import { buildSelection, isGraphFile, visibleEdges } from './model';
+import { buildSelection, isGraphFile, visibleEdges, type WellFluidState } from './model';
 import './LambdaGraph.css';
 
 const useGraphFile = (): ResourceState<GraphFile> => {
@@ -41,7 +41,7 @@ const useGraphFile = (): ResourceState<GraphFile> => {
 export const LambdaGraph = () => {
   const t = useT();
   const graph = useGraphFile();
-  const { selectedWell, selectWell } = useTimeline();
+  const { selectedWell, selectWell, timeline, stepIndex } = useTimeline();
   const [threshold, setThreshold] = useState<number | null>(null);
 
   const data = graph.status === 'ready' ? graph.data : null;
@@ -64,6 +64,24 @@ export const LambdaGraph = () => {
         : null,
     [data, selectedWell, active]
   );
+
+  const wellStates = useMemo(() => {
+    const map = new Map<string, WellFluidState>();
+    if (timeline.status !== 'ready') {
+      return map;
+    }
+    const step = timeline.data.steps[stepIndex];
+    if (step === undefined) {
+      return map;
+    }
+    for (const well of step.wells) {
+      map.set(well.well, {
+        watercut: well.availability === 'NOT_COMMISSIONED' ? null : well.watercut,
+        commissioned: well.availability !== 'NOT_COMMISSIONED'
+      });
+    }
+    return map;
+  }, [timeline, stepIndex]);
 
   if (graph.status === 'loading') {
     return <ViewStatus kind="loading" title={t('graph.loading')} />;
@@ -94,6 +112,7 @@ export const LambdaGraph = () => {
             data={data}
             threshold={active}
             selection={selection}
+            wellStates={wellStates}
             onSelect={selectWell}
           />
         )}

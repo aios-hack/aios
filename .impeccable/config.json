@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "reason": "Шрифт фирменного стиля организаторов хакатона, замерен с blueskyresearch.ru/hackathon_aios",
+        "createdAt": "2026-08-16T12:20:01.788Z"
+      }
+    ]
+  }
+}

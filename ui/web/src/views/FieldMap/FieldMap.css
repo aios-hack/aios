@@ -21,27 +21,33 @@
   display: inline-flex;
   gap: var(--space-1);
   padding: var(--space-1);
-  background: var(--color-bg);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-1);
 }
 
 .layer-switch-button {
   height: var(--size-control-height);
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-4);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   background: transparent;
-  color: var(--color-text);
+  color: var(--color-text-muted);
   font-family: var(--font-family-base);
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-bold);
   cursor: pointer;
+}
+
+.layer-switch-button:hover:not([aria-pressed='true']) {
+  color: var(--color-accent);
 }
 
 .layer-switch-button[aria-pressed='true'] {
   background: var(--color-accent);
   color: var(--color-accent-contrast);
+  box-shadow: var(--shadow-accent);
 }
 
 .wells-plot {

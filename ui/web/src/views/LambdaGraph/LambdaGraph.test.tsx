@@ -226,7 +226,7 @@ describe('App tabs', () => {
         </I18nProvider>
       </ThemeProvider>
     );
-    const tabs = [...container.querySelectorAll('.app-tab')].map((tab) => tab.textContent);
+    const tabs = [...container.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent);
     expect(tabs).toEqual([
       ru['tab.graph'],
       ru['tab.map'],
@@ -234,7 +234,7 @@ describe('App tabs', () => {
       ru['tab.npv'],
       ru['tab.scenarios']
     ]);
-    expect(container.querySelector('.app-tab')?.getAttribute('aria-pressed')).toBe('true');
+    expect(container.querySelector('[role="tab"]')?.getAttribute('aria-selected')).toBe('true');
     await screen.findByTestId('lambda-graph-plot');
   });
   it('keeps the wheel event to itself so the page does not zoom or scroll', async () => {

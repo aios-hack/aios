@@ -1,5 +1,5 @@
-import { useI18n } from '../i18n/I18nContext';
-import { useProvenance } from '../state/ProvenanceContext';
+import { useI18n } from '../../i18n/I18nContext';
+import { useProvenance } from '../../state/ProvenanceContext';
 import './SyntheticBanner.css';
 
 export const SyntheticBanner = () => {
