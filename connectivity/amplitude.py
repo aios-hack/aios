@@ -111,6 +111,22 @@ def prior_bracket(distribution: StepDistribution, coverage: float) -> tuple[floa
     return distribution.amplitude_prior(coverage)
 
 
+FLOAT32_MANTISSA_BITS = 23
+
+
+def numerical_noise_floor(baseline_cumulative_m3: float, safety_factor: float) -> float:
+    if baseline_cumulative_m3 < 0.0:
+        raise ValueError(
+            f"накопленная добыча базового прогона {baseline_cumulative_m3} отрицательна"
+        )
+    if safety_factor < 1.0:
+        raise ValueError(
+            f"запас {safety_factor} меньше единицы: порог различимости не может "
+            f"быть ниже разрешения самого носителя"
+        )
+    return baseline_cumulative_m3 * (2.0 ** -FLOAT32_MANTISSA_BITS) * safety_factor
+
+
 @dataclass(frozen=True, slots=True)
 class ProbeOutcome:
     well: str

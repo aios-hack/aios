@@ -15,6 +15,7 @@ from connectivity import (
     build_probe,
     choose_amplitude,
     demote_plan_amplitude,
+    numerical_noise_floor,
     prior_bracket,
     select_probe_injectors,
     setpoint_changes,
@@ -227,6 +228,22 @@ def test_sweep_levels_must_increase() -> None:
 
     with pytest.raises(ValueError):
         sweep_amplitudes(_Fake(), (0.2, 0.1))
+
+
+def test_noise_floor_is_derived_from_the_data_not_assigned() -> None:
+    """Порог различимости выводится из разрешения носителя, а не назначается.
+
+    `UNSMRY` хранит накопления в float32: на объёме порядка 3.4·10⁵ м³ за
+    12 месяцев разрешение — около 0.04 м³, то есть численный шум заведомо не
+    является связывающим ограничением протокола (замерено на настоящем
+    базовом прогоне Model_Z 16.08). Ограничивают линейность и достижимость.
+    """
+
+    floor = numerical_noise_floor(342_035.65, safety_factor=1.0)
+    assert floor == pytest.approx(0.0408, abs=1e-3)
+    assert numerical_noise_floor(342_035.65, safety_factor=10.0) > floor
+    with pytest.raises(ValueError):
+        numerical_noise_floor(342_035.65, safety_factor=0.5)
 
 
 def test_probe_selection_rejects_unknown_neighbour_density() -> None:
