@@ -30,6 +30,17 @@ from .canonical import (
     normalize_initial_state,
     normalize_well_state,
 )
+from .emit import (
+    EmitStats,
+    EmittedSchedule,
+    RoundTripReport,
+    ScheduleEmitError,
+    WELLS_SCHEDULE_FILE_NAME,
+    emit_from_deck,
+    emit_to_file,
+    emit_wells_schedule,
+    round_trip,
+)
 from .lossless import (
     LosslessBlock,
     LosslessEmitter,
@@ -69,6 +80,15 @@ __all__ = [
     "CandidateEvent",
     "ControlEventConflict",
     "Conversion",
+    "EmitStats",
+    "EmittedSchedule",
+    "RoundTripReport",
+    "ScheduleEmitError",
+    "WELLS_SCHEDULE_FILE_NAME",
+    "emit_from_deck",
+    "emit_to_file",
+    "emit_wells_schedule",
+    "round_trip",
     "MIN_SETPOINT_M3_PER_DAY",
     "StaticValidationError",
     "ValidationReport",
