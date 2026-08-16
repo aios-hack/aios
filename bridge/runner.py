@@ -33,8 +33,45 @@ from .opm_deck import EmittedOpmDeck, bundle_hash
 DEFAULT_OPM_IMAGE = "openporousmedia/opmreleases:latest"
 OPM_IMAGE_ENV = "OPM_FLOW_IMAGE"
 
+# Образ opmreleases объявляет пользователя opm с uid 1001. Каталог прогона
+# создаём мы, и владеет им тот, кто запустил тесты, — на любой машине, где
+# это не uid 1001, flow не может открыть даже собственный .PRT.
+#
+# Отказ при этом выглядит не как отказ прав: Flow валится на «Failed to
+# create valid EclipseState object», а настоящая причина — будь то неизвестное
+# ключевое слово или битая секция — уходит в лог, который он не смог создать.
+# Замерено 16.08: тот же дек с неизвестным ключевым словом без --user даёт
+# «Failed opening file /out/MINI.PRT for StreamLog», с --user — «Unknown
+# keyword: NOTAREALKEYWORD».
+#
+# Поэтому uid хоста передаётся всегда, а не подбирается под машину.
+OPM_USER_ENV = "OPM_RUN_AS_USER"
+
 # Та же строгость разбора, на которой Model_Z прошла приёмку задачи 2.
 DEFAULT_FLOW_ARGS: tuple[str, ...] = ("--parsing-strictness=low",)
+
+# `None` — осмысленное значение («не передавать --user вовсе»), поэтому
+# «не задано» им выразить нельзя и нужен отдельный часовой.
+_UNSET: str = "<unset>"
+
+
+def default_run_as_user() -> str | None:
+    """`uid:gid` текущего процесса, либо `None` там, где их нет.
+
+    Явный пустой `OPM_RUN_AS_USER` — способ вернуть прежнее поведение и
+    отдать выбор пользователя образу: в rootless-docker и в podman
+    отображение уже сделано демоном, и навязывать `--user` там вредно.
+    """
+
+    override = os.environ.get(OPM_USER_ENV)
+    if override is not None:
+        return override.strip() or None
+    getuid = getattr(os, "getuid", None)
+    getgid = getattr(os, "getgid", None)
+    if getuid is None or getgid is None:
+        return None
+    return f"{getuid()}:{getgid()}"
+
 
 _CONTAINER_PREFIX = "opm-run-"
 _LOG_NAME = "flow.log"
@@ -193,6 +230,7 @@ class OpmRunner:
         docker_binary: str = "docker",
         flow_args: Sequence[str] = DEFAULT_FLOW_ARGS,
         timeout_seconds: float | None = None,
+        run_as_user: str | None = _UNSET,
     ) -> None:
         self.work_root = Path(work_root).resolve()
         self.work_root.mkdir(parents=True, exist_ok=True)
@@ -200,6 +238,7 @@ class OpmRunner:
         self.docker_binary = docker_binary
         self.flow_args = tuple(flow_args)
         self.timeout_seconds = timeout_seconds
+        self.run_as_user = default_run_as_user() if run_as_user is _UNSET else run_as_user
 
     # --- публичный вход -------------------------------------------------
 
@@ -354,10 +393,12 @@ class OpmRunner:
         flow_args: Sequence[str] | None,
     ) -> list[str]:
         args = self.flow_args if flow_args is None else tuple(flow_args)
+        user = ["--user", self.run_as_user] if self.run_as_user else []
         return [
             self.docker_binary,
             "run",
             "--rm",
+            *user,
             "--name",
             container,
             "-v",

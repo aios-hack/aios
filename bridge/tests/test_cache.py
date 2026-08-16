@@ -11,8 +11,16 @@ from contracts import RunStatus, Schedule, ScheduleMeta, hash_schedule
 from schedule import parse_schedule
 
 
+from conftest import missing_reason, model_z_dir
+
 DECKS = Path(__file__).resolve().parent / "decks"
-MODEL_Z = Path(__file__).resolve().parents[3] / "docs" / "models" / "Model_Z"
+
+# Через conftest, а не через parents[3]: см. тот же комментарий в test_runner.py.
+MODEL_Z = model_z_dir()
+
+requires_model_z = pytest.mark.skipif(
+    MODEL_Z is None, reason=missing_reason("каталог Model_Z")
+)
 
 KEY = {
     "deck_hash": "d" * 64,
@@ -170,6 +178,7 @@ def test_failed_result_is_not_cached(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert second.run_id != first.run_id
 
 
+@requires_model_z
 def test_runs_emitted_model_z_deck_through_cache(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

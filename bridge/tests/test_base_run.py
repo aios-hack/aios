@@ -10,7 +10,14 @@ from bridge import MATERIAL_BALANCE_RELATIVE_TOLERANCE, run_base_case
 from contracts import RunStatus
 
 
-MODEL_Z = Path(__file__).resolve().parents[3] / "docs" / "models" / "Model_Z"
+from conftest import missing_reason, model_z_dir
+
+# Через conftest, а не через parents[3]: см. тот же комментарий в test_runner.py.
+MODEL_Z = model_z_dir()
+
+pytestmark = pytest.mark.skipif(
+    MODEL_Z is None, reason=missing_reason("каталог Model_Z")
+)
 # Общий с продовым запуском кеш (§4.5): полный физический прогон Model_Z
 # занимает реальное время, повторный `pytest` с тем же ключом дека/расписания/
 # SummarySpec обязан попасть в кеш, а не гонять симулятор заново.
