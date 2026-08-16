@@ -198,6 +198,68 @@ def test_shortfall_measured_on_the_real_base_run_of_model_z() -> None:
     assert probe.systematic_shortfall(TOLERANCE)
 
 
+def test_first_sweep_point_measured_on_model_z_is_rejected_by_achievability() -> None:
+    """Первая точка свипа, замеренная настоящими прогонами OPM 16.08.
+
+    Возмущение +17% от медианы (шаг 5.1 м³/сут — нижняя граница приора из
+    дека) на трёх скважинах, окно 01.01.2007 + 12 месяцев, 975 с на прогон:
+
+    - 25 добрала цель 40.1 ровно (недобор 0%);
+    - 110 при цели 20.1 дала 14.81 — недобор 26%;
+    - 17 при цели 95.1 дала 31.19, то есть приёмистость даже упала против
+      базовых 31.50 — недобор 67%.
+
+    Две скважины из трёх не добирают, недобор систематический уже на
+    минимальной амплитуде приора. Отклик соседей при этом различим
+    (+320.5 м³ против порога шума 0.04 м³) — то есть замер ограничивает
+    не шум и не нелинейность, а достижимость.
+    """
+
+    baseline = {
+        "110": 13.89351499080658,
+        "17": 31.495544751485188,
+        "25": 35.833333333333336,
+    }
+    targets = {"110": 20.1, "17": 95.1, "25": 40.1}
+    actual = {
+        "110": 14.811504364013672,
+        "17": 31.19031302134196,
+        "25": 40.099998474121094,
+    }
+    step = 5.1
+    runs = tuple(
+        SweepRun(
+            relative_amplitude=0.17,
+            well=well,
+            level=Level.HIGH,
+            target_m3_per_day=targets[well],
+            baseline_rate_m3_per_day=baseline[well],
+            actual_m3_per_day=actual[well],
+            baseline_cumulative_m3=104_861.36,
+            perturbed_cumulative_m3=105_181.86,
+        )
+        for well in ("110", "17", "25")
+    )
+    probe = build_probe(0.17, a_amplitude(step), runs, 0.0409)
+
+    assert probe.achievability_ok(TOLERANCE) == {
+        "110": False,
+        "17": False,
+        "25": True,
+    }
+    assert probe.systematic_shortfall(TOLERANCE)
+    assert probe.distinguishable()
+    assert probe.response_m3 == pytest.approx(961.5, abs=1.0)
+
+    measurement = AmplitudeMeasurement(
+        probes=(probe,),
+        achievability_tolerance=TOLERANCE,
+        linearity_tolerance=LINEARITY,
+    )
+    with pytest.raises(ValueError, match="не замерена"):
+        choose_amplitude(measurement)
+
+
 def test_largest_still_linear_amplitude_wins() -> None:
     measurement = AmplitudeMeasurement(
         probes=(
