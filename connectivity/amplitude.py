@@ -38,6 +38,32 @@ class ProbeSelection:
         return max(counts) - min(counts)
 
 
+def headroom_injectors(
+    injectors: Sequence[str],
+    baseline_rate_by_well: Mapping[str, float],
+    baseline_setpoint_by_well: Mapping[str, float],
+    tolerance: float,
+) -> tuple[str, ...]:
+    if not (0.0 <= tolerance < 1.0):
+        raise ValueError(f"допуск недобора {tolerance} вне [0, 1)")
+    missing = set(injectors) - set(baseline_rate_by_well)
+    missing |= set(injectors) - set(baseline_setpoint_by_well)
+    if missing:
+        raise ValueError(
+            f"нет базовой приёмистости или уставки для {sorted(missing)}: "
+            f"запас по давлению определяется замером, не предположением"
+        )
+    free: list[str] = []
+    for well in injectors:
+        setpoint = baseline_setpoint_by_well[well]
+        if setpoint <= 0.0:
+            continue
+        shortfall = max(setpoint - baseline_rate_by_well[well], 0.0) / setpoint
+        if shortfall <= tolerance:
+            free.append(well)
+    return tuple(sorted(free))
+
+
 def select_probe_injectors(
     injectors: Sequence[str],
     neighbour_count: Mapping[str, int],
@@ -49,7 +75,9 @@ def select_probe_injectors(
         )
     if len(injectors) < probes:
         raise ValueError(
-            f"в окне {len(injectors)} нагнетательных, на свип нужно {probes}"
+            f"нагнетательных с запасом по давлению {len(injectors)}, на свип "
+            f"нужно {probes}: скважина, уже стоящая на пределе, повышения "
+            f"уставки не реализует и амплитуду не измеряет"
         )
     missing = set(injectors) - set(neighbour_count)
     if missing:

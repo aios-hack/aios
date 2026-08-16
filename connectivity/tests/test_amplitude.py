@@ -11,8 +11,10 @@ from connectivity import (
     AmplitudeMeasurement,
     DeckSchedule,
     Level,
+    MIN_SWEEP_PROBES,
     ProbeSelection,
     build_probe,
+    headroom_injectors,
     choose_amplitude,
     demote_plan_amplitude,
     numerical_noise_floor,
@@ -92,6 +94,38 @@ def test_probe_selection_spans_neighbour_density() -> None:
     selection = select_probe_injectors(tuple(NEIGHBOURS), NEIGHBOURS, 3)
     assert len(selection.wells) == 3
     assert selection.density_spread > 0
+
+
+def test_wells_pinned_at_the_pressure_limit_are_kept_out_of_the_sweep() -> None:
+    """Замер 16.08 на настоящем базовом прогоне Model_Z: из 27 нагнетательных
+
+    раннего окна 7 зажаты пределом 300 бар и целевую закачку не добирают уже
+    в базовом расписании — 27 недобирает 76%, 17 — 65%, 53 — 60%, 102 — 46%,
+    49 — 41%, 8 — 39%, 110 — 7%. Запас есть у 20 скважин.
+
+    Свип по зажатой скважине не измеряет ничего: повышение уставки не
+    реализуется, отношение отклика к воздействию считается от почти нулевого
+    знаменателя. Отбор скважин свипа обязан идти по фактическому запасу, а не
+    по одной плотности окружения — иначе замер проваливается по достижимости
+    ещё на минимальной амплитуде приора (что и произошло в первом заходе).
+    """
+
+    setpoints = {"27": 80.0, "17": 90.0, "110": 15.0, "25": 35.0, "12": 40.0}
+    rates = {"27": 19.04, "17": 31.50, "110": 13.89, "25": 35.83, "12": 40.0}
+    free = headroom_injectors(tuple(setpoints), rates, setpoints, TOLERANCE)
+    assert free == ("12", "25")
+    assert "17" not in free
+    assert "27" not in free
+    assert "110" not in free
+
+
+def test_sweep_cannot_be_built_when_too_few_wells_have_headroom() -> None:
+    setpoints = {"27": 80.0, "17": 90.0, "25": 35.0}
+    rates = {"27": 19.04, "17": 31.50, "25": 35.83}
+    free = headroom_injectors(tuple(setpoints), rates, setpoints, TOLERANCE)
+    assert len(free) < MIN_SWEEP_PROBES
+    with pytest.raises(ValueError, match="запасом по давлению"):
+        select_probe_injectors(free, {w: 5 for w in free}, MIN_SWEEP_PROBES)
 
 
 def test_probe_selection_refuses_a_degenerate_sweep_width() -> None:
