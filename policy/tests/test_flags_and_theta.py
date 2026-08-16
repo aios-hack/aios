@@ -45,16 +45,16 @@ def test_theta_count_per_rule() -> None:
     assert len(specs_for(Rule.R4)) == 0
     assert len(specs_for(Rule.R5)) == 2
     assert len(specs_for(Rule.R6)) == 1
-    assert len(specs_for(Rule.R7)) == 0
+    assert len(specs_for(Rule.R7)) == 2
 
 
 def test_theta_budget_across_all_rules_is_within_ten() -> None:
-    assert budget_used() == 8
-    assert budget_free() == 2
+    assert budget_used() == MAX_THETA_PARAMS
+    assert budget_free() == 0
     assert budget_used() + budget_free() == MAX_THETA_PARAMS
     per_rule = budget_by_rule()
     assert sum(per_rule.values()) == budget_used()
-    assert per_rule[Rule.R7] == 0
+    assert per_rule[Rule.R7] == 2
 
 
 def test_the_registry_names_every_theta_of_every_implemented_rule() -> None:
@@ -101,7 +101,7 @@ def test_disabled_rule_makes_no_decisions_and_no_trace(context: RuleContext) -> 
     state = state_of(*DECIDING_STATE_WELLS)
     theta = default_theta()
     for rule in IMPLEMENTED_RULES:
-        on = apply_rule(rule, state, ctx, theta, RuleFlags())
+        on = apply_rule(rule, state, ctx, theta, RuleFlags().with_enabled(rule))
         off = apply_rule(rule, state, ctx, theta, RuleFlags().with_disabled(rule))
         assert on.decisions != () or on.trace != ()
         assert off.decisions == ()
@@ -170,7 +170,8 @@ def test_unimplemented_rules_are_off_by_default_and_raise(
 ) -> None:
     for rule in Rule:
         if rule in IMPLEMENTED_RULES:
-            assert DEFAULT_RULE_FLAGS[rule] is True
+            expected = rule is not Rule.R7
+            assert DEFAULT_RULE_FLAGS[rule] is expected
             continue
         assert DEFAULT_RULE_FLAGS[rule] is False
         with pytest.raises(NotImplementedError):

@@ -75,6 +75,7 @@ class RuleContext:
     memory: PolicyMemory = field(default_factory=PolicyMemory)
     group_injection_m3_per_day: Mapping[str, float] = field(default_factory=dict)
     group_offtake_m3_per_day: Mapping[str, float] = field(default_factory=dict)
+    cyclic_uplift_rub_per_well: Mapping[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.oil_density_t_per_m3 <= 0:

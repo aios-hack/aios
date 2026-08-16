@@ -49,10 +49,22 @@ R6_SPECS: tuple[ThetaSpec, ...] = (
     ThetaSpec("r6_payback_years", Rule.R6, 1.0, 15.0, 5.0),
 )
 
-RESERVED_FOR_R7 = 2
+RESERVED_FOR_R7 = 0
+
+R7_SPECS: tuple[ThetaSpec, ...] = (
+    ThetaSpec("r7_cycle_months", Rule.R7, 1.0, 12.0, 3.0),
+    ThetaSpec("r7_watercut_floor", Rule.R7, 0.8, 0.99, 0.95),
+)
 
 SPECS: tuple[ThetaSpec, ...] = (
-    R0_SPECS + R1_SPECS + R2_SPECS + R3_SPECS + R4_SPECS + R5_SPECS + R6_SPECS
+    R0_SPECS
+    + R1_SPECS
+    + R2_SPECS
+    + R3_SPECS
+    + R4_SPECS
+    + R5_SPECS
+    + R6_SPECS
+    + R7_SPECS
 )
 
 SPEC_BY_NAME: Mapping[str, ThetaSpec] = {spec.name: spec for spec in SPECS}
@@ -101,7 +113,7 @@ def read(theta: Theta, name: str) -> float:
 
 
 def total_budget_ok() -> bool:
-    return len(SPECS) + RESERVED_FOR_R7 <= MAX_THETA_PARAMS
+    return len(SPECS) <= MAX_THETA_PARAMS
 
 
 def budget_by_rule() -> dict[Rule, int]:
