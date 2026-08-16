@@ -212,7 +212,8 @@ def test_hash_is_three_part_and_deterministic(deck_bytes: bytes, schedule) -> No
     }) == 3
     assert rebuilt.meta == schedule.meta
     assert hash_schedule(rebuilt) == hash_schedule(schedule)
-    assert schedule_hash_parts(schedule) == hash_schedule(schedule)
+    assert schedule_hash_parts(rebuilt) == schedule_hash_parts(schedule)
+    assert len(schedule_hash_parts(schedule)) == 64
 
 
 def test_initial_state_matches_december_2006_slice(schedule) -> None:

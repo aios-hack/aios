@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import re
 from dataclasses import dataclass
 from datetime import date
@@ -14,23 +13,21 @@ from contracts import (
     ScheduleMeta,
     T0,
     WellState,
-    canonical_bytes,
-    canonical_schedule_hash,
 )
 
+from .canonical import (
+    ScheduleCanonicalError,
+    canonicalize,
+    canonicalize_control_events,
+    canonicalize_fixed_events,
+    find_control_conflicts,
+    hash_canonical_schedule,
+)
 from .lossless import ParsedSchedule, ScheduleParseError, parse_schedule
 from .replay import ReplayError, replay_initial_state
 
 _WELSPECS_RE = re.compile(rb"^WELSPECS\b(.*?)^/\s*$", re.MULTILINE | re.DOTALL)
 _WELSPECS_WELL_RE = re.compile(rb"^\s*'([^']+)'", re.MULTILINE)
-
-_KIND_RANK = {
-    EventKind.CONVERT_INJ: 0,
-    EventKind.SET_LRAT: 1,
-    EventKind.SET_RATE: 1,
-    EventKind.OPEN: 2,
-    EventKind.SHUT: 2,
-}
 
 
 class ScheduleBuildError(ValueError):
@@ -65,52 +62,25 @@ def deck_well_axis(raw: bytes) -> tuple[str, ...]:
 def detect_control_conflicts(
     events: tuple[ControlEvent, ...] | list[ControlEvent],
 ) -> tuple[ControlEventConflict, ...]:
-    seen: dict[tuple[int, str, EventKind], list[float | None]] = {}
-    for event in events:
-        key = (event.control_step, event.well, event.kind)
-        values = seen.setdefault(key, [])
-        if event.value not in values:
-            values.append(event.value)
-    conflicts = [
-        ControlEventConflict(control_step=step, well=well, kind=kind, values=tuple(values))
-        for (step, well, kind), values in seen.items()
-        if len(values) > 1
-    ]
-    conflicts.sort(key=lambda item: (item.control_step, _well_sort_key(item.well)))
-    return tuple(conflicts)
+    return tuple(
+        ControlEventConflict(control_step=step, well=well, kind=kind, values=values)
+        for step, well, kind, values in find_control_conflicts(events)
+    )
 
 
 def canonical_control_events(
     events: tuple[ControlEvent, ...] | list[ControlEvent],
 ) -> tuple[ControlEvent, ...]:
-    conflicts = detect_control_conflicts(events)
-    if conflicts:
-        first = conflicts[0]
-        raise ScheduleBuildError(
-            f"конфликтующие управляющие события: скважина {first.well!r}, "
-            f"control_step={first.control_step}, {first.kind.name}, "
-            f"значения {first.values}"
-        )
-    unique: dict[tuple[int, str, EventKind, float | None], ControlEvent] = {}
-    for event in events:
-        unique.setdefault((event.control_step, event.well, event.kind, event.value), event)
-    return tuple(
-        sorted(
-            unique.values(),
-            key=lambda event: (
-                event.control_step,
-                _well_sort_key(event.well),
-                _KIND_RANK[event.kind],
-                event.kind.name,
-            ),
-        )
-    )
+    try:
+        return canonicalize_control_events(events)
+    except ScheduleCanonicalError as error:
+        raise ScheduleBuildError(str(error)) from error
 
 
 def canonical_fixed_events(
     events: tuple[FixedDeckEvent, ...] | list[FixedDeckEvent],
 ) -> tuple[FixedDeckEvent, ...]:
-    return tuple(sorted(events, key=lambda event: event.control_step))
+    return canonicalize_fixed_events(events)
 
 
 def initial_state_from_prefix(
@@ -124,16 +94,6 @@ def initial_state_from_prefix(
 
 def control_dates(parsed: ParsedSchedule) -> tuple[date, ...]:
     return parsed.dates[parsed.t0_deck_date_index :]
-
-
-def _history_prefix(parsed: ParsedSchedule) -> tuple[str, ...]:
-    return tuple(
-        deck_date.isoformat() for deck_date in parsed.dates[: parsed.t0_deck_date_index]
-    )
-
-
-def _prefix_hash(value: object) -> str:
-    return hashlib.sha256(canonical_bytes(value)).hexdigest()
 
 
 def build_schedule(
@@ -174,23 +134,22 @@ def build_schedule(
         n_control_dates=n_control_dates,
         n_intervals=n_intervals,
         wells=wells,
-        history_prefix_hash=_prefix_hash(_history_prefix(parsed)),
-        fixed_events_hash=_prefix_hash(list(fixed_deck_events)),
-        control_events_hash=_prefix_hash(list(control_events)),
         provenance=provenance,
     )
-    return Schedule(
+    schedule = Schedule(
         meta=meta,
         initial_state=initial_state,
         fixed_deck_events=fixed_deck_events,
         control_events=control_events,
     )
+    try:
+        return canonicalize(schedule)
+    except ScheduleCanonicalError as error:
+        raise ScheduleBuildError(str(error)) from error
 
 
 def schedule_hash_parts(schedule: Schedule) -> str:
-    return canonical_schedule_hash(
-        schedule.initial_state, schedule.fixed_deck_events, schedule.control_events
-    )
+    return hash_canonical_schedule(schedule)
 
 
 def load_schedule(path: str | Path, provenance: str = "") -> Schedule:
