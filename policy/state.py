@@ -5,6 +5,8 @@ from typing import Mapping
 
 from contracts import N_INTERVALS, Constraints, Groups, Lambda, NormativeSet, Role
 
+from policy.memory import PolicyMemory
+
 
 @dataclass(frozen=True, slots=True)
 class WellObservation:
@@ -70,6 +72,9 @@ class RuleContext:
     influence: Lambda | None = None
     groups: Groups | None = None
     injection_budget_m3_per_day: float | None = None
+    memory: PolicyMemory = field(default_factory=PolicyMemory)
+    group_injection_m3_per_day: Mapping[str, float] = field(default_factory=dict)
+    group_offtake_m3_per_day: Mapping[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.oil_density_t_per_m3 <= 0:

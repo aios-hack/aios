@@ -5,16 +5,24 @@ from typing import Mapping
 
 from contracts import Rule
 
-IMPLEMENTED_RULES: tuple[Rule, ...] = (Rule.R0, Rule.R1, Rule.R2)
+IMPLEMENTED_RULES: tuple[Rule, ...] = (
+    Rule.R0,
+    Rule.R1,
+    Rule.R2,
+    Rule.R3,
+    Rule.R4,
+    Rule.R5,
+    Rule.R6,
+)
 
 DEFAULT_RULE_FLAGS: Mapping[Rule, bool] = {
     Rule.R0: True,
     Rule.R1: True,
     Rule.R2: True,
-    Rule.R3: False,
-    Rule.R4: False,
-    Rule.R5: False,
-    Rule.R6: False,
+    Rule.R3: True,
+    Rule.R4: True,
+    Rule.R5: True,
+    Rule.R6: True,
     Rule.R7: False,
 }
 

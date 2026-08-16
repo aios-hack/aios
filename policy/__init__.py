@@ -13,14 +13,23 @@ from policy.flags import (
     RuleFlags,
     all_off,
 )
+from policy.memory import (
+    NO_EVENT,
+    PolicyMemory,
+    WellMemory,
+    esp_size_for,
+    esp_upgrade_cost_rub,
+)
 from policy.rules import (
     ADMISSION_CRITERIA,
     RULE_FUNCTIONS,
+    SUPERSEDED_WHEN_ON,
     THETA_NAMES_BY_RULE,
     RuleOutcome,
     apply_all,
     apply_rule,
     merge,
+    superseded,
 )
 from policy.state import PolicyState, RuleContext, WellObservation
 from policy.trace import (
@@ -40,6 +49,9 @@ from policy.trace import (
 from policy.theta import (
     SPECS,
     ThetaSpec,
+    budget_by_rule,
+    budget_free,
+    budget_used,
     declared_bounds,
     default_theta,
     make_theta,
@@ -51,7 +63,11 @@ __all__ = [
     "DAYS_PER_YEAR",
     "DEFAULT_RULE_FLAGS",
     "IMPLEMENTED_RULES",
+    "NO_EVENT",
+    "PolicyMemory",
     "RULE_FUNCTIONS",
+    "SUPERSEDED_WHEN_ON",
+    "WellMemory",
     "RuleContext",
     "RuleFlags",
     "RuleOutcome",
@@ -70,10 +86,15 @@ __all__ = [
     "apply_all",
     "apply_rule",
     "breakeven_watercut",
+    "budget_by_rule",
+    "budget_free",
+    "budget_used",
     "collect",
     "declared_bounds",
     "default_theta",
     "dumps",
+    "esp_size_for",
+    "esp_upgrade_cost_rub",
     "explain",
     "loads",
     "make_theta",
@@ -82,6 +103,7 @@ __all__ = [
     "oil_margin_rub_per_t",
     "run_trace",
     "specs_for",
+    "superseded",
     "to_payload",
     "trace_hash",
 ]

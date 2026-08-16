@@ -5,9 +5,23 @@ from datetime import date
 
 import pytest
 
-from contracts import DEFAULT_NORMATIVES_2007, Lambda, NormativeSet, Role
+from contracts import (
+    DEFAULT_NORMATIVES_2007,
+    EspCatalogEntry,
+    Groups,
+    Lambda,
+    NormativeSet,
+    Role,
+)
 
-from policy import PolicyState, RuleContext, WellObservation
+from policy import PolicyMemory, PolicyState, RuleContext, WellMemory, WellObservation
+
+ESP_CATALOG: tuple[EspCatalogEntry, ...] = (
+    EspCatalogEntry(nominal=20.0, interval_low=0.0, interval_high=25.0, cost_rub=900_000.0),
+    EspCatalogEntry(nominal=45.0, interval_low=25.0, interval_high=60.0, cost_rub=1_400_000.0),
+    EspCatalogEntry(nominal=80.0, interval_low=60.0, interval_high=95.0, cost_rub=2_100_000.0),
+    EspCatalogEntry(nominal=125.0, interval_low=95.0, interval_high=160.0, cost_rub=3_300_000.0),
+)
 
 OIL_DENSITY_T_PER_M3 = 0.9131
 OIL_DENSITY_SECOND_REGION_T_PER_M3 = 0.9282
@@ -15,7 +29,7 @@ OIL_DENSITY_SECOND_REGION_T_PER_M3 = 0.9282
 
 @pytest.fixture
 def normatives() -> NormativeSet:
-    return NormativeSet(esp_catalog=(), **DEFAULT_NORMATIVES_2007)
+    return NormativeSet(esp_catalog=ESP_CATALOG, **DEFAULT_NORMATIVES_2007)
 
 
 @pytest.fixture
@@ -94,3 +108,39 @@ def influence_of(
 
 def with_oil_price(normatives: NormativeSet, price_rub_per_t: float) -> NormativeSet:
     return replace(normatives, price_oil_rub_per_t=price_rub_per_t)
+
+
+def groups_of(mapping: dict[str, tuple[str, ...]]) -> Groups:
+    return Groups(
+        groups=mapping,
+        lambda_hash="a" * 64,
+        group_hash="b" * 64,
+    )
+
+
+def memory_of(**by_well: WellMemory) -> PolicyMemory:
+    return PolicyMemory(wells=dict(by_well))
+
+
+DECIDING_WELLS = (
+    producer("42", liquid_rate_m3_per_day=5.0, watercut=0.99, setpoint=5.0),
+    producer("43", liquid_rate_m3_per_day=40.0, watercut=0.40, setpoint=90.0),
+    injector("101", injection_rate_m3_per_day=200.0),
+)
+
+
+def deciding_context(context: RuleContext) -> RuleContext:
+    influence = influence_of(
+        producers=("42", "43"),
+        injectors=("101", "43"),
+        matrix=((0.4, 3.0), (0.7, 3.0)),
+    )
+    return replace(
+        context,
+        influence=influence,
+        injection_budget_m3_per_day=300.0,
+        groups=groups_of({"G1": ("42", "43", "101")}),
+        group_injection_m3_per_day={"G1": 200.0},
+        group_offtake_m3_per_day={"G1": 45.0},
+        memory=memory_of(),
+    )

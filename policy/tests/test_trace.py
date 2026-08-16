@@ -20,27 +20,15 @@ from policy import (
     explain,
     loads,
     run_trace,
+    superseded,
     to_payload,
     trace_hash,
 )
-from policy.tests.conftest import influence_of, injector, producer, state_of
+from policy.tests.conftest import DECIDING_WELLS, deciding_context, state_of
 
 RUN_STEPS = (0, 1, 2)
 
-WELLS = (
-    producer("42", liquid_rate_m3_per_day=5.0, watercut=0.99, setpoint=5.0),
-    producer("43", liquid_rate_m3_per_day=40.0, watercut=0.40, setpoint=40.0),
-    injector("101", injection_rate_m3_per_day=200.0),
-)
-
-
-def deciding_context(context: RuleContext) -> RuleContext:
-    influence = influence_of(
-        producers=("42", "43"), injectors=("101",), matrix=((0.4,), (0.7,))
-    )
-    return replace(
-        context, influence=influence, injection_budget_m3_per_day=300.0
-    )
+WELLS = DECIDING_WELLS
 
 
 def run(context: RuleContext, flags: RuleFlags):
@@ -124,12 +112,24 @@ def test_disabling_a_rule_removes_exactly_its_own_records(
 ) -> None:
     baseline = run(context, RuleFlags()).trace.count_by_rule()
     for rule in IMPLEMENTED_RULES:
-        ablated = run(context, RuleFlags().with_disabled(rule)).trace.count_by_rule()
+        flags = RuleFlags().with_disabled(rule)
+        ablated = run(context, flags).trace.count_by_rule()
         assert rule not in ablated
+        released = superseded(RuleFlags()) - superseded(flags)
         for other in IMPLEMENTED_RULES:
-            if other is rule:
+            if other is rule or other in released:
                 continue
             assert ablated[other] == baseline[other]
+
+
+def test_disabling_the_gate_hands_the_decision_back_to_the_rule_it_covered(
+    context: RuleContext,
+) -> None:
+    assert Rule.R0 in superseded(RuleFlags())
+    with_gate = run(context, RuleFlags()).trace
+    without_gate = run(context, RuleFlags().with_disabled(Rule.R3)).trace
+    assert with_gate.by_rule(Rule.R0) == ()
+    assert without_gate.by_rule(Rule.R0) != ()
 
 
 def test_trace_rejects_a_record_from_a_disabled_rule(
@@ -139,7 +139,7 @@ def test_trace_rejects_a_record_from_a_disabled_rule(
     with pytest.raises(ValueError, match="выключено флагом"):
         RunTrace(
             entries=result.trace.entries,
-            flags=RuleFlags().with_disabled(Rule.R0),
+            flags=RuleFlags().with_disabled(Rule.R3),
         )
 
 

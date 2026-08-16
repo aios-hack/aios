@@ -18,32 +18,22 @@ from policy import (
     all_off,
     apply_all,
     apply_rule,
+    budget_by_rule,
+    budget_free,
+    budget_used,
     declared_bounds,
     default_theta,
     make_theta,
     specs_for,
 )
-from policy.theta import RESERVED_FOR_R3_R7, total_budget_ok
-from policy.tests.conftest import influence_of, injector, producer, state_of
+from policy.theta import RESERVED_FOR_R7, total_budget_ok
+from policy.tests.conftest import DECIDING_WELLS, deciding_context, state_of
 
-DECIDING_STATE_WELLS = (
-    producer("42", liquid_rate_m3_per_day=5.0, watercut=0.99, setpoint=5.0),
-    producer("43", liquid_rate_m3_per_day=40.0, watercut=0.40, setpoint=40.0),
-    injector("101", injection_rate_m3_per_day=200.0),
-)
-
-
-def deciding_context(context: RuleContext) -> RuleContext:
-    influence = influence_of(
-        producers=("42", "43"), injectors=("101",), matrix=((0.4,), (0.7,))
-    )
-    return replace(
-        context, influence=influence, injection_budget_m3_per_day=300.0
-    )
+DECIDING_STATE_WELLS = DECIDING_WELLS
 
 
 def test_theta_total_within_contract_cap() -> None:
-    assert len(SPECS) + RESERVED_FOR_R3_R7 <= MAX_THETA_PARAMS
+    assert len(SPECS) + RESERVED_FOR_R7 <= MAX_THETA_PARAMS
     assert total_budget_ok()
 
 
@@ -51,6 +41,26 @@ def test_theta_count_per_rule() -> None:
     assert len(specs_for(Rule.R0)) == 0
     assert len(specs_for(Rule.R1)) == 1
     assert len(specs_for(Rule.R2)) == 2
+    assert len(specs_for(Rule.R3)) == 2
+    assert len(specs_for(Rule.R4)) == 0
+    assert len(specs_for(Rule.R5)) == 2
+    assert len(specs_for(Rule.R6)) == 1
+    assert len(specs_for(Rule.R7)) == 0
+
+
+def test_theta_budget_across_all_rules_is_within_ten() -> None:
+    assert budget_used() == 8
+    assert budget_free() == 2
+    assert budget_used() + budget_free() == MAX_THETA_PARAMS
+    per_rule = budget_by_rule()
+    assert sum(per_rule.values()) == budget_used()
+    assert per_rule[Rule.R7] == 0
+
+
+def test_the_registry_names_every_theta_of_every_implemented_rule() -> None:
+    for rule in IMPLEMENTED_RULES:
+        declared = {spec.name for spec in specs_for(rule)}
+        assert declared == set(THETA_NAMES_BY_RULE[rule])
 
 
 def test_every_theta_has_declared_bounds() -> None:
@@ -112,7 +122,7 @@ def test_trace_of_disabled_rule_absent_from_combined_run(context: RuleContext) -
     flags = RuleFlags().with_disabled(Rule.R2)
     outcome = apply_all(state, ctx, default_theta(), flags)
     assert Rule.R2 not in {entry.rule for entry in outcome.trace}
-    assert Rule.R0 in {entry.rule for entry in outcome.trace}
+    assert Rule.R3 in {entry.rule for entry in outcome.trace}
 
 
 def test_rules_are_deterministic_on_the_same_input(context: RuleContext) -> None:
