@@ -1,5 +1,13 @@
 """Мост между контрактным расписанием и OPM Flow."""
 
+from .base_run import (
+    BaseRunReport,
+    MATERIAL_BALANCE_RELATIVE_TOLERANCE,
+    baseline_schedule,
+    find_injection_conversions,
+    find_well_introductions,
+    run_base_case,
+)
 from .cache import CachingOpmRunner, RunCache, cache_key
 from .opm_deck import EmittedOpmDeck, OpmDeckEmitter, OpmDeckError, bundle_hash
 from .response_loader import ResponseLoader, ResponseLoaderError, load_density_by_pvtnum
@@ -22,11 +30,17 @@ from .summary import (
 )
 
 __all__ = [
+    "baseline_schedule",
+    "BaseRunReport",
     "build_summary_plan",
     "bundle_hash",
     "cache_key",
     "CachingOpmRunner",
     "deck_hashes",
+    "find_injection_conversions",
+    "find_well_introductions",
+    "MATERIAL_BALANCE_RELATIVE_TOLERANCE",
+    "run_base_case",
     "DeckHashes",
     "DEFAULT_FLOW_ARGS",
     "DEFAULT_OPM_IMAGE",
