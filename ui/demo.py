@@ -21,7 +21,7 @@ DEMO_NOTICE_RU = "Демонстрационные данные, не резул
 DEMO_NOTICE_EN = "Demonstration data, not a computed result"
 BASE_ID = "base"
 WHATIF_ID = "whatif-injection-cut"
-DEFAULT_OUT_DIR: Path = Path(__file__).resolve().parent / "web" / "public" / "data"
+DEFAULT_OUT_DIR: Path = Path(__file__).resolve().parents[1] / "frontend" / "public" / "data"
 _DEFAULT_DENSITY = 860.0
 
 

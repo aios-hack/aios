@@ -31,6 +31,7 @@ from economics import (
     load_normatives,
     monthly_income_tax_sum,
 )
+from economics import normatives_io
 
 from conftest import missing_reason, normatives_xlsx
 
@@ -159,8 +160,10 @@ def test_normatives_loader_matches_declared_defaults() -> None:
 
 @requires_normatives_xlsx
 def test_normatives_zip_fallback_matches_openpyxl() -> None:
-    from economics import normatives_io
-
+    pytest.importorskip(
+        "openpyxl",
+        reason="сравнивать stdlib-разбор не с чем: openpyxl не установлен в этом окружении",
+    )
     sheets_openpyxl = normatives_io._read_sheets_via_openpyxl(NORMATIVES_XLSX)
     sheets_zip = normatives_io._read_sheets_via_zip(NORMATIVES_XLSX)
     via_openpyxl = normatives_io.parse_normative_set(sheets_openpyxl)

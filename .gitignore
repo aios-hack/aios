@@ -23,3 +23,5 @@ build/
 .env
 .env.local
 .DS_Store
+.impeccable/hook.cache.json
+**/.impeccable/hook.cache.json

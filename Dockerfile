@@ -9,27 +9,27 @@
 # решением. Монтируются снаружи в /data/docs.
 
 # ---------------------------------------------------------------------------
-# Стадия 1: сборка фронта. Пропускается корректно, если ui/web нет в срезе.
+# Стадия 1: сборка фронта. Пропускается корректно, если frontend нет в срезе.
 # ---------------------------------------------------------------------------
 FROM node:22.11.0-bookworm-slim AS frontend
 
 WORKDIR /build
 
-# Копируется весь контекст: наличие ui/web заранее неизвестно, а COPY по
+# Копируется весь контекст: наличие frontend заранее неизвестно, а COPY по
 # отсутствующему пути — ошибка сборки. .dockerignore держит контекст малым.
 COPY . /build/
 
 RUN set -eux; \
-    if [ -f /build/ui/web/package.json ]; then \
-        echo "ui/web найден — собираю фронт"; \
-        cd /build/ui/web; \
+    if [ -f /build/frontend/package.json ]; then \
+        echo "frontend найден — собираю фронт"; \
+        cd /build/frontend; \
         if [ -f package-lock.json ]; then npm ci; else npm install; fi; \
         npm run build; \
-        mkdir -p /frontend; \
-        cp -r dist /frontend/dist; \
+        mkdir -p /dist-out; \
+        cp -r dist /dist-out/dist; \
     else \
-        echo "ui/web отсутствует в этом срезе репозитория — стадия фронта пропущена"; \
-        mkdir -p /frontend/dist-missing; \
+        echo "frontend отсутствует в этом срезе репозитория — стадия фронта пропущена"; \
+        mkdir -p /dist-out/dist-missing; \
     fi
 
 # ---------------------------------------------------------------------------
@@ -65,13 +65,13 @@ COPY . /app/
 RUN set -eux; \
     python -m pip install --no-deps -e ".[dev]"
 
-COPY --from=frontend /frontend/ /app/web-build/
+COPY --from=frontend /dist-out/ /app/web-build/
 RUN set -eux; \
     if [ -d /app/web-build/dist ]; then \
-        mkdir -p /app/ui/web; \
-        rm -rf /app/ui/web/dist; \
-        cp -r /app/web-build/dist /app/ui/web/dist; \
-        echo "фронт уложен в /app/ui/web/dist"; \
+        mkdir -p /app/frontend; \
+        rm -rf /app/frontend/dist; \
+        cp -r /app/web-build/dist /app/frontend/dist; \
+        echo "фронт уложен в /app/frontend/dist"; \
     else \
         echo "фронта нет — веб-интерфейс в этом образе недоступен"; \
     fi; \

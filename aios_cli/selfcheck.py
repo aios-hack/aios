@@ -61,8 +61,8 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(f"  {name:<13} {_mark(True):<4}  {owner}")
 
-    frontend = root / "ui" / "web" / "dist"
-    print(f"\nСобранный фронт ui/web/dist: {_mark(frontend.is_dir())}")
+    frontend = root / "frontend" / "dist"
+    print(f"\nСобранный фронт frontend/dist: {_mark(frontend.is_dir())}")
 
     print("\nДанные организаторов (монтируются снаружи, в образ не входят):")
     root_docs = docs_root()

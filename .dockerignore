@@ -16,7 +16,7 @@ node_modules/
 dist/
 **/dist/
 build/
-ui/web/.vite/
+frontend/.vite/
 
 data/
 docs/
@@ -31,3 +31,4 @@ docs/
 Dockerfile
 .dockerignore
 docker-compose.yml
+frontend/public/data/

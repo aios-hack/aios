@@ -520,6 +520,12 @@ def load_example_input() -> tuple[
 
 
 def test_external_example_input_matches_reference_on_organizer_data() -> None:
+    # Вход эталона читается его же `excel_io`, а тот держится на openpyxl
+    # жёстко: stdlib-обхода, как в нашем normatives_io, у организаторов нет.
+    pytest.importorskip(
+        "openpyxl",
+        reason="excel_io организаторов читает Пример_исходных_данных.xlsx только через openpyxl",
+    )
     states_by_well, responses_by_well, interval_start_dates, records = (
         load_example_input()
     )

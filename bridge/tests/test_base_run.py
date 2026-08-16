@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 from math import isnan
 from pathlib import Path
 
@@ -10,7 +9,7 @@ from bridge import MATERIAL_BALANCE_RELATIVE_TOLERANCE, run_base_case
 from contracts import RunStatus
 
 
-from conftest import missing_reason, model_z_dir
+from conftest import docker_unavailable_reason, missing_reason, model_z_dir
 
 # Через conftest, а не через parents[3]: см. тот же комментарий в test_runner.py.
 MODEL_Z = model_z_dir()
@@ -26,8 +25,9 @@ WORK_ROOT = Path(__file__).resolve().parents[2] / "data" / "base_run"
 
 @pytest.fixture(autouse=True)
 def require_docker() -> None:
-    if shutil.which("docker") is None:
-        pytest.fail("для приёмки задачи 7 требуется Docker с настоящим OPM Flow")
+    reason = docker_unavailable_reason()
+    if reason is not None:
+        pytest.skip(f"приёмка задачи 7 требует настоящий OPM Flow; {reason}")
 
 
 @pytest.fixture(scope="module")

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 import struct
 from pathlib import Path
 
@@ -40,7 +39,7 @@ from contracts import (
 from contracts.response import N_DECK_DATES
 
 
-from conftest import missing_reason, model_z_dir
+from conftest import docker_unavailable_reason, missing_reason, model_z_dir
 
 DECKS = Path(__file__).resolve().parent / "decks"
 
@@ -68,8 +67,11 @@ _EMPTY_SCHEDULE = Schedule(
 
 
 def require_docker() -> None:
-    if shutil.which("docker") is None:
-        pytest.fail("для приёмки ResponseLoader на реальных артефактах нужен Docker с OPM Flow")
+    reason = docker_unavailable_reason()
+    if reason is not None:
+        pytest.skip(
+            f"приёмка ResponseLoader на реальных артефактах требует OPM Flow; {reason}"
+        )
 
 
 def _run_deck(tmp_path: Path, name: str) -> RunResult:

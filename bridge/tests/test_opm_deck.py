@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import shutil
 import subprocess
 from dataclasses import replace
 from pathlib import Path
@@ -19,7 +18,7 @@ from contracts import (
 from schedule import parse_schedule
 
 
-from conftest import missing_reason, model_z_dir
+from conftest import docker_unavailable_reason, missing_reason, model_z_dir
 
 MODEL_Z = model_z_dir()
 OPM_IMAGE = os.environ.get("OPM_FLOW_IMAGE", "openporousmedia/opmreleases:latest")
@@ -135,8 +134,9 @@ def test_replaces_organizer_controls_with_our_dense_layer(tmp_path: Path) -> Non
 
 
 def test_emitted_deck_is_read_by_real_opm_flow(tmp_path: Path) -> None:
-    if shutil.which("docker") is None:
-        pytest.fail("для приёмки задачи 2 требуется Docker с настоящим OPM Flow")
+    reason = docker_unavailable_reason()
+    if reason is not None:
+        pytest.skip(f"приёмка задачи 2 требует настоящий OPM Flow; {reason}")
 
     emitter = OpmDeckEmitter(MODEL_Z)
     artifact = emitter.emit(_baseline_schedule(emitter), tmp_path / "opm-deck")

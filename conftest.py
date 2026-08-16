@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import functools
 import os
+import shutil
+import subprocess
 from pathlib import Path
 
 DOCS_ROOT_ENV_VAR = "AIOS_DOCS_ROOT"
@@ -91,3 +94,30 @@ def missing_reason(what: str) -> str:
         f"Укажите каталог docs через {DOCS_ROOT_ENV_VAR} "
         f"или разместите его сиблингом кодовой репы."
     )
+
+
+@functools.lru_cache(maxsize=1)
+def docker_unavailable_reason() -> str | None:
+    """`None`, если настоящий Flow запустить можно, иначе причина для skip.
+
+    Наличия `docker` в PATH недостаточно: клиент ставится вместе с Docker
+    Desktop и остаётся на месте при остановленном демоне, а прогон тогда
+    отказывает не как отсутствие окружения, а как FAILED-статус прогона —
+    и приёмочный тест читает это как дефект компонента.
+    """
+
+    binary = shutil.which("docker")
+    if binary is None:
+        return "Docker не найден в PATH: приёмка требует настоящего OPM Flow в контейнере"
+    probe = subprocess.run(
+        [binary, "info", "--format", "{{.ServerVersion}}"],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if probe.returncode != 0:
+        detail = (probe.stderr.strip() or probe.stdout.strip()).splitlines()
+        tail = detail[-1] if detail else "нет ответа от демона"
+        return f"демон Docker недоступен: {tail}"
+    return None

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import shutil
 from pathlib import Path
 
 import pytest
@@ -41,8 +40,9 @@ DATASET_ROOT_ENV_VAR = "AIOS_DATASET_ROOT"
 
 @pytest.fixture(autouse=True)
 def require_docker() -> None:
-    if shutil.which("docker") is None:
-        pytest.fail("для приёмки задачи 30 требуется Docker с настоящим OPM Flow")
+    reason = conftest.docker_unavailable_reason()
+    if reason is not None:
+        pytest.skip(f"приёмка задачи 30 требует настоящий OPM Flow; {reason}")
 
 
 def _dataset_root(tmp_path: Path) -> Path:

@@ -6,13 +6,13 @@ import http.server
 import socketserver
 from pathlib import Path
 
-DEFAULT_DIST = Path("/app/ui/web/dist")
+DEFAULT_DIST = Path("/app/frontend/dist")
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="aios web",
-        description="Отдача собранного веб-интерфейса ui/web/dist.",
+        description="Отдача собранного веб-интерфейса frontend/dist.",
     )
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8000)
@@ -33,9 +33,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.dist.is_dir():
         raise SystemExit(
-            f"собранный фронт не найден: {args.dist}. Каталог ui/web принадлежит "
-            f"пакету Михаила; если его нет в срезе репозитория, из которого собран "
-            f"образ, веб-интерфейс не собирается. Соберите образ на ветке с ui/web."
+            f"собранный фронт не найден: {args.dist}. Стадия сборки фронта не "
+            f"отработала: проверьте, что каталог frontend/ попал в контекст сборки "
+            f"и npm run build прошёл без ошибок."
         )
 
     handler = functools.partial(SpaRequestHandler, directory=str(args.dist))

@@ -28,7 +28,7 @@ def default_deck_path() -> Path:
 
 
 DEFAULT_DECK_PATH: Path = default_deck_path()
-DEFAULT_OUT_PATH: Path = Path(__file__).resolve().parent / "web" / "public" / "data" / "wells.json"
+DEFAULT_OUT_PATH: Path = Path(__file__).resolve().parents[1] / "frontend" / "public" / "data" / "wells.json"
 
 
 def occupied_k_values(completions: dict[str, list[tuple[int, int, int, int]]]) -> list[int]:

@@ -8,7 +8,7 @@ import pytest
 from contracts import N_CONTROL_DATES
 from ui.artifact_io import load_bundle
 from ui.deck import load_wellheads
-from ui.demo import BASE_ID, WHATIF_ID, build_demo, deck_scale, demo_meta
+from ui.demo import _DEFAULT_DENSITY, BASE_ID, WHATIF_ID, build_demo, deck_scale, demo_meta
 from ui.demo_artifact import DEMO_PROVENANCE
 from ui.graph_view import build_lambda_graph
 from ui.npv_view import build_npv_by_well
@@ -77,7 +77,7 @@ def test_bundles_validate_against_the_artifact_loader(demo_dir: Path) -> None:
 
 def test_view_files_match_their_builders(demo_dir: Path) -> None:
     artifact = load_bundle(demo_dir / "bundles" / f"{BASE_ID}.json")
-    densities = {well: 0.86 for well in artifact.schedule.meta.wells}
+    densities = {well: _DEFAULT_DENSITY for well in artifact.schedule.meta.wells}
     exported = _read(demo_dir / "timeline.json")
     assert exported["steps"] == build_timeline(artifact, densities)["steps"]
     assert _read(demo_dir / "graph.json")["nodes"] == build_lambda_graph(artifact)["nodes"]
