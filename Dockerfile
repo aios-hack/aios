@@ -57,7 +57,7 @@ RUN set -eux; \
 COPY pyproject.toml /app/
 RUN set -eux; \
     python -m pip install --upgrade "pip==24.3.1" "setuptools==75.6.0" "wheel==0.45.1"; \
-    python -m pip install "openpyxl==3.1.5" "pytest==8.3.4"
+    python -m pip install "openpyxl==3.1.5" "pytest==8.3.4" "anthropic==0.40.0"
 
 COPY . /app/
 

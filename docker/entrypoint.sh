@@ -22,7 +22,20 @@ cmd_tests() {
         warn_no_docs
         echo "== тесты: прогон без данных, тесты на данных будут пропущены (skip)"
     fi
-    exec python -m pytest "$@"
+    if [ "$#" -gt 0 ]; then
+        exec python -m pytest "$@"
+    fi
+    if command -v docker >/dev/null 2>&1; then
+        exec python -m pytest
+    fi
+    local ignores=()
+    local path
+    for path in $(grep -rlE 'shutil\.which\("docker"\)' bridge/tests 2>/dev/null | sort); do
+        ignores+=("--ignore=$path")
+    done
+    echo "== в образе нет docker: исключены тесты, требующие настоящий OPM Flow"
+    printf '   %s\n' "${ignores[@]#--ignore=}"
+    exec python -m pytest "${ignores[@]}"
 }
 
 cmd_npv() {

@@ -38,6 +38,10 @@ def model_z_schedule() -> Path | None:
     return docs_path(MODEL_Z_SCHEDULE_RELATIVE)
 
 
+def model_z_dir() -> Path | None:
+    return docs_path(Path("models") / "Model_Z")
+
+
 def chdd_python_dir() -> Path | None:
     return docs_path(CHDD_PYTHON_RELATIVE)
 

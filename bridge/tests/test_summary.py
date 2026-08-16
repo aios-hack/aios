@@ -11,7 +11,15 @@ from contracts import (
 )
 
 
-MODEL_Z = Path(__file__).resolve().parents[3] / "docs" / "models" / "Model_Z"
+import pytest
+
+from conftest import missing_reason, model_z_dir
+
+MODEL_Z = model_z_dir()
+
+pytestmark = pytest.mark.skipif(
+    MODEL_Z is None, reason=missing_reason("каталог Model_Z")
+)
 
 
 def _record_count(raw: bytes, keyword: str) -> int:

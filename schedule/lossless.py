@@ -337,3 +337,7 @@ def parse_schedule(raw: bytes) -> ParsedSchedule:
         fixed_deck_events=tuple(fixed_events),
         control_events=tuple(control_events),
     )
+
+
+_records = block_records
+_line_token = line_keyword

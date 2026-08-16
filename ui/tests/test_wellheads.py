@@ -4,7 +4,13 @@ import pytest
 
 from ui.deck import load_completions, load_wellheads
 
-DECK_PATH: Path = Path(__file__).resolve().parents[3] / "docs" / "models" / "Model_Z" / "Model_Z_sch.inc"
+from conftest import missing_reason, model_z_schedule
+
+DECK_PATH: Path | None = model_z_schedule()
+
+pytestmark = pytest.mark.skipif(
+    DECK_PATH is None, reason=missing_reason("Model_Z_sch.inc")
+)
 NI: int = 91
 NJ: int = 102
 NK: int = 59

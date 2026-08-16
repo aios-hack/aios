@@ -19,8 +19,14 @@ from contracts import (
 from schedule import parse_schedule
 
 
-MODEL_Z = Path(__file__).resolve().parents[3] / "docs" / "models" / "Model_Z"
+from conftest import missing_reason, model_z_dir
+
+MODEL_Z = model_z_dir()
 OPM_IMAGE = os.environ.get("OPM_FLOW_IMAGE", "openporousmedia/opmreleases:latest")
+
+pytestmark = pytest.mark.skipif(
+    MODEL_Z is None, reason=missing_reason("каталог Model_Z")
+)
 
 
 def _baseline_schedule(emitter: OpmDeckEmitter) -> Schedule:
