@@ -152,6 +152,52 @@ def test_systematic_shortfall_drops_the_amplitude_of_the_whole_plan() -> None:
     assert dropped.step_m3_per_day < plan_amplitude.step_m3_per_day
 
 
+def test_shortfall_measured_on_the_real_base_run_of_model_z() -> None:
+    """Замер 16.08 на настоящем базовом прогоне Model_Z, окно 01.01.2007 + 12 мес.
+
+    Три скважины свипа, выбранные по плотности окружения (110: 2 соседа,
+    25: 9, 17: 15), в самом базовом расписании ведут себя по-разному:
+
+    - 17 — `BHP_LIMITED` все 12 месяцев, забойное ровно на пределе 300.0 бар,
+      фактическая приёмистость 31.5 м³/сут при уставке 90.0, недобор 65%;
+    - 110 — `BHP_LIMITED` первые 4 месяца, дальше выходит на режим:
+      13.9 м³/сут при уставке 15.0, недобор 7%;
+    - 25 — `RATE_TARGET`, забойное 154 бар, 35.8 м³/сут при уставке 35.0,
+      целевую закачку добирает полностью.
+
+    Недобор существует ДО всякого возмущения, и повышать уставку у скважины,
+    уже стоящей на 300 бар, бессмысленно: план проектируется на одни уровни,
+    а реализуются другие. Ровно поэтому §8.2 требует регрессии на фактические
+    ΔWWIR, а §8.3 — сверки факта с целью после каждого прогона.
+    """
+
+    measured = (
+        ("17", 90.0, 31.495544751485188),
+        ("110", 15.0, 13.89351499080658),
+        ("25", 35.0, 35.833333333333336),
+    )
+    step = 5.0
+    runs = tuple(
+        SweepRun(
+            relative_amplitude=step / 30.0,
+            well=well,
+            level=Level.HIGH,
+            target_m3_per_day=setpoint,
+            baseline_rate_m3_per_day=actual,
+            actual_m3_per_day=actual,
+            baseline_cumulative_m3=104_861.36,
+            perturbed_cumulative_m3=104_861.36,
+        )
+        for well, setpoint, actual in measured
+    )
+    probe = build_probe(step / 30.0, a_amplitude(step), runs, 0.05)
+    ok = probe.achievability_ok(TOLERANCE)
+    assert ok["17"] is False
+    assert ok["110"] is False
+    assert ok["25"] is True
+    assert probe.systematic_shortfall(TOLERANCE)
+
+
 def test_largest_still_linear_amplitude_wins() -> None:
     measurement = AmplitudeMeasurement(
         probes=(
