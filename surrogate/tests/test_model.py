@@ -187,13 +187,48 @@ def test_targets_clamp_only_tiny_negative_cumulative_roundoff() -> None:
 
 def test_targets_reject_material_negative_values_with_field_name() -> None:
     response = _response()
-    invalid = replace(response.interval_response[0], oil_mass_delta=-0.01)
+    invalid = replace(response.interval_response[0], liquid_volume_delta=-0.01)
     example = TrainingExample(
         _input(),
         replace(response, interval_response=(invalid, *response.interval_response[1:])),
     )
 
-    with pytest.raises(SurrogateModelError, match="oil_mass_delta=-0.01"):
+    with pytest.raises(SurrogateModelError, match="liquid_volume_delta=-0.01"):
+        _targets(example)
+
+
+def test_targets_count_oil_backflow_as_zero_production() -> None:
+    """Переток нефти обратно в пласт — не добыча и не ошибка разбора.
+
+    Замер на прогоне 20260817T104426-70e8e055e519: у скважины 44 отрицательный
+    COPR у 10 из 14 подключений, накопление падает на 3.53 т. Цель обнуляется,
+    но интервал пересчитывается, чтобы доля перетоков была видна в отчёте.
+    """
+
+    response = _response()
+    backflow = replace(response.interval_response[0], oil_mass_delta=-3.53)
+    example = TrainingExample(
+        _input(),
+        replace(response, interval_response=(backflow, *response.interval_response[1:])),
+    )
+    stats: dict[str, int] = {}
+
+    targets = _targets(example, stats)
+
+    assert targets[0, 0].item() == 0.0
+    assert stats["backflow_intervals"] == 1
+    assert stats["backflow_worst_milli"] == -3530
+
+
+def test_targets_reject_oil_negative_too_large_for_backflow() -> None:
+    response = _response()
+    absurd = replace(response.interval_response[0], oil_mass_delta=-2_000.0)
+    example = TrainingExample(
+        _input(),
+        replace(response, interval_response=(absurd, *response.interval_response[1:])),
+    )
+
+    with pytest.raises(SurrogateModelError, match="oil_mass_delta=-2000.0"):
         _targets(example)
 
 

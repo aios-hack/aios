@@ -344,6 +344,9 @@ def _train_combined(
         "best_epoch": result.best_epoch,
         "history": [asdict(item) for item in result.history],
         "metrics": metrics,
+        "target_rows": result.target_rows,
+        "backflow_intervals": result.backflow_intervals,
+        "backflow_worst_tonnes": result.backflow_worst_tonnes,
     }
     (output_dir / "training_report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True),

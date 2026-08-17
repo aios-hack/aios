@@ -19,7 +19,7 @@ import json
 import math
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Callable, Iterable, Sequence
+from typing import Callable, Iterable, MutableMapping, Sequence
 
 import torch
 from torch import Tensor, nn
@@ -45,6 +45,37 @@ TARGET_NAMES: tuple[str, ...] = (
     "injection_rate",
     "bhp",
 )
+
+# Приросты накопленных величин, восстановленные из UNSMRY, могут уйти в минус
+# по двум разным причинам, и смешивать их нельзя.
+#
+# Первая — представление: UNSMRY хранит накопления 4-байтными float, вычитание
+# двух близких значений даёт хвост порядка 1e-7 от самого накопления.
+#
+# Вторая — физика. Масса нефти собирается из COPT по подключениям, а у почти
+# остановленной скважины подключения могут работать в обратную сторону: замер
+# на прогоне `20260817T104426-70e8e055e519`, скважина 44, интервал 219 —
+# `oil_rate = -0.1177` т/сут при `liquid_rate = 0.65` м³/сут, отрицательный
+# COPR у 10 из 14 подключений, накопление падает на 3.53 т. Это переток нефти
+# обратно в пласт, и OPM сообщает о нём честно. По всему датасету из 732
+# прогонов таких интервалов 4201 из 16.9 млн (0.025%), худший -15.84 т, и
+# только по массе нефти: жидкость и закачка отрицательными не становятся
+# нигде.
+#
+# Переток — не добыча, поэтому целью берётся ноль. Эталонный расчётчик такую
+# строку выбрасывает из экономики целиком (`is_excluded_by_negative_rule`,
+# contracts/response.py), то есть её вклад в ЧДД тоже нулевой; предсказать
+# отрицательный прирост модель всё равно не может, потому что выход идёт через
+# `log1p`/`expm1` и неотрицателен по построению.
+#
+# Глушить любой минус нельзя, иначе исчезает защита от настоящей ошибки
+# в разборе UNSMRY. Поэтому защит две: ниже `_BACKFLOW_FLOOR` обучение падает
+# сразу, а если доля таких интервалов превысит `_BACKFLOW_SHARE_LIMIT`, падает
+# на сборке тензоров — замеренная доля 0.025%, и порог в 40 раз выше неё.
+_ROUNDOFF_TOLERANCE = 1e-3
+_BACKFLOW_FIELDS = frozenset({"oil_mass_delta"})
+_BACKFLOW_FLOOR = -1e3  # т за месяц; крупнее — это не переток, а баг
+_BACKFLOW_SHARE_LIMIT = 0.01
 
 _NUMERIC_NAMES: tuple[str, ...] = (
     "setpoint_m3_per_day",
@@ -132,6 +163,9 @@ class TrainingResult:
     history: tuple[EpochMetrics, ...]
     best_epoch: int
     dataset_hash: str
+    backflow_intervals: int = 0
+    backflow_worst_tonnes: float = 0.0
+    target_rows: int = 0
 
 
 class _NodeNetwork(nn.Module):
@@ -208,7 +242,10 @@ def _features(
     return x, well_index
 
 
-def _targets(example: TrainingExample) -> Tensor:
+def _targets(
+    example: TrainingExample,
+    stats: MutableMapping[str, int] | None = None,
+) -> Tensor:
     item = example.input
     interval = {
         (row.well, row.control_step): row for row in example.response.interval_response
@@ -239,15 +276,18 @@ def _targets(example: TrainingExample) -> Tensor:
                     f"нечисловая цель ({node.well!r}, {node.control_step}) "
                     f"{name}={value!r}"
                 )
-            if value < -1e-3:
+            if value >= -_ROUNDOFF_TOLERANCE:
+                continue
+            if name not in _BACKFLOW_FIELDS or value < _BACKFLOW_FLOOR:
                 raise SurrogateModelError(
                     f"отрицательная цель ({node.well!r}, {node.control_step}) "
                     f"{name}={value!r}"
                 )
-        # UNSMRY stores cumulative vectors as finite-precision floats.  Their
-        # subtraction can produce a tiny negative tail for a physically zero
-        # interval (observed -5.57e-05 t for oil mass).  Preserve strictness
-        # for material negatives above, but normalize representational noise.
+            if stats is not None:
+                stats["backflow_intervals"] = stats.get("backflow_intervals", 0) + 1
+                stats["backflow_worst_milli"] = min(
+                    stats.get("backflow_worst_milli", 0), int(value * 1000)
+                )
         rows.append([math.log1p(max(0.0, float(value))) for value in raw.values()])
     return torch.tensor(rows, dtype=torch.float32)
 
@@ -255,18 +295,32 @@ def _targets(example: TrainingExample) -> Tensor:
 def _example_tensors(
     examples: Sequence[TrainingExample],
     wells: tuple[str, ...],
+    stats: MutableMapping[str, int] | None = None,
 ) -> tuple[Tensor, Tensor, Tensor]:
     xs: list[Tensor] = []
     indices: list[Tensor] = []
     ys: list[Tensor] = []
+    counters: dict[str, int] = {}
     for example in examples:
         x, well_index = _features(example.input, wells)
         xs.append(x)
         indices.append(well_index)
-        ys.append(_targets(example))
+        ys.append(_targets(example, counters))
     if not xs:
         raise SurrogateModelError("обучающая выборка пуста")
-    return torch.cat(xs), torch.cat(indices), torch.cat(ys)
+    target = torch.cat(ys)
+    backflow = counters.get("backflow_intervals", 0)
+    share = backflow / max(1, target.shape[0])
+    if share > _BACKFLOW_SHARE_LIMIT:
+        raise SurrogateModelError(
+            f"перетоков {backflow} из {target.shape[0]} интервалов ({share:.3%}) — "
+            f"выше порога {_BACKFLOW_SHARE_LIMIT:.1%}; это уже не переток, "
+            "а расхождение в разборе отклика"
+        )
+    if stats is not None:
+        stats.update(counters)
+        stats["target_rows"] = int(target.shape[0])
+    return torch.cat(xs), torch.cat(indices), target
 
 
 def _loss_on_loader(
@@ -365,7 +419,8 @@ class TrajectorySurrogate:
         )
         network = model.network.to(selected_device)
 
-        train_x, train_wells, train_y = _example_tensors(train, model.wells)
+        target_stats: dict[str, int] = {}
+        train_x, train_wells, train_y = _example_tensors(train, model.wells, target_stats)
         val_x, val_wells, val_y = _example_tensors(validation, model.wells)
         train_x = model.input_scaler.transform(train_x)
         val_x = model.input_scaler.transform(val_x)
@@ -439,6 +494,9 @@ class TrajectorySurrogate:
             history=tuple(history),
             best_epoch=best_epoch,
             dataset_hash=dataset_hash,
+            backflow_intervals=target_stats.get("backflow_intervals", 0),
+            backflow_worst_tonnes=target_stats.get("backflow_worst_milli", 0) / 1000.0,
+            target_rows=target_stats.get("target_rows", 0),
         )
 
     def predict(self, candidate: SurrogateInput) -> ScoredPrediction:
