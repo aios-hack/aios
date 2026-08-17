@@ -5,7 +5,7 @@
   "window.badge": "λ measured over {start} – {end}",
   "window.note": "Connectivity holds only inside this window. Outside it the matrix does not apply: the injector stock changes.",
   "ariaLabel": "Influence graph: nodes are wells, edges are measured λ connectivity",
-  "threshold.label": "λ threshold",
+  "threshold.label": "Link threshold",
   "threshold.edges": "Visible edges: {shown} of {total}",
   "legend.title": "Groups",
   "legend.injector": "Injector",
@@ -31,5 +31,8 @@
   "edge.title": "{injector} → {producer}: λ = {weight}",
   "thesis": "Distance between wells is set by λ, not by metres",
   "errorHint": "Build graph.json: python -m ui.demo.",
-  "emptyHint": "The threshold hides every edge, or the λ matrix is zero in this window."
+  "emptyHint": "The threshold hides every edge, or the λ matrix is zero in this window.",
+  "threshold.edgesLabel": "Links",
+  "threshold.hintLabel": "How the threshold works",
+  "threshold.hint": "To the right — weak links are cut off, only strong influence remains. At the minimum all links are shown; a step to the right leaves the 4 strongest per producer, otherwise hundreds of lines merge into a sheet."
 }

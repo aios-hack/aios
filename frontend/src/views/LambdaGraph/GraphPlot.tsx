@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { GraphFile, GraphNode } from '../../api/types';
 import { useT } from '../../i18n/I18nContext';
-import { fluidColors, graphColors, groupColor } from '../../theme/tokens';
+import { graphColors, groupColor } from '../../theme/tokens';
 import {
   edgeHighlighted,
   edgeOpacity,
@@ -19,7 +19,11 @@ import { createViewBox, useViewBox } from './useViewBox';
 import { WellGauge } from './WellGauge';
 
 const PAD = 12;
-const NODE_R = 2.6;
+// Радиус узла в единицах поля раскладки. Минимальное расстояние между узлами
+// в данных около 5.5, поэтому 1.7 оставляет между символами зазор шире их
+// диаметра: при 2.6 ближайшие узлы соприкасались, а кольца участков
+// перекрывались.
+const NODE_R = 1.7;
 const LABEL_DY = -3.6;
 
 // Порог, ниже которого подписи не рисуются. При обзорном масштабе 103 подписи
@@ -43,6 +47,7 @@ const groupRing = (node: GraphNode, index: Map<string, number>): string | null =
 interface GraphPlotProps {
   data: GraphFile;
   threshold: number;
+  capEdges: boolean;
   selection: Selection | null;
   wellStates: Map<string, WellFluidState>;
   onSelect: (well: string) => void;
@@ -51,12 +56,14 @@ interface GraphPlotProps {
 export const GraphPlot = ({
   data,
   threshold,
+  capEdges,
   selection,
   wellStates,
   onSelect
 }: GraphPlotProps) => {
   const t = useT();
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const rectRef = useRef<DOMRect | null>(null);
   const initial = createViewBox(data.layout?.size ?? 100, PAD);
   const { viewBox, zoomAtRatio, startPan, panBy, endPan, isPanning, hasDragged } =
     useViewBox(initial);
@@ -91,9 +98,22 @@ export const GraphPlot = ({
     svg.addEventListener('wheel', onWheel, { passive: false });
     return () => svg.removeEventListener('wheel', onWheel);
   }, [zoomAtRatio]);
-  const index = groupIndex(data);
-  const positions = new Map(data.nodes.map((node) => [node.id, node]));
-  const shown = topEdgesPerProducer(visibleEdges(data.edges, threshold), EDGES_PER_PRODUCER);
+  // Мемоизация обязательна: панорама и зум меняют viewBox на каждом кадре, а
+  // без неё на каждый кадр заново строились Map из 81 узла и сортировка 181
+  // ребра по группам — при плавном перетаскивании это десятки раз в секунду.
+  const index = useMemo(() => groupIndex(data), [data]);
+  const positions = useMemo(
+    () => new Map(data.nodes.map((node) => [node.id, node])),
+    [data]
+  );
+  const shown = useMemo(
+    () =>
+      topEdgesPerProducer(
+        visibleEdges(data.edges, threshold),
+        capEdges ? EDGES_PER_PRODUCER : null
+      ),
+    [data, threshold, capEdges]
+  );
   const maxWeight = data.weight_range?.max ?? 0;
 
   // Во сколько раз приблизили относительно обзорного вида.
@@ -104,7 +124,7 @@ export const GraphPlot = ({
   // приближение даёт ту же кашу, только крупнее.
   const scale = initial.width / viewBox.width;
   const nodeR = NODE_R / scale;
-  const labelSize = 3.1 / scale;
+  const labelSize = 2.6 / scale;
   const labelDy = LABEL_DY / scale;
   const strokeAt = (selected: boolean) => (selected ? 1.1 : 0.5) / scale;
 
@@ -117,17 +137,27 @@ export const GraphPlot = ({
       aria-label={t('graph.ariaLabel')}
       data-testid="lambda-graph-plot"
       onPointerDown={(event) => {
+        // Размер снимается один раз за жест: getBoundingClientRect в
+        // pointermove заставляет браузер пересчитывать раскладку на каждое
+        // движение мыши, и панорама по 81 узлу начинает подтормаживать.
+        rectRef.current = svgRef.current?.getBoundingClientRect() ?? null;
         startPan(event.clientX, event.clientY);
       }}
       onPointerMove={(event) => {
         if (!isPanning()) {
           return;
         }
-        const rect = svgRef.current?.getBoundingClientRect();
+        const rect = rectRef.current;
         panBy(event.clientX, event.clientY, rect?.width ?? 0, rect?.height ?? 0);
       }}
-      onPointerUp={endPan}
-      onPointerLeave={endPan}
+      onPointerUp={() => {
+        rectRef.current = null;
+        endPan();
+      }}
+      onPointerLeave={() => {
+        rectRef.current = null;
+        endPan();
+      }}
     >
       <g className="lambda-graph-edges">
         {shown.map((edge) => {
@@ -144,7 +174,7 @@ export const GraphPlot = ({
               y1={from.y}
               x2={to.x}
               y2={to.y}
-              stroke={edge.weight >= 0 ? fluidColors.oil : fluidColors.water}
+              stroke={edge.weight >= 0 ? "var(--color-edge-positive)" : "var(--color-edge-negative)"}
               strokeWidth={(edgeWidth(edge.weight, maxWeight) * (strong ? 2 : 1)) / scale}
               strokeOpacity={
                 selection === null || strong ? edgeOpacity(edge.weight, maxWeight) : 0.12
@@ -167,6 +197,7 @@ export const GraphPlot = ({
       <g className="lambda-graph-nodes">
         {data.nodes.map((node) => {
           const state = nodeState(node, selection);
+          const ring = groupRing(node, index);
           // Подпись видна, когда под неё есть место: при обзорном масштабе —
           // только у выбранного узла и его соседей, при увеличении — у всех.
           const labelled =
@@ -198,13 +229,13 @@ export const GraphPlot = ({
                 }
               }}
             >
-              {groupRing(node, index) !== null && state !== 'faded' && (
+              {ring !== null && state !== 'faded' && (
                 <circle
                   cx={node.x}
                   cy={node.y}
-                  r={nodeR * 1.55}
+                  r={nodeR * 1.75}
                   fill="none"
-                  stroke={groupRing(node, index) ?? ''}
+                  stroke={ring}
                   strokeWidth={0.4 / scale}
                   opacity={0.55}
                 />

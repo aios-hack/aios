@@ -1,6 +1,5 @@
 {
-  "app.eyebrow": "Мультиагентная система",
-  "app.title": "— месторождение",
+  "app.title": "— мультиагентная система",
   "app.subtitle": "Управление фондом скважин Model_Z",
   "theme.light": "Светлая тема",
   "theme.dark": "Тёмная тема",
@@ -17,5 +16,8 @@
   "status.error": "Данные недоступны",
   "status.empty": "Показывать нечего",
   "boundary.title": "Раздел не удалось отобразить",
-  "boundary.hint": "Внутренняя ошибка: {message}. Обновите страницу или выберите другой раздел."
+  "boundary.hint": "Внутренняя ошибка: {message}. Обновите страницу или выберите другой раздел.",
+  "app.brandAlt": "Blue Sky Research",
+  "synthetic.short": "демо",
+  "app.documentTitle": "AIOS"
 }

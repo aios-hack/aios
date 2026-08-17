@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { useDataset } from '../../data';
 import { useT } from '../../i18n/I18nContext';
 import { useTimeline } from '../../state/TimelineContext';
+import { CountMeter } from '../../ui/CountMeter';
 import { ViewStatus } from '../../ui/ViewStatus';
 import { LayerSwitch, type LayerFilter } from './LayerSwitch';
 import { MapLegend } from './MapLegend';
 import { rolesAtStep } from './roles';
-import { ShownCounter } from './ShownCounter';
 import { WellsPlot } from './WellsPlot';
 import './FieldMap.css';
 
@@ -34,7 +34,12 @@ export const FieldMap = () => {
     <section className="field-map">
       <div className="field-map-toolbar">
         <LayerSwitch filter={filter} onChange={setFilter} />
-        <ShownCounter shown={shown} total={wells.length} />
+        <CountMeter
+          label={t('map.shownLabel')}
+          shown={shown}
+          total={wells.length}
+          ariaLabel={t('map.shown', { shown, total: wells.length })}
+        />
       </div>
       <div className="field-map-canvas">
         <WellsPlot

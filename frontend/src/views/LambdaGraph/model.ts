@@ -23,12 +23,22 @@ export const visibleEdges = (edges: GraphEdge[], threshold: number): GraphEdge[]
 // Сколько сильнейших нагнетательных остаётся у каждой добывающей. До 2542
 // связей на 103 узлах — всё сразу читается как неумение рисовать графы,
 // а значимых связей у скважины единицы.
+//
+// Ограничение снимается на минимальном пороге: иначе счётчик показывает
+// «177 из 181» и дотянуть до полного набора нельзя ничем — часть связей
+// скрыта молча, и пользователь не понимает, куда они делись.
 export const EDGES_PER_PRODUCER = 4;
 
 // Порог по величине оставляет 181 ребро из 181 — граф читается как ком.
 // Оставляем сильнейшие связи каждой добывающей: у скважины редко больше
 // нескольких значимых нагнетательных, остальное — шум регрессии.
-export const topEdgesPerProducer = (edges: GraphEdge[], limit: number): GraphEdge[] => {
+export const topEdgesPerProducer = (
+  edges: GraphEdge[],
+  limit: number | null
+): GraphEdge[] => {
+  if (limit === null) {
+    return edges;
+  }
   const byProducer = new Map<string, GraphEdge[]>();
   for (const edge of edges) {
     const bucket = byProducer.get(edge.producer);
@@ -50,14 +60,14 @@ export const edgeOpacity = (weight: number, max: number): number => {
   if (max <= 0) {
     return 1;
   }
-  return 0.25 + 0.65 * (Math.abs(weight) / max);
+  return 0.14 + 0.5 * (Math.abs(weight) / max);
 };
 
 export const edgeWidth = (weight: number, max: number): number => {
   if (max <= 0) {
     return 0.4;
   }
-  return 0.3 + 1.5 * (Math.abs(weight) / max);
+  return 0.15 + 0.75 * (Math.abs(weight) / max);
 };
 
 export const buildSelection = (

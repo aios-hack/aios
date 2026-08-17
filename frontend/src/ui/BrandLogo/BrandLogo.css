@@ -1,0 +1,23 @@
+.brand-logo {
+  display: block;
+  flex: none;
+  width: 132px;
+}
+
+.brand-logo-image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.brand-logo-image--dark {
+  display: none;
+}
+
+[data-theme='dark'] .brand-logo-image--light {
+  display: none;
+}
+
+[data-theme='dark'] .brand-logo-image--dark {
+  display: block;
+}

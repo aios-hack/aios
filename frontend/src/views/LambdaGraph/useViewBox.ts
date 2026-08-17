@@ -10,6 +10,11 @@ export interface ViewBox {
 const MIN_SPAN = 8;
 const MAX_SPAN = 600;
 
+// Насколько далеко рамку можно увести за пределы содержимого: доля от её
+// собственной ширины. Без ограничения панорама уводит граф за край и он
+// теряется — вернуть его можно только перезагрузкой страницы.
+const OVERSCROLL = 0.4;
+
 export const createViewBox = (size: number, pad: number): ViewBox => ({
   x: -pad,
   y: -pad,
@@ -18,6 +23,20 @@ export const createViewBox = (size: number, pad: number): ViewBox => ({
 });
 
 const DRAG_SLOP = 3;
+
+const clampToContent = (box: ViewBox, bounds: ViewBox): ViewBox => {
+  const slackX = box.width * OVERSCROLL;
+  const slackY = box.height * OVERSCROLL;
+  const minX = bounds.x - slackX;
+  const maxX = bounds.x + bounds.width - box.width + slackX;
+  const minY = bounds.y - slackY;
+  const maxY = bounds.y + bounds.height - box.height + slackY;
+  return {
+    ...box,
+    x: minX > maxX ? (minX + maxX) / 2 : Math.min(Math.max(box.x, minX), maxX),
+    y: minY > maxY ? (minY + maxY) / 2 : Math.min(Math.max(box.y, minY), maxY)
+  };
+};
 
 export const useViewBox = (initial: ViewBox) => {
   const [viewBox, setViewBox] = useState<ViewBox>(initial);
@@ -32,14 +51,17 @@ export const useViewBox = (initial: ViewBox) => {
       const height = Math.min(MAX_SPAN, Math.max(MIN_SPAN, current.height * factor));
       const ratioX = (originX - current.x) / current.width;
       const ratioY = (originY - current.y) / current.height;
-      return {
-        x: originX - ratioX * width,
-        y: originY - ratioY * height,
-        width,
-        height
-      };
+      return clampToContent(
+        {
+          x: originX - ratioX * width,
+          y: originY - ratioY * height,
+          width,
+          height
+        },
+        initial
+      );
     });
-  }, []);
+  }, [initial]);
 
   /**
    * Зум по доле от размера окна, а не по координате viewBox.
@@ -55,14 +77,17 @@ export const useViewBox = (initial: ViewBox) => {
       const height = Math.min(MAX_SPAN, Math.max(MIN_SPAN, current.height * factor));
       const originX = current.x + ratioX * current.width;
       const originY = current.y + ratioY * current.height;
-      return {
-        x: originX - ratioX * width,
-        y: originY - ratioY * height,
-        width,
-        height
-      };
+      return clampToContent(
+        {
+          x: originX - ratioX * width,
+          y: originY - ratioY * height,
+          width,
+          height
+        },
+        initial
+      );
     });
-  }, []);
+  }, [initial]);
 
   const startPan = useCallback((clientX: number, clientY: number) => {
     dragRef.current = { x: clientX, y: clientY };
@@ -87,14 +112,17 @@ export const useViewBox = (initial: ViewBox) => {
       setViewBox((current) => {
         const scaleX = pixelWidth > 0 ? current.width / pixelWidth : 0;
         const scaleY = pixelHeight > 0 ? current.height / pixelHeight : 0;
-        return {
-          ...current,
-          x: current.x - (clientX - origin.x) * scaleX,
-          y: current.y - (clientY - origin.y) * scaleY
-        };
+        return clampToContent(
+          {
+            ...current,
+            x: current.x - (clientX - origin.x) * scaleX,
+            y: current.y - (clientY - origin.y) * scaleY
+          },
+          initial
+        );
       });
     },
-    []
+    [initial]
   );
 
   const endPan = useCallback(() => {

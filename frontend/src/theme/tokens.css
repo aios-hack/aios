@@ -156,6 +156,8 @@
 
   --color-backdrop: rgba(11, 12, 20, 0.18);
   --color-plot-bg: #fbfcfe;
+  --color-edge-positive: #6f7bd8;
+  --color-edge-negative: #d98a3f;
   --color-axis: rgba(35, 45, 205, 0.68);
   --color-axis-tick: rgba(11, 12, 20, 0.72);
   --dot-grid: rgba(35, 45, 205, 0.08);
@@ -307,6 +309,8 @@
 
   --color-backdrop: rgba(0, 0, 0, 0.32);
   --color-plot-bg: #0b0d15;
+  --color-edge-positive: #7f8af0;
+  --color-edge-negative: #e0a05a;
   --color-axis: rgba(124, 134, 245, 0.5);
   --color-axis-tick: rgba(238, 240, 248, 0.5);
   --dot-grid: rgba(124, 134, 245, 0.1);

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { useT } from '../../i18n/I18nContext';
+import { InfoHint } from '../../ui/InfoHint';
 import { YEAR_SECTIONS } from './constraints';
 import { InfrastructureTable } from './InfrastructureTable';
 import { OutageTable } from './OutageTable';
@@ -49,8 +50,14 @@ export const ConstraintsEditor = ({ nIntervals }: ConstraintsEditorProps) => {
   return (
     <section className="scenarios-editor">
       <header className="scenarios-editor-head">
-        <div>
-          <h3 className="scenarios-heading">{t('scenarios.editor.title')}</h3>
+        <div className="scenarios-editor-intro">
+          <span className="scenarios-editor-title-row">
+            <h3 className="scenarios-heading">{t('scenarios.editor.title')}</h3>
+            <InfoHint
+              label={t('scenarios.editor.hintLabel')}
+              text={t('scenarios.editor.downloadHint')}
+            />
+          </span>
           <p className="scenarios-note">{t('scenarios.editor.note')}</p>
         </div>
         <div className="scenarios-editor-actions">

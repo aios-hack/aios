@@ -1,5 +1,8 @@
 import type { GraphFile } from '../../api/types';
+import { FunnelIcon } from '@phosphor-icons/react';
 import { useT } from '../../i18n/I18nContext';
+import { CountMeter } from '../../ui/CountMeter';
+import { InfoHint } from '../../ui/InfoHint';
 import { groupColor } from '../../theme/tokens';
 import { Slider } from '../../ui/Slider';
 import { formatWindowDate, groupIndex, roundWeight, type Selection } from './model';
@@ -40,9 +43,16 @@ export const ThresholdControl = ({
   const step = Math.max((max - min) / 100, 0.001);
   return (
     <div className="lambda-graph-threshold">
-      <label className="lambda-graph-threshold-label" htmlFor="lambda-threshold">
-        {t('graph.threshold.label')}
-      </label>
+      <span className="lambda-graph-threshold-head">
+        <label className="lambda-graph-threshold-label" htmlFor="lambda-threshold">
+          <FunnelIcon size={16} weight="duotone" aria-hidden="true" />
+          <span>{t('graph.threshold.label')}</span>
+        </label>
+        <InfoHint
+          label={t('graph.threshold.hintLabel')}
+          text={t('graph.threshold.hint')}
+        />
+      </span>
       <Slider
         id="lambda-threshold"
         className="lambda-graph-slider"
@@ -53,8 +63,14 @@ export const ThresholdControl = ({
         onChange={onChange}
       />
       <output className="lambda-graph-threshold-value">{roundWeight(value)}</output>
-      <span className="lambda-graph-count" data-testid="lambda-graph-count">
-        {t('graph.threshold.edges', { shown, total })}
+      <span data-testid="lambda-graph-count">
+        <CountMeter
+          label={t('graph.threshold.edgesLabel')}
+          shown={shown}
+          total={total}
+          ariaLabel={t('graph.threshold.edges', { shown, total })}
+          bar={false}
+        />
       </span>
     </div>
   );

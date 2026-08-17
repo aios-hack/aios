@@ -26,9 +26,12 @@ export const LambdaGraph = () => {
       return { min: 0, max: 0 };
     }
     const weights = data.edges.map((edge) => Math.abs(edge.weight));
+    // Верхняя граница чуть выше сильнейшей связи: при max, равном её весу,
+    // фильтр `>=` всегда пропускает это ребро и обнулить граф нельзя.
+    const top = weights.length > 0 ? Math.max(...weights) : 0;
     return {
       min: weights.length > 0 ? Math.min(...weights) : 0,
-      max: weights.length > 0 ? Math.max(...weights) : 0
+      max: top > 0 ? top * 1.02 : 0
     };
   }, [data]);
 
@@ -66,12 +69,16 @@ export const LambdaGraph = () => {
     return <ViewStatus kind="error" title={t('graph.error')} hint={t('graph.errorHint')} />;
   }
 
-  const shown = topEdgesPerProducer(visibleEdges(data.edges, active), EDGES_PER_PRODUCER).length;
+  // На минимальном пороге ограничение снимается: иначе полный набор связей
+  // недостижим — счётчик замирает на «177 из 181».
+  const capEdges = active > bounds.min;
+  const shown = topEdgesPerProducer(
+    visibleEdges(data.edges, active),
+    capEdges ? EDGES_PER_PRODUCER : null
+  ).length;
 
   return (
     <section className="lambda-graph">
-      <WindowBadge window={data.window} />
-      <p className="lambda-graph-thesis">{t('graph.thesis')}</p>
       <ThresholdControl
         value={active}
         min={bounds.min}
@@ -80,26 +87,30 @@ export const LambdaGraph = () => {
         total={data.edges.length}
         onChange={setThreshold}
       />
-      <div className="lambda-graph-canvas">
-        {data.edges.length === 0 ? (
-          <ViewStatus kind="empty" title={t('graph.empty')} hint={t('graph.emptyHint')} />
-        ) : (
-          <GraphPlot
-            data={data}
-            threshold={active}
-            selection={selection}
-            wellStates={wellStates}
-            onSelect={selectWell}
-          />
-        )}
-      </div>
-      <p className="lambda-graph-hint">{t('graph.hint')}</p>
-      <div className="lambda-graph-panels">
-        <GroupLegend data={data} />
-        <MetaPanel meta={data.meta} />
-        {selection !== null && (
-          <SelectionPanel selection={selection} onClear={() => selectWell(null)} />
-        )}
+      <div className="lambda-graph-stage">
+        <div className="lambda-graph-canvas">
+          {data.edges.length === 0 ? (
+            <ViewStatus kind="empty" title={t('graph.empty')} hint={t('graph.emptyHint')} />
+          ) : (
+            <GraphPlot
+              data={data}
+              threshold={active}
+              capEdges={capEdges}
+              selection={selection}
+              wellStates={wellStates}
+              onSelect={selectWell}
+            />
+          )}
+        </div>
+        <div className="lambda-graph-panels">
+          {selection !== null && (
+            <SelectionPanel selection={selection} onClear={() => selectWell(null)} />
+          )}
+          <GroupLegend data={data} />
+          <MetaPanel meta={data.meta} />
+          <WindowBadge window={data.window} />
+          <p className="lambda-graph-hint">{t('graph.hint')}</p>
+        </div>
       </div>
     </section>
   );

@@ -148,62 +148,7 @@
   font-size: var(--font-size-sm);
 }
 
-.shown-counter {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-1);
-}
 
-.shown-counter-label {
-  color: var(--color-text-subtle);
-  font-size: var(--font-size-mono);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: var(--tracking-eyebrow);
-  text-transform: uppercase;
-}
-
-.shown-counter-values {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-1);
-  font-variant-numeric: tabular-nums;
-}
-
-.shown-counter-current {
-  color: var(--color-accent);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-black);
-  letter-spacing: var(--tracking-tight);
-}
-
-.shown-counter-total {
-  color: var(--color-text-subtle);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-}
-
-.shown-counter-track {
-  width: 64px;
-  height: 4px;
-  border-radius: var(--radius-pill);
-  background: var(--color-border);
-  overflow: hidden;
-}
-
-.shown-counter-fill {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: var(--radius-pill);
-  background: var(--color-accent);
-  transform-origin: left center;
-  transition: transform var(--duration-state) var(--ease-out);
-}
 
 .plot-axis-line {
   stroke: var(--color-axis);

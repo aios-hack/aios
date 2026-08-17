@@ -68,29 +68,40 @@ export const ScenarioLibrary = () => {
                     {t(entry.is_submitted ? 'scenarios.badge.submitted' : 'scenarios.badge.whatIf')}
                   </span>
                 </span>
-                <span className="scenarios-item-flags">
-                  <span className="scenarios-flag" data-ok={entry.converged}>
-                    {t(entry.converged ? 'scenarios.flag.converged' : 'scenarios.flag.notConverged')}
-                  </span>
-                  <span className="scenarios-flag" data-ok={entry.self_consistent}>
-                    {t(
-                      entry.self_consistent
-                        ? 'scenarios.flag.selfConsistent'
-                        : 'scenarios.flag.notSelfConsistent'
+                <span className="scenarios-item-state" data-active={active}>
+                  {t(active ? 'scenarios.library.active' : 'scenarios.library.switch')}
+                </span>
+                {(!entry.converged || !entry.self_consistent) && (
+                  <span className="scenarios-item-flags">
+                    {!entry.converged && (
+                      <span className="scenarios-flag" data-ok="false">
+                        {t('scenarios.flag.notConverged')}
+                      </span>
+                    )}
+                    {!entry.self_consistent && (
+                      <span className="scenarios-flag" data-ok="false">
+                        {t('scenarios.flag.notSelfConsistent')}
+                      </span>
                     )}
                   </span>
-                </span>
+                )}
                 {entry.npv_methodology !== null && (
                   <span className="scenarios-item-npv">
-                    {t('scenarios.library.npv', {
-                      value: formatNumber(lang, entry.npv_methodology)
-                    })}
+                    <span>{t('scenarios.library.npvLabel')}</span>
+                    <span className="scenarios-item-metric">
+                      {formatNumber(lang, entry.npv_methodology)}
+                    </span>
                   </span>
                 )}
                 <span className="scenarios-item-summary">
-                  {entry.constraints.empty
-                    ? t('scenarios.library.noConstraints')
-                    : t('scenarios.library.constraintsCount', { count: summaryOf(entry) })}
+                  {entry.constraints.empty ? (
+                    <span>{t('scenarios.library.noConstraints')}</span>
+                  ) : (
+                    <>
+                      <span>{t('scenarios.library.constraintsLabel')}</span>
+                      <span className="scenarios-item-metric">{summaryOf(entry)}</span>
+                    </>
+                  )}
                 </span>
               </button>
             </li>

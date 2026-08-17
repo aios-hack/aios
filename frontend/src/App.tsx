@@ -1,6 +1,9 @@
 import { useState } from 'react';
+import { useDocumentTitle } from './app/useDocumentTitle';
 import { useI18n } from './i18n/I18nContext';
+import { BrandLogo } from './ui/BrandLogo';
 import { HeaderControls } from './ui/HeaderControls';
+import { ScenarioBadge } from './ui/ScenarioBadge';
 import { SyntheticBanner } from './ui/SyntheticBanner';
 import { TabBar } from './ui/TabBar';
 import { FieldMap } from './views/FieldMap';
@@ -15,29 +18,36 @@ type ViewId = 'graph' | 'map' | 'steps' | 'npv' | 'scenarios';
 const VIEWS: ViewId[] = ['graph', 'map', 'steps', 'npv', 'scenarios'];
 
 export const App = () => {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [view, setView] = useState<ViewId>('graph');
+  useDocumentTitle(t(`tab.${view}`), t('app.documentTitle'), lang);
 
   return (
     <div className="app">
       <header className="app-header">
+        <BrandLogo />
         <div className="app-identity">
-          <span className="app-eyebrow">{t('app.eyebrow')}</span>
           <h1 className="app-title">
-            <span className="app-title-accent">AIOS</span> {t('app.title')}
+            <span className="app-title-accent">AIOS</span>
+            <span className="app-title-rest">{t('app.title')}</span>
           </h1>
-          <p className="app-subtitle">{t('app.subtitle')}</p>
+          <p className="app-subtitle">
+            {t('app.subtitle')}
+            <SyntheticBanner />
+          </p>
         </div>
         <HeaderControls />
       </header>
-      <SyntheticBanner />
-      <TabBar
-        ids={VIEWS}
-        active={view}
-        label={t('tabs.label')}
-        renderLabel={(id) => t(`tab.${id}`)}
-        onSelect={setView}
-      />
+      <div className="app-navigation">
+        <TabBar
+          ids={VIEWS}
+          active={view}
+          label={t('tabs.label')}
+          renderLabel={(id) => t(`tab.${id}`)}
+          onSelect={setView}
+        />
+        <ScenarioBadge />
+      </div>
       <main
         key={view}
         className="app-main app-view-enter"
