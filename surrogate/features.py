@@ -45,11 +45,16 @@ _MONTHS = {
     "DEC": 12,
 }
 _EVENT_ORDER = {
-    EventKind.CONVERT_INJ: 0,
-    EventKind.SET_LRAT: 1,
-    EventKind.SET_RATE: 1,
-    EventKind.OPEN: 2,
-    EventKind.SHUT: 2,
+    # A conversion batch contains the old producer's zero LRAT and the new
+    # injector's RATE at one control step.  Apply the close while the well is
+    # still PROD, then change role, then apply the injector target.  The
+    # canonical/hash order puts CONVERT_INJ first, but that serialization
+    # order is not a valid state-transition order for feature construction.
+    EventKind.SET_LRAT: 0,
+    EventKind.CONVERT_INJ: 1,
+    EventKind.SET_RATE: 2,
+    EventKind.OPEN: 3,
+    EventKind.SHUT: 3,
 }
 
 
