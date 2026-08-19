@@ -14,20 +14,23 @@ from conftest import docker_unavailable_reason, missing_reason, model_z_dir
 # Через conftest, а не через parents[3]: см. тот же комментарий в test_runner.py.
 MODEL_Z = model_z_dir()
 
-pytestmark = pytest.mark.skipif(
-    MODEL_Z is None, reason=missing_reason("каталог Model_Z")
-)
+DOCKER_REASON = docker_unavailable_reason()
+
+# Проверка Docker — на уровне модуля, а не в функциональной фикстуре: полный
+# прогон живёт в module-scoped фикстуре `report`, а её pytest создаёт раньше
+# функциональных. Отсутствие демона тогда не давало skip, а падало ошибкой
+# фикстуры с `flow завершился кодом 127`.
+pytestmark = [
+    pytest.mark.skipif(MODEL_Z is None, reason=missing_reason("каталог Model_Z")),
+    pytest.mark.skipif(
+        DOCKER_REASON is not None,
+        reason=f"приёмка задачи 7 требует настоящий OPM Flow; {DOCKER_REASON}",
+    ),
+]
 # Общий с продовым запуском кеш (§4.5): полный физический прогон Model_Z
 # занимает реальное время, повторный `pytest` с тем же ключом дека/расписания/
 # SummarySpec обязан попасть в кеш, а не гонять симулятор заново.
 WORK_ROOT = Path(__file__).resolve().parents[2] / "data" / "base_run"
-
-
-@pytest.fixture(autouse=True)
-def require_docker() -> None:
-    reason = docker_unavailable_reason()
-    if reason is not None:
-        pytest.skip(f"приёмка задачи 7 требует настоящий OPM Flow; {reason}")
 
 
 @pytest.fixture(scope="module")

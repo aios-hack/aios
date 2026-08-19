@@ -72,6 +72,10 @@ npm run test      # vitest run
 npm run build     # tsc + vite build
 ```
 
+Node.js — ровно `22.11.0`, как в `Dockerfile`. На Node 24 и новее компонентные
+тесты падают целиком: у рантайма появился свой глобальный `localStorage`,
+равный `undefined` без `--localstorage-file`, и он перекрывает хранилище jsdom.
+
 `public/data/` в git не кладётся (см. `frontend/.gitignore`) — набор генерируется
 Python-стороной (`ui/demo.py` пишет в `frontend/public/data/`). Каталог `src/data/`
 — это слой загрузки данных на TypeScript, он в git есть и с `public/data/` не связан.
