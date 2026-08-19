@@ -17,9 +17,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8"]
 
-# Пакеты добавляются сюда по мере появления: schedule, economics, bridge,
-# surrogate, optimizer, connectivity, policy, robustness, ui, llm, config.
-# Сейчас реально существует только contracts/ — общие типы.
+# Явный список всех Python-пакетов репозитория. Новый подпакет нужно добавлять
+# сюда, иначе он не попадёт ни в установку, ни в образ.
 [tool.setuptools]
 packages = [
     "aios_cli",

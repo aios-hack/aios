@@ -7,9 +7,9 @@
 ## Подготовка до выхода к жюри
 
 ```
-.venv\Scripts\python -m ui.demo     # собирает весь набор в ui/web/public/data/
-cd ui/web
-npm run dev                          # или npm run build && npm run preview
+.venv/bin/python -m ui.demo     # собирает весь набор в frontend/public/data/
+cd frontend
+npm run dev                     # или npm run build && npm run preview
 ```
 
 Открыть вкладку **«Граф влияния»**, светлая тема, русский язык. Проверить, что
