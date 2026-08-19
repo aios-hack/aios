@@ -447,6 +447,9 @@ def run(args: argparse.Namespace) -> None:
 
     state.phase("generating_extra_500")
     state.update_stage("extra-500", status="running")
+    state.update_stage(
+        "combined-700", status="preparing", current_epoch=0, max_epochs=args.epochs
+    )
     extra = _build_stage(
         model_dir=args.model_dir,
         root=extra_root,
