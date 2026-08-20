@@ -34,7 +34,12 @@ from typing import Mapping, Sequence
 from contracts import IntervalResponse, Lambda, ResponseArtifact, StateAtDate
 from bridge.dataset import DatasetSample
 
-from connectivity.campaign import T0_DECK_DATE_INDEX, CampaignSetup, CampaignError
+from connectivity.campaign import (
+    BATCHES_PER_HALF,
+    T0_DECK_DATE_INDEX,
+    CampaignError,
+    CampaignSetup,
+)
 from connectivity.doe import DoEPlan, Level, achievability
 from connectivity.estimator import (
     Batch,
@@ -181,20 +186,52 @@ def measure(
     producers = prepared.fund.producers
     baseline_injection = _baseline_injection(baseline.state_at_date, injectors, steps)
 
-    drives = []
-    batch_samples = []
+    # Партии сливаются по BATCHES_PER_HALF в половину, и оценка строится на
+    # половинах, а не на партиях. Причина арифметическая: строк плана 27, а
+    # параметров регрессии с интерцептом 28 — одна партия недоопределена,
+    # R² выходит единицей на любом лаге, коэффициенты определены с точностью
+    # до ядра. Две партии в половине дают 54 наблюдения на 28 параметров.
+    half_drives = []
+    half_samples = []
     unreachable: set[str] = set()
-    for batch, plan in enumerate(prepared.plans):
-        ordered = _batch_samples(samples, batch, plan)
-        actual = _injection_by_run(ordered, injectors, steps)
-        report = achievability(
-            plan, _targets_by_run(plan, baseline_injection), actual, tolerance
+    for start in range(0, len(prepared.plans), BATCHES_PER_HALF):
+        chunk = range(start, min(start + BATCHES_PER_HALF, len(prepared.plans)))
+        pooled_samples: list[DatasetSample] = []
+        pooled_actual: list[dict[str, float]] = []
+        for batch in chunk:
+            plan = prepared.plans[batch]
+            ordered = _batch_samples(samples, batch, plan)
+            actual = _injection_by_run(ordered, injectors, steps)
+            report = achievability(
+                plan, _targets_by_run(plan, baseline_injection), actual, tolerance
+            )
+            unreachable.update(
+                well for well, ok in report.achievability_ok().items() if not ok
+            )
+            pooled_samples.extend(ordered)
+            pooled_actual.extend(actual)
+        half_drives.append(
+            realized_drive(injectors, tuple(pooled_actual), baseline_injection)
         )
-        unreachable.update(
-            well for well, ok in report.achievability_ok().items() if not ok
+        half_samples.append(tuple(pooled_samples))
+
+    if len(half_drives) < 2:
+        raise CampaignError(
+            f"половин {len(half_drives)}: устойчивость меряется между двумя "
+            f"независимыми половинами, партий для этого нужно "
+            f"{2 * BATCHES_PER_HALF}"
         )
-        drives.append(realized_drive(injectors, actual, baseline_injection))
-        batch_samples.append(ordered)
+    for index, drive in enumerate(half_drives):
+        if drive.n_runs <= len(injectors):
+            raise CampaignError(
+                f"половина {index}: наблюдений {drive.n_runs} при "
+                f"{len(injectors) + 1} параметрах регрессии — система "
+                f"недоопределена, R² будет единицей на любом лаге, а "
+                f"коэффициенты определены с точностью до ядра"
+            )
+
+    drives = half_drives
+    batch_samples = half_samples
 
     scans = scan_lag(
         drives[0],

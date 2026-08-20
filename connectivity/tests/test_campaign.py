@@ -18,6 +18,7 @@ import pytest
 
 from contracts import ResponseArtifact
 from connectivity.campaign import (
+    BATCHES_PER_HALF,
     DEFAULT_WINDOW_STEPS,
     CampaignError,
     campaign_plan,
@@ -80,18 +81,22 @@ def test_plan_width_is_the_active_fund_of_the_window_not_a_constant(prepared) ->
     assert prepared.window.end.isoformat() == "2009-01-01"
 
 
-def test_two_batches_because_stability_needs_two(prepared) -> None:
-    assert len(prepared.plans) == 2
-    first, second = prepared.plans
-    assert first.injectors == second.injectors
-    assert first.seed != second.seed
-    # Партии независимы: одинаковых строк у двух планов быть не должно.
-    assert first.rows != second.rows
+def test_four_batches_two_per_half(prepared) -> None:
+    # Партий четыре, а не две: 27 строк плана против 28 параметров регрессии
+    # с интерцептом — одна партия недоопределена. Половина из двух партий
+    # даёт 54 наблюдения, устойчивость меряется между половинами.
+    assert len(prepared.plans) == 2 * BATCHES_PER_HALF
+    seeds = {plan.seed for plan in prepared.plans}
+    assert len(seeds) == len(prepared.plans)
+    first = prepared.plans[0]
+    for other in prepared.plans[1:]:
+        assert other.injectors == first.injectors
+        assert other.rows != first.rows
 
 
-def test_single_batch_is_refused(base_schedule) -> None:
-    with pytest.raises(CampaignError, match="двумя"):
-        setup(MODEL_Z, base_schedule, batch_seeds=(1,))
+def test_too_few_batches_are_refused(base_schedule) -> None:
+    with pytest.raises(CampaignError, match="недоопределена"):
+        setup(MODEL_Z, base_schedule, batch_seeds=(1, 2))
 
 
 def test_levels_become_two_sided_factors(prepared) -> None:
@@ -184,6 +189,8 @@ def test_measure_walks_the_whole_chain_on_synthetic_responses(prepared, baseline
     assert influence.window_start == prepared.window.start
     assert influence.window_end == prepared.window.end
     assert len(report.n_runs_by_batch) == 2
+    # Половина обязана быть переопределённой, иначе R² единица на любом лаге.
+    assert all(count > len(influence.injectors) for count in report.n_runs_by_batch)
 
 
 def test_missing_run_is_a_hole_not_a_zero(prepared, baseline) -> None:
