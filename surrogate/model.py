@@ -19,7 +19,7 @@ import json
 import math
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Callable, Iterable, MutableMapping, Sequence
+from typing import Callable, Iterable, Mapping, MutableMapping, Sequence
 
 import torch
 from torch import Tensor, nn
@@ -45,6 +45,27 @@ TARGET_NAMES: tuple[str, ...] = (
     "injection_rate",
     "bhp",
 )
+
+# Контракт (docs/context/08_contracts.md §5, 07_concept.md §5.1) требует
+# предсказывать раздельно факт добычи жидкости, обводнённость и приёмистость,
+# а нефть выводить как q_ж × (1 − обводнённость). Реализация задачи 34 вместо
+# этого предсказывала oil_mass_delta напрямую — то есть шестым независимым
+# таргетом ту величину, на которой висит 97% денег, и без связи с жидкостью.
+TARGET_PARAMETERIZATIONS: tuple[str, ...] = ("absolute", "watercut")
+WATERCUT_TARGET_NAMES: tuple[str, ...] = (
+    "liquid_volume_delta",
+    "watercut",
+    "injection_volume_delta",
+    "liquid_rate",
+    "injection_rate",
+    "bhp",
+)
+# Обводнённость выше единицы означает переток (отрицательная нефть); потолок
+# держит декодирование в пределах, где `_BACKFLOW_FLOOR` ещё осмыслен.
+_WATERCUT_CEILING = 1.5
+
+_LR_SCHEDULES: tuple[str, ...] = ("none", "cosine")
+_SELECTION_CRITERIA: tuple[str, ...] = ("loss", "money", "rank")
 
 # Приросты накопленных величин, восстановленные из UNSMRY, могут уйти в минус
 # по двум разным причинам, и смешивать их нельзя.
@@ -106,6 +127,22 @@ class ModelConfig:
     max_epochs: int = 80
     patience: int = 10
     seed: int = 20260816
+    # Денежная цена ошибки, ₽ на физическую единицу, в порядке TARGET_NAMES
+    # и со знаком (выручка положительна, opex отрицателен). Пустой кортеж
+    # отключает денежное взвешивание и возвращает равномерный smooth_l1.
+    # Значения обязан подать вызывающий из NormativeSet: ни один компонент
+    # не читает норматив мимо конфига (база знаний §11.1).
+    money_rub_per_unit: tuple[float, ...] = ()
+    money_weight_alpha: float = 0.7
+    money_weight_cap: float = 50.0
+    # Косинусное затухание и отбор по рангу проверены факторным
+    # экспериментом и отклонены: первое ухудшает сжатие разброса
+    # (недообученной сети нужно больше шагов, а не меньше), второй
+    # выбирает ту же эпоху, что и отбор по лоссу.
+    lr_schedule: str = "none"
+    select_by: str = "loss"
+    target_parameterization: str = "absolute"
+    oil_density_t_per_m3: float = 0.9131
 
     def __post_init__(self) -> None:
         if self.hidden_width < 1 or self.hidden_layers < 1:
@@ -118,6 +155,27 @@ class ModelConfig:
             raise SurrogateModelError("learning_rate/weight_decay заданы неверно")
         if self.batch_size < 1 or self.max_epochs < 1 or self.patience < 1:
             raise SurrogateModelError("batch_size/max_epochs/patience должны быть положительными")
+        object.__setattr__(self, "money_rub_per_unit", tuple(self.money_rub_per_unit))
+        if self.money_rub_per_unit and len(self.money_rub_per_unit) != len(TARGET_NAMES):
+            raise SurrogateModelError(
+                f"money_rub_per_unit должен покрывать все {len(TARGET_NAMES)} целей"
+            )
+        if any(not math.isfinite(value) for value in self.money_rub_per_unit):
+            raise SurrogateModelError("money_rub_per_unit содержит нечисловой коэффициент")
+        if not 0.0 <= self.money_weight_alpha <= 1.0:
+            raise SurrogateModelError("money_weight_alpha должен лежать в [0, 1]")
+        if self.money_weight_cap < 1.0:
+            raise SurrogateModelError("money_weight_cap должен быть не меньше 1")
+        if self.lr_schedule not in _LR_SCHEDULES:
+            raise SurrogateModelError(f"lr_schedule: {' или '.join(_LR_SCHEDULES)}")
+        if self.select_by not in _SELECTION_CRITERIA:
+            raise SurrogateModelError(f"select_by: {', '.join(_SELECTION_CRITERIA)}")
+        if self.target_parameterization not in TARGET_PARAMETERIZATIONS:
+            raise SurrogateModelError(
+                f"target_parameterization: {' или '.join(TARGET_PARAMETERIZATIONS)}"
+            )
+        if not self.oil_density_t_per_m3 > 0.0:
+            raise SurrogateModelError("oil_density_t_per_m3 должна быть положительной")
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,6 +214,11 @@ class EpochMetrics:
     epoch: int
     train_loss: float
     validation_loss: float
+    # Денежно-взвешенный валидационный лосс и ранговая корреляция сценарного
+    # денежного прокси. Нули означают, что взвешивание было отключено.
+    validation_money_loss: float = 0.0
+    validation_rank: float = 0.0
+    learning_rate: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -243,9 +306,37 @@ def _features(
     return x, well_index
 
 
+def _watercut_row(
+    raw: Mapping[str, float], *, oil_density_t_per_m3: float
+) -> list[float]:
+    """Контрактный набор целей: нефть не предсказывается, а выводится.
+
+    Обводнённость определена только там, где течёт жидкость; при нулевом
+    объёме она произвольна, потому что нефть всё равно восстановится нулём,
+    и мы кладём ноль, чтобы не учить сеть шуму на закрытых интервалах.
+    """
+    liquid = raw["liquid_volume_delta"]
+    if liquid > 0.0:
+        oil_volume = raw["oil_mass_delta"] / oil_density_t_per_m3
+        watercut = 1.0 - oil_volume / liquid
+    else:
+        watercut = 0.0
+    return [
+        liquid,
+        watercut,
+        raw["injection_volume_delta"],
+        raw["liquid_rate"],
+        raw["injection_rate"],
+        raw["bhp"],
+    ]
+
+
 def _targets(
     example: TrainingExample,
     stats: MutableMapping[str, int] | None = None,
+    *,
+    parameterization: str = "absolute",
+    oil_density_t_per_m3: float = 0.9131,
 ) -> Tensor:
     item = example.input
     interval = {
@@ -289,7 +380,12 @@ def _targets(
                 stats["backflow_worst_milli"] = min(
                     stats.get("backflow_worst_milli", 0), int(value * 1000)
                 )
-        rows.append([math.log1p(max(0.0, float(value))) for value in raw.values()])
+        values = (
+            _watercut_row(raw, oil_density_t_per_m3=oil_density_t_per_m3)
+            if parameterization == "watercut"
+            else list(raw.values())
+        )
+        rows.append([math.log1p(max(0.0, float(value))) for value in values])
     return torch.tensor(rows, dtype=torch.float32)
 
 
@@ -297,6 +393,9 @@ def _example_tensors(
     examples: Sequence[TrainingExample],
     wells: tuple[str, ...],
     stats: MutableMapping[str, int] | None = None,
+    *,
+    parameterization: str = "absolute",
+    oil_density_t_per_m3: float = 0.9131,
 ) -> tuple[Tensor, Tensor, Tensor]:
     xs: list[Tensor] = []
     indices: list[Tensor] = []
@@ -306,7 +405,14 @@ def _example_tensors(
         x, well_index = _features(example.input, wells)
         xs.append(x)
         indices.append(well_index)
-        ys.append(_targets(example, counters))
+        ys.append(
+            _targets(
+                example,
+                counters,
+                parameterization=parameterization,
+                oil_density_t_per_m3=oil_density_t_per_m3,
+            )
+        )
     if not xs:
         raise SurrogateModelError("обучающая выборка пуста")
     target = torch.cat(ys)
@@ -324,25 +430,220 @@ def _example_tensors(
     return torch.cat(xs), torch.cat(indices), target
 
 
+def _money_coefficients(
+    physical: Tensor,
+    *,
+    rub_per_unit: Tensor,
+    parameterization: str,
+    oil_density_t_per_m3: float,
+) -> Tensor:
+    """₽ за единицу каждой цели. При контрактной параметризации — не константа.
+
+    `rub_per_unit` всегда задан в физических константах порядка TARGET_NAMES:
+    маржа за тонну нефти, opex за м³ жидкости, opex за м³ закачки. Когда нефть
+    выводится из жидкости и обводнённости, цена ошибки по жидкости зависит от
+    того, сколько в ней нефти, а цена ошибки по обводнённости — от того,
+    сколько жидкости прошло. Это прямое дифференцирование build_cell_flows.
+    """
+    if parameterization != "watercut":
+        return rub_per_unit
+    liquid = physical[:, 0:1]
+    watercut = physical[:, 1:2].clamp(max=_WATERCUT_CEILING)
+    oil_margin = rub_per_unit[0]
+    opex_liquid = rub_per_unit[1]
+    opex_injection = rub_per_unit[2]
+    zeros = torch.zeros_like(liquid)
+    return torch.cat(
+        (
+            opex_liquid + (1.0 - watercut) * oil_density_t_per_m3 * oil_margin,
+            -liquid * oil_density_t_per_m3 * oil_margin,
+            opex_injection.expand_as(liquid),
+            zeros,
+            zeros,
+            zeros,
+        ),
+        dim=1,
+    )
+
+
+def _money_weights(
+    y: Tensor,
+    *,
+    scale: Tensor,
+    mean: Tensor,
+    rub_per_unit: Tensor,
+    alpha: float,
+    cap: float,
+    parameterization: str = "absolute",
+    oil_density_t_per_m3: float = 0.9131,
+) -> Tensor:
+    """Вес элемента лосса, пропорциональный рублёвой цене его ошибки.
+
+    Цели обучаются как log1p и стандартизуются, поэтому ошибка ε в
+    пространстве сети отвечает физической ошибке ε·scale·(1+v). Рубль же
+    линеен по физической величине: economics/npv.py build_cell_flows
+    умножает oil_mass_t, liquid_volume_m3 и injection_volume_m3 на скалярные
+    нормативы. Отсюда вес |₽/ед|·scale·(1+v), где (1+v) восстанавливается
+    как exp(y·scale + mean).
+
+    Без этого веса равномерный smooth_l1 минимизирует относительную ошибку и
+    уравнивает скважину на 1000 т со скважиной на 1 т, хотя в деньгах первая
+    стоит в тысячу раз дороже. Ровно отсюда бралось сжатие разброса ЧДД.
+    """
+    physical = torch.expm1(y * scale + mean).clamp_min(0.0)
+    coefficients = _money_coefficients(
+        physical,
+        rub_per_unit=rub_per_unit,
+        parameterization=parameterization,
+        oil_density_t_per_m3=oil_density_t_per_m3,
+    )
+    weight = coefficients.abs() * scale * torch.exp(y * scale + mean)
+    average = weight.mean()
+    if not bool(torch.isfinite(average)) or float(average) <= 0.0:
+        return torch.ones_like(y)
+    normalized = (weight / average).clamp(1.0 / cap, cap)
+    return alpha * normalized + (1.0 - alpha)
+
+
+def _ranks(values: Tensor) -> Tensor:
+    order = torch.argsort(values)
+    ranks = torch.empty_like(values)
+    positions = torch.arange(values.numel(), dtype=values.dtype, device=values.device)
+    ranks[order] = positions
+    return ranks
+
+
+def _spearman(left: Tensor, right: Tensor) -> float:
+    """Ранговая корреляция без scipy; связи игнорируются — суммы непрерывны."""
+    if left.numel() < 2:
+        return 0.0
+    centred_left = _ranks(left) - (left.numel() - 1) / 2.0
+    centred_right = _ranks(right) - (right.numel() - 1) / 2.0
+    denominator = torch.sqrt(
+        (centred_left * centred_left).sum() * (centred_right * centred_right).sum()
+    )
+    if float(denominator) == 0.0:
+        return 0.0
+    return float((centred_left * centred_right).sum() / denominator)
+
+
+def _scenario_money(
+    standardized: Tensor,
+    scenario_index: Tensor,
+    scenario_count: int,
+    *,
+    scale: Tensor,
+    mean: Tensor,
+    rub_per_unit: Tensor,
+    parameterization: str = "absolute",
+    oil_density_t_per_m3: float = 0.9131,
+) -> Tensor:
+    """Сценарный денежный прокси: Σ ₽·физическая величина по всем узлам.
+
+    Это не ЧДД — нет дисконтирования, налога, capex ЭЦН и событийных затрат.
+    Но именно линейные по объёму статьи дают подавляющую часть разброса ЧДД
+    между сценариями, а прокси считается на том же проходе валидации, что и
+    лосс, то есть бесплатно. Он нужен только чтобы упорядочить сценарии.
+    """
+    physical = torch.expm1(standardized * scale + mean).clamp_min(0.0)
+    if parameterization == "watercut":
+        liquid = physical[:, 0]
+        watercut = physical[:, 1].clamp(max=_WATERCUT_CEILING)
+        oil = liquid * (1.0 - watercut) * oil_density_t_per_m3
+        value = (
+            oil * rub_per_unit[0]
+            + liquid * rub_per_unit[1]
+            + physical[:, 2] * rub_per_unit[2]
+        )
+    else:
+        value = (physical * rub_per_unit).sum(dim=1)
+    totals = torch.zeros(scenario_count, dtype=value.dtype, device=value.device)
+    totals.index_add_(0, scenario_index, value)
+    return totals
+
+
 def _loss_on_loader(
     network: _NodeNetwork,
     loader: DataLoader,
     device: torch.device,
 ) -> float:
+    return _validate(network, loader, device).loss
+
+
+@dataclass(frozen=True, slots=True)
+class _ValidationOutcome:
+    loss: float
+    money_loss: float
+    rank: float
+
+
+def _validate(
+    network: _NodeNetwork,
+    loader: DataLoader,
+    device: torch.device,
+    *,
+    scale: Tensor | None = None,
+    mean: Tensor | None = None,
+    rub_per_unit: Tensor | None = None,
+    alpha: float = 0.0,
+    cap: float = 1.0,
+    scenario_index: Tensor | None = None,
+    scenario_count: int = 0,
+    parameterization: str = "absolute",
+    oil_density_t_per_m3: float = 0.9131,
+) -> _ValidationOutcome:
+    """Один проход валидации, отдающий все три критерия отбора чекпоинта."""
     network.eval()
     total = 0.0
+    money_total = 0.0
     count = 0
+    weighted = rub_per_unit is not None and scale is not None and mean is not None
+    ranked = weighted and scenario_index is not None and scenario_count > 0
+    predicted_chunks: list[Tensor] = []
+    actual_chunks: list[Tensor] = []
     with torch.no_grad():
         for x, well_index, y in loader:
             x = x.to(device)
             well_index = well_index.to(device)
             y = y.to(device)
-            loss = torch.nn.functional.smooth_l1_loss(
-                network(x, well_index), y, reduction="sum"
+            prediction = network(x, well_index)
+            elementwise = torch.nn.functional.smooth_l1_loss(
+                prediction, y, reduction="none"
             )
-            total += float(loss.item())
+            total += float(elementwise.sum().item())
+            if weighted:
+                weights = _money_weights(
+                    y, scale=scale, mean=mean, rub_per_unit=rub_per_unit,
+                    alpha=alpha, cap=cap, parameterization=parameterization,
+                    oil_density_t_per_m3=oil_density_t_per_m3,
+                )
+                money_total += float((elementwise * weights).sum().item())
+            if ranked:
+                predicted_chunks.append(prediction.cpu())
+                actual_chunks.append(y.cpu())
             count += y.numel()
-    return total / max(1, count)
+    divisor = max(1, count)
+    loss = total / divisor
+    money_loss = money_total / divisor if weighted else loss
+    rank = 0.0
+    if ranked:
+        cpu_scale = scale.cpu()
+        cpu_mean = mean.cpu()
+        cpu_rub = rub_per_unit.cpu()
+        predicted_money = _scenario_money(
+            torch.cat(predicted_chunks), scenario_index, scenario_count,
+            scale=cpu_scale, mean=cpu_mean, rub_per_unit=cpu_rub,
+            parameterization=parameterization,
+            oil_density_t_per_m3=oil_density_t_per_m3,
+        )
+        actual_money = _scenario_money(
+            torch.cat(actual_chunks), scenario_index, scenario_count,
+            scale=cpu_scale, mean=cpu_mean, rub_per_unit=cpu_rub,
+            parameterization=parameterization,
+            oil_density_t_per_m3=oil_density_t_per_m3,
+        )
+        rank = _spearman(predicted_money, actual_money)
+    return _ValidationOutcome(loss=loss, money_loss=money_loss, rank=rank)
 
 
 class TrajectorySurrogate:
@@ -387,7 +688,12 @@ class TrajectorySurrogate:
         torch.manual_seed(settings.seed)
         wells = examples[0].input.wells
         static_names = examples[0].input.static_feature_names
-        x, _, y = _example_tensors(examples, wells)
+        x, _, y = _example_tensors(
+            examples,
+            wells,
+            parameterization=settings.target_parameterization,
+            oil_density_t_per_m3=settings.oil_density_t_per_m3,
+        )
         network = _NodeNetwork(x.shape[1], len(wells), settings)
         return cls(
             config=settings,
@@ -421,8 +727,16 @@ class TrajectorySurrogate:
         network = model.network.to(selected_device)
 
         target_stats: dict[str, int] = {}
-        train_x, train_wells, train_y = _example_tensors(train, model.wells, target_stats)
-        val_x, val_wells, val_y = _example_tensors(validation, model.wells)
+        parameterization = dict(
+            parameterization=settings.target_parameterization,
+            oil_density_t_per_m3=settings.oil_density_t_per_m3,
+        )
+        train_x, train_wells, train_y = _example_tensors(
+            train, model.wells, target_stats, **parameterization
+        )
+        val_x, val_wells, val_y = _example_tensors(
+            validation, model.wells, **parameterization
+        )
         train_x = model.input_scaler.transform(train_x)
         val_x = model.input_scaler.transform(val_x)
         train_y = model.target_scaler.transform(train_y)
@@ -445,6 +759,34 @@ class TrajectorySurrogate:
             lr=settings.learning_rate,
             weight_decay=settings.weight_decay,
         )
+        scheduler = (
+            torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer, T_max=settings.max_epochs
+            )
+            if settings.lr_schedule == "cosine"
+            else None
+        )
+
+        # Денежная разметка целей. Пустой money_rub_per_unit оставляет
+        # равномерный smooth_l1 и отбор по валидационному лоссу — поведение,
+        # которым обучен чекпоинт задачи 34.
+        weighted = bool(settings.money_rub_per_unit)
+        target_scale = torch.tensor(
+            model.target_scaler.scale, dtype=train_y.dtype, device=selected_device
+        )
+        target_mean = torch.tensor(
+            model.target_scaler.mean, dtype=train_y.dtype, device=selected_device
+        )
+        rub_per_unit = torch.tensor(
+            settings.money_rub_per_unit or (0.0,) * len(TARGET_NAMES),
+            dtype=train_y.dtype,
+            device=selected_device,
+        )
+        scenario_index = torch.repeat_interleave(
+            torch.arange(len(validation)),
+            torch.tensor([len(item.input.nodes) for item in validation]),
+        )
+        criterion = settings.select_by if weighted else "loss"
 
         best_loss = math.inf
         best_state: dict[str, Tensor] | None = None
@@ -461,20 +803,69 @@ class TrajectorySurrogate:
                 y = y.to(selected_device)
                 optimizer.zero_grad(set_to_none=True)
                 prediction = network(x, well_index)
-                loss = torch.nn.functional.smooth_l1_loss(prediction, y)
+                if weighted:
+                    elementwise = torch.nn.functional.smooth_l1_loss(
+                        prediction, y, reduction="none"
+                    )
+                    weights = _money_weights(
+                        y,
+                        scale=target_scale,
+                        mean=target_mean,
+                        rub_per_unit=rub_per_unit,
+                        alpha=settings.money_weight_alpha,
+                        cap=settings.money_weight_cap,
+                        parameterization=settings.target_parameterization,
+                        oil_density_t_per_m3=settings.oil_density_t_per_m3,
+                    )
+                    loss = (elementwise * weights).mean()
+                else:
+                    loss = torch.nn.functional.smooth_l1_loss(prediction, y)
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(network.parameters(), max_norm=5.0)
                 optimizer.step()
                 total += float(loss.item()) * y.numel()
                 count += y.numel()
             train_loss = total / max(1, count)
-            validation_loss = _loss_on_loader(network, validation_loader, selected_device)
-            epoch_metrics = EpochMetrics(epoch, train_loss, validation_loss)
+            outcome = _validate(
+                network,
+                validation_loader,
+                selected_device,
+                scale=target_scale if weighted else None,
+                mean=target_mean if weighted else None,
+                rub_per_unit=rub_per_unit if weighted else None,
+                alpha=settings.money_weight_alpha,
+                cap=settings.money_weight_cap,
+                scenario_index=scenario_index if criterion == "rank" else None,
+                scenario_count=len(validation) if criterion == "rank" else 0,
+                parameterization=settings.target_parameterization,
+                oil_density_t_per_m3=settings.oil_density_t_per_m3,
+            )
+            validation_loss = outcome.loss
+            current_lr = float(optimizer.param_groups[0]["lr"])
+            if scheduler is not None:
+                scheduler.step()
+            # Критерий отбора — всегда «меньше лучше». Ранговый берётся со
+            # знаком минус: суррогат сдаёт порядок сценариев, а не поштатную
+            # MSE, и argmin по шумному лоссу выбирал удачную флуктуацию.
+            if criterion == "rank":
+                score = -outcome.rank
+            elif criterion == "money":
+                score = outcome.money_loss
+            else:
+                score = validation_loss
+            epoch_metrics = EpochMetrics(
+                epoch,
+                train_loss,
+                validation_loss,
+                validation_money_loss=outcome.money_loss,
+                validation_rank=outcome.rank,
+                learning_rate=current_lr,
+            )
             history.append(epoch_metrics)
             if epoch_callback is not None:
                 epoch_callback(epoch_metrics)
-            if validation_loss < best_loss - 1e-6:
-                best_loss = validation_loss
+            if score < best_loss - 1e-6:
+                best_loss = score
                 best_epoch = epoch
                 best_state = {
                     key: value.detach().cpu().clone()
@@ -513,10 +904,18 @@ class TrajectorySurrogate:
                 chunks.append(self.network(x[start:stop], well_index[start:stop]))
         standardized = torch.cat(chunks)
         decoded = torch.expm1(self.target_scaler.inverse(standardized)).clamp_min(0.0)
+        watercut_mode = self.config.target_parameterization == "watercut"
 
         nodes: list[RawWellStepPrediction] = []
         for source, values in zip(candidate.nodes, decoded.tolist()):
-            oil, liquid, injection, liquid_rate, injection_rate, bhp = values
+            if watercut_mode:
+                # Нефть выводится тождеством контракта, а не предсказывается:
+                # это гарантирует согласованность с жидкостью по построению.
+                liquid, watercut, injection, liquid_rate, injection_rate, bhp = values
+                watercut = min(watercut, _WATERCUT_CEILING)
+                oil = liquid * (1.0 - watercut) * self.config.oil_density_t_per_m3
+            else:
+                oil, liquid, injection, liquid_rate, injection_rate, bhp = values
             active = (
                 source.availability is Availability.AVAILABLE
                 and source.operating_status is OperatingStatus.OPEN

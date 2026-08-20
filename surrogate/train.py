@@ -24,14 +24,20 @@ from typing import Any, Iterable, Sequence
 from bridge.dataset import DatasetGenerator, DatasetSample
 from bridge.dataset_plan import PlanConfig, PerturbationFamily, build_plan
 from config.schema import default_policies
-from contracts import ResponseArtifact, canonical_bytes
+from contracts import NormativeSet, ResponseArtifact, canonical_bytes
 from economics import analyze_base_case, load_normatives
 from schedule import parse_schedule
 
 from .adapter import ResponseAdapter
 from .features import ScheduleFeatureizer
 from .metrics import WellTrajectory, ranking_metrics, state_metrics, watercut_metrics
-from .model import ModelConfig, TrainingExample, TrajectorySurrogate, target_mae
+from .model import (
+    TARGET_NAMES,
+    ModelConfig,
+    TrainingExample,
+    TrajectorySurrogate,
+    target_mae,
+)
 from .model_z_context import ModelZFeatureArtifact, build_model_z_context
 
 
@@ -165,13 +171,17 @@ def evaluate(
     context: ModelZFeatureArtifact,
     *,
     model_schedule_path: Path,
-    normatives_path: Path,
+    normatives_path: Path | None = None,
+    normatives: NormativeSet | None = None,
     oil_density_t_per_m3: float,
 ) -> dict[str, Any]:
     if len(examples) != len(samples) or len(examples) < 2:
         raise TrainingCommandError("для ranking нужны совпадающие test-наборы >= 2")
+    if (normatives_path is None) == (normatives is None):
+        raise TrainingCommandError("задайте ровно один источник нормативов")
     parsed = parse_schedule(model_schedule_path.read_bytes())
-    normatives = load_normatives(normatives_path)
+    if normatives is None:
+        normatives = load_normatives(normatives_path)
     policies = default_policies()
     adapter = ResponseAdapter()
     actual_npv: list[float] = []
@@ -253,6 +263,27 @@ def evaluate(
     }
 
 
+def money_rub_per_unit(normatives: NormativeSet) -> tuple[float, ...]:
+    """₽ на физическую единицу для каждой цели, в порядке TARGET_NAMES.
+
+    Коэффициенты сняты напрямую с economics/npv.py build_cell_flows: выручка,
+    вычеты и opex по нефти линейны по oil_mass_t, opex жидкости — по
+    liquid_volume_m3, opex закачки — по injection_volume_m3. Дебиты и забойное
+    давление ни в одну денежную статью не входят и получают ноль: они нужны
+    модели ради физики и режимных голов, но рублёвой цены ошибки не имеют.
+    """
+    linear = {
+        "oil_mass_delta": (
+            normatives.price_oil_rub_per_t
+            - normatives.deductions_rub_per_t
+            - normatives.opex_oil_rub_per_t
+        ),
+        "liquid_volume_delta": -normatives.opex_liquid_rub_per_t,
+        "injection_volume_delta": -normatives.opex_injection_rub_per_m3,
+    }
+    return tuple(float(linear.get(name, 0.0)) for name in TARGET_NAMES)
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model-dir", type=Path, required=True)
@@ -274,6 +305,17 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--hidden-layers", type=int, default=3)
     parser.add_argument("--device", default=None)
     parser.add_argument("--oil-density", type=float, default=0.9131)
+    parser.add_argument("--money-loss-alpha", type=float, default=0.7)
+    parser.add_argument("--money-weight-cap", type=float, default=50.0)
+    parser.add_argument("--lr-schedule", choices=("none", "cosine"), default="none")
+    parser.add_argument("--select-by", choices=("loss", "money", "rank"), default="loss")
+    parser.add_argument(
+        "--target-parameterization",
+        choices=("absolute", "watercut"),
+        default="watercut",
+        help="watercut — контрактный набор целей: нефть выводится из жидкости "
+             "и обводнённости, а не предсказывается независимо (§5.1)",
+    )
     return parser
 
 
@@ -342,6 +384,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         max_epochs=args.epochs,
         patience=args.patience,
         seed=args.seed,
+        money_rub_per_unit=money_rub_per_unit(load_normatives(args.normatives)),
+        money_weight_alpha=args.money_loss_alpha,
+        money_weight_cap=args.money_weight_cap,
+        lr_schedule=args.lr_schedule,
+        select_by=args.select_by,
+        target_parameterization=args.target_parameterization,
+        oil_density_t_per_m3=args.oil_density,
     )
     result = TrajectorySurrogate.fit(
         train,
@@ -366,6 +415,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     report = {
         "format": "aios.surrogate-training-report.v1",
+        "loss_weighting": {
+            "money_rub_per_unit": dict(
+                zip(TARGET_NAMES, settings.money_rub_per_unit)
+            ),
+            "money_weight_alpha": settings.money_weight_alpha,
+            "money_weight_cap": settings.money_weight_cap,
+            "lr_schedule": settings.lr_schedule,
+            "select_by": settings.select_by,
+            "target_parameterization": settings.target_parameterization,
+        },
         "dataset_hash": dataset.dataset_hash,
         "plan_hash": dataset.plan_hash,
         "model_version": result.model.version,

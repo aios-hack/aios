@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 from dataclasses import replace
 from datetime import date, timedelta
 
@@ -18,7 +20,13 @@ from contracts import (  # noqa: E402
     StateAtDate,
 )
 from surrogate.features import SurrogateInput, WellStepFeatures  # noqa: E402
-from surrogate.model import (  # noqa: E402
+from surrogate.model import (
+    Standardizer,
+    _money_weights,
+    _targets,
+    _watercut_row,
+    _scenario_money,
+    _spearman,  # noqa: E402
     ModelConfig,
     SurrogateModelError,
     TrainingExample,
@@ -261,3 +269,139 @@ def test_candidate_with_changed_setpoint_is_scored_outside_domain() -> None:
     assert prediction.ood.score > 0.0
     assert prediction.ood.worst is not None
     assert prediction.ood.worst.well == changed_node.well
+
+
+def test_money_weights_are_flat_when_alpha_is_zero() -> None:
+    y = torch.tensor([[0.5, -1.0], [2.0, 0.0]])
+    weights = _money_weights(
+        y,
+        scale=torch.tensor([1.0, 1.0]),
+        mean=torch.tensor([0.0, 0.0]),
+        rub_per_unit=torch.tensor([8360.0, -100.0]),
+        alpha=0.0,
+        cap=50.0,
+    )
+    assert torch.allclose(weights, torch.ones_like(y))
+
+
+def test_money_weights_grow_with_physical_size_of_the_target() -> None:
+    """Крупная скважина обязана весить больше мелкой: рубль линеен по объёму,
+    а цель обучается в log1p, поэтому одинаковая относительная ошибка стоит
+    разных денег."""
+    y = torch.tensor([[0.0], [3.0]])
+    weights = _money_weights(
+        y,
+        scale=torch.tensor([1.0]),
+        mean=torch.tensor([0.0]),
+        rub_per_unit=torch.tensor([8360.0]),
+        alpha=1.0,
+        cap=1e9,
+    )
+    assert float(weights[1, 0]) > float(weights[0, 0])
+    assert float(weights[1, 0]) / float(weights[0, 0]) == pytest.approx(math.exp(3.0))
+
+
+def test_money_weight_cap_bounds_the_heavy_tail() -> None:
+    y = torch.tensor([[0.0], [20.0]])
+    weights = _money_weights(
+        y,
+        scale=torch.tensor([1.0]),
+        mean=torch.tensor([0.0]),
+        rub_per_unit=torch.tensor([1.0]),
+        alpha=1.0,
+        cap=10.0,
+    )
+    assert float(weights.max()) <= 10.0
+
+
+def test_spearman_matches_known_orderings() -> None:
+    ascending = torch.tensor([1.0, 2.0, 3.0, 4.0])
+    assert _spearman(ascending, ascending) == pytest.approx(1.0)
+    assert _spearman(ascending, -ascending) == pytest.approx(-1.0)
+    assert _spearman(ascending, torch.tensor([2.0, 1.0, 4.0, 3.0])) == pytest.approx(0.6)
+
+
+def test_scenario_money_sums_signed_line_items_per_scenario() -> None:
+    """Прокси обязан складывать статьи со знаком внутри каждого сценария."""
+    shifted = torch.tensor([[1.0, 0.0], [0.0, 0.0], [1.0, 0.0]])
+    totals = _scenario_money(
+        shifted,
+        torch.tensor([0, 0, 1]),
+        2,
+        scale=torch.tensor([1.0, 1.0]),
+        mean=torch.tensor([0.0, 0.0]),
+        rub_per_unit=torch.tensor([8360.0, -100.0]),
+    )
+    unit = math.expm1(1.0) * 8360.0
+    assert totals[0].item() == pytest.approx(unit)
+    assert totals[1].item() == pytest.approx(unit)
+    negative = _scenario_money(
+        torch.tensor([[0.0, 1.0]]),
+        torch.tensor([0]),
+        1,
+        scale=torch.tensor([1.0, 1.0]),
+        mean=torch.tensor([0.0, 0.0]),
+        rub_per_unit=torch.tensor([8360.0, -100.0]),
+    )
+    assert negative[0].item() == pytest.approx(-math.expm1(1.0) * 100.0)
+
+
+def test_watercut_parameterization_round_trips_oil_exactly() -> None:
+    """Нефть, выведенная из жидкости и обводнённости, обязана совпасть с фактом.
+
+    Это и есть смысл контрактного требования §5.1: жидкость и нефть перестают
+    быть двумя независимыми предсказаниями, которые могут разойтись.
+    """
+    density = 0.9131
+    raw = {
+        "oil_mass_delta": 50.0,
+        "liquid_volume_delta": 200.0,
+        "injection_volume_delta": 0.0,
+        "liquid_rate": 7.0,
+        "injection_rate": 0.0,
+        "bhp": 75.0,
+    }
+    row = _watercut_row(raw, oil_density_t_per_m3=density)
+    liquid, watercut = row[0], row[1]
+    assert liquid == pytest.approx(200.0)
+    restored_oil = liquid * (1.0 - watercut) * density
+    assert restored_oil == pytest.approx(raw["oil_mass_delta"])
+
+
+def test_watercut_is_zero_when_no_liquid_flows() -> None:
+    raw = dict.fromkeys(
+        (
+            "oil_mass_delta",
+            "liquid_volume_delta",
+            "injection_volume_delta",
+            "liquid_rate",
+            "injection_rate",
+            "bhp",
+        ),
+        0.0,
+    )
+    raw["injection_volume_delta"] = 400.0
+    row = _watercut_row(raw, oil_density_t_per_m3=0.9131)
+    assert row[1] == 0.0
+    assert row[0] * (1.0 - row[1]) * 0.9131 == 0.0
+
+
+def test_watercut_targets_survive_the_full_encode_decode_path() -> None:
+    """Полный путь: отклик → цели → log1p → скейлер → expm1 → нефть."""
+    density = 0.9131
+    example = _example()
+    encoded = _targets(
+        example, parameterization="watercut", oil_density_t_per_m3=density
+    )
+    scaler = Standardizer.fit(encoded)
+    decoded = torch.expm1(scaler.inverse(scaler.transform(encoded))).clamp_min(0.0)
+    interval = {
+        (row.well, row.control_step): row
+        for row in example.response.interval_response
+    }
+    for node, values in zip(example.input.nodes, decoded.tolist()):
+        liquid, watercut = values[0], values[1]
+        fact = interval[(node.well, node.control_step)]
+        restored = liquid * (1.0 - min(watercut, 1.5)) * density
+        assert restored == pytest.approx(fact.oil_mass_delta, abs=1e-2)
+        assert liquid == pytest.approx(fact.liquid_volume_delta, abs=1e-2)
