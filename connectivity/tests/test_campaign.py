@@ -24,7 +24,7 @@ from connectivity.campaign import (
     setup,
 )
 from connectivity.doe import Level
-from connectivity.measure import measure
+from connectivity.measure import load_lambda, measure, save_lambda
 
 from conftest import missing_reason, model_z_dir
 
@@ -192,3 +192,24 @@ def test_missing_run_is_a_hole_not_a_zero(prepared, baseline) -> None:
     samples = _samples(prepared, baseline)[:-1]
     with pytest.raises(CampaignError, match="нет прогона"):
         measure(prepared, samples, baseline, n_steps=DEFAULT_WINDOW_STEPS)
+
+
+def test_measured_lambda_survives_a_round_trip(prepared, baseline, tmp_path) -> None:
+    report = measure(
+        prepared, _samples(prepared, baseline), baseline, n_steps=DEFAULT_WINDOW_STEPS
+    )
+    path = save_lambda(report, tmp_path / "lambda.json")
+    restored = load_lambda(path)
+    assert restored.matrix == report.influence.matrix
+    assert restored.injectors == report.influence.injectors
+    assert restored.producers == report.influence.producers
+    assert restored.window_start == report.influence.window_start
+    assert restored.lag_months == report.influence.lag_months
+    assert restored.achievability_ok == report.influence.achievability_ok
+
+
+def test_absent_measurement_raises_instead_of_zero_matrix(tmp_path) -> None:
+    # Нулевая матрица правильной формы неотличима от измерения глазами —
+    # правило 3: несчитанное не подменяется правдоподобным.
+    with pytest.raises(CampaignError, match="ещё не отрабатывала"):
+        load_lambda(tmp_path / "нет-такого.json")

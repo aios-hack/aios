@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import date
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Sequence
@@ -231,6 +232,74 @@ def measure(
     )
 
 
+def save_lambda(measured: MeasurementReport, path: Path) -> Path:
+    """Записать измеренную λ рядом с прогонами, из которых она получена.
+
+    Формат — тот же JSON, что читает `load_lambda`: матрица вместе с окном
+    применимости, лагом, диагностикой обусловленности и устойчивости и
+    развёрткой по лагам. Диагностика лежит в одном файле с матрицей
+    намеренно — λ без ранга, обусловленности и устойчивости невозможно ни
+    оспорить, ни защитить.
+    """
+
+    influence = measured.influence
+    path.write_text(
+        json.dumps(
+            {
+                "window_start": influence.window_start.isoformat(),
+                "window_end": influence.window_end.isoformat(),
+                "lag_months": influence.lag_months,
+                "amplitude": influence.amplitude,
+                "rank": influence.rank,
+                "condition_number": influence.condition_number,
+                "stability": influence.stability,
+                "producers": list(influence.producers),
+                "injectors": list(influence.injectors),
+                "matrix": [list(row) for row in influence.matrix],
+                "achievability_ok": dict(influence.achievability_ok),
+                "lag_scan": [list(item) for item in measured.lag_scan],
+                "n_runs_by_batch": list(measured.n_runs_by_batch),
+            },
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def load_lambda(path: Path | str) -> Lambda:
+    """Прочитать измеренную λ. Отсутствие файла — не повод подставить нули.
+
+    Нулевая матрица правильной формы выглядит как измерение и таковым не
+    является: правило 3 репозитория запрещает подменять несчитанное
+    правдоподобным. Поэтому здесь исключение, а не заглушка.
+    """
+
+    resolved = Path(path)
+    if not resolved.is_file():
+        raise CampaignError(
+            f"измеренной λ нет по пути {resolved}: кампания замера "
+            f"(`python -m connectivity.campaign`) ещё не отрабатывала, "
+            f"подставлять нулевую матрицу вместо измерения запрещено"
+        )
+    data = json.loads(resolved.read_text(encoding="utf-8"))
+    return Lambda(
+        window_start=date.fromisoformat(data["window_start"]),
+        window_end=date.fromisoformat(data["window_end"]),
+        producers=tuple(data["producers"]),
+        injectors=tuple(data["injectors"]),
+        matrix=tuple(tuple(float(value) for value in row) for row in data["matrix"]),
+        lag_months=int(data["lag_months"]),
+        amplitude=float(data["amplitude"]),
+        stability=float(data["stability"]),
+        rank=int(data["rank"]),
+        condition_number=float(data["condition_number"]),
+        achievability_ok={well: bool(ok) for well, ok in data["achievability_ok"].items()},
+    )
+
+
 def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -289,29 +358,7 @@ def main() -> int:
         flush=True,
     )
 
-    out = root / "lambda.json"
-    out.write_text(
-        json.dumps(
-            {
-                "window_start": measured.influence.window_start.isoformat(),
-                "window_end": measured.influence.window_end.isoformat(),
-                "lag_months": measured.influence.lag_months,
-                "amplitude": measured.influence.amplitude,
-                "rank": measured.influence.rank,
-                "condition_number": measured.influence.condition_number,
-                "stability": measured.influence.stability,
-                "producers": list(measured.influence.producers),
-                "injectors": list(measured.influence.injectors),
-                "matrix": [list(row) for row in measured.influence.matrix],
-                "achievability_ok": dict(measured.influence.achievability_ok),
-                "lag_scan": [list(item) for item in measured.lag_scan],
-            },
-            ensure_ascii=False,
-            indent=2,
-            sort_keys=True,
-        ),
-        encoding="utf-8",
-    )
+    out = save_lambda(measured, root / "lambda.json")
     print(f"матрица записана: {out}", flush=True)
 
     groups, grouping = build_groups(measured.influence, GroupingParams())
