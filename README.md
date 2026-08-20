@@ -25,7 +25,7 @@ bridge/     surrogate/   optimizer/   мост к симулятору, сурр
 connectivity/  policy/  robustness/   связность, политики, устойчивость
 config/                               конфигурация и seed
 ui/         llm/                      генерация web-данных и слой интерпретируемости
-frontend/                             React-интерфейс (TypeScript + Vite)
+frontend/                             React-интерфейс (TypeScript + Vite) — отдельный владелец
 aios_cli/                             командные точки входа образа
 data/                                 вне git, адресуется хешами; датасет прогонов —
                                       отдельный репозиторий aios-hack/dataset-700
