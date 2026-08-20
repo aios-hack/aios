@@ -2,7 +2,16 @@ from __future__ import annotations
 
 import pytest
 
-from llm.client import DEFAULT_MODEL, LlmClient
+# `llm/client.py` импортирует `anthropic` на уровне модуля, а он не объявлен
+# в `pyproject.toml` (README §3): в нативной установке его ставят отдельно.
+# Без этой строки отсутствие пакета — не skip, а ошибка сбора, которая рушит
+# весь прогон `pytest`, включая тесты, к LLM отношения не имеющие.
+pytest.importorskip(
+    "anthropic",
+    reason="слой llm/ требует пакет anthropic; поставьте его отдельно (README §3)",
+)
+
+from llm.client import DEFAULT_MODEL, LlmClient  # noqa: E402
 
 
 def test_client_without_key_raises(monkeypatch: pytest.MonkeyPatch) -> None:

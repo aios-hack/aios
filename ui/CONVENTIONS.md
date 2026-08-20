@@ -1,4 +1,4 @@
-# Конвенции фронтенда (ui/web)
+# Конвенции фронтенда (frontend/)
 
 ## Стек
 - TypeScript + Vite + React (без сторонних i18n/state-библиотек).
@@ -24,9 +24,12 @@
   переключатель в шапке, обе темы полноценные (`src/theme/ThemeContext.tsx`).
 - Интерфейс НИЧЕГО не вычисляет (ни экономику, ни физику) —
   только отображает готовые данные из JSON (`public/data/`, генерируется Python-стороной).
-- **Синтетика обязана быть помечена.** Любой сгенерированный набор несёт в
-  метаданных `provenance` и `synthetic: true` (см. `ui/demo.py`), а интерфейс
-  показывает плашку `SyntheticBanner` в шапке. Флаг читается из данных
+- **Синтетика обязана быть помечена.** Файлы видов (`graph.json`, `npv.json`,
+  `timeline.json`, `scenarios.json`) несут в `meta` поля `provenance` и
+  `synthetic` (см. `ui/demo.py`): у демо-набора `synthetic: true`, у `wells.json`
+  из настоящего дека — `provenance: "deck"`, `synthetic: false`. Плашку
+  `SyntheticBanner` интерфейс показывает по ним; `trace.json` и бандлы —
+  отображения без обёртки `meta`, флага в них нет. Флаг читается из данных
   (`state/ProvenanceContext.tsx`), а не зашивается в компонент: набор из
   настоящего прогона плашку не покажет. Выдавать синтетическое число за
   результат расчёта запрещено.
@@ -51,20 +54,31 @@
 ## Структура
 - `src/theme/` — токены и тема; `src/i18n/` — словари и контекст языка.
 - `src/api/types.ts` — типы данных (WellPoint, WellsFile).
-- `src/views/<View>/` — виды; первый вид: `FieldMap` (2D-карта скважин,
-  оси — индексы сетки I/J, J вниз; переключатель пласта Все | Пласт 1 | Пласт 2).
+- `src/data/` — загрузка JSON и состояние ресурса; `src/state/` — контексты
+  сценария, таймлайна и provenance; `src/ui/` — переиспользуемые компоненты.
+- `src/views/<View>/` — виды, сейчас их шесть: `LambdaGraph` (граф влияния,
+  главный), `FieldMap` (2D-карта скважин, оси — индексы сетки I/J, J вниз;
+  переключатель пласта Все | Пласт 1 | Пласт 2), `Timeline` (шаги),
+  `WellCard` (карточка скважины с Trace), `NpvRank` (вклад в ЧДД),
+  `Scenarios` (библиотека артефактов).
 
 ## Запуск
 Из корня `aios`:
 
 ```
-.venv\Scripts\python -m ui.webdata   # только wells.json из дека
-.venv\Scripts\python -m ui.demo      # весь демонстрационный набор (см. ui/DEMO.md)
-cd ui/web
-npm install --silent
+.venv/bin/python -m ui.webdata   # только wells.json из дека
+.venv/bin/python -m ui.demo      # весь демонстрационный набор (см. ui/DEMO.md)
+cd frontend
+npm ci
 npm run dev       # дев-сервер
 npm run test      # vitest run
 npm run build     # tsc + vite build
 ```
 
-`public/data/` в git не кладётся (см. `ui/web/.gitignore`).
+Node.js — ровно `22.11.0`, как в `Dockerfile`. На Node 24 и новее компонентные
+тесты падают целиком: у рантайма появился свой глобальный `localStorage`,
+равный `undefined` без `--localstorage-file`, и он перекрывает хранилище jsdom.
+
+`public/data/` в git не кладётся (см. `frontend/.gitignore`) — набор генерируется
+Python-стороной (`ui/demo.py` пишет в `frontend/public/data/`). Каталог `src/data/`
+— это слой загрузки данных на TypeScript, он в git есть и с `public/data/` не связан.

@@ -42,10 +42,6 @@ class ControlEventConflict:
     values: tuple[float | None, ...]
 
 
-def _well_sort_key(well: str) -> tuple[int, int, str]:
-    return (0, int(well), well) if well.isdigit() else (1, 0, well)
-
-
 def deck_well_axis(raw: bytes) -> tuple[str, ...]:
     match = _WELSPECS_RE.search(raw)
     if match is None:
@@ -53,7 +49,8 @@ def deck_well_axis(raw: bytes) -> tuple[str, ...]:
     wells = [well.decode("ascii") for well in _WELSPECS_WELL_RE.findall(match.group(1))]
     if not wells:
         raise ScheduleBuildError("WELSPECS не содержит ни одной скважины")
-    unique = sorted(set(wells), key=_well_sort_key)
+    # Лексикографический порядок — канон `bridge.OpmDeckEmitter.source_wells` (G2).
+    unique = sorted(set(wells))
     if len(unique) != len(wells):
         raise ScheduleBuildError("WELSPECS содержит повторяющиеся скважины")
     return tuple(unique)
@@ -116,7 +113,7 @@ def build_schedule(
     event_wells = {event.well for event in control_events} | {
         event.well for event in fixed_deck_events
     }
-    unknown = sorted(event_wells - axis, key=_well_sort_key)
+    unknown = sorted(event_wells - axis)
     if unknown:
         raise ScheduleBuildError(f"события по скважинам вне оси WELSPECS: {unknown}")
 

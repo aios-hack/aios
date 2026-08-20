@@ -107,8 +107,11 @@ from .npv import (
     monthly_income_tax_sum,
     npv_table_from_flows,
 )
+from .methodology_hash import METHODOLOGY_FILES, methodology_version_hash
 
 __all__ = [
+    "METHODOLOGY_FILES",
+    "methodology_version_hash",
     "ACTIVE_FUND_STATES",
     "RUB_PER_MILLION",
     "BaseCaseAnalysis",

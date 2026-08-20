@@ -21,6 +21,20 @@ T0 = date(2007, 1, 1)
 MAX_LRAT_M3_PER_DAY = 500.0
 
 
+def utf16_code_units(text: str) -> tuple[int, ...]:
+    """UTF-16 code units строки — ключ сортировки объектов JCS (RFC 8785 §3.2.3)."""
+    units: list[int] = []
+    for char in text:
+        code_point = ord(char)
+        if code_point <= 0xFFFF:
+            units.append(code_point)
+        else:
+            code_point -= 0x10000
+            units.append(0xD800 + (code_point >> 10))
+            units.append(0xDC00 + (code_point & 0x3FF))
+    return tuple(units)
+
+
 class Availability(Enum):
     NOT_COMMISSIONED = "NOT_COMMISSIONED"
     AVAILABLE = "AVAILABLE"
