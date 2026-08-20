@@ -171,7 +171,7 @@ AIOS_DATASET_WORKERS=8 AIOS_DOCS_ROOT=/путь/к/docs python build_dataset.py
 
 **Пути к данным.** Дек и эталонный расчётчик ищутся через `AIOS_DOCS_ROOT`, сохранённый базовый прогон — через `AIOS_BASE_RUN_DIR`. Резолверы в корневом `conftest.py`.
 
-**Скрипт генерации** (`build_dataset.py`) в git не отслеживается. Если его нет, тот же запуск воспроизводится через публичные функции:
+**Скрипт генерации** — `build_dataset.py` в корне репозитория. Тот же запуск воспроизводится и через публичные функции:
 
 ```python
 from pathlib import Path
