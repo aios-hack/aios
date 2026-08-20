@@ -273,3 +273,48 @@ def test_final_npv_methodology_matches_its_own_table(final_npv) -> None:
 
     assert final_npv.npv_methodology == final_npv.npv_table.npv_methodology
     assert final_npv.npv_methodology > 0.0
+
+
+# --- Полный отчёт вместо обрыва на первом расхождении -----------------------
+#
+# Перенесено из ветки feat/andrey/62 (закрыта): там звено А считало все шесть
+# тождеств §10.5 и отдавало отчёт, тогда как первая версия падала на первом же.
+# Разница существенна ровно потому, что попытка сдачи одна: увидеть «сломано
+# одно» и «цепочка разошлась целиком» надо до неё, а не после.
+
+
+def test_all_six_identities_are_computed_even_when_the_tract_fails(schedule, config) -> None:
+    """Базовое расписание не проходит динамику — но отчёт всё равно полон."""
+
+    result = submit_schedule(
+        schedule, MODEL_Z, WORK_ROOT, config, use_cache=True, strict=False
+    )
+
+    names = [check.name for check in result.identities]
+    assert names == [
+        "run_schedule_hash",
+        "run_status_ok",
+        "response_source_run_id",
+        "npv_source_provenance",
+        "economics_config_hash",
+        "methodology_version_hash",
+    ]
+    # Тождества провенанса держатся: прогон, отклик и ЧДД связаны верно —
+    # цепочку останавливает динамика, а не подмена артефактов.
+    assert result.failed_identities == ()
+    assert result.sound is False
+    assert result.dynamic_report is not None and not result.dynamic_report.ok
+    # ЧДД посчитан, но заявлять его нечем — это и есть различение «нарушена
+    # динамика» против «ошибка в деньгах», ради которого отчёт собирается.
+    assert result.final_npv is not None
+    with pytest.raises(SubmissionTractError, match="validate_dynamic"):
+        _ = result.npv_methodology
+
+
+def test_strict_mode_lists_every_reason_at_once(schedule, config) -> None:
+    """Одно исключение, все причины: не первая попавшаяся."""
+
+    with pytest.raises(SubmissionTractError, match="звено А §10.5 не пройдено") as excinfo:
+        submit_schedule(schedule, MODEL_Z, WORK_ROOT, config, use_cache=True)
+
+    assert "validate_dynamic" in str(excinfo.value)

@@ -81,7 +81,12 @@ from .runner import (
     static_deck_hash,
     summary_spec_hash,
 )
-from .submission import SubmissionResult, SubmissionTractError, submit_schedule
+from .submission import (
+    IdentityCheck,
+    SubmissionResult,
+    SubmissionTractError,
+    submit_schedule,
+)
 from .summary import (
     SummaryConnection,
     SummaryPlan,
@@ -168,6 +173,7 @@ __all__ = [
     "ResponseLoader",
     "ResponseLoaderError",
     "static_deck_hash",
+    "IdentityCheck",
     "SubmissionResult",
     "SubmissionTractError",
     "submit_schedule",
