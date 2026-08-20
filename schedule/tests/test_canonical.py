@@ -16,6 +16,7 @@ from contracts import (
     ScheduleMeta,
     WellState,
 )
+from contracts.hashing import CanonicalizationError
 from schedule import (
     ScheduleCanonicalError,
     build_schedule,
@@ -68,7 +69,7 @@ def _schedule_from(
     fixed: list[FixedDeckEvent],
     control: list[ControlEvent],
 ) -> Schedule:
-    meta = ScheduleMeta(wells=tuple(sorted(initial_state, key=lambda well: int(well))))
+    meta = ScheduleMeta(wells=tuple(sorted(initial_state)))
     return Schedule(
         meta=meta,
         initial_state=initial_state,
@@ -124,9 +125,9 @@ def test_ecmascript_number_matches_javascript_rules() -> None:
 
 
 def test_ecmascript_number_rejects_nan_and_infinity() -> None:
-    with pytest.raises(ScheduleCanonicalError):
+    with pytest.raises(CanonicalizationError):
         ecmascript_number(float("nan"))
-    with pytest.raises(ScheduleCanonicalError):
+    with pytest.raises(CanonicalizationError):
         ecmascript_number(float("inf"))
 
 

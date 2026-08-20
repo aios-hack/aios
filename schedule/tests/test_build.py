@@ -148,13 +148,13 @@ def test_canonical_order_is_semantic_not_alphabetical() -> None:
     ]
 
 
-def test_canonical_order_sorts_wells_numerically() -> None:
+def test_canonical_order_sorts_wells_lexicographically() -> None:
     events = [
         ControlEvent(control_step=0, well="10", kind=EventKind.SET_LRAT, value=1.0),
         ControlEvent(control_step=0, well="2", kind=EventKind.SET_LRAT, value=1.0),
     ]
 
-    assert [event.well for event in canonical_control_events(events)] == ["2", "10"]
+    assert [event.well for event in canonical_control_events(events)] == ["10", "2"]
 
 
 def test_exact_duplicates_are_removed() -> None:

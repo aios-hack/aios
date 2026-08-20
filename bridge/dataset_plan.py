@@ -186,8 +186,9 @@ class BaselineProfile:
         return tuple(sorted(self.first_controlled_step, key=_well_sort_key))
 
 
-def _well_sort_key(well: str) -> tuple[int, int, str]:
-    return (0, int(well), well) if well.isdigit() else (1, 0, well)
+def _well_sort_key(well: str) -> str:
+    """Лексикографический порядок — канон `bridge.OpmDeckEmitter.source_wells` (G2)."""
+    return well
 
 
 def baseline_profile(schedule: Schedule) -> BaselineProfile:

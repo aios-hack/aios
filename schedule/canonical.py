@@ -3,23 +3,17 @@
 Порядок событий, снятие точных дубликатов и отклонение конфликтов заданы
 инвариантами 1 и 2 (`contracts/README.md` §2), формула хеша — §1.6.
 
-`canonical_bytes` из `contracts.hashing` объявлен приближением RFC 8785:
-`json.dumps` печатает вещественные по правилам Python (`1.0`, `1e-07`,
-`-0.0`), а JCS требует ECMAScript `Number::toString` (`1`, `1e-7`, `0`).
-Здесь сериализация чисел доведена до RFC 8785 без правки `contracts/`;
-примитивы `contracts.hashing` (`content_hash`, `canonical_schedule_hash`)
-переиспользуются как есть.
+**Задача G2, 20.08.** До этой даты здесь была отдельная строгая
+реализация RFC 8785 (JCS), потому что `contracts.hashing.canonical_bytes`
+считался приближением. Приближения больше нет: `contracts.hashing` сам —
+строгий JCS, этот модуль его переиспользует, а не дублирует.
 """
 
 from __future__ import annotations
 
 import hashlib
-import json
 import math
 from dataclasses import replace
-from datetime import date
-from decimal import Decimal
-from enum import Enum
 from typing import Any, Mapping, Sequence
 
 from contracts import (
@@ -31,8 +25,10 @@ from contracts import (
     Role,
     Schedule,
     WellState,
+    canonical_bytes,
     canonical_schedule_hash,
 )
+from contracts.hashing import ecmascript_number
 
 _KIND_RANK: dict[EventKind, int] = {
     EventKind.CONVERT_INJ: 0,
@@ -50,8 +46,9 @@ class ScheduleCanonicalError(ValueError):
     """Расписание не канонизируется: конфликтующие события или битое состояние."""
 
 
-def _well_sort_key(well: str) -> tuple[int, int, str]:
-    return (0, int(well), well) if well.isdigit() else (1, 0, well)
+def _well_sort_key(well: str) -> str:
+    """Лексикографический порядок — канон `bridge.OpmDeckEmitter.source_wells`."""
+    return well
 
 
 def _control_event_key(event: ControlEvent) -> tuple[int, tuple[int, int, str], int, str]:
@@ -67,99 +64,6 @@ def _fixed_event_key(
     index: int, event: FixedDeckEvent
 ) -> tuple[int, int]:
     return (event.control_step, index)
-
-
-def ecmascript_number(value: float | int) -> str:
-    """Number::toString по ECMAScript, как требует RFC 8785 §3.2.2.3."""
-
-    if isinstance(value, bool):
-        raise ScheduleCanonicalError("булево не является числом JCS")
-    if isinstance(value, int):
-        return str(value)
-    if math.isnan(value) or math.isinf(value):
-        raise ScheduleCanonicalError(f"JCS не сериализует {value}")
-    if value == 0.0:
-        return "0"
-    if value < 0:
-        return "-" + ecmascript_number(-value)
-    if float(value).is_integer() and abs(value) < 1e21:
-        return str(int(value))
-
-    digits, exponent = _shortest_digits(value)
-    k = len(digits)
-    n = exponent + k
-    if k <= n <= 21:
-        return digits + "0" * (n - k)
-    if 0 < n <= 21:
-        return digits[:n] + "." + digits[n:]
-    if -6 < n <= 0:
-        return "0." + "0" * (-n) + digits
-    mantissa = digits if k == 1 else digits[0] + "." + digits[1:]
-    sign = "+" if n - 1 >= 0 else "-"
-    return f"{mantissa}e{sign}{abs(n - 1)}"
-
-
-def _shortest_digits(value: float) -> tuple[str, int]:
-    text = repr(float(value))
-    mantissa, _, exponent_text = text.partition("e")
-    exponent = int(exponent_text) if exponent_text else 0
-    integer_part, _, fraction_part = mantissa.partition(".")
-    digits = (integer_part + fraction_part).lstrip("0")
-    exponent -= len(fraction_part)
-    stripped = digits.rstrip("0")
-    exponent += len(digits) - len(stripped)
-    return stripped or "0", exponent
-
-
-def _escape(text: str) -> str:
-    return json.dumps(text, ensure_ascii=False)
-
-
-def _sort_key(name: str) -> tuple[int, ...]:
-    return tuple(name.encode("utf-16-be"))
-
-
-def _jsonable(value: Any) -> Any:
-    if isinstance(value, date):
-        return value.isoformat()
-    if isinstance(value, Enum):
-        return value.value
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float, str)) or value is None:
-        return value
-    if isinstance(value, Decimal):
-        return float(value)
-    if hasattr(value, "__dataclass_fields__"):
-        return {name: _jsonable(getattr(value, name)) for name in value.__dataclass_fields__}
-    if isinstance(value, Mapping):
-        return {str(key): _jsonable(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_jsonable(item) for item in value]
-    raise ScheduleCanonicalError(f"тип {type(value).__name__} не сериализуется в JCS")
-
-
-def _serialize(value: Any) -> str:
-    if value is None:
-        return "null"
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, (int, float)):
-        return ecmascript_number(value)
-    if isinstance(value, str):
-        return _escape(value)
-    if isinstance(value, list):
-        return "[" + ",".join(_serialize(item) for item in value) + "]"
-    if isinstance(value, dict):
-        names = sorted(value, key=_sort_key)
-        return "{" + ",".join(f"{_escape(name)}:{_serialize(value[name])}" for name in names) + "}"
-    raise ScheduleCanonicalError(f"тип {type(value).__name__} не сериализуется в JCS")
-
-
-def canonical_bytes(value: Any) -> bytes:
-    """RFC 8785 (JCS): UTF-8 без BOM, ключи по UTF-16, числа по ECMAScript."""
-
-    return _serialize(_jsonable(value)).encode("utf-8")
 
 
 def canonical_digest(value: Any) -> bytes:
