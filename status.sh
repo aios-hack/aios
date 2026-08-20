@@ -62,12 +62,12 @@ print(('ЧДД OPM %.3f млрд' % (opm/1e9)) if opm else 'ЧДД не посч
   fi
 
   # --- контейнеры OPM ------------------------------------------------------
-  containers=$(pgrep -fc "docker run.*opm-run" 2>/dev/null || echo 0)
+  containers=$(pgrep -f "docker run.*opm-run" 2>/dev/null | wc -l | tr -d " ")
   print -r -- "OPM  контейнеров запущено: ${containers}"
 
   # --- CMA-ES -------------------------------------------------------------
   if pgrep -f "optimizer.search_run" >/dev/null 2>&1; then
-    print -r -- "CMA  [идёт]  $(grep 'новый максимум' "$ROOT/data/cmaes2.log" 2>/dev/null | tail -1)"
+    print -r -- "CMA  [идёт]  $(grep 'новый максимум' "$(ls -t "$ROOT"/data/cmaes*.log | head -1)" 2>/dev/null | tail -1)"
   elif [[ -f "$ROOT/data/lambda-window-2007/cmaes.json" ]]; then
     print -r -- "CMA  [готово] $(python3 -c "
 import json;d=json.load(open('$ROOT/data/lambda-window-2007/cmaes.json'))
