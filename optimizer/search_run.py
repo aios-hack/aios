@@ -126,7 +126,7 @@ def main() -> int:
                 "evaluations": report.evaluations,
                 "search_cap": SEARCH_CAP,
                 "final_cap": FINAL_CAP,
-                "theta": list(best_theta.values),
+                "theta": dict(best_theta.values),
                 "npv_predicted": best.npv,
                 "npv_baseline": BASE_NPV,
                 "canonical_schedule_hash": hash_schedule(best.schedule),

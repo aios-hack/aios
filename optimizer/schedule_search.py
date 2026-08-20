@@ -351,6 +351,50 @@ def _advance_memory(state: PolicyState, context: RuleContext, *, esp_catalog) ->
     return memory
 
 
+def _emit_dense_layer(
+    pending: dict[tuple[int, str, EventKind], ControlEvent],
+    step: int,
+    state: PolicyState,
+    *,
+    current_role: dict[str, Role],
+    current_is_open: dict[str, bool],
+    current_setpoint: dict[str, float],
+) -> None:
+    """Дописать шаг до плотного слоя: у каждой скважины статус и уставка.
+
+    Правила решают не про каждую скважину на каждом шаге — они молчат там,
+    где менять нечего, и это правильно. Но `OpmDeckEmitter` требует плотный
+    слой: «control_step=0, well='1': плотный слой требует уставку и статус».
+    Разреженное расписание проходит `validate_static` и не эмитится в дек,
+    то есть до симулятора не доходит вовсе — на этом и остановился первый
+    прогон G7.
+
+    Плотность достраивается **из состояния, которое ведёт сам цикл**, а не
+    переносом событий базового расписания: перенос смешал бы наши решения с
+    чужими и на переведённой под закачку скважине оставил бы уставку отбора
+    организаторов. Молчание правила означает «оставить как есть» — ровно это
+    и записывается: текущий статус и текущая уставка в том виде, который
+    даёт роль скважины на этом шаге.
+    """
+
+    for well in state.wells:
+        role = current_role.get(well, Role.PROD)
+        target_kind = EventKind.SET_RATE if role is Role.INJ else EventKind.SET_LRAT
+        if (step, well, target_kind) not in pending:
+            pending[(step, well, target_kind)] = ControlEvent(
+                control_step=step,
+                well=well,
+                kind=target_kind,
+                value=current_setpoint.get(well, 0.0),
+            )
+        status_kind = EventKind.OPEN if current_is_open.get(well, False) else EventKind.SHUT
+        other = EventKind.SHUT if status_kind is EventKind.OPEN else EventKind.OPEN
+        if (step, well, status_kind) not in pending and (step, well, other) not in pending:
+            pending[(step, well, status_kind)] = ControlEvent(
+                control_step=step, well=well, kind=status_kind, value=None
+            )
+
+
 def _close_producing_side_on_conversion(
     pending: dict[tuple[int, str, EventKind], ControlEvent],
     step: int,
@@ -458,6 +502,14 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
                     ),
                 )
             _close_producing_side_on_conversion(pending, step, result.decisions)
+            _emit_dense_layer(
+                pending,
+                step,
+                state,
+                current_role=current_role,
+                current_is_open=current_is_open,
+                current_setpoint=current_setpoint,
+            )
             context = replace(
                 context,
                 memory=_advance_memory(state, context, esp_catalog=env.normatives.esp_catalog),
