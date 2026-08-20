@@ -6,10 +6,6 @@ export interface ProvenanceValue {
   provenance: string;
 }
 
-interface MetaCarrier {
-  meta?: { provenance?: unknown; synthetic?: unknown };
-}
-
 const ProvenanceContext = createContext<ProvenanceValue | null>(null);
 
 export const ProvenanceProvider = ({ children }: { children: ReactNode }) => {
@@ -19,10 +15,10 @@ export const ProvenanceProvider = ({ children }: { children: ReactNode }) => {
     if (source.status !== 'ready') {
       return { synthetic: false, provenance: '' };
     }
-    const meta = (source.data as MetaCarrier).meta;
+    const meta = source.data.meta;
     return {
       synthetic: meta?.synthetic === true,
-      provenance: typeof meta?.provenance === 'string' ? meta.provenance : ''
+      provenance: meta?.provenance ?? ''
     };
   }, [source]);
 

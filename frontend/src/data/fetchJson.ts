@@ -5,18 +5,37 @@ export class InvalidPayloadError extends Error {
   }
 }
 
+const TIMEOUT_MS = 15000;
+
 export const fetchJson = async <T,>(
   url: string,
   validate: (data: unknown) => data is T,
   signal?: AbortSignal
 ): Promise<T> => {
-  const response = await fetch(url, signal ? { signal } : undefined);
-  if (!response.ok) {
-    throw new Error(String(response.status));
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  if (signal) {
+    signal.addEventListener('abort', () => controller.abort(), { once: true });
   }
-  const data: unknown = await response.json();
-  if (!validate(data)) {
-    throw new InvalidPayloadError(url);
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      credentials: 'omit'
+    });
+    if (!response.ok) {
+      throw new Error(String(response.status));
+    }
+    let data: unknown;
+    try {
+      data = await response.json();
+    } catch {
+      throw new InvalidPayloadError(url);
+    }
+    if (!validate(data)) {
+      throw new InvalidPayloadError(url);
+    }
+    return data;
+  } finally {
+    clearTimeout(timer);
   }
-  return data;
 };

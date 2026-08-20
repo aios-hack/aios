@@ -39,7 +39,7 @@ type DatasetRegistry = { [K in DatasetName]: DatasetSpec<DatasetMap[K]> };
 export const DATASETS: DatasetRegistry = {
   timeline: { file: 'timeline.json', scope: 'scenario', validate: isTimelineFile },
   trace: { file: 'trace.json', scope: 'scenario', validate: isTraceFile },
-  wells: { file: 'wells.json', scope: 'scenario', validate: isWellsFile },
+  wells: { file: 'wells.json', scope: 'global', validate: isWellsFile },
   npv: { file: 'npv.json', scope: 'scenario', validate: isNpvFile },
   graph: { file: 'graph.json', scope: 'scenario', validate: isGraphFile },
   scenarios: { file: 'scenarios.json', scope: 'global', validate: isScenariosFile }

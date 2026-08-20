@@ -1,17 +1,20 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useDocumentTitle } from './app/useDocumentTitle';
 import { useI18n } from './i18n/I18nContext';
 import { BrandLogo } from './ui/BrandLogo';
+import { ErrorBoundary } from './ui/ErrorBoundary';
 import { HeaderControls } from './ui/HeaderControls';
 import { ScenarioBadge } from './ui/ScenarioBadge';
 import { SyntheticBanner } from './ui/SyntheticBanner';
 import { TabBar } from './ui/TabBar';
-import { FieldMap } from './views/FieldMap';
-import { LambdaGraph } from './views/LambdaGraph';
-import { NpvRank } from './views/NpvRank';
-import { Scenarios } from './views/Scenarios';
-import { Timeline } from './views/Timeline';
+import { ViewStatus } from './ui/ViewStatus';
 import { WellCard } from './views/WellCard';
+
+const FieldMap = lazy(() => import('./views/FieldMap').then((m) => ({ default: m.FieldMap })));
+const LambdaGraph = lazy(() => import('./views/LambdaGraph').then((m) => ({ default: m.LambdaGraph })));
+const NpvRank = lazy(() => import('./views/NpvRank').then((m) => ({ default: m.NpvRank })));
+const Scenarios = lazy(() => import('./views/Scenarios').then((m) => ({ default: m.Scenarios })));
+const Timeline = lazy(() => import('./views/Timeline').then((m) => ({ default: m.Timeline })));
 
 type ViewId = 'graph' | 'map' | 'steps' | 'npv' | 'scenarios';
 
@@ -57,13 +60,19 @@ export const App = () => {
         tabIndex={-1}
       >
         <h2 className="app-view-title">{t(`${view}.title`)}</h2>
-        {view === 'graph' && <LambdaGraph />}
-        {view === 'map' && <FieldMap />}
-        {view === 'steps' && <Timeline />}
-        {view === 'npv' && <NpvRank />}
-        {view === 'scenarios' && <Scenarios />}
+        <ErrorBoundary>
+          <Suspense fallback={<ViewStatus kind="loading" title={t('app.viewLoading')} />}>
+            {view === 'graph' && <LambdaGraph />}
+            {view === 'map' && <FieldMap />}
+            {view === 'steps' && <Timeline />}
+            {view === 'npv' && <NpvRank />}
+            {view === 'scenarios' && <Scenarios />}
+          </Suspense>
+        </ErrorBoundary>
       </main>
-      <WellCard />
+      <ErrorBoundary>
+        <WellCard />
+      </ErrorBoundary>
     </div>
   );
 };

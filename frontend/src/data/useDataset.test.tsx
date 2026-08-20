@@ -133,7 +133,7 @@ describe('scenario-scoped datasets', () => {
     expect(container.querySelector('[data-well-id="base-I1"]')).toBeNull();
   });
 
-  it('refetches the map and the npv table from the active scenario path', async () => {
+  it('refetches the npv table per scenario but keeps well geometry global', async () => {
     const { container } = render(
       withProviders(
         <>
@@ -148,8 +148,8 @@ describe('scenario-scoped datasets', () => {
 
     switchToWhatIf(container);
 
-    await waitFor(() => expect(urlsFor('wells.json')).toContain('/data/what_if/wells.json'));
     await waitFor(() => expect(urlsFor('npv.json')).toContain('/data/what_if/npv.json'));
+    expect(urlsFor('wells.json')).toEqual(['/data/wells.json']);
   });
 
   it('keeps the scenario index global so the library survives a switch', async () => {
