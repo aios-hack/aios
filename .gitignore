@@ -8,6 +8,9 @@
 # Репозиторий документации — отдельный git, склонирован внутрь рабочей копии
 docs/
 
+# Старый фронт до переезда в frontend/ — артефакты сборки и данные
+ui/web/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -29,3 +32,4 @@ build/
 .DS_Store
 .impeccable/hook.cache.json
 **/.impeccable/hook.cache.json
+.claude/

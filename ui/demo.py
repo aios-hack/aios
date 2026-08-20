@@ -69,7 +69,8 @@ def _stamp(path: Path, meta: dict[str, Any]) -> None:
     else:
         data = {"meta": meta, "data": data}
     path.write_text(
-        json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8"
+        json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+        encoding="utf-8",
     )
 
 
@@ -77,7 +78,8 @@ def _stamp_trace(path: Path, meta: dict[str, Any]) -> None:
     data = json.loads(path.read_text(encoding="utf-8"))
     data["__meta__"] = meta
     path.write_text(
-        json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8"
+        json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+        encoding="utf-8",
     )
 
 

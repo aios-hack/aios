@@ -75,6 +75,22 @@ def _interval_watercut(
     return watercut(response, densities[response.well] / 1000.0)
 
 
+_JSON_DIGITS = 6
+
+
+def _rounded(value: Any) -> Any:
+    if isinstance(value, bool) or value is None:
+        return value
+    if isinstance(value, float):
+        rounded = round(value, _JSON_DIGITS)
+        return int(rounded) if rounded.is_integer() else rounded
+    if isinstance(value, list):
+        return [_rounded(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _rounded(item) for key, item in value.items()}
+    return value
+
+
 def build_timeline(artifact: RunArtifact, densities: dict[str, float]) -> dict[str, Any]:
     schedule = artifact.schedule
     meta = schedule.meta
@@ -149,14 +165,16 @@ def build_timeline(artifact: RunArtifact, densities: dict[str, float]) -> dict[s
                 "wells": well_rows,
             }
         )
-    return {
-        "model": meta.model,
-        "t0": meta.t0.isoformat(),
-        "n_control_dates": n_control_dates,
-        "n_intervals": meta.n_intervals,
-        "wells": wells,
-        "steps": steps,
-    }
+    return _rounded(
+        {
+            "model": meta.model,
+            "t0": meta.t0.isoformat(),
+            "n_control_dates": n_control_dates,
+            "n_intervals": meta.n_intervals,
+            "wells": wells,
+            "steps": steps,
+        }
+    )
 
 
 def build_trace(artifact: RunArtifact) -> dict[str, dict[str, list[dict[str, Any]]]]:
@@ -177,7 +195,12 @@ def _write_json(data: dict[str, Any], out_path: str | Path) -> Path:
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(
-        json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True),
+        json.dumps(
+            data,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
         encoding="utf-8",
     )
     return out
