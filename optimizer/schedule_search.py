@@ -102,6 +102,14 @@ from surrogate.model import TrajectorySurrogate
 from surrogate.model_z_context import ModelZFeatureArtifact
 
 _UNCONSTRAINED_FIELD_LIMIT_M3_PER_DAY = 1.0e7
+
+#: Во сколько раз плану позволено превысить то, что месторождение делало в
+#: базовом расписании. Запас, а не потолок с потолка: инфраструктура ППД
+#: рассчитана на исторические объёмы, и просить у неё кратно больше — это
+#: не оптимизация, а невыполнимая команда, которую симулятор молча
+#: проигнорирует (прогон G7 20.08: 22 скважины остались закрытыми, 1553
+#: нарушения MODE_CONTRADICTS_SCHEDULE).
+PHYSICAL_HEADROOM = 1.2
 _HISTORY_DECK_OFFSET = 146  # README.md §5: deck_date_index шага = 146 + control_step
 _SCHEDULE_INCLUDE = "Model_Z_sch.inc"
 
@@ -351,6 +359,59 @@ def _advance_memory(state: PolicyState, context: RuleContext, *, esp_catalog) ->
     return memory
 
 
+def _physical_caps(schedule: Schedule) -> tuple[dict[str, float], float]:
+    """Потолок на скважину и на месторождение — из дека, а не из воздуха.
+
+    Потолок скважины — её собственный исторический максимум в базовом
+    расписании: скважина, которая никогда не брала больше 30 м³/сут, не
+    возьмёт и 584 тысячи, сколько бы ценности ни насчитало правило R1 по
+    измеренной λ. Потолок месторождения — базовая суммарная закачка на шаг,
+    обе величины с запасом `PHYSICAL_HEADROOM`.
+
+    Почему это понадобилось. `Constraints()` пустой означает «нет
+    ограничений сверх физических», и до измерения λ подстановка заведомо не
+    связывающего лимита была безобидной: при нулевой λ предельная ценность
+    закачки была нулём везде, и R1 всё равно ничего не раздавал. С настоящей
+    λ тот же лимит превратился в раздачу десяти миллионов кубов в сутки —
+    режим отказа перевернулся с «душит» на «заливает», и OPM ответил тем,
+    что оставил скважины закрытыми.
+    """
+
+    per_well: dict[str, float] = {}
+    by_step_injection: dict[int, float] = {}
+    for event in schedule.control_events:
+        if event.value is None or event.value <= 0.0:
+            continue
+        if event.kind not in (EventKind.SET_RATE, EventKind.SET_LRAT):
+            continue
+        previous = per_well.get(event.well, 0.0)
+        per_well[event.well] = max(previous, event.value * PHYSICAL_HEADROOM)
+        if event.kind is EventKind.SET_RATE:
+            by_step_injection[event.control_step] = (
+                by_step_injection.get(event.control_step, 0.0) + event.value
+            )
+    field_limit = max(by_step_injection.values(), default=0.0) * PHYSICAL_HEADROOM
+    if field_limit <= 0.0:
+        raise ScheduleSearchError(
+            "в базовом расписании нет ни одной положительной уставки закачки: "
+            "физический потолок месторождения выводить не из чего"
+        )
+    return per_well, field_limit
+
+
+def _capped(event: ControlEvent, caps: Mapping[str, float]) -> ControlEvent:
+    """Уставка, срезанная физическим потолком скважины."""
+
+    if event.kind not in (EventKind.SET_RATE, EventKind.SET_LRAT):
+        return event
+    if event.value is None:
+        return event
+    cap = caps.get(event.well)
+    if cap is None or event.value <= cap:
+        return event
+    return replace(event, value=cap)
+
+
 def _emit_dense_layer(
     pending: dict[tuple[int, str, EventKind], ControlEvent],
     step: int,
@@ -359,6 +420,7 @@ def _emit_dense_layer(
     current_role: dict[str, Role],
     current_is_open: dict[str, bool],
     current_setpoint: dict[str, float],
+    caps: Mapping[str, float],
 ) -> None:
     """Дописать шаг до плотного слоя: у каждой скважины статус и уставка.
 
@@ -385,7 +447,7 @@ def _emit_dense_layer(
                 control_step=step,
                 well=well,
                 kind=target_kind,
-                value=current_setpoint.get(well, 0.0),
+                value=min(current_setpoint.get(well, 0.0), caps.get(well, float("inf"))),
             )
         status_kind = EventKind.OPEN if current_is_open.get(well, False) else EventKind.SHUT
         other = EventKind.SHUT if status_kind is EventKind.OPEN else EventKind.OPEN
@@ -436,6 +498,15 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
     wells = env.base_schedule.meta.wells
     commission_step = _commission_steps(env.base_schedule)
     role_at_commission = _role_at_commission(env.base_schedule)
+    well_caps, field_limit = _physical_caps(env.base_schedule)
+    # Уставка, с которой дек вводит скважину: с неё начинается наша, иначе
+    # только что введённая скважина стоит с нулём и закрытой.
+    commissioning_setpoint: dict[str, float] = {}
+    for event in env.base_schedule.control_events:
+        if event.kind in (EventKind.SET_RATE, EventKind.SET_LRAT) and event.value:
+            key = (event.well, event.control_step)
+            if event.control_step == commission_step.get(event.well, -1):
+                commissioning_setpoint.setdefault(event.well, event.value)
 
     def policy(response: ResponseArtifact) -> Schedule:
         current_role: dict[str, Role] = dict(role_at_commission)
@@ -464,6 +535,17 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
         pending: dict[tuple[int, str, EventKind], ControlEvent] = {}
         trace_entries = []
         for step in range(N_INTERVALS):
+            # Дек вводит скважину в работу — значит на этом шаге она открыта
+            # и стоит на своей вводной уставке. Без этого 22 скважины,
+            # входящие внутрь горизонта, оставались закрытыми весь горизонт:
+            # прогон G7 20.08 дал по ним 1553 нарушения
+            # MODE_CONTRADICTS_SCHEDULE — расписание считает их введёнными,
+            # отклик держит выключенными.
+            for well, entry in commission_step.items():
+                if entry == step and not current_is_open.get(well, False):
+                    current_is_open[well] = True
+                    if well in commissioning_setpoint:
+                        current_setpoint[well] = commissioning_setpoint[well]
             state = _build_policy_state(
                 step,
                 response,
@@ -486,10 +568,11 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
                 ),
                 theta,
                 env.flags,
-                field_limit_m3_per_day=_UNCONSTRAINED_FIELD_LIMIT_M3_PER_DAY,
+                field_limit_m3_per_day=field_limit,
             )
             trace_entries.extend(leveled.entry for leveled in result.trace.entries)
             for event in result.decisions:
+                event = _capped(event, well_caps)
                 pending[(event.control_step, event.well, event.kind)] = event
                 context = replace(
                     context,
@@ -509,6 +592,7 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
                 current_role=current_role,
                 current_is_open=current_is_open,
                 current_setpoint=current_setpoint,
+                caps=well_caps,
             )
             context = replace(
                 context,
