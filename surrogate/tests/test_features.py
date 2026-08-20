@@ -162,6 +162,26 @@ def test_features_use_one_schedule_history_fixed_layer_static_and_lambda() -> No
     assert len(result.nodes) == 2 * 3
 
 
+def test_conversion_batch_closes_producer_before_applying_injector_target() -> None:
+    schedule = replace(
+        _schedule(),
+        control_events=(
+            ControlEvent(1, "P", EventKind.CONVERT_INJ),
+            ControlEvent(1, "P", EventKind.SET_LRAT, 0.0),
+            ControlEvent(1, "P", EventKind.SET_RATE, 30.0),
+            ControlEvent(1, "P", EventKind.OPEN),
+        ),
+    )
+
+    result = ScheduleFeatureizer().transform(schedule, _context())
+    converted = _node(result, 1, "P")
+
+    assert converted.role is Role.INJ
+    assert converted.operating_status is OperatingStatus.OPEN
+    assert converted.setpoint_m3_per_day == 30.0
+    assert converted.effective_target_rate_m3_per_day == 30.0
+
+
 def test_only_selected_lambda_window_is_used() -> None:
     windows = (
         _lambda(date(2007, 1, 1), date(2007, 1, 31), 0.1),

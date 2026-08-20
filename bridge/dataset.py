@@ -286,6 +286,7 @@ class DatasetGenerator:
         max_workers: int | None = None,
         timeout_seconds: float | None = None,
         load_responses: bool = True,
+        compact_artifacts: bool = False,
     ) -> None:
         self.model_dir = Path(model_dir).resolve()
         self.dataset_root = Path(dataset_root).resolve()
@@ -295,6 +296,7 @@ class DatasetGenerator:
         self.max_workers = max_workers or default_max_workers()
         self.timeout_seconds = timeout_seconds
         self.load_responses = load_responses
+        self.compact_artifacts = compact_artifacts
         self.cache_root = (
             Path(cache_root).resolve()
             if cache_root is not None
@@ -396,6 +398,78 @@ class DatasetGenerator:
         )
         return metadata, result, deck
 
+    def _compact_verified_response(
+        self,
+        result: RunResult,
+        deck: EmittedOpmDeck,
+        *,
+        response_hash: str,
+    ) -> RunResult:
+        """Retain the reloadable Summary pair after a verified parse.
+
+        The destructive part is deliberately behind three conditions: the
+        simulator run is OK, ``ResponseLoader`` has already returned, and its
+        canonical response hash is present.  The cache entry is rewritten to
+        the surviving SMSPEC/UNSMRY paths before the duplicated deck is
+        removed.  Failed or unparsed runs are never compacted.
+        """
+
+        if result.status is not RunStatus.OK or len(response_hash) != 64:
+            raise DatasetError(
+                f"прогон {result.run_id}: compact разрешён только после "
+                "успешного разбора и фиксации response_hash"
+            )
+        artifacts = tuple(Path(item).resolve() for item in result.artifacts)
+        required = tuple(
+            path
+            for path in artifacts
+            if path.suffix.upper() in {".SMSPEC", ".UNSMRY"}
+        )
+        suffixes = {path.suffix.upper() for path in required}
+        if suffixes != {".SMSPEC", ".UNSMRY"} or any(
+            not path.is_file() for path in required
+        ):
+            raise DatasetError(
+                f"прогон {result.run_id}: compact cache требует существующие "
+                f"SMSPEC и UNSMRY, найдено {sorted(suffixes)}"
+            )
+
+        keep = set(required)
+        run_root = (self.dataset_root / "runs" / result.run_id).resolve()
+        expected_runs_root = (self.dataset_root / "runs").resolve()
+        if run_root.parent != expected_runs_root or not run_root.is_dir():
+            raise DatasetError(f"небезопасный каталог прогона для compact: {run_root}")
+        for path in sorted(
+            run_root.rglob("*"), key=lambda item: len(item.parts), reverse=True
+        ):
+            if path.is_file() and path.resolve() not in keep:
+                path.unlink()
+            elif path.is_dir():
+                try:
+                    path.rmdir()
+                except OSError:
+                    pass
+
+        compacted = RunResult(
+            run_id=result.run_id,
+            status=result.status,
+            deck_hash=result.deck_hash,
+            canonical_schedule_hash=result.canonical_schedule_hash,
+            summary_hash=result.summary_hash,
+            artifacts=tuple(str(path) for path in sorted(required)),
+            wallclock_seconds=result.wallclock_seconds,
+            message=result.message,
+        )
+        self.cache.store(compacted)
+
+        deck_root = deck.data_file.parent.resolve()
+        expected_decks_root = (self.dataset_root / "decks").resolve()
+        if deck_root.parent != expected_decks_root:
+            raise DatasetError(f"небезопасный каталог дека для compact: {deck_root}")
+        if deck_root.is_dir():
+            shutil.rmtree(deck_root)
+        return compacted
+
     def build(
         self,
         plan: PerturbationPlan,
@@ -456,6 +530,10 @@ class DatasetGenerator:
             response = loader.load(
                 result, deck.summary_plan, material.schedule, density_by_pvtnum
             )
+            if self.compact_artifacts:
+                self._compact_verified_response(
+                    result, deck, response_hash=response.response_hash
+                )
             metadata = RunMetadata(
                 scenario_id=metadata.scenario_id,
                 family=metadata.family,
