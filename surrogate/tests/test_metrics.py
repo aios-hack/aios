@@ -1,4 +1,4 @@
-"""Приёмка задачи 36 (docs/assignments/andrey.md, docs/context/08_contracts.md §5.5).
+"""Приёмка задачи 36 (docs/v1/assignments/andrey.md, docs/context/08_contracts.md §5.5).
 
 Карточка: «Бьёт CRM по ранговой корреляции; отдельно проверяет `ACTIVE/SHUT`,
 переходы, пороги ЭЦН, денежную ошибку событий/CAPEX, F1 `BHP_LIMITED` и

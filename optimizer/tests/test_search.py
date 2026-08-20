@@ -1,4 +1,4 @@
-"""Приёмка задачи 38 (docs/assignments/andrey.md, docs/context/08_contracts.md §6.1).
+"""Приёмка задачи 38 (docs/v1/assignments/andrey.md, docs/context/08_contracts.md §6.1).
 
 Карточка: «Оптимизатор — подключается после выбора семейства
 (`07_concept.md` §8.2)». Семейство выбрано — CMA-ES, обоснование в

@@ -1,4 +1,4 @@
-"""Приёмка задачи 37 (docs/assignments/andrey.md, docs/context/08_contracts.md §6.1):
+"""Приёмка задачи 37 (docs/v1/assignments/andrey.md, docs/context/08_contracts.md §6.1):
 
 - оптимизатор не видит ни скважин, ни расписания;
 - ограничение устойчивости не сворачивается в штраф.

@@ -1,4 +1,4 @@
-"""Приёмка задачи 40 (docs/assignments/andrey.md, docs/context/08_contracts.md §10.4).
+"""Приёмка задачи 40 (docs/v1/assignments/andrey.md, docs/context/08_contracts.md §10.4).
 
 Карточка: критерий «прогноз сошёлся» — «**замеряется на данных, а не
 выбирается**».

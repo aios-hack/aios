@@ -1,4 +1,4 @@
-"""Приёмка задачи 35 (docs/assignments/andrey.md, docs/context/08_contracts.md §5.2).
+"""Приёмка задачи 35 (docs/v1/assignments/andrey.md, docs/context/08_contracts.md §5.2).
 
 Карточка: «Детектор выхода за обучающий диапазон — **возвращается вместе с
 прогнозом всегда, не опцией**».
