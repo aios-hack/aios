@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { dictionaries, type Lang } from './dictionaries';
 
 export type { Lang } from './dictionaries';
@@ -36,20 +36,28 @@ const translate = (lang: Lang, key: string, params?: Record<string, string | num
 export const I18nProvider = ({ children }: { children: ReactNode }) => {
   const [lang, setLang] = useState<Lang>(readStoredLang);
 
-  const toggleLang = () =>
-    setLang((current) => {
-      const next: Lang = current === 'ru' ? 'en' : 'ru';
-      try {
-        localStorage.setItem(STORAGE_KEY, next);
-      } catch {
+  const toggleLang = useCallback(
+    () =>
+      setLang((current) => {
+        const next: Lang = current === 'ru' ? 'en' : 'ru';
+        try {
+          localStorage.setItem(STORAGE_KEY, next);
+        } catch {
+          return next;
+        }
         return next;
-      }
-      return next;
-    });
+      }),
+    []
+  );
 
-  const t: Translate = (key, params) => translate(lang, key, params);
+  const t = useCallback<Translate>((key, params) => translate(lang, key, params), [lang]);
 
-  return <I18nContext.Provider value={{ lang, toggleLang, t }}>{children}</I18nContext.Provider>;
+  const value = useMemo<I18nContextValue>(
+    () => ({ lang, toggleLang, t }),
+    [lang, toggleLang, t]
+  );
+
+  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 };
 
 export const useI18n = (): I18nContextValue => {

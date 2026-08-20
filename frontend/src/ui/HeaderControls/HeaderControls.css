@@ -33,7 +33,7 @@
 .icon-button-glyph {
   display: grid;
   place-items: center;
-  animation: glyph-swap var(--duration-state) var(--ease-overshoot);
+  animation: glyph-swap var(--duration-state) var(--ease-emphasis);
 }
 
 @keyframes glyph-swap {
@@ -84,7 +84,7 @@
   border-radius: var(--radius-pill);
   background: var(--color-accent);
   box-shadow: var(--shadow-accent);
-  transition: transform var(--duration-state) var(--ease-overshoot);
+  transition: transform var(--duration-state) var(--ease-emphasis);
 }
 
 .lang-toggle[data-lang='en'] .lang-thumb {

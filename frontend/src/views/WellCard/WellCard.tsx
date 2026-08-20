@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useI18n } from '../../i18n/I18nContext';
 import { useTimeline } from '../../state/TimelineContext';
+import { SyntheticBanner } from '../../ui/SyntheticBanner';
 import { ViewStatus } from '../../ui/ViewStatus';
-import { formatStepDate } from '../Timeline/format';
+import { formatStepDate } from '../../ui/format';
 import { TraceBlock } from './TraceBlock';
 import { useDeferredClose } from './useDeferredClose';
 import { WellParams } from './WellParams';
@@ -14,18 +15,20 @@ export const WellCard = () => {
   const panelRef = useRef<HTMLElement | null>(null);
   const { visibleWell, closing } = useDeferredClose(selectedWell);
 
+  const open = selectedWell !== null && visibleWell !== null;
+
   useEffect(() => {
-    if (selectedWell === null) {
+    if (!open) {
       return;
     }
     const opener = document.activeElement;
     panelRef.current?.focus();
     return () => {
-      if (opener instanceof HTMLElement && document.contains(opener)) {
-        opener.focus();
+      if (opener instanceof Element && document.contains(opener)) {
+        (opener as HTMLElement | SVGElement).focus();
       }
     };
-  }, [selectedWell]);
+  }, [open]);
 
   useEffect(() => {
     if (selectedWell === null) {
@@ -74,9 +77,12 @@ export const WellCard = () => {
       >
         <header className="wellcard-header">
           <div>
-            <h3 className="wellcard-title">
-              {t('wellcard.title', { well: visibleWell })}
-            </h3>
+            <div className="wellcard-title-row">
+              <h3 className="wellcard-title">
+                {t('wellcard.title', { well: visibleWell })}
+              </h3>
+              <SyntheticBanner />
+            </div>
             {step && steps && (
               <p className="wellcard-step">
                 <span>

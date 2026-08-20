@@ -97,5 +97,7 @@
   "library.npvLabel": "ЧДД по Методике",
   "library.constraintsLabel": "Ограничений",
   "badge.hintLabel": "Что означает метка",
-  "editor.hintLabel": "Зачем нужен документ"
+  "editor.hintLabel": "Зачем нужен документ",
+  "library.npvBasis": "с распределённым налогом, руб.",
+  "editor.emptyNote": "Форма начинается пустой: вы собираете новый документ, а не правите ограничения выбранного сценария."
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useDataset } from '../../data';
 import { useT } from '../../i18n/I18nContext';
 import { useTimeline } from '../../state/TimelineContext';
@@ -16,14 +16,17 @@ export const NpvRank = () => {
   const [sortKey, setSortKey] = useState<NpvSortKey>('value');
   const [dir, setDir] = useState<SortDir>('desc');
 
-  const onSort = (key: NpvSortKey) => {
-    if (key === sortKey) {
+  const sortKeyRef = useRef(sortKey);
+  sortKeyRef.current = sortKey;
+
+  const onSort = useCallback((key: NpvSortKey) => {
+    if (key === sortKeyRef.current) {
       setDir((value) => (value === 'desc' ? 'asc' : 'desc'));
       return;
     }
     setSortKey(key);
     setDir(key === 'well' ? 'asc' : 'desc');
-  };
+  }, []);
 
   if (npv.status === 'loading') {
     return <ViewStatus kind="loading" title={t('npv.loading')} />;

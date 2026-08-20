@@ -5,11 +5,6 @@ export const layerColors = {
   dim: 'var(--color-well-dim)'
 } as const;
 
-export const mapColors = {
-  frame: 'var(--color-map-frame)',
-  axisText: 'var(--color-text-muted)'
-} as const;
-
 export const graphColors = {
   injector: 'var(--color-graph-injector)',
   producer: 'var(--color-graph-producer)',
@@ -26,6 +21,7 @@ export const fluidColors = {
   waterPale: 'var(--color-water-pale)',
   unknown: 'var(--color-unknown)'
 } as const;
+
 
 export const groupPalette = [
   'var(--color-group-1)',

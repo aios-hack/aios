@@ -78,6 +78,35 @@ describe('FieldMap', () => {
     expect(screen.queryByText(en['map.layer.all'])).toBeNull();
   });
 
+  it('lists only layer categories present on the map', async () => {
+    mockFetchWith(fixture);
+    render(withProviders(<FieldMap />));
+    await screen.findByText(ru['map.legend.layer1']);
+    expect(screen.getByText(ru['map.legend.layer2'])).toBeTruthy();
+    expect(screen.getByText(ru['map.legend.both'])).toBeTruthy();
+    expect(screen.queryByText(ru['map.legend.dim'])).toBeNull();
+  });
+
+  it('drops an absent layer category from the legend', async () => {
+    mockFetchWith({
+      ...fixture,
+      wells: fixture.wells.filter((well) => !well.layers.includes(2))
+    });
+    render(withProviders(<FieldMap />));
+    await screen.findByText(ru['map.legend.layer1']);
+    expect(screen.queryByText(ru['map.legend.layer2'])).toBeNull();
+    expect(screen.queryByText(ru['map.legend.both'])).toBeNull();
+  });
+
+  it('adds the dimmed category to the legend once a layer is filtered', async () => {
+    mockFetchWith(fixture);
+    render(withProviders(<FieldMap />));
+    await screen.findByText(ru['map.layer.1']);
+    expect(screen.queryByText(ru['map.legend.dim'])).toBeNull();
+    fireEvent.click(screen.getByText(ru['map.layer.1']));
+    expect(screen.getByText(ru['map.legend.dim'])).toBeTruthy();
+  });
+
   it('shows a dictionary error message when fetch fails', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network')));
     render(withProviders(<FieldMap />));

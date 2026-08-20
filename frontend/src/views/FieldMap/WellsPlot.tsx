@@ -1,25 +1,39 @@
+import { useMemo } from 'react';
 import type { GridSize, WellPoint } from '../../api/types';
 import { useT } from '../../i18n/I18nContext';
-import { fluidColors, layerColors } from '../../theme/tokens';
 import type { LayerFilter } from './LayerSwitch';
 import { PlotAxes } from './PlotAxes';
 import type { WellRole } from './roles';
+import { WellMarker } from './WellMarker';
+
+export { wellColor } from './WellMarker';
 
 const PAD_LEFT = 16;
 const PAD_TOP = 12;
-const PAD_RIGHT = 18;
-const PAD_BOTTOM = 18;
-const R = 1.4;
+const PAD_RIGHT = 12;
+const PAD_BOTTOM = 11;
+const MARGIN = 3;
+const TICK_ROUND = 5;
 
-export const wellColor = (layers: number[]): string => {
-  if (layers.length > 1) {
-    return layerColors.both;
+const extentOf = (wells: WellPoint[], grid: GridSize): { ni: number; nj: number } => {
+  if (wells.length === 0) {
+    return { ni: grid.ni, nj: grid.nj };
   }
-  return layers[0] === 2 ? layerColors.layer2 : layerColors.layer1;
+  let maxI = wells[0].i;
+  let maxJ = wells[0].j;
+  for (const well of wells) {
+    if (well.i > maxI) {
+      maxI = well.i;
+    }
+    if (well.j > maxJ) {
+      maxJ = well.j;
+    }
+  }
+  return {
+    ni: Math.min(grid.ni, Math.ceil((maxI + MARGIN) / TICK_ROUND) * TICK_ROUND),
+    nj: Math.min(grid.nj, Math.ceil((maxJ + MARGIN) / TICK_ROUND) * TICK_ROUND)
+  };
 };
-
-const markerPath = (x: number, y: number, r: number): string =>
-  `M ${x} ${y + r * 1.25} L ${x + r * 1.1} ${y - r * 0.85} L ${x - r * 1.1} ${y - r * 0.85} Z`;
 
 interface WellsPlotProps {
   wells: WellPoint[];
@@ -39,11 +53,12 @@ export const WellsPlot = ({
   onSelectWell
 }: WellsPlotProps) => {
   const t = useT();
+  const extent = useMemo(() => extentOf(wells, grid), [wells, grid]);
 
   return (
     <svg
       className="wells-plot"
-      viewBox={`${-PAD_LEFT} ${-PAD_TOP} ${grid.ni + PAD_LEFT + PAD_RIGHT} ${grid.nj + PAD_TOP + PAD_BOTTOM}`}
+      viewBox={`${-PAD_LEFT} ${-PAD_TOP} ${extent.ni + PAD_LEFT + PAD_RIGHT} ${extent.nj + PAD_TOP + PAD_BOTTOM}`}
       role="img"
       aria-label={t('map.ariaLabel')}
     >
@@ -57,63 +72,18 @@ export const WellsPlot = ({
           />
         </pattern>
       </defs>
-      <rect x={0} y={0} width={grid.ni} height={grid.nj} fill="url(#map-grid)" />
-      <PlotAxes grid={grid} axisI={t('map.axisI')} axisJ={t('map.axisJ')} />
-      {wells.map((well) => {
-        const active = filter === 'all' || well.layers.includes(filter);
-        const selected = well.id === selectedWell;
-        const role = roles.get(well.id) ?? null;
-        const fill = active ? wellColor(well.layers) : layerColors.dim;
-        return (
-          <g
-            key={well.id}
-            className="wells-plot-well"
-            data-well-id={well.id}
-            data-active={active}
-            data-selected={selected}
-            tabIndex={0}
-            role="button"
-            aria-label={well.id}
-            onClick={() => onSelectWell(well.id)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                onSelectWell(well.id);
-              }
-            }}
-          >
-            {selected && (
-              <circle
-                className="wells-plot-halo"
-                cx={well.i}
-                cy={well.j}
-                r={R * 1.9}
-                fill="none"
-                stroke={fluidColors.oil}
-                strokeWidth={0.35}
-              />
-            )}
-            {role === 'INJ' ? (
-              <path
-                d={markerPath(well.i, well.j, active ? R : R * 0.7)}
-                fill={fill}
-                stroke="var(--color-surface-solid)"
-                strokeWidth={0.18}
-              />
-            ) : (
-              <circle
-                cx={well.i}
-                cy={well.j}
-                r={active ? R : R * 0.7}
-                fill={fill}
-                stroke="var(--color-surface-solid)"
-                strokeWidth={0.18}
-              />
-            )}
-            <title>{`${well.id} · I ${well.i}, J ${well.j}`}</title>
-          </g>
-        );
-      })}
+      <rect x={0} y={0} width={extent.ni} height={extent.nj} fill="url(#map-grid)" />
+      <PlotAxes grid={extent} axisI={t('map.axisI')} axisJ={t('map.axisJ')} />
+      {wells.map((well) => (
+        <WellMarker
+          key={well.id}
+          well={well}
+          active={filter === 'all' || well.layers.includes(filter)}
+          selected={well.id === selectedWell}
+          role={roles.get(well.id) ?? null}
+          onSelectWell={onSelectWell}
+        />
+      ))}
     </svg>
   );
 };

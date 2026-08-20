@@ -12,8 +12,8 @@
   "table.well": "Well",
   "table.bar": "Share of maximum",
   "table.total": "Fund total",
-  "sort.desc": "descending",
-  "sort.asc": "ascending",
   "errorHint": "Build npv.json: python -m ui.demo.",
-  "table.totalUnit": "RUB"
+  "table.totalUnit": "RUB",
+  "sort.action": "Sort by this column",
+  "table.openWell": "Open the card for well {well}"
 }

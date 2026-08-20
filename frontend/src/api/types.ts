@@ -1,3 +1,12 @@
+export interface ArtifactMeta {
+  kind: string;
+  provenance: string;
+  synthetic: boolean;
+  seed?: number;
+  notice_ru?: string;
+  notice_en?: string;
+}
+
 export interface GridSize {
   ni: number;
   nj: number;
@@ -19,16 +28,21 @@ export interface WellPoint {
 }
 
 export interface WellsFile {
+  meta?: ArtifactMeta;
   grid: GridSize;
   layers: LayerRange[];
   wells: WellPoint[];
 }
 
+export type WellAvailability = 'AVAILABLE' | 'NOT_COMMISSIONED';
+export type WellRole = 'INJ' | 'PROD' | 'NONE';
+export type WellOperatingStatus = 'OPEN' | 'SHUT';
+
 export interface TimelineWellRow {
   well: string;
-  availability: string;
-  role: string;
-  operating_status: string;
+  availability: WellAvailability;
+  role: WellRole;
+  operating_status: WellOperatingStatus;
   setpoint: number;
   liquid_rate: number;
   injection_rate: number;
@@ -64,6 +78,7 @@ export interface TimelineStep {
 }
 
 export interface TimelineFile {
+  meta?: ArtifactMeta;
   model: string;
   t0: string;
   n_control_dates: number;
@@ -84,6 +99,7 @@ export interface NpvTotals {
 }
 
 export interface NpvFile {
+  meta?: ArtifactMeta;
   wells: NpvWellRow[];
   total: NpvTotals;
   npv_methodology: number;
@@ -127,6 +143,7 @@ export interface ScenarioEntry {
 }
 
 export interface ScenariosFile {
+  meta?: ArtifactMeta;
   scenarios: ScenarioEntry[];
   submitted: string | null;
 }
@@ -169,6 +186,6 @@ export interface GraphFile {
   edges: GraphEdge[];
   groups: GraphGroup[];
   weight_range: { min: number; max: number };
-  meta: GraphMeta;
+  meta: GraphMeta & Partial<ArtifactMeta>;
   layout: { size: number; seed: number };
 }

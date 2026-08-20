@@ -1,23 +1,33 @@
+import { memo } from 'react';
 import { useT } from '../../i18n/I18nContext';
 import { layerColors } from '../../theme/tokens';
 
 const layerItems = [
-  { labelKey: 'map.legend.layer1', color: layerColors.layer1 },
-  { labelKey: 'map.legend.layer2', color: layerColors.layer2 },
-  { labelKey: 'map.legend.both', color: layerColors.both },
-  { labelKey: 'map.legend.dim', color: layerColors.dim }
+  { key: 'layer1', labelKey: 'map.legend.layer1', color: layerColors.layer1 },
+  { key: 'layer2', labelKey: 'map.legend.layer2', color: layerColors.layer2 },
+  { key: 'both', labelKey: 'map.legend.both', color: layerColors.both },
+  { key: 'dim', labelKey: 'map.legend.dim', color: layerColors.dim }
 ];
 
-export const MapLegend = () => {
+interface MapLegendProps {
+  present: Set<string>;
+}
+
+const MapLegendView = ({ present }: MapLegendProps) => {
   const t = useT();
+  const shownItems = layerItems.filter((item) => present.has(item.key));
 
   return (
     <div className="map-legend" role="group" aria-label={t('map.legend.title')}>
       <p className="map-legend-title">{t('map.legend.title')}</p>
       <ul className="map-legend-list">
-        {layerItems.map((item) => (
+        {shownItems.map((item) => (
           <li key={item.labelKey} className="map-legend-item">
-            <span className="map-legend-swatch" style={{ background: item.color }} />
+            <span
+              className="map-legend-swatch"
+              data-swatch={item.key}
+              style={{ background: item.color }}
+            />
             {t(item.labelKey)}
           </li>
         ))}
@@ -40,3 +50,5 @@ export const MapLegend = () => {
     </div>
   );
 };
+
+export const MapLegend = memo(MapLegendView);

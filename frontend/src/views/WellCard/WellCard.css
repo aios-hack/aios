@@ -17,8 +17,7 @@
   max-height: calc(100dvh - var(--space-5) * 2);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
-  background: var(--color-surface);
-  backdrop-filter: blur(18px);
+  background: var(--color-surface-solid);
   box-shadow: var(--shadow-drawer);
   overflow: hidden;
   animation: wellcard-in var(--duration-drawer) var(--ease-out) both;
@@ -33,12 +32,8 @@
 }
 
 @keyframes wellcard-fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .wellcard::before {
@@ -46,11 +41,7 @@
   position: absolute;
   inset: 0 0 auto;
   height: 3px;
-  background: linear-gradient(
-    90deg,
-    var(--color-accent) 0%,
-    var(--color-accent-deep) 100%
-  );
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-deep));
 }
 
 .wellcard:focus {
@@ -69,7 +60,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wellcard {
+  .wellcard,
+  .wellcard-backdrop,
+  .wellcard-backdrop[data-closing='true'],
+  .wellcard-backdrop[data-closing='true'] .wellcard {
     animation: none;
   }
 }
@@ -81,6 +75,13 @@
   gap: var(--space-3);
   padding: var(--space-4);
   border-bottom: 1px solid var(--color-border);
+}
+
+.wellcard-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 .wellcard-title {
@@ -108,14 +109,28 @@
   flex: none;
   width: var(--size-control-height);
   height: var(--size-control-height);
+  display: grid;
+  place-items: center;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--color-surface);
+  background: var(--color-surface-solid);
   color: var(--color-text);
   font-family: var(--font-family-base);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-lg);
   line-height: 1;
   cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.wellcard-close:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-accent-dim);
+}
+
+.wellcard-close:active {
+  background: var(--color-accent-dim-2);
 }
 
 .wellcard-body {
@@ -163,90 +178,18 @@
   text-align: right;
 }
 
-.wellcard-trace {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+.wellcard-param-value[data-numeric='true'] {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  letter-spacing: var(--tracking-mono);
+}
+
+.wellcard-explanation,
+.wellcard-empty {
   margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.wellcard-trace-item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-}
-
-.wellcard-trace-head {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.wellcard-rule {
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-sm);
-  color: var(--color-accent);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-}
-
-.wellcard-decision {
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  font-variant-numeric: tabular-nums;
-}
-
-.wellcard-inputs {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--font-size-xs);
-}
-
-.wellcard-inputs th,
-.wellcard-inputs td {
-  padding: var(--space-1) 0;
-  border-bottom: 1px solid var(--color-border);
-  text-align: left;
-}
-
-.wellcard-inputs thead th {
-  color: var(--color-text-muted);
-  font-weight: var(--font-weight-medium);
-}
-
-.wellcard-inputs tbody th {
-  color: var(--color-text);
-  font-weight: var(--font-weight-normal);
-}
-
-.wellcard-inputs td {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.wellcard-inputs thead th:last-child {
-  text-align: right;
-}
-
-.wellcard-inputs tbody tr:last-child th,
-.wellcard-inputs tbody tr:last-child td {
-  border-bottom: none;
 }
 
 .wellcard-empty {
-  margin: 0;
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-}
-
-.wellcard-explanation {
-  margin: 0;
-  font-size: var(--font-size-sm);
 }

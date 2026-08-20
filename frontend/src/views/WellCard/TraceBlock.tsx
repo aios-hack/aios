@@ -1,6 +1,7 @@
 import type { TraceRecord } from '../../api/types';
 import { useI18n } from '../../i18n/I18nContext';
-import { formatNumber } from '../Timeline/format';
+import { formatNumber } from '../../ui/format';
+import './TraceBlock.css';
 
 interface TraceBlockProps {
   records: TraceRecord[];

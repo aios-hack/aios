@@ -65,7 +65,7 @@
 }
 
 .npv-cell-bar {
-  width: var(--size-map-max);
+  width: 45%;
   min-width: var(--size-stat-min);
 }
 
@@ -109,11 +109,18 @@
   padding: 0;
   border: none;
   background: none;
-  color: var(--color-accent);
-  font-family: var(--font-family-base);
+  color: var(--color-text);
+  font-family: var(--font-family-mono);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tracking-snug);
   cursor: pointer;
+}
+
+.npv-table tbody tr:hover .npv-well-button,
+.npv-table tbody tr[data-selected='true'] .npv-well-button {
+  color: var(--color-accent);
 }
 
 .npv-danger {
@@ -124,15 +131,17 @@
   height: var(--space-2);
   border-radius: var(--radius-pill);
   background: var(--color-surface-sunken);
+  overflow: hidden;
 }
 
 .npv-bar {
   height: 100%;
-  width: var(--npv-bar-ratio, 0%);
-  min-width: 3px;
+  width: 100%;
   border-radius: var(--radius-pill);
   background: var(--color-accent);
-  transition: width var(--duration-drawer) var(--ease-out-drawer);
+  transform: scaleX(var(--npv-bar-ratio, 0));
+  transform-origin: left center;
+  transition: transform var(--duration-drawer) var(--ease-out-drawer);
 }
 
 .npv-bar-danger {
@@ -146,41 +155,22 @@
 }
 
 .npv-total {
-  position: relative;
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: var(--space-2) var(--space-4);
   margin: 0;
-  padding: var(--space-5) var(--space-6);
-  border-radius: var(--radius-md);
-  background: linear-gradient(140deg, var(--color-accent) 0%, var(--color-accent-deep) 100%);
-  box-shadow: var(--shadow-accent);
-  overflow: hidden;
-}
-
-.npv-total::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
-  background-size: 24px 24px;
+  padding: var(--space-3) 0 var(--space-4);
+  border-bottom: 1px solid var(--color-border-strong);
 }
 
 .npv-total-label {
-  position: relative;
-  z-index: 1;
-  color: var(--color-accent-contrast);
+  color: var(--color-text-muted);
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: var(--tracking-eyebrow);
-  text-transform: uppercase;
+  font-weight: var(--font-weight-medium);
 }
 
 .npv-total-amount {
-  position: relative;
-  z-index: 1;
   display: inline-flex;
   align-items: baseline;
   gap: var(--space-2);
@@ -188,23 +178,22 @@
 }
 
 .npv-total-value {
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-black);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-heavy);
   font-variant-numeric: tabular-nums;
-  letter-spacing: var(--tracking-display);
+  letter-spacing: var(--tracking-tight);
   line-height: var(--line-height-tight);
-  color: var(--color-accent-contrast);
+  color: var(--color-text);
 }
 
 .npv-total-unit {
-  color: var(--color-accent-contrast);
-  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  opacity: 0.72;
 }
 
 .npv-total .npv-danger {
-  color: var(--color-accent-contrast);
+  color: var(--color-danger);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -228,11 +217,17 @@
 }
 
 .npv-sort-arrow {
-  opacity: 0;
+  opacity: 0.32;
   transition: opacity var(--duration-state) var(--ease-out);
 }
 
 .npv-sort-button:hover .npv-sort-arrow,
 .npv-sort-arrow[data-active='true'] {
   opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .npv-sort-arrow {
+    transition: none;
+  }
 }

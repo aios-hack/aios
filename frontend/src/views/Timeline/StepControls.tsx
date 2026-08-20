@@ -6,10 +6,11 @@ import {
   RewindIcon,
   FastForwardIcon
 } from '@phosphor-icons/react';
+import { memo } from 'react';
 import type { TimelineStep } from '../../api/types';
 import { useI18n } from '../../i18n/I18nContext';
 import { Slider } from '../../ui/Slider';
-import { formatStepDate } from './format';
+import { formatStepDate } from '../../ui/format';
 
 interface StepControlsProps {
   steps: TimelineStep[];
@@ -20,7 +21,7 @@ interface StepControlsProps {
   onTogglePlay: () => void;
 }
 
-export const StepControls = ({
+const StepControlsView = ({
   steps,
   stepIndex,
   playing,
@@ -113,3 +114,5 @@ export const StepControls = ({
     </div>
   );
 };
+
+export const StepControls = memo(StepControlsView);

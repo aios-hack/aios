@@ -1,4 +1,6 @@
 import type { TimelineWellRow } from '../../api/types';
+import { actualRate, isCommissioned } from '../../data';
+import { compareWellIds } from '../../ui/format';
 
 export type SortDir = 'asc' | 'desc';
 
@@ -23,22 +25,8 @@ export const SORT_KEYS: readonly SortKey[] = [
   'bhp'
 ];
 
-export const actualRate = (row: TimelineWellRow): number =>
-  row.role === 'INJ' ? row.injection_rate : row.liquid_rate;
-
-const isCommissioned = (row: TimelineWellRow): boolean =>
-  row.availability !== 'NOT_COMMISSIONED';
-
-const wellOrder = (well: string): [number, string] => {
-  const numeric = Number(well);
-  return Number.isFinite(numeric) ? [numeric, ''] : [Number.POSITIVE_INFINITY, well];
-};
-
-const compareWell = (a: TimelineWellRow, b: TimelineWellRow): number => {
-  const [numA, textA] = wellOrder(a.well);
-  const [numB, textB] = wellOrder(b.well);
-  return numA === numB ? textA.localeCompare(textB) : numA - numB;
-};
+const compareWell = (a: TimelineWellRow, b: TimelineWellRow): number =>
+  compareWellIds(a.well, b.well);
 
 const textOf = (row: TimelineWellRow, key: SortKey): string => {
   if (key === 'availability') {
@@ -70,28 +58,6 @@ const NUMERIC_KEYS: readonly SortKey[] = ['setpoint', 'actual', 'watercut', 'bhp
 
 export const isNumericKey = (key: SortKey): boolean => NUMERIC_KEYS.includes(key);
 
-const compareBy = (a: TimelineWellRow, b: TimelineWellRow, key: SortKey): number => {
-  if (key === 'well') {
-    return compareWell(a, b);
-  }
-  if (!isNumericKey(key)) {
-    const diff = textOf(a, key).localeCompare(textOf(b, key));
-    return diff === 0 ? compareWell(a, b) : diff;
-  }
-  const left = numberOf(a, key);
-  const right = numberOf(b, key);
-  if (left === null && right === null) {
-    return compareWell(a, b);
-  }
-  if (left === null) {
-    return 1;
-  }
-  if (right === null) {
-    return -1;
-  }
-  return left === right ? compareWell(a, b) : left - right;
-};
-
 export const sortWells = (
   wells: readonly TimelineWellRow[],
   key: SortKey,
@@ -99,7 +65,22 @@ export const sortWells = (
 ): TimelineWellRow[] => {
   const rows = [...wells];
   rows.sort((a, b) => {
-    const diff = compareBy(a, b, key);
+    if (key === 'well') {
+      const diff = compareWell(a, b);
+      return dir === 'asc' ? diff : -diff;
+    }
+    if (isNumericKey(key)) {
+      const left = numberOf(a, key);
+      const right = numberOf(b, key);
+      if (left === null || right === null) {
+        return left === right ? compareWell(a, b) : left === null ? 1 : -1;
+      }
+      return left === right ? compareWell(a, b) : dir === 'asc' ? left - right : right - left;
+    }
+    const diff = textOf(a, key).localeCompare(textOf(b, key));
+    if (diff === 0) {
+      return compareWell(a, b);
+    }
     return dir === 'asc' ? diff : -diff;
   });
   return rows;

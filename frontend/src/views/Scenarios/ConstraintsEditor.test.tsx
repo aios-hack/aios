@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dictionaries } from '../../i18n/dictionaries';
 import { ConstraintsEditor } from './ConstraintsEditor';
-import { mockFetch, withProviders } from './testFixtures';
+import { flushProviders, mockFetch, withProviders } from './testFixtures';
 
 const { ru } = dictionaries;
 
@@ -32,8 +32,9 @@ afterEach(() => {
 });
 
 describe('ConstraintsEditor', () => {
-  it('produces an empty but complete document before any edits', () => {
+  it('produces an empty but complete document before any edits', async () => {
     render(withProviders(<ConstraintsEditor nIntervals={224} />));
+    await flushProviders();
     expect(previewDoc()).toEqual({
       injection_limits: {},
       liquid_limits: {},
@@ -44,8 +45,9 @@ describe('ConstraintsEditor', () => {
     });
   });
 
-  it('builds a serializable document from edited rows', () => {
+  it('builds a serializable document from edited rows', async () => {
     render(withProviders(<ConstraintsEditor nIntervals={224} />));
+    await flushProviders();
     fillRow(addRow('injection_limits'), ['2007', '5000']);
     fillRow(addRow('well_outages'), ['42', '3', '7']);
 
@@ -55,16 +57,18 @@ describe('ConstraintsEditor', () => {
     });
   });
 
-  it('keeps free key-value infrastructure pairs in the document', () => {
+  it('keeps free key-value infrastructure pairs in the document', async () => {
     render(withProviders(<ConstraintsEditor nIntervals={224} />));
+    await flushProviders();
     fillRow(addRow('infrastructure'), ['kns_limit_m3_per_day', '12000']);
     expect(previewDoc()).toMatchObject({
       infrastructure: { kns_limit_m3_per_day: 12000 }
     });
   });
 
-  it('shows an error when watercut is entered as a percentage', () => {
+  it('shows an error when watercut is entered as a percentage', async () => {
     render(withProviders(<ConstraintsEditor nIntervals={224} />));
+    await flushProviders();
     fillRow(addRow('watercut_limits'), ['2008', '50']);
 
     expect(screen.getByText(ru['scenarios.error.watercut'])).toBeTruthy();
@@ -74,36 +78,41 @@ describe('ConstraintsEditor', () => {
     ).toBe(true);
   });
 
-  it('accepts a watercut fraction without complaint', () => {
+  it('accepts a watercut fraction without complaint', async () => {
     render(withProviders(<ConstraintsEditor nIntervals={224} />));
+    await flushProviders();
     fillRow(addRow('watercut_limits'), ['2008', '0.95']);
 
     expect(screen.queryByText(ru['scenarios.error.watercut'])).toBeNull();
     expect(previewDoc()).toMatchObject({ watercut_limits: { '2008': 0.95 } });
   });
 
-  it('shows an error on a negative limit', () => {
+  it('shows an error on a negative limit', async () => {
     render(withProviders(<ConstraintsEditor nIntervals={224} />));
+    await flushProviders();
     fillRow(addRow('liquid_limits'), ['2007', '-1']);
     expect(screen.getByText(ru['scenarios.error.negative'])).toBeTruthy();
   });
 
-  it('shows an error when an outage runs past the horizon', () => {
+  it('shows an error when an outage runs past the horizon', async () => {
     render(withProviders(<ConstraintsEditor nIntervals={4} />));
+    await flushProviders();
     fillRow(addRow('well_outages'), ['42', '0', '9']);
     expect(
       screen.getByText(ru['scenarios.error.horizon'].replace('{last}', '3'))
     ).toBeTruthy();
   });
 
-  it('shows an error when the outage range is reversed', () => {
+  it('shows an error when the outage range is reversed', async () => {
     render(withProviders(<ConstraintsEditor nIntervals={224} />));
+    await flushProviders();
     fillRow(addRow('well_outages'), ['42', '7', '3']);
     expect(screen.getByText(ru['scenarios.error.range'])).toBeTruthy();
   });
 
-  it('removes a row when the remove button is clicked', () => {
+  it('removes a row when the remove button is clicked', async () => {
     render(withProviders(<ConstraintsEditor nIntervals={224} />));
+    await flushProviders();
     const block = addRow('injection_limits');
     fillRow(block, ['2007', '5000']);
     expect(previewDoc()).toMatchObject({ injection_limits: { '2007': 5000 } });

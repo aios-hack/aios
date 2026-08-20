@@ -1,19 +1,12 @@
 import type { NpvWellRow } from '../../api/types';
+import { compareWellIds } from '../../ui/format';
 import type { NpvSortKey, SortDir, TaxMode } from './types';
 
 export const valueOf = (row: NpvWellRow, mode: TaxMode): number =>
   mode === 'preTax' ? row.pre_tax : row.with_allocated_tax;
 
-const wellOrder = (well: string): [number, string] => {
-  const numeric = Number(well);
-  return Number.isFinite(numeric) ? [numeric, ''] : [Number.POSITIVE_INFINITY, well];
-};
-
-const compareWell = (a: NpvWellRow, b: NpvWellRow): number => {
-  const [numA, textA] = wellOrder(a.well);
-  const [numB, textB] = wellOrder(b.well);
-  return numA === numB ? textA.localeCompare(textB) : numA - numB;
-};
+const compareWell = (a: NpvWellRow, b: NpvWellRow): number =>
+  compareWellIds(a.well, b.well);
 
 export const sortNpvRows = (
   rows: readonly NpvWellRow[],
@@ -23,10 +16,15 @@ export const sortNpvRows = (
 ): NpvWellRow[] => {
   const sorted = [...rows];
   sorted.sort((a, b) => {
-    const diff =
-      key === 'well' ? compareWell(a, b) : valueOf(a, mode) - valueOf(b, mode);
-    const resolved = diff === 0 && key !== 'well' ? compareWell(a, b) : diff;
-    return dir === 'asc' ? resolved : -resolved;
+    if (key === 'well') {
+      const diff = compareWell(a, b);
+      return dir === 'asc' ? diff : -diff;
+    }
+    const diff = valueOf(a, mode) - valueOf(b, mode);
+    if (diff === 0) {
+      return compareWell(a, b);
+    }
+    return dir === 'asc' ? diff : -diff;
   });
   return sorted;
 };

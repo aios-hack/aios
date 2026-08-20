@@ -1,6 +1,6 @@
-import type { TimelineFile } from '../../api/types';
+import type { TimelineFile, WellRole } from '../../api/types';
 
-export type WellRole = 'PROD' | 'INJ' | 'NONE';
+export type { WellRole };
 
 export const rolesAtStep = (
   timeline: TimelineFile | null,
@@ -15,7 +15,7 @@ export const rolesAtStep = (
     return roles;
   }
   for (const well of step.wells) {
-    roles.set(well.well, well.role as WellRole);
+    roles.set(well.well, well.role);
   }
   return roles;
 };

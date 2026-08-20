@@ -1,12 +1,13 @@
+import { memo } from 'react';
 import type { TimelineFieldStats } from '../../api/types';
 import { useI18n } from '../../i18n/I18nContext';
-import { DASH, formatNumber, formatPercent } from './format';
+import { DASH, formatNumber, formatPercent } from '../../ui/format';
 
 interface FieldStatsProps {
   field: TimelineFieldStats;
 }
 
-export const FieldStats = ({ field }: FieldStatsProps) => {
+const FieldStatsView = ({ field }: FieldStatsProps) => {
   const { t, lang } = useI18n();
   const items = [
     {
@@ -49,3 +50,5 @@ export const FieldStats = ({ field }: FieldStatsProps) => {
     </dl>
   );
 };
+
+export const FieldStats = memo(FieldStatsView);

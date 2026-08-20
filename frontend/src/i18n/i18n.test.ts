@@ -38,3 +38,47 @@ describe('i18n dictionaries', () => {
     }
   });
 });
+
+const sources = import.meta.glob('../**/*.{ts,tsx}', {
+  eager: true,
+  query: '?raw',
+  import: 'default'
+}) as Record<string, string>;
+
+const code = Object.entries(sources)
+  .filter(([path]) => !path.includes('.test.'))
+  .map(([, text]) => text)
+  .join('\n');
+
+const isUsed = (fullKey: string): boolean => {
+  if (code.includes(`'${fullKey}'`) || code.includes(`"${fullKey}"`)) {
+    return true;
+  }
+  const parts = fullKey.split('.');
+  const prefixUsed = parts
+    .slice(0, -1)
+    .some((_, index) =>
+      code.includes(`\`${parts.slice(0, index + 1).join('.')}.\${`)
+    );
+  if (prefixUsed) {
+    return true;
+  }
+  return parts
+    .slice(1)
+    .some((_, index) => code.includes(`}.${parts.slice(index + 1).join('.')}\``));
+};
+
+describe('i18n usage', () => {
+  it('has no key that no source file references', () => {
+    const unused: string[] = [];
+    for (const [namespace, entries] of Object.entries(ru)) {
+      for (const key of Object.keys(entries)) {
+        const fullKey = namespace === 'common' ? key : `${namespace}.${key}`;
+        if (!isUsed(fullKey)) {
+          unused.push(fullKey);
+        }
+      }
+    }
+    expect(unused).toEqual([]);
+  });
+});

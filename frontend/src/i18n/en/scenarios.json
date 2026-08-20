@@ -97,5 +97,7 @@
   "library.npvLabel": "NPV by methodology",
   "library.constraintsLabel": "Constraints",
   "badge.hintLabel": "What the label means",
-  "editor.hintLabel": "What the document is for"
+  "editor.hintLabel": "What the document is for",
+  "library.npvBasis": "with allocated tax, RUB",
+  "editor.emptyNote": "The form starts empty: you are composing a new document, not editing the selected scenario’s constraints."
 }

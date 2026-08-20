@@ -122,19 +122,18 @@
   --color-focus: #232dcd;
   --color-selected-bg: rgba(35, 45, 205, 0.08);
 
-  --color-oil: #d9973f;
-  --color-oil-strong: #b8791f;
-  --color-water: #5b8def;
-  --color-water-pale: #b9cfdd;
+  --color-oil: #c47d2b;
+  --color-oil-strong: #a36414;
+  --color-water: #4a77d4;
+  --color-water-pale: #a9c2de;
   --color-unknown: rgba(11, 12, 20, 0.3);
 
-  --color-map-frame: rgba(11, 12, 20, 0.28);
   --color-layer-1: #d97706;
   --color-layer-2: #0f766e;
   --color-layer-both: #7c3aed;
   --color-well-dim: rgba(11, 12, 20, 0.18);
-  --color-graph-injector: #5b8def;
-  --color-graph-producer: #d9973f;
+  --color-graph-injector: #4a77d4;
+  --color-graph-producer: #c98232;
   --color-graph-edge: rgba(11, 12, 20, 0.32);
   --color-graph-window: #b45309;
   --color-graph-window-bg: #fff4e2;
@@ -155,9 +154,9 @@
   --color-synthetic-border: rgba(224, 179, 77, 0.6);
 
   --color-backdrop: rgba(11, 12, 20, 0.18);
-  --color-plot-bg: #fbfcfe;
-  --color-edge-positive: #6f7bd8;
-  --color-edge-negative: #d98a3f;
+  --color-plot-bg: #f9fafd;
+  --color-edge-positive: #9c6a1e;
+  --color-edge-negative: #3e68cc;
   --color-axis: rgba(35, 45, 205, 0.68);
   --color-axis-tick: rgba(11, 12, 20, 0.72);
   --dot-grid: rgba(35, 45, 205, 0.08);
@@ -220,7 +219,7 @@
 
   --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-overshoot: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-emphasis: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out-drawer: cubic-bezier(0.4, 0, 0.2, 1);
 
   --stagger-step: 60ms;
@@ -275,19 +274,18 @@
   --color-focus: #949cf8;
   --color-selected-bg: rgba(124, 134, 245, 0.16);
 
-  --color-oil: #f0a94c;
-  --color-oil-strong: #ffc46b;
+  --color-oil: #d9963c;
+  --color-oil-strong: #edb266;
   --color-water: #6f9bf5;
   --color-water-pale: #8fa8bd;
   --color-unknown: rgba(238, 240, 248, 0.32);
 
-  --color-map-frame: rgba(238, 240, 248, 0.3);
   --color-layer-1: #f5a340;
   --color-layer-2: #35c2b4;
   --color-layer-both: #ab84ff;
   --color-well-dim: rgba(238, 240, 248, 0.2);
-  --color-graph-injector: #6f9bf5;
-  --color-graph-producer: #f0a94c;
+  --color-graph-injector: #6b93e0;
+  --color-graph-producer: #d9963c;
   --color-graph-edge: rgba(238, 240, 248, 0.3);
   --color-graph-window: #ffc46b;
   --color-graph-window-bg: #3a2c14;
@@ -308,9 +306,9 @@
   --color-synthetic-border: rgba(255, 207, 122, 0.32);
 
   --color-backdrop: rgba(0, 0, 0, 0.32);
-  --color-plot-bg: #0b0d15;
-  --color-edge-positive: #7f8af0;
-  --color-edge-negative: #e0a05a;
+  --color-plot-bg: #0a0c13;
+  --color-edge-positive: #a5793a;
+  --color-edge-negative: #5a82cf;
   --color-axis: rgba(124, 134, 245, 0.5);
   --color-axis-tick: rgba(238, 240, 248, 0.5);
   --dot-grid: rgba(124, 134, 245, 0.1);

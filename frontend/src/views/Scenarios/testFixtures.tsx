@@ -1,3 +1,4 @@
+import { act } from '@testing-library/react';
 import { vi } from 'vitest';
 import type { ReactNode } from 'react';
 import type { ScenarioConstraintsSummary, ScenariosFile, TimelineFile } from '../../api/types';
@@ -94,3 +95,9 @@ export const withProviders = (node: ReactNode) => (
     </ScenarioProvider>
   </I18nProvider>
 );
+
+export const flushProviders = async () => {
+  await act(async () => {
+    await Promise.resolve();
+  });
+};

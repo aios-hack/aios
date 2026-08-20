@@ -12,12 +12,10 @@
   "tabs.label": "Interface sections",
   "synthetic.title": "Demonstration data",
   "synthetic.note": "Not a computed result: a synthetic artifact at the same scale, showing shape and pipeline. The NPV figures carry no meaning.",
-  "status.loading": "Loading data…",
-  "status.error": "Data unavailable",
-  "status.empty": "Nothing to show",
   "boundary.title": "This section could not be displayed",
   "boundary.hint": "Internal error: {message}. Reload the page or pick another section.",
   "app.brandAlt": "Blue Sky Research",
   "synthetic.short": "demo",
-  "app.documentTitle": "AIOS"
+  "app.documentTitle": "AIOS",
+  "app.viewLoading": "Loading view…"
 }

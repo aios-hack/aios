@@ -12,12 +12,10 @@
   "tabs.label": "Разделы интерфейса",
   "synthetic.title": "Демонстрационные данные",
   "synthetic.note": "Не результат расчёта: синтетический артефакт того же масштаба, показывает форму и конвейер, числа ЧДД смысла не имеют.",
-  "status.loading": "Загружаем данные…",
-  "status.error": "Данные недоступны",
-  "status.empty": "Показывать нечего",
   "boundary.title": "Раздел не удалось отобразить",
   "boundary.hint": "Внутренняя ошибка: {message}. Обновите страницу или выберите другой раздел.",
   "app.brandAlt": "Blue Sky Research",
   "synthetic.short": "демо",
-  "app.documentTitle": "AIOS"
+  "app.documentTitle": "AIOS",
+  "app.viewLoading": "Загрузка раздела…"
 }

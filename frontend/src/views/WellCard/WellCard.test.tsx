@@ -232,7 +232,7 @@ describe('WellCard', () => {
     });
   });
 
-  it('opens from a map well click and highlights the well', async () => {
+  const openFromMap = async (): Promise<{ well: SVGElement }> => {
     mockFetch({ ...stepsPayloads, '/data/wells.json': wellsFixture });
     const { container } = render(
       withProviders(
@@ -243,10 +243,25 @@ describe('WellCard', () => {
       )
     );
     await waitFor(() => expect(container.querySelectorAll('[data-well-id]')).toHaveLength(1));
-    const circle = container.querySelector('[data-well-id="11"]') as SVGElement;
-    fireEvent.click(circle);
+    return { well: container.querySelector('[data-well-id="11"]') as SVGElement };
+  };
+
+  it('moves focus into the dialog and back to the map well on escape', async () => {
+    const { well } = await openFromMap();
+    well.focus();
+    fireEvent.click(well);
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(document.activeElement).toBe(dialog));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.activeElement).toBe(well);
+  });
+
+  it('opens from a map well click and highlights the well', async () => {
+    const { well } = await openFromMap();
+    fireEvent.click(well);
     expect(screen.getByText(cardTitle('11'))).toBeTruthy();
     expect(param('factToTarget')).toContain('140');
-    expect(circle.getAttribute('data-selected')).toBe('true');
+    expect(well.getAttribute('data-selected')).toBe('true');
   });
 });

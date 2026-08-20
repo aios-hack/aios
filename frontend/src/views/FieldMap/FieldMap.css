@@ -12,11 +12,6 @@
   gap: var(--space-3);
 }
 
-.field-map-count {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-}
-
 .wells-plot {
   display: block;
   width: 100%;
@@ -91,7 +86,7 @@
 
 .map-legend-title {
   margin: 0;
-  color: var(--color-text-subtle);
+  color: var(--color-text-muted);
   font-size: var(--font-size-mono);
   font-weight: var(--font-weight-bold);
   letter-spacing: var(--tracking-eyebrow);
@@ -127,28 +122,16 @@
   border-radius: var(--radius-pill);
 }
 
+.map-legend-swatch[data-swatch='dim'] {
+  border: 1px solid var(--color-text-muted);
+}
+
 .map-legend-glyph {
   flex: none;
   width: var(--size-swatch);
   height: var(--size-swatch);
-  color: var(--color-text-muted);
+  color: var(--color-text);
 }
-
-.field-map-axes {
-  margin: 0;
-  text-align: center;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
-}
-
-.field-map-thesis {
-  margin: 0;
-  max-width: var(--size-prose-max);
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-}
-
-
 
 .plot-axis-line {
   stroke: var(--color-axis);

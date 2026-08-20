@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useT } from '../../i18n/I18nContext';
 import { useTimeline } from '../../state/TimelineContext';
 import { ViewStatus } from '../../ui/ViewStatus';
@@ -15,6 +15,9 @@ export const Timeline = () => {
   const [playing, setPlaying] = useState(false);
 
   const stepCount = timeline.status === 'ready' ? timeline.data.steps.length : 0;
+  const stepCountRef = useRef(stepCount);
+  stepCountRef.current = stepCount;
+  const currentRef = useRef(0);
 
   useEffect(() => {
     if (!playing || stepCount === 0) {
@@ -32,6 +35,27 @@ export const Timeline = () => {
     }
   }, [playing, stepIndex, stepCount]);
 
+  const selectStep = useCallback(
+    (index: number) => {
+      setPlaying(false);
+      const last = Math.max(stepCountRef.current - 1, 0);
+      setStepIndex(Math.min(Math.max(index, 0), last));
+    },
+    [setStepIndex]
+  );
+
+  const onStep = useCallback(
+    (delta: number) => selectStep(currentRef.current + delta),
+    [selectStep]
+  );
+
+  const togglePlay = useCallback(() => {
+    if (currentRef.current >= stepCountRef.current - 1) {
+      setStepIndex(0);
+    }
+    setPlaying((value) => !value);
+  }, [setStepIndex]);
+
   if (timeline.status === 'loading') {
     return <ViewStatus kind="loading" title={t('steps.loading')} />;
   }
@@ -41,19 +65,8 @@ export const Timeline = () => {
 
   const steps = timeline.data.steps;
   const current = Math.min(stepIndex, steps.length - 1);
+  currentRef.current = current;
   const step = steps[current];
-
-  const selectStep = (index: number) => {
-    setPlaying(false);
-    setStepIndex(Math.min(Math.max(index, 0), steps.length - 1));
-  };
-
-  const togglePlay = () => {
-    if (!playing && current >= steps.length - 1) {
-      setStepIndex(0);
-    }
-    setPlaying((value) => !value);
-  };
 
   return (
     <section className="timeline">
@@ -62,7 +75,7 @@ export const Timeline = () => {
         stepIndex={current}
         playing={playing}
         onSelect={selectStep}
-        onStep={(delta) => selectStep(current + delta)}
+        onStep={onStep}
         onTogglePlay={togglePlay}
       />
       <FieldStats field={step.field} />

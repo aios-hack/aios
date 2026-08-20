@@ -1,6 +1,5 @@
 {
   "title": "Wells in plan view",
-  "axes": "Axes — grid indices: I right (1–{ni}), J down (1–{nj})",
   "axisI": "I",
   "axisJ": "J",
   "ariaLabel": "Well map by grid indices",
@@ -20,6 +19,7 @@
   "legend.shape": "Role",
   "legend.producer": "Producer",
   "legend.injector": "Injector",
-  "thesis": "Positions are wellheads in simulation grid cells: I rightwards, J downwards. Not geographic coordinates, not metres.",
-  "shownLabel": "Shown"
+  "shownLabel": "Shown",
+  "empty": "The well stock is empty",
+  "emptyHint": "wells.json contains no wells."
 }

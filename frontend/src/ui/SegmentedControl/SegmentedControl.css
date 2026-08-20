@@ -17,8 +17,8 @@
   border-radius: var(--radius-pill);
   background: var(--color-accent);
   box-shadow: var(--shadow-accent);
-  transition: transform var(--duration-state) var(--ease-overshoot),
-    width var(--duration-state) var(--ease-overshoot),
+  transition: transform var(--duration-state) var(--ease-emphasis),
+    width var(--duration-state) var(--ease-emphasis),
     opacity var(--duration-fast) var(--ease-out);
   pointer-events: none;
 }

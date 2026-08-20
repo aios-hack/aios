@@ -1,9 +1,9 @@
-import type { GridSize } from '../../api/types';
+import { memo } from 'react';
 
 const TICK_STEP = 10;
 const TICK_LEN = 1.8;
 const TICK_GAP = 2.4;
-const AXIS_OVERSHOOT = 6;
+const AXIS_OVERSHOOT = 4;
 const LABEL_SIZE = 4.4;
 const TICK_SIZE = 2.4;
 
@@ -16,12 +16,12 @@ const ticksFor = (size: number): number[] => {
 };
 
 interface PlotAxesProps {
-  grid: GridSize;
+  grid: { ni: number; nj: number };
   axisI: string;
   axisJ: string;
 }
 
-export const PlotAxes = ({ grid, axisI, axisJ }: PlotAxesProps) => (
+const PlotAxesView = ({ grid, axisI, axisJ }: PlotAxesProps) => (
   <g className="plot-axes" aria-hidden="true">
     <defs>
       <marker
@@ -104,3 +104,5 @@ export const PlotAxes = ({ grid, axisI, axisJ }: PlotAxesProps) => (
 
   </g>
 );
+
+export const PlotAxes = memo(PlotAxesView);
