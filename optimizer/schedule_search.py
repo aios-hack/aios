@@ -66,7 +66,7 @@ import hashlib
 from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
-from typing import Mapping
+from typing import Mapping, Sequence
 
 from config.schema import default_policies
 from contracts import (
@@ -351,6 +351,36 @@ def _advance_memory(state: PolicyState, context: RuleContext, *, esp_catalog) ->
     return memory
 
 
+def _close_producing_side_on_conversion(
+    pending: dict[tuple[int, str, EventKind], ControlEvent],
+    step: int,
+    decisions: Sequence[ControlEvent],
+) -> None:
+    """На шаге перевода уставка добывающей стороны — только ноль.
+
+    Правила совещаются на состоянии *до* решения: R2 назначает скважине
+    уровень отбора, а R6 в том же шаге переводит её под закачку. Оба решения
+    законны по отдельности, вместе дают `SET_LRAT` ненулевого значения
+    скважине, которая на этом же шаге стала нагнетательной, и
+    `validate_static` справедливо это отвергает.
+
+    Дек организаторов на своих переводах пишет ровно это: `CONVERT_INJ`,
+    `SET_LRAT 0.0` — закрытие добывающей стороны — и `SET_RATE` с целью
+    нового нагнетателя (`bridge/dataset_plan.py::materialize` следует тому же
+    правилу). Событие не выбрасывается, а обнуляется: выброшенное оставило бы
+    скважину с прежней уставкой отбора, то есть добывающей по смыслу.
+    """
+
+    converted = {
+        event.well for event in decisions if event.kind is EventKind.CONVERT_INJ
+    }
+    for well in converted:
+        key = (step, well, EventKind.SET_LRAT)
+        event = pending.get(key)
+        if event is not None and event.value:
+            pending[key] = replace(event, value=0.0)
+
+
 def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
     """Возвращает `Policy` (`object -> Schedule`) для одной θ.
 
@@ -427,6 +457,7 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
                         memory=context.memory,
                     ),
                 )
+            _close_producing_side_on_conversion(pending, step, result.decisions)
             context = replace(
                 context,
                 memory=_advance_memory(state, context, esp_catalog=env.normatives.esp_catalog),
