@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -103,7 +104,9 @@ def export_scenario(
 
 
 def build_demo(
-    out_dir: str | Path = DEFAULT_OUT_DIR, deck_path: str | Path = DEFAULT_DECK_PATH
+    out_dir: str | Path = DEFAULT_OUT_DIR,
+    deck_path: str | Path = DEFAULT_DECK_PATH,
+    lambda_path: str | Path | None = None,
 ) -> list[Path]:
     """`base` — настоящий расчёт (задача G3), `whatif-injection-cut` — демо-библиотека,
     честно помеченная синтетикой (карточка G3: демонстрационный бандл сохраняется
@@ -113,7 +116,10 @@ def build_demo(
     root.mkdir(parents=True, exist_ok=True)
     wells = deck_scale(deck_path)
     base_result = build_base_artifact(
-        _BASE_NORMATIVES, _BASE_POLICIES, model_dir=Path(deck_path).parent
+        _BASE_NORMATIVES,
+        _BASE_POLICIES,
+        model_dir=Path(deck_path).parent,
+        lambda_path=lambda_path,
     )
     base = base_result.artifact
     base_meta_by_kind = {
@@ -161,7 +167,11 @@ def build_demo(
 
 
 def main() -> None:
-    for path in build_demo():
+    # Путь к измеренной λ берётся из окружения: если кампания замера
+    # (`connectivity/campaign.py`) уже отработала, витрина показывает её
+    # рёбра; если нет — заглушку, помеченную `lambda_measured: false`.
+    measured = os.environ.get("AIOS_LAMBDA_PATH")
+    for path in build_demo(lambda_path=Path(measured) if measured else None):
         print(path)
 
 

@@ -53,6 +53,7 @@ class BaseArtifactResult:
     artifact: RunArtifact
     source_run_id: str
     response_hash: str
+    lambda_measured: bool = False
 
 
 def real_meta(kind: str, result: BaseArtifactResult) -> dict[str, Any]:
@@ -82,15 +83,25 @@ def real_meta(kind: str, result: BaseArtifactResult) -> dict[str, Any]:
         "notice_en": REAL_NOTICE_EN,
     }
     if kind == "graph":
-        meta["lambda_measured"] = False
-        meta["notice_ru"] = (
-            "Базовый прогон OPM, но связность λ не измерена: серия возмущённых "
-            "прогонов не выполнялась, рёбер нет"
-        )
-        meta["notice_en"] = (
-            "OPM baseline run, but connectivity λ is not measured: the perturbation "
-            "series was never run, no edges"
-        )
+        meta["lambda_measured"] = result.lambda_measured
+        if not result.lambda_measured:
+            meta["notice_ru"] = (
+                "Базовый прогон OPM, но связность λ не измерена: серия возмущённых "
+                "прогонов не выполнялась, рёбер нет"
+            )
+            meta["notice_en"] = (
+                "OPM baseline run, but connectivity λ is not measured: the perturbation "
+                "series was never run, no edges"
+            )
+        else:
+            meta["notice_ru"] = (
+                "Настоящий расчёт: базовый прогон OPM, связность λ измерена планом "
+                "эксперимента на возмущённых прогонах"
+            )
+            meta["notice_en"] = (
+                "Real result: OPM baseline run, connectivity λ measured by a "
+                "design-of-experiments series of perturbed runs"
+            )
     return meta
 
 
@@ -135,12 +146,19 @@ def build_base_artifact(
     *,
     response_path: Path | str = DEFAULT_RESPONSE_PATH,
     model_dir: Path,
+    lambda_path: Path | str | None = None,
 ) -> BaseArtifactResult:
     """Настоящий `RunArtifact` базового прогона. `NotImplementedError`-стиль:
 
     падает с понятной ошибкой, если `response_path` не существует, вместо
     того чтобы тихо подменить синтетикой (`economics.load_response_artifact`
     уже так и делает).
+
+    `lambda_path` — измеренная λ кампании `connectivity/campaign.py`. Пока
+    её не передали, связность остаётся заглушкой из докстринга модуля, и
+    метаданные графа честно несут `lambda_measured: false`. Переданный путь
+    к несуществующему файлу — ошибка, а не повод вернуться к заглушке
+    молча: витрина не должна показывать нули под видом замера.
     """
 
     artifact = load_response_artifact(response_path)
@@ -150,7 +168,18 @@ def build_base_artifact(
     analysis = analyze_base_case(
         artifact, parsed.dates, parsed.t0_deck_date_index, normatives, policies
     )
-    lambda_, groups = _trivial_connectivity(schedule)
+    if lambda_path is None:
+        lambda_, groups = _trivial_connectivity(schedule)
+        lambda_measured = False
+    else:
+        from connectivity.groups import build_groups
+        from connectivity.measure import load_lambda
+
+        lambda_ = load_lambda(lambda_path)
+        groups, _ = build_groups(
+            lambda_, GroupingParams(), extra_wells=schedule.meta.wells
+        )
+        lambda_measured = True
 
     run_artifact = RunArtifact(
         config_hash=_economics_config_hash(normatives, policies),
@@ -172,4 +201,5 @@ def build_base_artifact(
         artifact=run_artifact,
         source_run_id=artifact.source_run_id,
         response_hash=artifact.response_hash,
+        lambda_measured=lambda_measured,
     )
