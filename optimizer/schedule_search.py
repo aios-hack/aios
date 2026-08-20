@@ -167,7 +167,19 @@ def load_environment(
     checkpoint_path: Path,
     feature_context_path: Path,
     oil_density_t_per_m3: float = 0.9131,
+    lambda_path: Path | None = None,
 ) -> SearchEnvironment:
+    """Окружение поиска. `lambda_path` — измеренная λ, если она уже есть.
+
+    Без неё берётся заглушка из докстринга модуля, и это видно по нулевой
+    матрице: при λ=0 правило R1 не различает скважины по предельной ценности
+    закачки и душит её по всему фонду, а ЧДД кандидата схлопывается. Путь
+    сюда передаёт тот, кто прогнал кампанию замера
+    (`connectivity/campaign.py`); файл читается `connectivity.measure.
+    load_lambda`, и его отсутствие по явно переданному пути — ошибка, а не
+    молчаливый откат к заглушке.
+    """
+
     raw = (Path(model_dir) / _SCHEDULE_INCLUDE).read_bytes()
     parsed = parse_schedule(raw)
     base_schedule = build_schedule(parsed, raw, provenance="policy-search-base")
@@ -176,7 +188,16 @@ def load_environment(
     policies = default_policies()
     feature_context = ModelZFeatureArtifact.load(feature_context_path)
     model = TrajectorySurrogate.load(checkpoint_path)
-    lambda_, groups = _trivial_connectivity(base_schedule)
+    if lambda_path is None:
+        lambda_, groups = _trivial_connectivity(base_schedule)
+    else:
+        from connectivity.groups import GroupingParams, build_groups
+        from connectivity.measure import load_lambda
+
+        lambda_ = load_lambda(lambda_path)
+        groups, _ = build_groups(
+            lambda_, GroupingParams(), extra_wells=base_schedule.meta.wells
+        )
     flags = RuleFlags(enabled=dict(DEFAULT_RULE_FLAGS))
     return SearchEnvironment(
         base_schedule=base_schedule,
