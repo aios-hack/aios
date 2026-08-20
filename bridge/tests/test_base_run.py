@@ -93,7 +93,7 @@ def test_thirty_injection_conversions_land_on_their_dates(report) -> None:
 
     Не только по расписанию (это уже проверяет `OpmDeckEmitter`, задача 2):
     здесь — что настоящий OPM на дату перевода действительно показывает
-    injection_rate > 0 для этой скважины (`tools/check_deck_facts.py` §6 —
+    injection_rate > 0 для этой скважины (`docs/context/tools/check_deck_facts.py` §6 —
     источник дат, независимый от `schedule.parse_schedule`).
     """
 

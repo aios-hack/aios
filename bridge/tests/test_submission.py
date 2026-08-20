@@ -135,7 +135,7 @@ def _config(schedule: Schedule):
         history_prefix_hash=canonical_part_hash(schedule.initial_state),
         summary_spec_hash=summary_hash,
         # Связность/датасет/чекпоинт суррогата — задачи G4/G5, ещё не сделаны
-        # (см. docs/v2/03_integration_tasks.md). Тестовые заглушки, не
+        # (см. docs/v2/tasks/integration.md). Тестовые заглушки, не
         # заявленные значения — тем же приёмом, что и в
         # contracts/tests/test_simulation.py / ui/tests/test_scenarios.py.
         groups_hash="0" * 64,

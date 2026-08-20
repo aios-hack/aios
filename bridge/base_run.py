@@ -98,7 +98,7 @@ class RoleTransition:
 def find_injection_conversions(parsed: ParsedSchedule) -> tuple[RoleTransition, ...]:
     """Все переводы PROD → INJ по всей истории дека, не только после t0.
 
-    Тот же алгоритм, что и `tools/check_deck_facts.py` §6 (первое появление
+    Тот же алгоритм, что и `docs/context/tools/check_deck_facts.py` §6 (первое появление
     в WCONPROD — роль PROD; первое появление в WCONINJE после этого — перевод):
     он даёт 30 переводов на текущей редакции Model_Z, `CONVERT_INJ` в
     `parsed.control_events` — только 10 из них (те, что внутри горизонта

@@ -56,7 +56,19 @@ class BaseArtifactResult:
 
 
 def real_meta(kind: str, result: BaseArtifactResult) -> dict[str, Any]:
-    return {
+    """Метаданные вида в бандле базового прогона.
+
+    Граф связности выделен отдельно и намеренно. Отклик, ЧДД и трасса
+    действительно посчитаны на прогоне OPM, а λ — нет: она заглушка
+    `_trivial_connectivity`, потому что серия возмущённых прогонов (задача
+    28) не выполнялась. Пометка об этом жила только в докстринге этого
+    модуля, куда зритель интерфейса не заглядывает, — и витрина показывала
+    пустой граф под подписью «Настоящий расчёт». Признак вынесен в сами
+    метаданные: `lambda_measured` читается интерфейсом наравне с
+    `synthetic`, и пока он ложный, граф обязан говорить о себе правду.
+    """
+
+    meta: dict[str, Any] = {
         "provenance": REAL_PROVENANCE,
         "synthetic": False,
         "kind": kind,
@@ -65,6 +77,17 @@ def real_meta(kind: str, result: BaseArtifactResult) -> dict[str, Any]:
         "notice_ru": REAL_NOTICE_RU,
         "notice_en": REAL_NOTICE_EN,
     }
+    if kind == "graph":
+        meta["lambda_measured"] = False
+        meta["notice_ru"] = (
+            "Базовый прогон OPM, но связность λ не измерена: серия возмущённых "
+            "прогонов не выполнялась, рёбер нет"
+        )
+        meta["notice_en"] = (
+            "OPM baseline run, but connectivity λ is not measured: the perturbation "
+            "series was never run, no edges"
+        )
+    return meta
 
 
 def _economics_config_hash(normatives: NormativeSet, policies: Policies) -> str:
