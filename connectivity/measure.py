@@ -39,6 +39,7 @@ from connectivity.campaign import (
     T0_DECK_DATE_INDEX,
     CampaignError,
     CampaignSetup,
+    _factor,
 )
 from connectivity.doe import DoEPlan, Level, achievability
 from connectivity.estimator import (
@@ -65,6 +66,12 @@ DEFAULT_RIDGE = 1e-6
 #: недостижимая и её столбец объявляется ненадёжным (`achievability_ok`).
 DEFAULT_TOLERANCE = 0.1
 
+#: Ниже этого разделения по фактической приёмистости (м³/сут, разница средних
+#: между уровнями HIGH и LOW) столбец считается не сдвинутым вовсе. Такая
+#: скважина не «слабо влияет» — она не участвовала в эксперименте, и её
+#: коэффициент определяется шумом. Порог берётся долей от шага амплитуды.
+SEPARATION_FLOOR_SHARE = 0.1
+
 
 @dataclass(frozen=True, slots=True)
 class MeasurementReport:
@@ -74,6 +81,7 @@ class MeasurementReport:
     lag_scan: tuple[tuple[int, float], ...]
     n_runs_by_batch: tuple[int, ...]
     unreachable: tuple[str, ...]
+    unmoved: tuple[str, ...] = ()
 
     @property
     def nonzero_edges(self) -> int:
@@ -133,9 +141,20 @@ def _baseline_injection(
 def _targets_by_run(
     plan: DoEPlan, baseline_by_well: Mapping[str, float]
 ) -> tuple[dict[str, float], ...]:
+    """Цель прогона — та же, что реально заказана деку.
+
+    `Amplitude.target` двигает уставку на абсолютный шаг (медиана ±10
+    м³/сут), а кампания задаёт возмущение множителем от собственной уставки
+    скважины (`campaign._factor`), потому что материализация датасета
+    работает множителями. На скважине с медианным уровнем это одно и то же,
+    на слабой — расходится вдвое, и сверка объявляла недостижимой скважину,
+    у которой никто и не просил столько воды. Цель считается тем же
+    множителем, иначе сверяется не с тем, что заказано.
+    """
+
     return tuple(
         {
-            well: plan.amplitude.target(level, baseline_by_well[well])
+            well: baseline_by_well[well] * _factor(level, plan.amplitude)
             for well, level in row.levels.items()
         }
         for row in plan.rows
@@ -169,6 +188,51 @@ def _observations(
     )
 
 
+def _movable(
+    prepared: CampaignSetup,
+    samples: Sequence[DatasetSample],
+    injectors: Sequence[str],
+    baseline_by_well: Mapping[str, float],
+    steps: WindowSteps,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Разделить фонд окна на сдвинувшиеся и не сдвинувшиеся столбцы.
+
+    Скважина, у которой средняя фактическая приёмистость на уровне HIGH не
+    отличается от уровня LOW, в эксперименте не участвовала: дек просил
+    больше воды, а симулятор её не принял — упор в забойное давление или в
+    приёмистость пласта. Её коэффициент в регрессии определяется шумом, а
+    вырожденный столбец рушит обусловленность всей матрицы, вместе с
+    коэффициентами соседей. Такие столбцы исключаются из оценки и
+    называются поимённо: «не измерено» — честный ответ, «0.0» — нет.
+    """
+
+    floor = prepared.amplitude.step_m3_per_day * SEPARATION_FLOOR_SHARE
+    by_id = _samples_by_scenario(samples)
+    high: dict[str, list[float]] = {well: [] for well in injectors}
+    low: dict[str, list[float]] = {well: [] for well in injectors}
+    for batch, plan in enumerate(prepared.plans):
+        for row in plan.rows:
+            sample = by_id.get(f"lambda-b{batch}-{row.run_index:04d}")
+            if sample is None or sample.response is None:
+                continue
+            for well, level in row.levels.items():
+                rate = mean_injection_rate(
+                    sample.response.state_at_date, well, T0_DECK_DATE_INDEX, steps
+                )
+                (high if level is Level.HIGH else low)[well].append(
+                    rate - baseline_by_well[well]
+                )
+    moved: list[str] = []
+    stuck: list[str] = []
+    for well in injectors:
+        if not high[well] or not low[well]:
+            stuck.append(well)
+            continue
+        separation = sum(high[well]) / len(high[well]) - sum(low[well]) / len(low[well])
+        (moved if separation >= floor else stuck).append(well)
+    return tuple(moved), tuple(stuck)
+
+
 def measure(
     prepared: CampaignSetup,
     samples: Sequence[DatasetSample],
@@ -182,9 +246,18 @@ def measure(
     """λ по двум партиям плана, с выбранным лагом и сверкой достижимости."""
 
     steps = WindowSteps(first=0, last=n_steps - 1)
-    injectors = prepared.fund.injectors
+    all_injectors = prepared.fund.injectors
     producers = prepared.fund.producers
-    baseline_injection = _baseline_injection(baseline.state_at_date, injectors, steps)
+    baseline_injection = _baseline_injection(baseline.state_at_date, all_injectors, steps)
+
+    injectors, unmoved = _movable(
+        prepared, samples, all_injectors, baseline_injection, steps
+    )
+    if len(injectors) < 2:
+        raise CampaignError(
+            f"сдвинулось {len(injectors)} нагнетательных из {len(all_injectors)}: "
+            f"измерять связность нечем"
+        )
 
     # Партии сливаются по BATCHES_PER_HALF в половину, и оценка строится на
     # половинах, а не на партиях. Причина арифметическая: строк плана 27, а
@@ -201,15 +274,21 @@ def measure(
         for batch in chunk:
             plan = prepared.plans[batch]
             ordered = _batch_samples(samples, batch, plan)
-            actual = _injection_by_run(ordered, injectors, steps)
+            # Сверка достижимости идёт по всему фонду окна, включая
+            # столбцы, выброшенные из оценки: недобор — это диагностика
+            # эксперимента, и умалчивать о нём нельзя. В матрицу воздействий
+            # попадают только сдвинувшиеся.
+            actual_all = _injection_by_run(ordered, all_injectors, steps)
             report = achievability(
-                plan, _targets_by_run(plan, baseline_injection), actual, tolerance
+                plan, _targets_by_run(plan, baseline_injection), actual_all, tolerance
             )
             unreachable.update(
                 well for well, ok in report.achievability_ok().items() if not ok
             )
             pooled_samples.extend(ordered)
-            pooled_actual.extend(actual)
+            pooled_actual.extend(
+                {well: row[well] for well in injectors} for row in actual_all
+            )
         half_drives.append(
             realized_drive(injectors, tuple(pooled_actual), baseline_injection)
         )
@@ -266,6 +345,7 @@ def measure(
         lag_scan=tuple((scan.lag_months, scan.r_squared) for scan in scans),
         n_runs_by_batch=tuple(len(item) for item in batch_samples),
         unreachable=tuple(sorted(unreachable)),
+        unmoved=unmoved,
     )
 
 
@@ -383,7 +463,8 @@ def main() -> int:
         flush=True,
     )
     print(
-        f"ранг {measured.influence.rank} из {len(prepared.fund.injectors)}, "
+        f"ранг {measured.influence.rank} из {len(measured.influence.injectors)} "
+        f"столбцов (фонд окна {len(prepared.fund.injectors)}), "
         f"обусловленность {measured.influence.condition_number:.1f}, "
         f"устойчивость {measured.influence.stability:.3f}",
         flush=True,
@@ -391,7 +472,9 @@ def main() -> int:
     print(
         f"ненулевых рёбер {measured.nonzero_edges} из "
         f"{len(measured.influence.producers) * len(measured.influence.injectors)}, "
-        f"недостижимых нагнетательных {len(measured.unreachable)}",
+        f"недостижимых нагнетательных {len(measured.unreachable)}, "
+        f"не сдвинулось {len(measured.unmoved)}"
+        + (f" ({', '.join(measured.unmoved)})" if measured.unmoved else ""),
         flush=True,
     )
 
