@@ -14,9 +14,12 @@ ROOT = Path(__file__).resolve().parents[2] / "src" / "aios_backend"
 LEGACY_WORKFLOW_MODULES = {
     "domain/connectivity/campaign.py",
     "domain/connectivity/measure.py",
-    "infrastructure/opm/submission_run.py",
     "infrastructure/opm/verification.py",
 }
+
+# These files only keep old module commands alive while callers migrate.
+# They deliberately point upward and contain no business logic.
+COMPATIBILITY_SHIMS = {"infrastructure/opm/submission_run.py"}
 
 FORBIDDEN: dict[str, tuple[str, ...]] = {
     "core": (
@@ -54,7 +57,8 @@ def test_backend_layers_only_depend_downward() -> None:
         for path in (ROOT / layer).rglob("*.py"):
             if "tests" in path.parts:
                 continue
-            if str(path.relative_to(ROOT)) in LEGACY_WORKFLOW_MODULES:
+            relative = str(path.relative_to(ROOT))
+            if relative in LEGACY_WORKFLOW_MODULES | COMPATIBILITY_SHIMS:
                 continue
             imports = imported_modules(path)
             bad = sorted(
