@@ -443,3 +443,30 @@ def test_new_config_fields_do_not_invalidate_an_existing_checkpoint(tmp_path) ->
     restored = TrajectorySurrogate.load(saved)
     assert restored.version == payload["version"]
     assert restored.predict(_input()).output.nodes[0] == model.predict(_input()).output.nodes[0]
+
+
+def test_fit_applies_scalers_before_training() -> None:
+    """Пропуск приведения не ловился ни одним тестом: обучение сходилось и на
+    сырых величинах, просто хуже. Проверяем ровно тот контракт, который
+    `fit_tensors` объявляет в докстроке — тензоры приходят приведёнными."""
+    seen: dict[str, torch.Tensor] = {}
+    original = TrajectorySurrogate.fit_tensors.__func__
+
+    def spy(cls, model, *, train, validation, **kwargs):
+        seen["train_y"] = train[2]
+        seen["train_x"] = train[0]
+        return original(cls, model, train=train, validation=validation, **kwargs)
+
+    examples = tuple(_example(f"schedule-{index}") for index in range(4))
+    config = replace(_model().config, max_epochs=1, patience=1, batch_size=64)
+    TrajectorySurrogate.fit_tensors = classmethod(spy)
+    try:
+        TrajectorySurrogate.fit(
+            examples[:3], examples[3:], config=config, dataset_hash="d" * 64
+        )
+    finally:
+        TrajectorySurrogate.fit_tensors = classmethod(original)
+    # Приведённые цели центрированы: среднее близко к нулю, а сырые log1p —
+    # заведомо положительны, потому что все величины неотрицательны.
+    assert abs(float(seen["train_y"].mean())) < 0.5
+    assert abs(float(seen["train_x"].mean())) < 0.5

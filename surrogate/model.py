@@ -737,10 +737,61 @@ class TrajectorySurrogate:
         val_x, val_wells, val_y = _example_tensors(
             validation, model.wells, **parameterization
         )
-        train_x = model.input_scaler.transform(train_x)
-        val_x = model.input_scaler.transform(val_x)
-        train_y = model.target_scaler.transform(train_y)
-        val_y = model.target_scaler.transform(val_y)
+        return cls.fit_tensors(
+            model,
+            train=(
+                model.input_scaler.transform(train_x),
+                train_wells,
+                model.target_scaler.transform(train_y),
+            ),
+            validation=(
+                model.input_scaler.transform(val_x),
+                val_wells,
+                model.target_scaler.transform(val_y),
+            ),
+            validation_node_counts=tuple(
+                len(item.input.nodes) for item in validation
+            ),
+            dataset_hash=dataset_hash,
+            device=device,
+            epoch_callback=epoch_callback,
+            target_stats=target_stats,
+        )
+
+    @classmethod
+    def fit_tensors(
+        cls,
+        model: "TrajectorySurrogate",
+        *,
+        train: tuple[Tensor, Tensor, Tensor],
+        validation: tuple[Tensor, Tensor, Tensor],
+        validation_node_counts: Sequence[int],
+        dataset_hash: str,
+        device: str | None = None,
+        epoch_callback: Callable[[EpochMetrics], None] | None = None,
+        target_stats: MutableMapping[str, int] | None = None,
+    ) -> TrainingResult:
+        """Обучение по готовым тензорам, без списка `TrainingExample`.
+
+        Нужно там, где примеры не помещаются в память: на 700 прогонах Model_Z
+        одни отклики занимают около 15 ГБ (43 млн объектов Python), тогда как
+        тензоры тех же данных — 2.8 ГБ. Вызывающий строит тензоры потоком,
+        освобождая отклик сразу после каждого сценария, и передаёт сюда только
+        их. `fit` остаётся прежним и делегирует сюда же, поэтому расхождения
+        между двумя путями обучения быть не может.
+
+        Тензоры целей ожидаются **уже приведёнными** скейлерами модели —
+        ровно так, как это делает `fit`.
+        """
+        settings = model.config
+        target_stats = {} if target_stats is None else target_stats
+        selected_device = torch.device(
+            device or ("cuda" if torch.cuda.is_available() else "cpu")
+        )
+        network = model.network.to(selected_device)
+        train_x, train_wells, train_y = train
+        val_x, val_wells, val_y = validation
+        validation_scenarios = len(validation_node_counts)
 
         generator = torch.Generator().manual_seed(settings.seed)
         train_loader = DataLoader(
@@ -783,8 +834,8 @@ class TrajectorySurrogate:
             device=selected_device,
         )
         scenario_index = torch.repeat_interleave(
-            torch.arange(len(validation)),
-            torch.tensor([len(item.input.nodes) for item in validation]),
+            torch.arange(validation_scenarios),
+            torch.tensor(list(validation_node_counts)),
         )
         criterion = settings.select_by if weighted else "loss"
 
@@ -836,7 +887,7 @@ class TrajectorySurrogate:
                 alpha=settings.money_weight_alpha,
                 cap=settings.money_weight_cap,
                 scenario_index=scenario_index if criterion == "rank" else None,
-                scenario_count=len(validation) if criterion == "rank" else 0,
+                scenario_count=validation_scenarios if criterion == "rank" else 0,
                 parameterization=settings.target_parameterization,
                 oil_density_t_per_m3=settings.oil_density_t_per_m3,
             )
