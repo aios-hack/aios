@@ -10,10 +10,20 @@ from contracts import Constraints, FinalNpvArtifact, RunArtifact, WellOutage
 from ui.artifact_io import dump_bundle
 from ui.fixtures import make_synthetic_artifact
 from ui.scenarios import (
+    REGRET_PARTS,
+    ScenarioRobustness,
+    WorstRegret,
     build_scenario_index,
     constraints_from_json,
     constraints_to_json,
     export_scenarios_json,
+)
+
+ROBUSTNESS_FIELDS: tuple[str, ...] = (
+    "ood_score",
+    "ood_threshold",
+    "worst_regret",
+    "final_npv",
 )
 
 
@@ -235,3 +245,81 @@ def test_export_scenarios_json_writes_readable_index(tmp_path: Path) -> None:
     data = json.loads(out.read_text(encoding="utf-8"))
     assert data["submitted"] == "final"
     assert [s["id"] for s in data["scenarios"]] == ["final", "what_if"]
+
+
+def test_robustness_fields_default_to_not_measured(tmp_path: Path) -> None:
+    """F8: сценарий, о котором ничего не мерили, несёт четыре `null`.
+    Отсутствия поля быть не должно — интерфейс отличает «не измерено» от
+    «поля нет» только по наличию ключа."""
+
+    path = _write_artifact(tmp_path / "what_if.json", submitted=False)
+    entry = build_scenario_index([path])["scenarios"][0]
+    for field in ROBUSTNESS_FIELDS:
+        assert field in entry
+        assert entry[field] is None
+
+
+def test_measured_robustness_lands_in_the_entry(tmp_path: Path) -> None:
+    path = _write_artifact(tmp_path / "what_if.json", submitted=False)
+    entry = build_scenario_index(
+        [path],
+        {
+            "what_if": ScenarioRobustness(
+                ood_score=0.18,
+                ood_threshold=0.5,
+                worst_regret=WorstRegret(
+                    scenario_id="holdout-outage-and-injection-cap",
+                    value_rub=201_000_000.0,
+                    part="holdout",
+                ),
+            )
+        },
+    )["scenarios"][0]
+    assert entry["ood_score"] == 0.18
+    assert entry["ood_threshold"] == 0.5
+    assert entry["worst_regret"] == {
+        "scenario_id": "holdout-outage-and-injection-cap",
+        "value_rub": 201_000_000.0,
+        "part": "holdout",
+    }
+    assert entry["final_npv"] is None
+
+
+def test_final_npv_is_a_number_together_with_its_run(tmp_path: Path) -> None:
+    path = _write_artifact(tmp_path / "final.json", submitted=True)
+    entry = build_scenario_index(
+        [path],
+        {
+            "final": ScenarioRobustness(
+                final_npv_rub=10_786_000_000.0, final_npv_run_id="run-42"
+            )
+        },
+    )["scenarios"][0]
+    assert entry["final_npv"] == {"npv_rub": 10_786_000_000.0, "run_id": "run-42"}
+
+
+def test_half_of_the_final_npv_pair_is_rejected() -> None:
+    with pytest.raises(ValueError, match="половина пары"):
+        ScenarioRobustness(final_npv_rub=1.0)
+    with pytest.raises(ValueError, match="половина пары"):
+        ScenarioRobustness(final_npv_run_id="run-42")
+
+
+def test_ood_score_without_a_threshold_is_rejected() -> None:
+    with pytest.raises(ValueError, match="ood_threshold"):
+        ScenarioRobustness(ood_score=0.18)
+
+
+def test_unknown_battery_part_is_rejected() -> None:
+    assert set(REGRET_PARTS) == {"optimization", "holdout"}
+    with pytest.raises(ValueError, match="неизвестна"):
+        WorstRegret(scenario_id="S-07", value_rub=1.0, part="dev")
+
+
+def test_measured_zero_ood_is_not_the_same_as_not_measured(tmp_path: Path) -> None:
+    path = _write_artifact(tmp_path / "what_if.json", submitted=False)
+    entry = build_scenario_index(
+        [path], {"what_if": ScenarioRobustness(ood_score=0.0, ood_threshold=0.5)}
+    )["scenarios"][0]
+    assert entry["ood_score"] == 0.0
+    assert entry["ood_score"] is not None

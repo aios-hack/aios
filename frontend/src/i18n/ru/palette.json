@@ -1,0 +1,12 @@
+{
+  "label": "Командная палитра",
+  "placeholder": "Скважина, год или сценарий",
+  "empty": "Ничего не найдено",
+  "stepLabel": "{date} · шаг {step}",
+  "kind.well": "скважина",
+  "kind.step": "шаг",
+  "kind.scenario": "сценарий",
+  "kind.action": "действие",
+  "speed": "Скорость воспроизведения",
+  "speedValue": "{value}×"
+}

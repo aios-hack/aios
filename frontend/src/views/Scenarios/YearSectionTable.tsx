@@ -27,7 +27,11 @@ export const YearSectionTable = ({
   const t = useT();
 
   return (
-    <section className="scenarios-section" data-section={section}>
+    <section
+      className="scenarios-section"
+      data-section={section}
+      data-empty={rows.length === 0}
+    >
       <header className="scenarios-section-head">
         <h4 className="scenarios-section-title">{t(`scenarios.section.${section}`)}</h4>
         <span className="scenarios-unit">{t(`scenarios.unit.${section}`)}</span>

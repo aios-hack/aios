@@ -11,7 +11,7 @@
   height: var(--size-control-height);
   padding: 0;
   border: 1.5px solid var(--color-border-strong);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-accent);
   cursor: pointer;
@@ -23,7 +23,6 @@
 .icon-button:hover {
   background: var(--color-accent-dim);
   border-color: var(--color-accent);
-  transform: translateY(-2px);
 }
 
 .icon-button:active {
@@ -55,7 +54,7 @@
   height: var(--size-control-height);
   padding: 3px;
   border: 1.5px solid var(--color-border-strong);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background: transparent;
   font-family: var(--font-family-base);
   font-size: var(--font-size-xs);
@@ -68,7 +67,6 @@
 
 .lang-toggle:hover {
   border-color: var(--color-accent);
-  transform: translateY(-2px);
 }
 
 .lang-toggle:active {
@@ -81,9 +79,8 @@
   bottom: 3px;
   left: 3px;
   width: calc(50% - 3px);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background: var(--color-accent);
-  box-shadow: var(--shadow-accent);
   transition: transform var(--duration-state) var(--ease-emphasis);
 }
 

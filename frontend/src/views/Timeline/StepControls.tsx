@@ -11,11 +11,13 @@ import type { TimelineStep } from '../../api/types';
 import { useI18n } from '../../i18n/I18nContext';
 import { Slider } from '../../ui/Slider';
 import { formatStepDate } from '../../ui/format';
+import './StepControls.css';
 
 interface StepControlsProps {
   steps: TimelineStep[];
   stepIndex: number;
   playing: boolean;
+  label?: boolean;
   onSelect: (index: number) => void;
   onStep: (delta: number) => void;
   onTogglePlay: () => void;
@@ -25,6 +27,7 @@ const StepControlsView = ({
   steps,
   stepIndex,
   playing,
+  label = true,
   onSelect,
   onStep,
   onTogglePlay
@@ -102,15 +105,17 @@ const StepControlsView = ({
         ariaLabel={t('steps.sliderLabel')}
         onChange={onSelect}
       />
-      <p className="timeline-step-label">
-        <span className="timeline-step-position">
-          {t('steps.position', { step: stepIndex + 1, total: steps.length })}
-        </span>
-        <span className="timeline-step-date">{formatStepDate(lang, step.date)}</span>
-        {step.terminal && (
-          <span className="timeline-terminal-badge">{t('steps.terminalBadge')}</span>
-        )}
-      </p>
+      {label && (
+        <p className="timeline-step-label">
+          <span className="timeline-step-position">
+            {t('steps.position', { step: stepIndex + 1, total: steps.length })}
+          </span>
+          <span className="timeline-step-date">{formatStepDate(lang, step.date)}</span>
+          {step.terminal && (
+            <span className="timeline-terminal-badge">{t('steps.terminalBadge')}</span>
+          )}
+        </p>
+      )}
     </div>
   );
 };

@@ -6,8 +6,7 @@ import { dictionaries } from '../i18n/dictionaries';
 import { I18nProvider } from '../i18n/I18nContext';
 import { ScenarioProvider } from '../state/ScenarioContext';
 import { TimelineProvider } from '../state/TimelineContext';
-import { FieldMap } from '../views/FieldMap';
-import { LambdaGraph } from '../views/LambdaGraph';
+import { FieldProjection } from '../views/FieldProjection';
 import { NpvRank } from '../views/NpvRank';
 import { ScenarioLibrary } from '../views/Scenarios/ScenarioLibrary';
 
@@ -114,11 +113,11 @@ describe('scenario-scoped datasets', () => {
       withProviders(
         <>
           <ScenarioLibrary />
-          <LambdaGraph />
+          <FieldProjection />
         </>
       )
     );
-    await screen.findByTestId('lambda-graph-plot');
+    await screen.findByTestId('field-projection-plot');
     expect(urlsFor('graph.json')).toEqual(['/data/graph.json']);
     expect(container.querySelector('[data-well-id="base-I1"]')).not.toBeNull();
 
@@ -138,7 +137,7 @@ describe('scenario-scoped datasets', () => {
       withProviders(
         <>
           <ScenarioLibrary />
-          <FieldMap />
+          <FieldProjection />
           <NpvRank />
         </>
       )
@@ -172,7 +171,7 @@ describe('scenario-scoped datasets', () => {
       'fetch',
       vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({ wells: 'nope' }) }))
     );
-    render(withProviders(<FieldMap />));
-    await screen.findByText(ru['map.error']);
+    render(withProviders(<FieldProjection />));
+    await screen.findByText(ru['projection.error']);
   });
 });

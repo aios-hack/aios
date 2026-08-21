@@ -1,0 +1,22 @@
+.toolbar-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-control-height);
+  height: var(--size-control-height);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.toolbar-icon-button[aria-expanded='true'] {
+  color: var(--color-text);
+  border-color: var(--color-accent);
+}
+
+.toolbar-icon-button:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}

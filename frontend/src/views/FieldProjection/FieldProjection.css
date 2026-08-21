@@ -1,0 +1,41 @@
+.field-projection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+}
+
+.field-projection-canvas {
+  align-self: center;
+  width: 100%;
+  max-width: min(100%, calc(100vh - var(--h-header) - var(--h-strip) - var(--h-timeaxis) - var(--space-8)));
+}
+
+.field-projection-plot {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: var(--color-plot-bg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  touch-action: none;
+}
+
+.field-projection-node {
+  cursor: pointer;
+}
+
+.field-projection-node:focus {
+  outline: none;
+}
+
+.field-projection-node:focus-visible > circle,
+.field-projection-node:focus-visible > path {
+  stroke: var(--color-accent);
+}
+
+.field-projection-node[data-only-map='true'] > circle,
+.field-projection-node[data-only-map='true'] > path {
+  stroke-dasharray: 0.6 0.6;
+}
+

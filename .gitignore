@@ -33,3 +33,4 @@ build/
 .impeccable/hook.cache.json
 **/.impeccable/hook.cache.json
 .claude/
+.mcp.json

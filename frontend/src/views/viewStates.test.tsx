@@ -2,21 +2,57 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dictionaries } from '../i18n/dictionaries';
+import { useT } from '../i18n/I18nContext';
 import { I18nProvider } from '../i18n/I18nContext';
+import { PlaybackProvider, usePlayback } from '../state/PlaybackContext';
 import { ScenarioProvider } from '../state/ScenarioContext';
-import { TimelineProvider } from '../state/TimelineContext';
-import { FieldMap } from './FieldMap';
-import { LambdaGraph } from './LambdaGraph';
+import { TimelineProvider, useTimeline } from '../state/TimelineContext';
+import { ViewStatus } from '../ui/ViewStatus';
+import { FieldProjection } from './FieldProjection';
 import { NpvRank } from './NpvRank';
 import { ScenarioLibrary } from './Scenarios/ScenarioLibrary';
-import { Timeline } from './Timeline';
+import { StepControls } from './Timeline/StepControls';
+import { WellsTable } from './Timeline/WellsTable';
 
 const { ru, en } = dictionaries;
+
+const StepsTestView = () => {
+  const t = useT();
+  const { timeline, stepIndex, selectedWell, selectWell } = useTimeline();
+  const { playing, selectStep, onStep, togglePlay } = usePlayback();
+
+  if (timeline.status === 'loading') {
+    return <ViewStatus kind="loading" title={t('steps.loading')} />;
+  }
+  if (timeline.status === 'error') {
+    return <ViewStatus kind="error" title={t('steps.error')} hint={t('steps.errorHint')} />;
+  }
+
+  const steps = timeline.data.steps;
+  const current = Math.min(stepIndex, steps.length - 1);
+  const step = steps[current];
+
+  return (
+    <section>
+      <StepControls
+        steps={steps}
+        stepIndex={current}
+        playing={playing}
+        onSelect={selectStep}
+        onStep={onStep}
+        onTogglePlay={togglePlay}
+      />
+      <WellsTable wells={step.wells} selectedWell={selectedWell} onSelectWell={selectWell} />
+    </section>
+  );
+};
 
 const withProviders = (node: ReactNode) => (
   <I18nProvider>
     <ScenarioProvider>
-      <TimelineProvider>{node}</TimelineProvider>
+      <TimelineProvider>
+        <PlaybackProvider>{node}</PlaybackProvider>
+      </TimelineProvider>
     </ScenarioProvider>
   </I18nProvider>
 );
@@ -44,9 +80,13 @@ const serves = (payload: unknown) => {
 };
 
 const views: { name: string; node: ReactNode; loading: string; error: string }[] = [
-  { name: 'graph', node: <LambdaGraph />, loading: 'graph.loading', error: 'graph.error' },
-  { name: 'map', node: <FieldMap />, loading: 'map.loading', error: 'map.error' },
-  { name: 'steps', node: <Timeline />, loading: 'steps.loading', error: 'steps.error' },
+  {
+    name: 'projection',
+    node: <FieldProjection />,
+    loading: 'projection.loading',
+    error: 'projection.error'
+  },
+  { name: 'steps', node: <StepsTestView />, loading: 'steps.loading', error: 'steps.error' },
   { name: 'npv', node: <NpvRank />, loading: 'npv.loading', error: 'npv.error' },
   {
     name: 'scenarios',
@@ -103,7 +143,7 @@ describe('view error states', () => {
   it('translates the error copy when english is active', async () => {
     localStorage.setItem('aios-lang', 'en');
     rejects();
-    render(withProviders(<Timeline />));
+    render(withProviders(<StepsTestView />));
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain(en['steps.error']);
     expect(alert.textContent).not.toContain(ru['steps.error']);
@@ -111,14 +151,6 @@ describe('view error states', () => {
 });
 
 describe('view empty states', () => {
-  it('tells the user the field has no wells rather than drawing an empty plot', async () => {
-    serves({ grid: { ni: 10, nj: 12, nk: 6 }, layers: [], wells: [] });
-    const { container } = render(withProviders(<FieldMap />));
-    await screen.findByText(ru['map.empty']);
-    expect(screen.getByText(ru['map.emptyHint'])).toBeTruthy();
-    expect(container.querySelector('[data-well-id]')).toBeNull();
-  });
-
   it('tells the user the scenario library is empty rather than showing a bare heading', async () => {
     serves({ submitted: null, scenarios: [] });
     render(withProviders(<ScenarioLibrary />));

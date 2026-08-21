@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,73 @@ YEAR_SECTIONS: tuple[str, ...] = (
     "production_floors",
     "watercut_limits",
 )
+
+REGRET_PARTS: tuple[str, ...] = ("optimization", "holdout")
+
+
+@dataclass(frozen=True, slots=True)
+class WorstRegret:
+    scenario_id: str
+    value_rub: float
+    part: str
+
+    def __post_init__(self) -> None:
+        if self.part not in REGRET_PARTS:
+            raise ValueError(
+                f"часть батареи «{self.part}» неизвестна: ожидается одна из "
+                f"{', '.join(REGRET_PARTS)}"
+            )
+        if not self.scenario_id:
+            raise ValueError("худший сожалению сценарий без идентификатора")
+
+
+@dataclass(frozen=True, slots=True)
+class ScenarioRobustness:
+    """Показатели F8 по одному сценарию. `None` — «не измерено», и это не
+    то же самое, что измеренный ноль: интерфейс их различает."""
+
+    ood_score: float | None = None
+    ood_threshold: float | None = None
+    worst_regret: WorstRegret | None = None
+    final_npv_rub: float | None = None
+    final_npv_run_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if (self.final_npv_rub is None) != (self.final_npv_run_id is None):
+            raise ValueError(
+                "final_npv — заявленное число вместе с прогоном, который его дал: "
+                "половина пары запрещена"
+            )
+        if self.ood_score is not None and self.ood_threshold is None:
+            raise ValueError(
+                "ood_score без ood_threshold нечитаем: порог задаёт, что значит «вне области»"
+            )
+
+
+def _robustness_json(robustness: ScenarioRobustness) -> dict[str, Any]:
+    regret = robustness.worst_regret
+    final_npv = (
+        None
+        if robustness.final_npv_rub is None
+        else {
+            "npv_rub": robustness.final_npv_rub,
+            "run_id": robustness.final_npv_run_id,
+        }
+    )
+    return {
+        "ood_score": robustness.ood_score,
+        "ood_threshold": robustness.ood_threshold,
+        "worst_regret": (
+            None
+            if regret is None
+            else {
+                "scenario_id": regret.scenario_id,
+                "value_rub": regret.value_rub,
+                "part": regret.part,
+            }
+        ),
+        "final_npv": final_npv,
+    }
 
 
 def constraints_to_json(c: Constraints) -> dict[str, Any]:
@@ -156,7 +224,15 @@ def _constraints_summary(c: Constraints) -> dict[str, Any]:
     }
 
 
-def build_scenario_index(artifact_paths: list[Path]) -> dict[str, Any]:
+def build_scenario_index(
+    artifact_paths: list[Path],
+    robustness: dict[str, ScenarioRobustness] | None = None,
+) -> dict[str, Any]:
+    """`robustness` — показатели F8 по идентификатору сценария. Сценарий, о
+    котором ничего не измерено, получает `null` во всех четырёх полях: их
+    отсутствие в записи и измеренный ноль — разные утверждения."""
+
+    robustness = robustness or {}
     scenarios: list[dict[str, Any]] = []
     submitted: list[str] = []
     for path in artifact_paths:
@@ -176,6 +252,9 @@ def build_scenario_index(artifact_paths: list[Path]) -> dict[str, Any]:
                     artifact.final_npv.npv_methodology if artifact.final_npv is not None else None
                 ),
                 "constraints": _constraints_summary(artifact.constraints),
+                **_robustness_json(
+                    robustness.get(scenario_id, ScenarioRobustness())
+                ),
             }
         )
     if len(submitted) > 1:
@@ -186,8 +265,12 @@ def build_scenario_index(artifact_paths: list[Path]) -> dict[str, Any]:
     return {"scenarios": scenarios, "submitted": submitted[0] if submitted else None}
 
 
-def export_scenarios_json(artifact_paths: list[Path], out_path: str | Path) -> Path:
-    index = build_scenario_index(artifact_paths)
+def export_scenarios_json(
+    artifact_paths: list[Path],
+    out_path: str | Path,
+    robustness: dict[str, ScenarioRobustness] | None = None,
+) -> Path:
+    index = build_scenario_index(artifact_paths, robustness)
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(index, ensure_ascii=False, indent=2), encoding="utf-8")

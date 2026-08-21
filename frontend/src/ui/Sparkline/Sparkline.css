@@ -1,0 +1,21 @@
+.sparkline {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+}
+
+.sparkline-line {
+  fill: none;
+  stroke-width: 1.25px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sparkline-band {
+  fill: var(--color-accent-dim);
+}
+
+.sparkline-marker {
+  stroke: var(--color-surface);
+  stroke-width: 1px;
+}

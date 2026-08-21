@@ -14,7 +14,7 @@
 .npv-badge {
   padding: var(--space-1) var(--space-3);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background: var(--color-accent-dim);
   color: var(--color-accent);
   font-size: var(--font-size-mono);
@@ -129,7 +129,7 @@
 
 .npv-bar-track {
   height: var(--space-2);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background: var(--color-surface-sunken);
   overflow: hidden;
 }
@@ -137,7 +137,7 @@
 .npv-bar {
   height: 100%;
   width: 100%;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background: var(--color-accent);
   transform: scaleX(var(--npv-bar-ratio, 0));
   transform-origin: left center;

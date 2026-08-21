@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import type {
+  GraphFile,
+  ScenariosFile,
   TimelineFile,
   TimelineStep,
   TimelineWellRow,
@@ -9,11 +11,48 @@ import type {
   WellsFile
 } from '../../api/types';
 import { dictionaries } from '../../i18n/dictionaries';
+import { useT } from '../../i18n/I18nContext';
 import { I18nProvider } from '../../i18n/I18nContext';
-import { TimelineProvider } from '../../state/TimelineContext';
-import { FieldMap } from '../FieldMap';
-import { Timeline } from '../Timeline/Timeline';
-import { WellCard } from './WellCard';
+import { PlaybackProvider, usePlayback } from '../../state/PlaybackContext';
+import { ScenarioProvider } from '../../state/ScenarioContext';
+import { TimelineProvider, useTimeline } from '../../state/TimelineContext';
+import { ConsoleInspector } from '../../ui/Inspector';
+import type { InspectorContext } from '../../ui/Inspector';
+import { ViewStatus } from '../../ui/ViewStatus';
+import { FieldProjection } from '../FieldProjection';
+import { StepControls } from '../Timeline/StepControls';
+import { WellsTable } from '../Timeline/WellsTable';
+
+const StepsTestView = () => {
+  const t = useT();
+  const { timeline, stepIndex, selectedWell, selectWell } = useTimeline();
+  const { playing, selectStep, onStep, togglePlay } = usePlayback();
+
+  if (timeline.status === 'loading') {
+    return <ViewStatus kind="loading" title={t('steps.loading')} />;
+  }
+  if (timeline.status === 'error') {
+    return <ViewStatus kind="error" title={t('steps.error')} hint={t('steps.errorHint')} />;
+  }
+
+  const steps = timeline.data.steps;
+  const current = Math.min(stepIndex, steps.length - 1);
+  const step = steps[current];
+
+  return (
+    <section>
+      <StepControls
+        steps={steps}
+        stepIndex={current}
+        playing={playing}
+        onSelect={selectStep}
+        onStep={onStep}
+        onTogglePlay={togglePlay}
+      />
+      <WellsTable wells={step.wells} selectedWell={selectedWell} onSelectWell={selectWell} />
+    </section>
+  );
+};
 
 const { ru } = dictionaries;
 
@@ -107,6 +146,33 @@ const traceFixture: TraceFile = {
   }
 };
 
+const graphFixture: GraphFile = {
+  window: { start: '2007-01-01', end: '2009-01-01' },
+  nodes: [
+    { id: '11', role: 'PROD', group: 'G1', x: 10, y: 10 },
+    { id: '12', role: 'INJ', group: 'G1', x: 20, y: 14 },
+    { id: '13', role: 'INJ', group: 'G2', x: 40, y: 30 },
+    { id: '14', role: 'PROD', group: null, x: 60, y: 50 }
+  ],
+  edges: [
+    { injector: '12', producer: '11', weight: 0.42 },
+    { injector: '13', producer: '11', weight: 0.91 }
+  ],
+  groups: [
+    { id: 'G1', wells: ['11', '12'] },
+    { id: 'G2', wells: ['13'] }
+  ],
+  weight_range: { min: 0.42, max: 0.91 },
+  meta: {
+    lag_months: 2,
+    amplitude: 0.3,
+    stability: 0.99,
+    rank: 2,
+    condition_number: 3.1
+  },
+  layout: { size: 100, seed: 20070101 }
+};
+
 const wellsFixture: WellsFile = {
   grid: { ni: 10, nj: 12, nk: 6 },
   layers: [
@@ -118,9 +184,48 @@ const wellsFixture: WellsFile = {
 
 const withProviders = (node: ReactNode) => (
   <I18nProvider>
-    <TimelineProvider>{node}</TimelineProvider>
+    <TimelineProvider>
+      <PlaybackProvider>{node}</PlaybackProvider>
+    </TimelineProvider>
   </I18nProvider>
 );
+
+const withScenarioProviders = (node: ReactNode) => (
+  <I18nProvider>
+    <ScenarioProvider>
+      <TimelineProvider>
+        <PlaybackProvider>{node}</PlaybackProvider>
+      </TimelineProvider>
+    </ScenarioProvider>
+  </I18nProvider>
+);
+
+const scenariosFixture: ScenariosFile = {
+  submitted: 'final',
+  scenarios: [
+    {
+      id: 'final',
+      config_hash: 'a'.repeat(64),
+      converged: true,
+      self_consistent: true,
+      is_submitted: true,
+      npv_methodology: 123456789,
+      constraints: {
+        injection_limits: 0,
+        liquid_limits: 0,
+        production_floors: 0,
+        watercut_limits: 0,
+        well_outages: 0,
+        infrastructure: 0,
+        years: [],
+        outage_wells: [],
+        empty: true
+      },
+      final_npv: { npv_rub: 123456789, run_id: 'run-42' },
+      run_validation_clean: true
+    }
+  ]
+};
 
 const mockFetch = (payloads: Record<string, unknown>) => {
   vi.stubGlobal(
@@ -133,7 +238,8 @@ const mockFetch = (payloads: Record<string, unknown>) => {
 
 const stepsPayloads = {
   '/data/timeline.json': timelineFixture,
-  '/data/trace.json': traceFixture
+  '/data/trace.json': traceFixture,
+  '/data/graph.json': graphFixture
 };
 
 const rowFor = (container: HTMLElement, well: string): HTMLElement => {
@@ -142,12 +248,14 @@ const rowFor = (container: HTMLElement, well: string): HTMLElement => {
   return row as HTMLElement;
 };
 
+const noopInspector = { scenarioContext: null, onCloseScenario: () => undefined };
+
 const openFromTable = async (well: string) => {
   const view = render(
     withProviders(
       <>
-        <Timeline />
-        <WellCard />
+        <StepsTestView />
+        <ConsoleInspector {...noopInspector} />
       </>
     )
   );
@@ -226,34 +334,40 @@ describe('WellCard', () => {
     fireEvent.change(slider, { target: { value: '1' } });
     expect(param('actual')).toContain('80');
     expect(param('factToTarget')).toContain('160');
-    fireEvent.click(screen.getByRole('button', { name: ru['wellcard.close'] }));
+    fireEvent.click(screen.getByRole('button', { name: ru['inspector.close'] }));
     await waitFor(() => {
       expect(screen.queryByText(cardTitle('11'))).toBeNull();
     });
   });
 
   const openFromMap = async (): Promise<{ well: SVGElement }> => {
-    mockFetch({ ...stepsPayloads, '/data/wells.json': wellsFixture });
+    mockFetch({
+      ...stepsPayloads,
+      '/data/wells.json': wellsFixture
+    });
     const { container } = render(
       withProviders(
         <>
-          <FieldMap />
-          <WellCard />
+          <FieldProjection />
+          <ConsoleInspector {...noopInspector} />
         </>
       )
     );
-    await waitFor(() => expect(container.querySelectorAll('[data-well-id]')).toHaveLength(1));
+    await waitFor(() =>
+      expect(container.querySelectorAll('[data-well-id]')).toHaveLength(
+        graphFixture.nodes.length
+      )
+    );
     return { well: container.querySelector('[data-well-id="11"]') as SVGElement };
   };
 
-  it('moves focus into the dialog and back to the map well on escape', async () => {
+  it('closes on escape and returns focus to the map well that opened it', async () => {
     const { well } = await openFromMap();
     well.focus();
     fireEvent.click(well);
-    const dialog = await screen.findByRole('dialog');
-    await waitFor(() => expect(document.activeElement).toBe(dialog));
+    await screen.findByTestId('inspector');
     fireEvent.keyDown(window, { key: 'Escape' });
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('inspector')).toBeNull());
     expect(document.activeElement).toBe(well);
   });
 
@@ -263,5 +377,96 @@ describe('WellCard', () => {
     expect(screen.getByText(cardTitle('11'))).toBeTruthy();
     expect(param('factToTarget')).toContain('140');
     expect(well.getAttribute('data-selected')).toBe('true');
+  });
+
+  it('is a side panel, not a modal dialog, and traps no focus', async () => {
+    const { well } = await openFromMap();
+    fireEvent.click(well);
+    const panel = await screen.findByTestId('inspector');
+    expect(panel.tagName).toBe('ASIDE');
+    expect(panel.getAttribute('aria-modal')).toBeNull();
+    expect(panel.getAttribute('role')).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.querySelector('.inspector-backdrop')).toBeNull();
+    expect(document.activeElement).not.toBe(panel);
+    expect(panel.contains(document.activeElement)).toBe(false);
+  });
+
+  it('keeps the scene in the document and clickable while a well is selected', async () => {
+    mockFetch(stepsPayloads);
+    const { container } = await openFromTable('11');
+    await screen.findByTestId('inspector');
+    expect(container.querySelectorAll('tbody tr[data-well-id]')).toHaveLength(3);
+    fireEvent.click(rowFor(container, '12'));
+    await waitFor(() => expect(screen.getByText(cardTitle('12'))).toBeTruthy());
+    expect(rowFor(container, '12').getAttribute('data-selected')).toBe('true');
+  });
+
+  it('lists the well group and the lambda measurement window', async () => {
+    mockFetch(stepsPayloads);
+    await openFromTable('11');
+    await screen.findByTestId('wellcard-connectivity');
+    expect(screen.getByTestId('wellcard-group').textContent).toContain('G1');
+    expect(screen.getByTestId('wellcard-window').textContent).toContain('01.01.2007');
+    expect(screen.getByTestId('wellcard-window').textContent).toContain('01.01.2009');
+  });
+
+  it('shows a well without a group explicitly instead of dropping it', async () => {
+    mockFetch(stepsPayloads);
+    await openFromTable('14');
+    await screen.findByTestId('wellcard-connectivity');
+    expect(screen.getByTestId('wellcard-group').textContent).toContain(
+      ru['wellcard.group.none']
+    );
+  });
+
+  it('builds the neighbour list from graph.json sorted by lambda', async () => {
+    mockFetch(stepsPayloads);
+    await openFromTable('11');
+    const list = await screen.findByTestId('wellcard-neighbours');
+    const wells = [...list.querySelectorAll('[data-neighbour]')].map((node) =>
+      node.getAttribute('data-neighbour')
+    );
+    expect(wells).toEqual(['13', '12']);
+    expect(list.textContent).toContain('0.910');
+    expect(list.textContent).toContain('0.420');
+  });
+
+  it('moves the selection when a neighbour is clicked', async () => {
+    mockFetch(stepsPayloads);
+    const { container } = await openFromTable('11');
+    const list = await screen.findByTestId('wellcard-neighbours');
+    fireEvent.click(list.querySelector('[data-neighbour="12"]') as HTMLElement);
+    await waitFor(() => expect(screen.getByText(cardTitle('12'))).toBeTruthy());
+    expect(rowFor(container, '12').getAttribute('data-selected')).toBe('true');
+  });
+
+  it('reports a well missing from the influence graph', async () => {
+    mockFetch({
+      ...stepsPayloads,
+      '/data/graph.json': {
+        ...graphFixture,
+        nodes: graphFixture.nodes.filter((node) => node.id !== '11'),
+        edges: [],
+        groups: []
+      }
+    });
+    await openFromTable('11');
+    await screen.findByText(ru['wellcard.neighbours.absent']);
+  });
+
+  it('renders scenario details when the inspector context is a scenario', async () => {
+    mockFetch({ '/data/scenarios.json': scenariosFixture });
+    const context: InspectorContext = { kind: 'scenario', scenarioId: 'final' };
+    render(
+      withScenarioProviders(
+        <ConsoleInspector scenarioContext={context} onCloseScenario={() => undefined} />
+      )
+    );
+    const inspector = await screen.findByTestId('inspector');
+    expect(inspector.getAttribute('aria-modal')).toBeNull();
+    await screen.findByTestId('scenario-inspector');
+    expect(screen.getByText('run-42')).toBeTruthy();
+    expect(screen.getByText(ru['inspector.scenario.validationClean'])).toBeTruthy();
   });
 });

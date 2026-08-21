@@ -1,0 +1,15 @@
+.settings-popover-title {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-mono);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+}
+
+.settings-popover-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 240px;
+}

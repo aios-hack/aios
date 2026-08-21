@@ -1,0 +1,16 @@
+{
+  "label": "Demo mode",
+  "start": "Play the walkthrough",
+  "resume": "Resume the walkthrough",
+  "pause": "Pause the walkthrough",
+  "stop": "Stop the walkthrough",
+  "command": "Demo mode: walkthrough of the history",
+  "position": "Frame {frame} of {total}",
+  "npvLabel": "Cumulative NPV",
+  "caption.OVERVIEW": "The well stock on the field map",
+  "caption.MORPH": "The map morphs into the hydrodynamic connectivity graph",
+  "caption.RULE_FIRED": "Well {well}: rule {rule} fired",
+  "caption.COMMISSIONED": "Well {well} commissioned",
+  "caption.ROLE_CHANGE": "Well {well} switched to injection",
+  "caption.SHUT": "Well {well} shut in"
+}

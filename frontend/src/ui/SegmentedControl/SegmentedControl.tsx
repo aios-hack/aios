@@ -4,6 +4,8 @@ import './SegmentedControl.css';
 export interface SegmentedOption<Value> {
   value: Value;
   label: string;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 interface SegmentedControlProps<Value> {
@@ -40,16 +42,24 @@ export const SegmentedControl = <Value,>({
       <span className="segmented-thumb" style={thumb} aria-hidden="true" />
       {options.map((option) => {
         const key = String(option.value);
+        const disabled = option.disabled === true;
         return (
           <button
             key={key}
             type="button"
             className="segmented-button"
             aria-pressed={key === activeKey}
+            aria-disabled={disabled}
+            title={disabled ? option.disabledReason : undefined}
+            disabled={disabled}
             ref={(node) => {
               refs.current.set(key, node);
             }}
-            onClick={() => onSelect(option.value)}
+            onClick={() => {
+              if (!disabled) {
+                onSelect(option.value);
+              }
+            }}
           >
             {option.label}
           </button>

@@ -1,0 +1,33 @@
+.wall {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.wall-body {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.wall-frame {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.wall-stage {
+  position: relative;
+}
+
+.wall-canvas {
+  display: block;
+  cursor: pointer;
+}
+
+.wall-cursor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.8;
+}

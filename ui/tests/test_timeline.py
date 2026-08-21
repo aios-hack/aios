@@ -11,6 +11,8 @@ from contracts import ControlEvent, EventKind, Rule, RunArtifact, TraceEntry
 
 from ui.fixtures import make_synthetic_artifact
 from ui.timeline import (
+    COMPENSATION_NORM_MAX,
+    COMPENSATION_NORM_MIN,
     build_timeline,
     build_trace,
     export_timeline_json,
@@ -228,6 +230,24 @@ def test_export_trace_writes_grouped_json(tmp_path: Path) -> None:
     data = json.loads(out.read_text(encoding="utf-8"))
     assert data == build_trace(artifact)
     assert data["11"]["0"][0]["inputs"]["watercut"] == 0.83
+
+
+def test_field_norms_carry_the_compensation_corridor() -> None:
+    """F6: коридор — параметр политики R5, а не наблюдаемая величина.
+    Интерфейс рисует полосу по нему и границ из ряда не выводит."""
+
+    timeline = build_timeline(make_synthetic_artifact(), DENSITIES)
+    corridor = timeline["field_norms"]["compensation"]
+    assert corridor["min"] == COMPENSATION_NORM_MIN
+    assert corridor["max"] == COMPENSATION_NORM_MAX
+    assert 0.0 < corridor["min"] < corridor["max"]
+
+
+def test_field_norms_survive_the_export(tmp_path: Path) -> None:
+    artifact = make_synthetic_artifact()
+    out = export_timeline_json(artifact, DENSITIES, tmp_path / "timeline.json")
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["field_norms"] == build_timeline(artifact, DENSITIES)["field_norms"]
 
 
 def test_no_deck_scale_literals_in_source() -> None:

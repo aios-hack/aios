@@ -1,80 +1,7 @@
-.wellcard-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-drawer);
-  display: grid;
-  place-items: center end;
-  padding: var(--space-5);
-  background: var(--color-backdrop);
-  animation: wellcard-fade var(--duration-state) var(--ease-out) both;
-}
-
 .wellcard {
-  position: relative;
   display: flex;
   flex-direction: column;
-  width: min(var(--size-card-max), 100%);
-  max-height: calc(100dvh - var(--space-5) * 2);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-solid);
-  box-shadow: var(--shadow-drawer);
-  overflow: hidden;
-  animation: wellcard-in var(--duration-drawer) var(--ease-out) both;
-}
-
-.wellcard-backdrop[data-closing='true'] {
-  animation: wellcard-fade var(--duration-state) var(--ease-out) reverse both;
-}
-
-.wellcard-backdrop[data-closing='true'] .wellcard {
-  animation: wellcard-in var(--duration-state) var(--ease-out) reverse both;
-}
-
-@keyframes wellcard-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.wellcard::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 3px;
-  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-deep));
-}
-
-.wellcard:focus {
-  outline: none;
-}
-
-@keyframes wellcard-in {
-  from {
-    transform: translateX(var(--space-6)) scale(0.97);
-    opacity: 0;
-  }
-  to {
-    transform: none;
-    opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .wellcard,
-  .wellcard-backdrop,
-  .wellcard-backdrop[data-closing='true'],
-  .wellcard-backdrop[data-closing='true'] .wellcard {
-    animation: none;
-  }
-}
-
-.wellcard-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border-bottom: 1px solid var(--color-border);
+  gap: var(--space-5);
 }
 
 .wellcard-title-row {
@@ -82,12 +9,6 @@
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-2);
-}
-
-.wellcard-title {
-  margin: 0;
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-bold);
 }
 
 .wellcard-step {
@@ -103,42 +24,6 @@
 .wellcard-step-date {
   color: var(--color-text-muted);
   font-weight: var(--font-weight-normal);
-}
-
-.wellcard-close {
-  flex: none;
-  width: var(--size-control-height);
-  height: var(--size-control-height);
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-solid);
-  color: var(--color-text);
-  font-family: var(--font-family-base);
-  font-size: var(--font-size-lg);
-  line-height: 1;
-  cursor: pointer;
-  transition:
-    background var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out);
-}
-
-.wellcard-close:hover {
-  border-color: var(--color-border-strong);
-  background: var(--color-accent-dim);
-}
-
-.wellcard-close:active {
-  background: var(--color-accent-dim-2);
-}
-
-.wellcard-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  padding: var(--space-4);
-  overflow-y: auto;
 }
 
 .wellcard-section {
@@ -192,4 +77,32 @@
 
 .wellcard-empty {
   color: var(--color-text-muted);
+}
+
+.wellcard-history-row {
+  display: grid;
+  grid-template-columns: minmax(0, 10ch) 1fr minmax(0, 9ch);
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.wellcard-history-row .sparkline {
+  height: 26px;
+}
+
+.wellcard-history-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.wellcard-history-value {
+  color: var(--color-text);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  text-align: right;
+}
+
+.wellcard-history-value[data-empty='true'] {
+  color: var(--color-text-subtle);
 }

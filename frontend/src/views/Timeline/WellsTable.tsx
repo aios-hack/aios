@@ -4,6 +4,7 @@ import { useI18n } from '../../i18n/I18nContext';
 import { SortableHeader } from './SortableHeader';
 import { isNumericKey, SORT_KEYS, sortWells, type SortDir, type SortKey } from './sorting';
 import { WellRow } from './WellRow';
+import './WellsTable.css';
 
 interface WellsTableProps {
   wells: TimelineWellRow[];

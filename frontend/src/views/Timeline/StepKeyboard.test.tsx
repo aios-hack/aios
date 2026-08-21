@@ -3,11 +3,46 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TimelineFile, TimelineWellRow } from '../../api/types';
 import { dictionaries } from '../../i18n/dictionaries';
+import { useT } from '../../i18n/I18nContext';
 import { I18nProvider } from '../../i18n/I18nContext';
-import { TimelineProvider } from '../../state/TimelineContext';
-import { Timeline } from './Timeline';
+import { PlaybackProvider, usePlayback } from '../../state/PlaybackContext';
+import { TimelineProvider, useTimeline } from '../../state/TimelineContext';
+import { ViewStatus } from '../../ui/ViewStatus';
+import { StepControls } from './StepControls';
+import { WellsTable } from './WellsTable';
 
 const { ru } = dictionaries;
+
+const StepsTestView = () => {
+  const t = useT();
+  const { timeline, stepIndex, selectedWell, selectWell } = useTimeline();
+  const { playing, selectStep, onStep, togglePlay } = usePlayback();
+
+  if (timeline.status === 'loading') {
+    return <ViewStatus kind="loading" title={t('steps.loading')} />;
+  }
+  if (timeline.status === 'error') {
+    return <ViewStatus kind="error" title={t('steps.error')} hint={t('steps.errorHint')} />;
+  }
+
+  const steps = timeline.data.steps;
+  const current = Math.min(stepIndex, steps.length - 1);
+  const step = steps[current];
+
+  return (
+    <section>
+      <StepControls
+        steps={steps}
+        stepIndex={current}
+        playing={playing}
+        onSelect={selectStep}
+        onStep={onStep}
+        onTogglePlay={togglePlay}
+      />
+      <WellsTable wells={step.wells} selectedWell={selectedWell} onSelectWell={selectWell} />
+    </section>
+  );
+};
 
 const row = (well: string): TimelineWellRow => ({
   well,
@@ -46,7 +81,9 @@ const fixture: TimelineFile = {
 
 const withProviders = (node: ReactNode) => (
   <I18nProvider>
-    <TimelineProvider>{node}</TimelineProvider>
+    <TimelineProvider>
+      <PlaybackProvider>{node}</PlaybackProvider>
+    </TimelineProvider>
   </I18nProvider>
 );
 
@@ -58,7 +95,7 @@ const mockFetch = () => {
 };
 
 const renderTimeline = async () => {
-  const view = render(withProviders(<Timeline />));
+  const view = render(withProviders(<StepsTestView />));
   await waitFor(() =>
     expect(view.container.querySelector('input[type="range"]')).not.toBeNull()
   );

@@ -1,0 +1,28 @@
+.view-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.view-toolbar-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.view-toolbar-left {
+  flex: none;
+}
+
+.view-toolbar-center {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.view-toolbar-right {
+  flex: none;
+  margin-left: auto;
+}

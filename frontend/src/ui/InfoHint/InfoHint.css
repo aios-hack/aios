@@ -10,7 +10,7 @@
   height: 20px;
   padding: 0;
   border: none;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-subtle);
   cursor: help;
@@ -31,7 +31,6 @@
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   background: var(--color-surface-solid);
-  box-shadow: var(--shadow-2);
   color: var(--color-text-muted);
   font-family: var(--font-family-base);
   font-size: var(--font-size-xs);

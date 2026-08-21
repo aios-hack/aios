@@ -3,14 +3,49 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ScenariosFile, TimelineFile, TimelineWellRow } from '../api/types';
 import { dictionaries } from '../i18n/dictionaries';
+import { useT } from '../i18n/I18nContext';
 import { I18nProvider } from '../i18n/I18nContext';
+import { PlaybackProvider, usePlayback } from '../state/PlaybackContext';
 import { ScenarioProvider } from '../state/ScenarioContext';
-import { TimelineProvider } from '../state/TimelineContext';
+import { TimelineProvider, useTimeline } from '../state/TimelineContext';
+import { ConsoleInspector } from '../ui/Inspector';
+import { ViewStatus } from '../ui/ViewStatus';
 import { ScenarioLibrary } from '../views/Scenarios/ScenarioLibrary';
-import { Timeline } from '../views/Timeline';
-import { WellCard } from '../views/WellCard';
+import { StepControls } from '../views/Timeline/StepControls';
+import { WellsTable } from '../views/Timeline/WellsTable';
 
 const { ru } = dictionaries;
+
+const StepsTestView = () => {
+  const t = useT();
+  const { timeline, stepIndex, selectedWell, selectWell } = useTimeline();
+  const { playing, selectStep, onStep, togglePlay } = usePlayback();
+
+  if (timeline.status === 'loading') {
+    return <ViewStatus kind="loading" title={t('steps.loading')} />;
+  }
+  if (timeline.status === 'error') {
+    return <ViewStatus kind="error" title={t('steps.error')} hint={t('steps.errorHint')} />;
+  }
+
+  const steps = timeline.data.steps;
+  const current = Math.min(stepIndex, steps.length - 1);
+  const step = steps[current];
+
+  return (
+    <section>
+      <StepControls
+        steps={steps}
+        stepIndex={current}
+        playing={playing}
+        onSelect={selectStep}
+        onStep={onStep}
+        onTogglePlay={togglePlay}
+      />
+      <WellsTable wells={step.wells} selectedWell={selectedWell} onSelectWell={selectWell} />
+    </section>
+  );
+};
 
 const row = (well: string): TimelineWellRow => ({
   well,
@@ -92,7 +127,9 @@ const mockFetch = () => {
 const withProviders = (node: ReactNode) => (
   <I18nProvider>
     <ScenarioProvider>
-      <TimelineProvider>{node}</TimelineProvider>
+      <TimelineProvider>
+        <PlaybackProvider>{node}</PlaybackProvider>
+      </TimelineProvider>
     </ScenarioProvider>
   </I18nProvider>
 );
@@ -120,7 +157,7 @@ describe('switching scenario', () => {
       withProviders(
         <>
           <ScenarioLibrary />
-          <Timeline />
+          <StepsTestView />
         </>
       )
     );
@@ -136,8 +173,8 @@ describe('switching scenario', () => {
       withProviders(
         <>
           <ScenarioLibrary />
-          <Timeline />
-          <WellCard />
+          <StepsTestView />
+          <ConsoleInspector scenarioContext={null} onCloseScenario={() => undefined} />
         </>
       )
     );
@@ -158,7 +195,7 @@ describe('switching scenario', () => {
       withProviders(
         <>
           <ScenarioLibrary />
-          <Timeline />
+          <StepsTestView />
         </>
       )
     );
@@ -191,7 +228,7 @@ describe('switching scenario', () => {
       withProviders(
         <>
           <ScenarioLibrary />
-          <Timeline />
+          <StepsTestView />
         </>
       )
     );

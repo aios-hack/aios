@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { isGraphFile, isNpvFile, isTimelineFile, isWellsFile } from './validators';
+import {
+  isDemoScriptFile,
+  isGraphFile,
+  isNpvFile,
+  isTimelineFile,
+  isWellsFile
+} from './validators';
 
 describe('validators reject hostile payloads', () => {
   it('rejects a graph whose nodes are not an array', () => {
@@ -26,6 +32,28 @@ describe('validators reject hostile payloads', () => {
 
   it('rejects a timeline step without wells', () => {
     expect(isTimelineFile({ steps: [{ control_step: 0, date: '2007-01-01' }] })).toBe(false);
+  });
+
+  it('rejects a demo script with no frames at all', () => {
+    expect(isDemoScriptFile({ frames: [] })).toBe(false);
+  });
+
+  it('rejects a demo frame with a non-positive hold', () => {
+    expect(
+      isDemoScriptFile({
+        frames: [{ step: 0, scene: 'projection', well: null, event: null, hold_ms: 0 }]
+      })
+    ).toBe(false);
+  });
+
+  it('rejects a demo frame whose event is not an object', () => {
+    expect(
+      isDemoScriptFile({
+        frames: [
+          { step: 0, scene: 'projection', well: null, event: 'MORPH', hold_ms: 100 }
+        ]
+      })
+    ).toBe(false);
   });
 
   it('rejects a wells grid with non-positive extent', () => {

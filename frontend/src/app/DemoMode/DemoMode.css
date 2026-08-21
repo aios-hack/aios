@@ -1,0 +1,101 @@
+.demo-transport {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.demo-button {
+  display: grid;
+  place-items: center;
+  width: var(--size-control-height);
+  height: var(--size-control-height);
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-accent);
+  cursor: pointer;
+  transition: background var(--duration-state) var(--ease-out);
+}
+
+.demo-button:hover {
+  background: var(--color-accent-dim);
+}
+
+.demo-button:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.demo-caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface-sunken);
+}
+
+.demo-caption-position {
+  color: var(--color-text-subtle);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  letter-spacing: var(--tracking-mono);
+}
+
+.demo-caption-date {
+  color: var(--color-text-muted);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  letter-spacing: var(--tracking-mono);
+}
+
+.demo-caption-text {
+  flex: 1 1 auto;
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+}
+
+.demo-caption-npv {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.demo-caption-npv-label {
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-mono);
+}
+
+.demo-caption-npv-value {
+  color: var(--color-oil);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+.demo-progress {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: var(--color-border-subtle);
+}
+
+.demo-progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+  transition: width var(--duration-state) linear;
+}
+
+.demo-figure {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: 0;
+}

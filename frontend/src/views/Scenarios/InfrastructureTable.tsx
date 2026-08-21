@@ -19,7 +19,11 @@ export const InfrastructureTable = ({
   const t = useT();
 
   return (
-    <section className="scenarios-section" data-section="infrastructure">
+    <section
+      className="scenarios-section"
+      data-section="infrastructure"
+      data-empty={rows.length === 0}
+    >
       <header className="scenarios-section-head">
         <h4 className="scenarios-section-title">{t('scenarios.section.infrastructure')}</h4>
         <span className="scenarios-unit">{t('scenarios.unit.infrastructure')}</span>
