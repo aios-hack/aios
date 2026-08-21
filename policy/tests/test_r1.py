@@ -216,3 +216,90 @@ def test_injector_outside_lambda_without_baseline_is_shut_explicitly(
     outcome = apply_rule(Rule.R1, state, ctx, default_theta(), RuleFlags())
     by_well = {event.well: event for event in outcome.decisions}
     assert by_well["103"].value == pytest.approx(0.0)
+
+
+def test_budget_fills_wells_by_value_up_to_their_capacity(
+    context: RuleContext,
+) -> None:
+    """Вода идёт по убыванию ценности до потолка, остаток — следующей.
+
+    Пропорциональный дележ давал скважине воду по величине предельной
+    ценности, то есть по рублям на кубометр, а не по ёмкости. Скважина, чья
+    приёмистость 30 м³/сут, получала сотни, срез потолком дальше по тракту
+    эту воду никому не отдавал, и бюджет расходовался частично: на прогоне
+    G7 восемнадцать измеренных скважин из двадцати двух стояли на потолке все
+    224 шага при 683 м³/сут неиспользованной ёмкости у остальных.
+    """
+
+    influence = influence_of(
+        producers=("42",),
+        injectors=("101", "102", "103"),
+        # 101 ценнее 102, 102 ценнее 103
+        matrix=((0.9, 0.6, 0.3),),
+    )
+    ctx = replace(
+        context,
+        influence=influence,
+        injection_budget_m3_per_day=300.0,
+        injection_cap_m3_per_day={"101": 100.0, "102": 150.0, "103": 500.0},
+    )
+    state = state_of(
+        producer("42", liquid_rate_m3_per_day=40.0, watercut=0.50),
+        injector("101", injection_rate_m3_per_day=10.0),
+        injector("102", injection_rate_m3_per_day=10.0),
+        injector("103", injection_rate_m3_per_day=10.0),
+    )
+    outcome = apply_rule(Rule.R1, state, ctx, default_theta(), RuleFlags())
+    targets = {event.well: event.value for event in outcome.decisions}
+
+    assert targets["101"] == pytest.approx(100.0)  # упёрлась в свой потолок
+    assert targets["102"] == pytest.approx(150.0)  # тоже, остаток пошёл дальше
+    assert targets["103"] == pytest.approx(50.0)   # добирает то, что осталось
+    assert sum(targets.values()) == pytest.approx(300.0)
+
+
+def test_capacity_shortfall_leaves_budget_unspent_and_says_so(
+    context: RuleContext,
+) -> None:
+    """Если ёмкости меньше бюджета, лишнее остаётся неразданным и видно в трассе.
+
+    Правило не имеет права придумывать скважине приёмистость сверх её
+    исторической: непринятая вода — это факт про фонд, а не про бюджет.
+    """
+
+    influence = influence_of(
+        producers=("42",), injectors=("101", "102"), matrix=((0.9, 0.6),)
+    )
+    ctx = replace(
+        context,
+        influence=influence,
+        injection_budget_m3_per_day=1000.0,
+        injection_cap_m3_per_day={"101": 100.0, "102": 150.0},
+    )
+    state = state_of(
+        producer("42", liquid_rate_m3_per_day=40.0, watercut=0.50),
+        injector("101", injection_rate_m3_per_day=10.0),
+        injector("102", injection_rate_m3_per_day=10.0),
+    )
+    outcome = apply_rule(Rule.R1, state, ctx, default_theta(), RuleFlags())
+    targets = {event.well: event.value for event in outcome.decisions}
+    assert sum(targets.values()) == pytest.approx(250.0)
+    entry = next(item for item in outcome.trace if item.well == "101")
+    assert entry.inputs["budget_unallocated_m3_per_day"] == pytest.approx(750.0)
+
+
+def test_unprofitable_injector_gets_nothing_even_with_capacity(
+    context: RuleContext,
+) -> None:
+    """Отрицательная предельная ценность не спасается свободной ёмкостью."""
+
+    ctx = replace(
+        two_producer_context(context, budget=400.0),
+        injection_cap_m3_per_day={"101": 1000.0, "102": 1000.0},
+    )
+    outcome = apply_rule(
+        Rule.R1, two_producer_state(), ctx, default_theta(), RuleFlags()
+    )
+    targets = {event.well: event.value for event in outcome.decisions}
+    assert targets["102"] == pytest.approx(0.0)
+    assert targets["101"] == pytest.approx(400.0)

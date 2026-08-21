@@ -601,6 +601,7 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
                     group_injection_m3_per_day=injection,
                     group_offtake_m3_per_day=offtake,
                     baseline_injection_m3_per_day=baseline_injection[step],
+                    injection_cap_m3_per_day=well_caps,
                 ),
                 theta,
                 env.flags,

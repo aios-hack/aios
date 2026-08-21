@@ -91,21 +91,40 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
     held = float(sum(max(0.0, float(baseline.get(well, 0.0))) for well in unmeasured))
     budget_for_measured = max(0.0, budget - held)
 
-    profitable = {well: value for well, value in values.items() if value > 0.0}
-    weight_total = sum(profitable.values())
+    # Раздача жадная по убыванию предельной ценности, до потолка приёмистости
+    # каждой скважины. Пропорциональный дележ, стоявший здесь раньше, делил
+    # бюджет по величине ценности — величине руб/м³, а не ёмкости, — и
+    # скважина с высокой ценностью получала воду сверх того, что физически
+    # берёт. Срез потолком дальше по тракту эту воду не отдавал никому:
+    # на прогоне G7 восемнадцать из двадцати двух измеренных скважин стояли
+    # на своём потолке все 224 шага, а 683 м³/сут свободной ёмкости у
+    # остальных не использовались. Здесь остаток переходит следующей по
+    # ценности, и бюджет расходуется целиком, пока есть куда лить.
+    caps = context.injection_cap_m3_per_day
+    ranked = sorted(
+        (well for well in injectors if values[well] > 0.0),
+        key=lambda well: (-values[well], well),
+    )
+    allocation: dict[str, float] = {}
+    remaining = budget_for_measured
+    for well in ranked:
+        if remaining <= 0.0:
+            break
+        cap = float(caps.get(well, remaining))
+        target = min(cap, remaining)
+        if target <= 0.0:
+            continue
+        allocation[well] = target
+        remaining -= target
+    weight_total = sum(value for value in values.values() if value > 0.0)
 
     decisions: list[ControlEvent] = []
     trace: list[TraceEntry] = []
     for injector in injectors:
         value = values[injector]
-        if value > 0.0 and weight_total > 0.0:
-            share = value / weight_total
-            target = budget_for_measured * share
-            decision = "SET_RATE"
-        else:
-            share = 0.0
-            target = 0.0
-            decision = "SET_RATE"
+        target = allocation.get(injector, 0.0)
+        share = target / budget_for_measured if budget_for_measured > 0.0 else 0.0
+        decision = "SET_RATE"
         decisions.append(
             ControlEvent(
                 control_step=state.control_step,
@@ -121,6 +140,8 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
                 "injection_budget_m3_per_day": budget,
                 "budget_held_outside_lambda_m3_per_day": held,
                 "budget_for_measured_m3_per_day": budget_for_measured,
+                "injection_cap_m3_per_day": float(caps.get(injector, 0.0)),
+                "budget_unallocated_m3_per_day": float(remaining),
                 "share_of_budget": share,
                 "target_rate_m3_per_day": target,
                 "previous_setpoint_m3_per_day": state.wells[injector].setpoint_m3_per_day,
