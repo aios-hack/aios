@@ -43,6 +43,7 @@ packages = [
 
 [tool.pytest.ini_options]
 testpaths = [
+    "tests",
     "bridge/tests",
     "config/tests",
     "connectivity/tests",
