@@ -562,9 +562,43 @@ def _scenario_money(
     return totals
 
 
+class _Batches:
+    """Нарезка батчей срезом вместо DataLoader.
+
+    `DataLoader` поверх `TensorDataset` выбирает элементы батча по одному и
+    склеивает их в Python: на батче 32768 это 3.66 с против 0.05 с у среза,
+    то есть больше половины эпохи уходило на нарезку, а не на обучение.
+    Перестановка берётся из переданного генератора, поэтому порядок остаётся
+    воспроизводимым по сиду.
+    """
+
+    def __init__(
+        self,
+        tensors: tuple[Tensor, ...],
+        *,
+        batch_size: int,
+        generator: torch.Generator | None = None,
+    ) -> None:
+        self.tensors = tensors
+        self.batch_size = batch_size
+        self.generator = generator
+        self.n_rows = tensors[0].shape[0]
+
+    def __iter__(self):
+        if self.generator is None:
+            for start in range(0, self.n_rows, self.batch_size):
+                stop = start + self.batch_size
+                yield tuple(tensor[start:stop] for tensor in self.tensors)
+            return
+        order = torch.randperm(self.n_rows, generator=self.generator)
+        for start in range(0, self.n_rows, self.batch_size):
+            index = order[start : start + self.batch_size]
+            yield tuple(tensor[index] for tensor in self.tensors)
+
+
 def _loss_on_loader(
     network: _NodeNetwork,
-    loader: DataLoader,
+    loader: "_Batches | DataLoader",
     device: torch.device,
 ) -> float:
     return _validate(network, loader, device).loss
@@ -579,7 +613,7 @@ class _ValidationOutcome:
 
 def _validate(
     network: _NodeNetwork,
-    loader: DataLoader,
+    loader: "_Batches | DataLoader",
     device: torch.device,
     *,
     scale: Tensor | None = None,
@@ -794,16 +828,13 @@ class TrajectorySurrogate:
         validation_scenarios = len(validation_node_counts)
 
         generator = torch.Generator().manual_seed(settings.seed)
-        train_loader = DataLoader(
-            TensorDataset(train_x, train_wells, train_y),
+        train_loader = _Batches(
+            (train_x, train_wells, train_y),
             batch_size=settings.batch_size,
-            shuffle=True,
             generator=generator,
         )
-        validation_loader = DataLoader(
-            TensorDataset(val_x, val_wells, val_y),
-            batch_size=settings.batch_size,
-            shuffle=False,
+        validation_loader = _Batches(
+            (val_x, val_wells, val_y), batch_size=settings.batch_size
         )
         optimizer = torch.optim.AdamW(
             network.parameters(),
