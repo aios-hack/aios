@@ -34,7 +34,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
-from contracts import Role, Schedule
+from contracts import N_CONTROL_DATES, Role, Schedule
+from contracts.response import N_DECK_DATES
 from bridge.dataset_plan import (
     LevelPerturbation,
     PerturbationFamily,
@@ -48,8 +49,9 @@ from connectivity.doe import Amplitude, DoEPlan, Level, amplitude_from_prior, pl
 from connectivity.fund import ActiveFund, Window, active_fund_in_window, build_fund_history
 from connectivity.setpoints import setpoint_changes
 
-#: Первый управляющий шаг — 01.01.2007, дата дека с индексом 146.
-T0_DECK_DATE_INDEX = 146
+#: Первый управляющий шаг — 01.01.2007. Его индекс выводится из размеров
+#: осей, а не повторяет число из конкретного дека.
+T0_DECK_DATE_INDEX = N_DECK_DATES - N_CONTROL_DATES
 
 #: Окно замера по умолчанию: два года управления, 24 замкнутых интервала.
 DEFAULT_WINDOW_STEPS = 24

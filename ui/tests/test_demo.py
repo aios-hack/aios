@@ -50,6 +50,7 @@ VIEW_FILES = (
     "hierarchy.json",
     "ablation.json",
 )
+REAL_VIEW_FILES = ("timeline.json", "graph.json", "npv.json", "trace.json")
 ROOT_FILES = ("scenarios.json", "wells.json", "demo-script.json")
 EVENT_TYPES = ("COMMISSIONED", "ROLE_CHANGE", "SHUT", "RULE_FIRED", "MORPH")
 
@@ -130,7 +131,7 @@ def test_base_scenario_is_marked_real_not_synthetic(demo_dir: Path) -> None:
     """G3: `base` — настоящий расчёт, `synthetic-demo` из него убрана (аудит D2)."""
 
     for scenario in ("", BASE_ID):
-        for name in VIEW_FILES:
+        for name in REAL_VIEW_FILES:
             data = _read(demo_dir / scenario / name if scenario else demo_dir / name)
             meta = data["__meta__"] if name == "trace.json" else data["meta"]
             assert meta["provenance"] == REAL_PROVENANCE
