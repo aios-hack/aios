@@ -433,6 +433,18 @@ def _baseline_injection_by_step(schedule: Schedule) -> tuple[dict[str, float], .
     return tuple(dense)
 
 
+def _baseline_conversion_steps(schedule: Schedule) -> dict[str, int]:
+    """Шаг перевода под закачку в базовом расписании, по скважинам."""
+
+    steps: dict[str, int] = {}
+    for event in schedule.control_events:
+        if event.kind is EventKind.CONVERT_INJ:
+            previous = steps.get(event.well)
+            if previous is None or event.control_step < previous:
+                steps[event.well] = event.control_step
+    return steps
+
+
 def _capped(event: ControlEvent, caps: Mapping[str, float]) -> ControlEvent:
     """Уставка, срезанная физическим потолком скважины."""
 
@@ -534,6 +546,7 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
     role_at_commission = _role_at_commission(env.base_schedule)
     well_caps, field_limit = _physical_caps(env.base_schedule)
     baseline_injection = _baseline_injection_by_step(env.base_schedule)
+    baseline_conversion = _baseline_conversion_steps(env.base_schedule)
     # Уставка, с которой дек вводит скважину: с неё начинается наша, иначе
     # только что введённая скважина стоит с нулём и закрытой.
     commissioning_setpoint: dict[str, float] = {}
@@ -602,6 +615,7 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
                     group_offtake_m3_per_day=offtake,
                     baseline_injection_m3_per_day=baseline_injection[step],
                     injection_cap_m3_per_day=well_caps,
+                    baseline_conversion_step=baseline_conversion,
                 ),
                 theta,
                 env.flags,

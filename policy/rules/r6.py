@@ -48,6 +48,43 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
         if context.memory.of(well).converted_to_injection:
             continue
         if well not in influence.injectors:
+            # Предельная ценность воды для этой скважины не определена: в окне
+            # замера λ она добывала, поэтому в матрицу как нагнетательная не
+            # попала и попасть не могла. Прежний `continue` делал из этого
+            # запрет: чтобы правило разрешило перевести скважину в
+            # нагнетательные, она должна была уже быть нагнетательной. Восемь
+            # скважин базового дека под этот круг и попали — на прогоне G7 у
+            # нас один перевод против девяти базовых и 395 м³/сут недокачки.
+            #
+            # Судить самим не на чем, поэтому следуем деку: он переводит эту
+            # скважину на известном шаге, и отсутствие замера не основание
+            # решить иначе. Ровно та же логика, что у R1 с уставкой вне окна.
+            baseline_step = context.baseline_conversion_step.get(well)
+            if baseline_step is None or state.control_step < baseline_step:
+                continue
+            decisions.append(
+                ControlEvent(
+                    control_step=state.control_step,
+                    well=well,
+                    kind=EventKind.CONVERT_INJ,
+                )
+            )
+            trace.append(
+                TraceEntry(
+                    control_step=state.control_step,
+                    well=well,
+                    rule=RULE,
+                    inputs={
+                        "liquid_rate_m3_per_day": observation.liquid_rate_m3_per_day,
+                        "watercut": observation.watercut(density),
+                        "baseline_conversion_step": float(baseline_step),
+                        "outside_lambda_window": 1.0,
+                        "conversion_base_cost_rub": normatives.conversion_base_cost_rub,
+                        "theta_r6_payback_years": horizon,
+                    },
+                    decision="FOLLOW_BASELINE_CONVERSION",
+                )
+            )
             continue
         watercut = observation.watercut(density)
         as_producer = annual_margin_rub(
