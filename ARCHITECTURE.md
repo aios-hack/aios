@@ -9,8 +9,8 @@ works.
 New backend code lives in `src/aios_backend/`.
 
 ```text
-core/            Shared data types, hashes, and configuration.
-domain/          Schedule, economics, policy, connectivity, and robustness.
+core/            Shared data types and hashes.
+domain/          Schedule, economics, policy, connectivity, robustness, and runtime settings.
 ml/              Training and inference for the fast reservoir model.
 infrastructure/  OPM, files, caches, datasets, and external LLM clients.
 application/     Workflows: build a plan, optimise, verify, submit, export.
@@ -32,7 +32,8 @@ presentation → application → domain → core
 
 - `core` imports no higher layer.
 - `domain` imports only `core` and other `domain` modules.
-- `ml` imports `core` and `domain`; it does not import OPM, UI, or CLI code.
+- `ml` imports `core`, `domain`, and read-only OPM dataset adapters; it does
+  not import application, UI, or CLI code.
 - `application` coordinates domain and infrastructure code.
 - `infrastructure` implements external details; it does not decide business
   rules.

@@ -1,39 +1,7 @@
-from config.io import (
-    ConfigError,
-    dump_config,
-    load_config,
-    parse_config,
-)
-from config.normatives import (
-    NORMATIVE_FIELDS,
-    NormativeSource,
-    NormativesLoader,
-    normatives_from_mapping,
-)
-from config.schema import (
-    COMPONENT_SEEDS,
-    DEFAULT_BUDGETS,
-    GLOBAL_SEED_KEY,
-    economics_config_hash,
-    config_hash,
-    default_config,
-    seed_for,
-)
+"""Compatibility package. New code lives in :mod:`aios_backend.domain.configuration`."""
 
-__all__ = [
-    "COMPONENT_SEEDS",
-    "ConfigError",
-    "DEFAULT_BUDGETS",
-    "GLOBAL_SEED_KEY",
-    "NORMATIVE_FIELDS",
-    "NormativeSource",
-    "NormativesLoader",
-    "config_hash",
-    "default_config",
-    "dump_config",
-    "economics_config_hash",
-    "load_config",
-    "normatives_from_mapping",
-    "parse_config",
-    "seed_for",
-]
+from aios_backend.domain import configuration as _implementation
+from aios_backend.domain.configuration import *
+
+__all__ = _implementation.__all__
+__path__ = _implementation.__path__

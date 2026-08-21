@@ -24,7 +24,11 @@ ml = [
 # Явный список всех Python-пакетов полного интегрированного репозитория.
 # Новые подпакеты нужно добавлять сюда, иначе они не попадут в установку и образ.
 [tool.setuptools]
-packages = [
+
+[tool.setuptools.packages.find]
+where = ["src", "."]
+include = [
+    "aios_backend*",
     "aios_cli",
     "bridge",
     "config",
@@ -34,26 +38,27 @@ packages = [
     "llm",
     "optimizer",
     "policy",
-    "policy.rules",
     "robustness",
     "schedule",
     "surrogate",
     "ui",
 ]
+exclude = ["*.tests", "tests*"]
 
 [tool.pytest.ini_options]
+pythonpath = ["src"]
 testpaths = [
     "tests",
-    "bridge/tests",
-    "config/tests",
-    "connectivity/tests",
-    "contracts/tests",
-    "economics/tests",
-    "llm/tests",
-    "optimizer/tests",
-    "policy/tests",
-    "robustness/tests",
-    "schedule/tests",
-    "surrogate/tests",
-    "ui/tests",
+    "src/aios_backend/infrastructure/opm/tests",
+    "src/aios_backend/domain/configuration/tests",
+    "src/aios_backend/domain/connectivity/tests",
+    "src/aios_backend/core/contracts/tests",
+    "src/aios_backend/domain/economics/tests",
+    "src/aios_backend/infrastructure/llm/tests",
+    "src/aios_backend/application/optimization/tests",
+    "src/aios_backend/domain/policy/tests",
+    "src/aios_backend/domain/robustness/tests",
+    "src/aios_backend/domain/schedule/tests",
+    "src/aios_backend/ml/surrogate/tests",
+    "src/aios_backend/presentation/ui_export/tests",
 ]

@@ -1,0 +1,3 @@
+docker: permission denied while trying to connect to the docker API at unix:///Users/kaifarikman/.docker/run/docker.sock
+
+Run 'docker run --help' for more information

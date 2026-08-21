@@ -1,29 +1,7 @@
-"""Schedule-only features for the reservoir surrogate."""
+"""Compatibility package. New code lives in :mod:`aios_backend.ml.surrogate`."""
 
-from .adapter import AdapterError, ResponseAdapter
-from .features import (
-    FeatureContext,
-    FeatureError,
-    HistoryTargets,
-    LambdaEdgeFeature,
-    ScheduleFeatureizer,
-    SurrogateInput,
-    WellStepFeatures,
-    history_targets_from_deck,
-)
-from .raw_model_output import RawModelOutput, RawWellStepPrediction
+from aios_backend.ml import surrogate as _implementation
+from aios_backend.ml.surrogate import *
 
-__all__ = [
-    "AdapterError",
-    "FeatureContext",
-    "FeatureError",
-    "HistoryTargets",
-    "LambdaEdgeFeature",
-    "RawModelOutput",
-    "RawWellStepPrediction",
-    "ResponseAdapter",
-    "ScheduleFeatureizer",
-    "SurrogateInput",
-    "WellStepFeatures",
-    "history_targets_from_deck",
-]
+__all__ = _implementation.__all__
+__path__ = _implementation.__path__

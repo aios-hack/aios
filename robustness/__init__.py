@@ -1,83 +1,31 @@
-from robustness.battery import (
-    FragilityBattery,
-    Scenario,
-    Split,
-    coverage_report,
-    split_by_declaration,
-)
-from robustness.catalog import (
-    BATTERY_VERSION,
-    BatteryBasis,
-    battery_of,
-    default_battery,
-    default_scenarios,
-)
-from robustness.perturbation import (
-    KIND_SOURCE,
-    ORGANIZER_KINDS,
-    InfrastructureLimit,
-    InjectionCap,
-    LiquidCap,
-    Perturbation,
-    PerturbationKind,
-    ProductionFloor,
-    WatercutCap,
-    WellsOut,
-)
-from robustness.regret import (
-    RegretReport,
-    ScenarioOutcome,
-    covers_battery,
-    holdout_view,
-    optimization_view,
-    scenario_of,
-)
-from robustness.scenario_baseline import (
-    BaselineSearch,
-    ObjectiveFactory,
-    RegretComputation,
-    ScenarioBaselineError,
-    compute_regret,
-    evaluation_budget,
-    scenario_baseline,
-    scenario_seed,
-    worst_scenarios,
-)
+"""Compatibility package. New code lives in :mod:`aios_backend.domain.robustness`."""
 
-__all__ = [
-    "BATTERY_VERSION",
+import sys
+
+from aios_backend.application.optimization import scenario_baseline as _scenario_baseline
+from aios_backend.domain import robustness as _implementation
+from aios_backend.domain.robustness import *
+
+BaselineSearch = _scenario_baseline.BaselineSearch
+ObjectiveFactory = _scenario_baseline.ObjectiveFactory
+RegretComputation = _scenario_baseline.RegretComputation
+ScenarioBaselineError = _scenario_baseline.ScenarioBaselineError
+compute_regret = _scenario_baseline.compute_regret
+evaluation_budget = _scenario_baseline.evaluation_budget
+scenario_baseline = _scenario_baseline.scenario_baseline
+scenario_seed = _scenario_baseline.scenario_seed
+worst_scenarios = _scenario_baseline.worst_scenarios
+
+__all__ = _implementation.__all__ + [
     "BaselineSearch",
-    "BatteryBasis",
-    "FragilityBattery",
-    "InfrastructureLimit",
-    "InjectionCap",
-    "KIND_SOURCE",
-    "LiquidCap",
-    "ORGANIZER_KINDS",
     "ObjectiveFactory",
-    "Perturbation",
-    "PerturbationKind",
-    "ProductionFloor",
     "RegretComputation",
-    "RegretReport",
-    "Scenario",
     "ScenarioBaselineError",
-    "ScenarioOutcome",
-    "Split",
-    "WatercutCap",
-    "WellsOut",
-    "battery_of",
     "compute_regret",
-    "coverage_report",
-    "covers_battery",
-    "default_battery",
-    "default_scenarios",
     "evaluation_budget",
-    "holdout_view",
-    "optimization_view",
     "scenario_baseline",
-    "scenario_of",
     "scenario_seed",
-    "split_by_declaration",
     "worst_scenarios",
 ]
+__path__ = _implementation.__path__
+sys.modules[__name__ + ".scenario_baseline"] = _scenario_baseline

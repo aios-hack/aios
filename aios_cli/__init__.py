@@ -1,23 +1,7 @@
-from .paths import (
-    DEFAULT_SEED,
-    DOCS_ROOT_ENV_VAR,
-    SEED_ENV_VAR,
-    chdd_python_dir,
-    default_seed,
-    docs_root,
-    example_input_xlsx,
-    model_z_schedule,
-    normatives_xlsx,
-)
+"""Compatibility package. New code lives in :mod:`aios_backend.presentation.cli`."""
 
-__all__ = [
-    "DEFAULT_SEED",
-    "DOCS_ROOT_ENV_VAR",
-    "SEED_ENV_VAR",
-    "chdd_python_dir",
-    "default_seed",
-    "docs_root",
-    "example_input_xlsx",
-    "model_z_schedule",
-    "normatives_xlsx",
-]
+from aios_backend.presentation import cli as _implementation
+from aios_backend.presentation.cli import *
+
+__all__ = getattr(_implementation, "__all__", ())
+__path__ = _implementation.__path__
