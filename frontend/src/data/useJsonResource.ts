@@ -1,12 +1,23 @@
 import { useEffect, useState } from 'react';
-import { fetchJson } from './fetchJson';
+import { loadJson, readCachedJson } from './jsonCache';
 import type { ResourceState } from './ResourceState';
+
+const initialStateFor = <T,>(
+  url: string | null,
+  validate: (data: unknown) => data is T
+): ResourceState<T> => {
+  if (url === null) {
+    return { status: 'loading' };
+  }
+  const cached = readCachedJson(url, validate);
+  return cached === null ? { status: 'loading' } : { status: 'ready', data: cached };
+};
 
 export const useJsonResource = <T,>(
   url: string | null,
   validate: (data: unknown) => data is T
 ): ResourceState<T> => {
-  const [state, setState] = useState<ResourceState<T>>({ status: 'loading' });
+  const [state, setState] = useState<ResourceState<T>>(() => initialStateFor(url, validate));
 
   useEffect(() => {
     if (url === null) {
@@ -14,8 +25,13 @@ export const useJsonResource = <T,>(
       return;
     }
     let cancelled = false;
+    const cached = readCachedJson(url, validate);
+    if (cached !== null) {
+      setState({ status: 'ready', data: cached });
+      return;
+    }
     setState({ status: 'loading' });
-    fetchJson(url, validate)
+    loadJson(url, validate)
       .then((data) => {
         if (!cancelled) {
           setState({ status: 'ready', data });

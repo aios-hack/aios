@@ -5,7 +5,7 @@ import type { NpvFile, TimelineFile } from '../../api/types';
 import { dictionaries } from '../../i18n/dictionaries';
 import { I18nProvider } from '../../i18n/I18nContext';
 import { TimelineProvider } from '../../state/TimelineContext';
-import { WellCard } from '../WellCard';
+import { ConsoleInspector } from '../../ui/Inspector';
 import { NpvRank } from './NpvRank';
 
 const { ru } = dictionaries;
@@ -154,7 +154,7 @@ describe('NpvRank', () => {
     const { container } = await renderView(
       <>
         <NpvRank />
-        <WellCard />
+        <ConsoleInspector scenarioContext={null} onCloseScenario={() => undefined} />
       </>
     );
     fireEvent.click(rowFor(container, '12'));

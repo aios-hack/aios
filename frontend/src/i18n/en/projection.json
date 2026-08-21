@@ -1,0 +1,23 @@
+{
+  "ariaLabel": "Well stock projection: the map morphs into the hydrodynamic connectivity graph",
+  "poleLabel": "Projection",
+  "pole.map": "Map",
+  "pole.graph": "Connectivity",
+  "layerLabel": "Layer",
+  "layer.all": "All",
+  "layer.item": "Layer {id}",
+  "shown": "Wells shown: {shown} of {total}",
+  "dim": "Outside selected layer",
+  "blend.label": "Blend",
+  "threshold.label": "λ threshold",
+  "threshold.edges": "{shown} links shown out of {total}",
+  "withoutConnectivity": "{count} without connectivity",
+  "node.noConnectivity": "no measured connectivity",
+  "window": "λ measured {start} — {end}",
+  "legend.title": "Encoding",
+  "loading": "Loading projection…",
+  "error": "The projection could not be loaded",
+  "errorHint": "Both wells.json and graph.json of the run artifact are required.",
+  "empty": "The artifact holds neither wells nor nodes",
+  "emptyHint": "Nothing to project: both layouts are empty."
+}

@@ -3,7 +3,7 @@ import { useDataset } from '../../data';
 import { useI18n } from '../../i18n/I18nContext';
 import { DEFAULT_SCENARIO_ID, useScenario } from '../../state/ScenarioContext';
 import { ViewStatus } from '../../ui/ViewStatus';
-import { formatNumber } from '../Timeline/format';
+import { formatNumber } from '../../ui/format';
 
 const summaryOf = (entry: ScenarioEntry): number =>
   entry.constraints.injection_limits +
@@ -87,7 +87,12 @@ export const ScenarioLibrary = () => {
                 )}
                 {entry.npv_methodology !== null && (
                   <span className="scenarios-item-npv">
-                    <span>{t('scenarios.library.npvLabel')}</span>
+                    <span className="scenarios-item-npv-label">
+                      <span>{t('scenarios.library.npvLabel')}</span>
+                      <span className="scenarios-item-basis">
+                        {t('scenarios.library.npvBasis')}
+                      </span>
+                    </span>
                     <span className="scenarios-item-metric">
                       {formatNumber(lang, entry.npv_methodology)}
                     </span>

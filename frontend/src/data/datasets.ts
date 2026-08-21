@@ -1,5 +1,8 @@
 import type {
+  AblationFile,
+  DemoScriptFile,
   GraphFile,
+  HierarchyFile,
   NpvFile,
   ScenariosFile,
   TimelineFile,
@@ -7,7 +10,10 @@ import type {
   WellsFile
 } from '../api/types';
 import {
+  isAblationFile,
+  isDemoScriptFile,
   isGraphFile,
+  isHierarchyFile,
   isNpvFile,
   isScenariosFile,
   isTimelineFile,
@@ -30,6 +36,9 @@ export interface DatasetMap {
   npv: NpvFile;
   graph: GraphFile;
   scenarios: ScenariosFile;
+  ablation: AblationFile;
+  hierarchy: HierarchyFile;
+  demoScript: DemoScriptFile;
 }
 
 export type DatasetName = keyof DatasetMap;
@@ -39,8 +48,11 @@ type DatasetRegistry = { [K in DatasetName]: DatasetSpec<DatasetMap[K]> };
 export const DATASETS: DatasetRegistry = {
   timeline: { file: 'timeline.json', scope: 'scenario', validate: isTimelineFile },
   trace: { file: 'trace.json', scope: 'scenario', validate: isTraceFile },
-  wells: { file: 'wells.json', scope: 'scenario', validate: isWellsFile },
+  wells: { file: 'wells.json', scope: 'global', validate: isWellsFile },
   npv: { file: 'npv.json', scope: 'scenario', validate: isNpvFile },
   graph: { file: 'graph.json', scope: 'scenario', validate: isGraphFile },
-  scenarios: { file: 'scenarios.json', scope: 'global', validate: isScenariosFile }
+  scenarios: { file: 'scenarios.json', scope: 'global', validate: isScenariosFile },
+  ablation: { file: 'ablation.json', scope: 'scenario', validate: isAblationFile },
+  hierarchy: { file: 'hierarchy.json', scope: 'scenario', validate: isHierarchyFile },
+  demoScript: { file: 'demo-script.json', scope: 'global', validate: isDemoScriptFile }
 };

@@ -13,9 +13,6 @@ import type { TimelineFile, TraceFile } from '../api/types';
 import { useDataset, type ResourceState } from '../data';
 import { useOptionalScenario } from './ScenarioContext';
 
-export type { ResourceState };
-export { useJsonResource } from '../data';
-
 interface TimelineContextValue {
   timeline: ResourceState<TimelineFile>;
   trace: ResourceState<TraceFile>;

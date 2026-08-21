@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode
+} from 'react';
 
 export type Theme = 'light' | 'dark';
 
@@ -13,9 +21,9 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 const readStoredTheme = (): Theme => {
   try {
-    return localStorage.getItem(STORAGE_KEY) === 'dark' ? 'dark' : 'light';
+    return localStorage.getItem(STORAGE_KEY) === 'light' ? 'light' : 'dark';
   } catch {
-    return 'light';
+    return 'dark';
   }
 };
 
@@ -31,9 +39,17 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [theme]);
 
-  const toggleTheme = () => setTheme((current) => (current === 'light' ? 'dark' : 'light'));
+  const toggleTheme = useCallback(
+    () => setTheme((current) => (current === 'light' ? 'dark' : 'light')),
+    []
+  );
 
-  return <ThemeContext.Provider value={{ theme, toggleTheme }}>{children}</ThemeContext.Provider>;
+  const value = useMemo<ThemeContextValue>(
+    () => ({ theme, toggleTheme }),
+    [theme, toggleTheme]
+  );
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 };
 
 export const useTheme = (): ThemeContextValue => {

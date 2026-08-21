@@ -1,0 +1,19 @@
+{
+  "ariaLabel": "Grid of thumbnails: one thumbnail is the whole history of one well",
+  "size": "{wells} wells × {steps} steps",
+  "ungrouped": "Outside any area — placed last: {wells}",
+  "ungroupedNone": "Every well belongs to an area",
+  "watercutNote": "Water cut is taken at the last observed step: the terminal one has no interval",
+  "legend.title": "Encoding",
+  "legend.line": "The line is the liquid rate; for injectors it is the injection rate",
+  "legend.fill": "The fill under the line is the water cut of that step",
+  "legend.shut": "A vertical tick marks a shutdown",
+  "legend.idle": "A dimmed band marks a well not yet commissioned",
+  "legend.cursor": "The shared line is the current step",
+  "tile": "Well {well}",
+  "loading": "Loading history…",
+  "error": "Could not load the step history",
+  "errorHint": "Build timeline.json: python -m ui.webdata or python -m ui.demo.",
+  "empty": "The step history is empty",
+  "emptyHint": "timeline.json contains no control steps."
+}

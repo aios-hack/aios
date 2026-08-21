@@ -1,0 +1,12 @@
+{
+  "label": "Command palette",
+  "placeholder": "Well, year or scenario",
+  "empty": "Nothing found",
+  "stepLabel": "{date} · step {step}",
+  "kind.well": "well",
+  "kind.step": "step",
+  "kind.scenario": "scenario",
+  "kind.action": "action",
+  "speed": "Playback speed",
+  "speedValue": "{value}×"
+}

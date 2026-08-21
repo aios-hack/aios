@@ -5,11 +5,6 @@ export const layerColors = {
   dim: 'var(--color-well-dim)'
 } as const;
 
-export const mapColors = {
-  frame: 'var(--color-map-frame)',
-  axisText: 'var(--color-text-muted)'
-} as const;
-
 export const graphColors = {
   injector: 'var(--color-graph-injector)',
   producer: 'var(--color-graph-producer)',
@@ -27,6 +22,7 @@ export const fluidColors = {
   unknown: 'var(--color-unknown)'
 } as const;
 
+
 export const groupPalette = [
   'var(--color-group-1)',
   'var(--color-group-2)',
@@ -38,3 +34,18 @@ export const groupPalette = [
 
 export const groupColor = (index: number): string =>
   groupPalette[((index % groupPalette.length) + groupPalette.length) % groupPalette.length];
+
+export const chronoModeColors = {
+  production: 'var(--color-oil)',
+  injection: 'var(--color-injection)',
+  shut: 'var(--color-surface-sunken)',
+  idle: 'var(--color-well-dim)'
+} as const;
+
+export const wallMarkColors = {
+  line: 'var(--color-oil)',
+  fill: 'var(--scale-watercut-1)',
+  shut: 'var(--color-axis-tick)',
+  idle: 'var(--color-unknown)',
+  cursor: 'var(--color-accent)'
+} as const;

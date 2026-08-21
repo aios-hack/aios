@@ -59,6 +59,7 @@ export const ConstraintsEditor = ({ nIntervals }: ConstraintsEditorProps) => {
             />
           </span>
           <p className="scenarios-note">{t('scenarios.editor.note')}</p>
+          <p className="scenarios-note">{t('scenarios.editor.emptyNote')}</p>
         </div>
         <div className="scenarios-editor-actions">
           <button

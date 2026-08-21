@@ -23,7 +23,11 @@ export const OutageTable = ({
   const t = useT();
 
   return (
-    <section className="scenarios-section" data-section="well_outages">
+    <section
+      className="scenarios-section"
+      data-section="well_outages"
+      data-empty={rows.length === 0}
+    >
       <header className="scenarios-section-head">
         <h4 className="scenarios-section-title">{t('scenarios.section.well_outages')}</h4>
         <span className="scenarios-unit">

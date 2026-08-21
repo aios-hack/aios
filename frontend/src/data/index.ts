@@ -1,5 +1,6 @@
 export { dataOf, isReady, type ResourceState } from './ResourceState';
 export { fetchJson, InvalidPayloadError } from './fetchJson';
+export { clearJsonCache, loadJson, readCachedJson } from './jsonCache';
 export { useJsonResource } from './useJsonResource';
 export {
   DATASETS,
@@ -10,10 +11,14 @@ export {
 } from './datasets';
 export { useDataset, useScenarioDataset } from './useDataset';
 export {
+  isAblationFile,
+  isDemoScriptFile,
   isGraphFile,
+  isHierarchyFile,
   isNpvFile,
   isScenariosFile,
   isTimelineFile,
   isTraceFile,
   isWellsFile
 } from './validators';
+export { actualRate, isCommissioned } from './wellRow';

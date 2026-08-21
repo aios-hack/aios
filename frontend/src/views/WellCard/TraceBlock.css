@@ -1,0 +1,80 @@
+.wellcard-trace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wellcard-trace-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.wellcard-trace-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.wellcard-rule {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  color: var(--color-accent);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.wellcard-decision {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.wellcard-inputs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-xs);
+}
+
+.wellcard-inputs th,
+.wellcard-inputs td {
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.wellcard-inputs thead th {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+}
+
+.wellcard-inputs tbody th {
+  color: var(--color-text);
+  font-weight: var(--font-weight-normal);
+}
+
+.wellcard-inputs td,
+.wellcard-inputs thead th:last-child {
+  text-align: right;
+}
+
+.wellcard-inputs td {
+  font-family: var(--font-family-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tracking-mono);
+}
+
+.wellcard-inputs tbody tr:last-child th,
+.wellcard-inputs tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.wellcard-empty,

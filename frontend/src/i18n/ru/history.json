@@ -1,0 +1,14 @@
+{
+  "metricLabel": "Величина",
+  "metric.watercut": "Обводнённость",
+  "metric.mode": "Режим",
+  "metric.ratio": "Факт/цель",
+  "metric.npv": "Вклад в ЧДД",
+  "metricUnavailable": "Величина — кодировка ячейки матрицы, в этом взгляде не применяется",
+  "sortLabel": "Сортировка",
+  "sort.well": "По номеру",
+  "sort.group": "По участку",
+  "sort.npv": "По вкладу в ЧДД",
+  "sort.watercut": "По обводнённости на последнем шаге",
+  "sortUnavailable": "Недоступно в этом взгляде"
+}

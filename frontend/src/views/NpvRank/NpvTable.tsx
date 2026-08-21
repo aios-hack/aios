@@ -1,7 +1,9 @@
-import type { CSSProperties } from 'react';
+import { memo, useMemo } from 'react';
 import type { NpvFile } from '../../api/types';
 import { useI18n } from '../../i18n/I18nContext';
-import { formatNumber } from '../Timeline/format';
+import { formatNumber } from '../../ui/format';
+import { SortHeader } from '../../ui/SortHeader';
+import { NpvRow } from './NpvRow';
 import { sortNpvRows, valueOf } from './sorting';
 import type { NpvSortKey, SortDir, TaxMode } from './types';
 
@@ -15,7 +17,7 @@ interface NpvTableProps {
   onSelectWell: (well: string) => void;
 }
 
-export const NpvTable = ({
+const NpvTableView = ({
   data,
   mode,
   sortKey,
@@ -25,10 +27,14 @@ export const NpvTable = ({
   onSelectWell,
 }: NpvTableProps) => {
   const { t, lang } = useI18n();
-  const sorted = sortNpvRows(data.wells, sortKey, dir, mode);
-  const maxAbs = data.wells.reduce(
-    (best, row) => Math.max(best, Math.abs(valueOf(row, mode))),
-    0,
+  const sorted = useMemo(
+    () => sortNpvRows(data.wells, sortKey, dir, mode),
+    [data.wells, sortKey, dir, mode],
+  );
+  const maxAbs = useMemo(
+    () =>
+      data.wells.reduce((best, row) => Math.max(best, Math.abs(valueOf(row, mode))), 0),
+    [data.wells, mode],
   );
   const total = mode === 'preTax' ? data.total.pre_tax : data.total.with_allocated_tax;
 
@@ -50,61 +56,23 @@ export const NpvTable = ({
         <table className="npv-table">
           <thead>
             <tr>
-              <th
-                scope="col"
-                aria-sort={
-                  sortKey === 'well'
-                    ? dir === 'asc'
-                      ? 'ascending'
-                      : 'descending'
-                    : 'none'
-                }
-              >
-                <button
-                  type="button"
-                  className="npv-sort-button"
-                  data-active={sortKey === 'well'}
-                  title={t(`npv.sort.${dir}`)}
-                  onClick={() => onSort('well')}
-                >
-                  <span>{t('npv.table.well')}</span>
-                  <span
-                    className="npv-sort-arrow"
-                    aria-hidden="true"
-                    data-active={sortKey === 'well'}
-                  >
-                    {sortKey === 'well' && dir === 'asc' ? '↑' : '↓'}
-                  </span>
-                </button>
-              </th>
-              <th
-                scope="col"
-                className="npv-cell-num"
-                aria-sort={
-                  sortKey === 'value'
-                    ? dir === 'asc'
-                      ? 'ascending'
-                      : 'descending'
-                    : 'none'
-                }
-              >
-                <button
-                  type="button"
-                  className="npv-sort-button"
-                  data-active={sortKey === 'value'}
-                  title={t(`npv.sort.${dir}`)}
-                  onClick={() => onSort('value')}
-                >
-                  <span>{t(`npv.column.${mode}`)}</span>
-                  <span
-                    className="npv-sort-arrow"
-                    aria-hidden="true"
-                    data-active={sortKey === 'value'}
-                  >
-                    {sortKey === 'value' && dir === 'asc' ? '↑' : '↓'}
-                  </span>
-                </button>
-              </th>
+              <SortHeader
+                prefix="npv"
+                label={t('npv.table.well')}
+                active={sortKey === 'well'}
+                dir={dir}
+                title={t('npv.sort.action')}
+                onSort={() => onSort('well')}
+              />
+              <SortHeader
+                prefix="npv"
+                label={t(`npv.column.${mode}`)}
+                active={sortKey === 'value'}
+                dir={dir}
+                title={t('npv.sort.action')}
+                numericClass="npv-cell-num"
+                onSort={() => onSort('value')}
+              />
               <th scope="col" className="npv-cell-bar">
                 {t('npv.table.bar')}
               </th>
@@ -113,33 +81,17 @@ export const NpvTable = ({
           <tbody>
             {sorted.map((row) => {
               const value = valueOf(row, mode);
-              const negative = value < 0;
-              const ratio = maxAbs > 0 ? Math.abs(value) / maxAbs : 0;
               return (
-                <tr
+                <NpvRow
                   key={row.well}
-                  data-well-id={row.well}
-                  data-selected={row.well === selectedWell}
-                  data-clickable="true"
-                  onClick={() => onSelectWell(row.well)}
-                >
-                  <th scope="row">
-                    <button type="button" className="npv-well-button">
-                      {row.well}
-                    </button>
-                  </th>
-                  <td className={negative ? 'npv-cell-num npv-danger' : 'npv-cell-num'}>
-                    {formatNumber(lang, value)}
-                  </td>
-                  <td className="npv-cell-bar">
-                    <div className="npv-bar-track">
-                      <div
-                        className={negative ? 'npv-bar npv-bar-danger' : 'npv-bar'}
-                        style={{ '--npv-bar-ratio': `${ratio * 100}%` } as CSSProperties}
-                      />
-                    </div>
-                  </td>
-                </tr>
+                  well={row.well}
+                  value={value}
+                  ratio={maxAbs > 0 ? Math.abs(value) / maxAbs : 0}
+                  selected={row.well === selectedWell}
+                  lang={lang}
+                  t={t}
+                  onSelectWell={onSelectWell}
+                />
               );
             })}
           </tbody>
@@ -148,3 +100,5 @@ export const NpvTable = ({
     </div>
   );
 };
+
+export const NpvTable = memo(NpvTableView);

@@ -1,10 +1,10 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { TimelineFile } from '../api/types';
+import type { TimelineFile, TimelineStep } from '../api/types';
 import { I18nProvider } from '../i18n/I18nContext';
 import { TimelineProvider, useTimeline } from './TimelineContext';
 
-const step = (k: number) => ({
+const step = (k: number): TimelineStep => ({
   control_step: k,
   date: `2007-0${k + 1}-01`,
   terminal: false,

@@ -1,0 +1,13 @@
+.selection-rings-neighbour {
+  fill: none;
+  stroke: var(--color-accent);
+  pointer-events: none;
+}
+
+.selection-rings-neighbour[data-neighbour-ring='neighbour'] {
+  stroke-dasharray: 1 1;
+}
+
+.selection-rings-group {
+  pointer-events: none;
+}

@@ -1,0 +1,23 @@
+{
+  "ariaLabel": "Проекция фонда: карта переходит в граф гидродинамической связности",
+  "poleLabel": "Проекция",
+  "pole.map": "Карта",
+  "pole.graph": "Связность",
+  "layerLabel": "Пласт",
+  "layer.all": "Все",
+  "layer.item": "Пласт {id}",
+  "shown": "Показано скважин: {shown} из {total}",
+  "dim": "Вне выбранного пласта",
+  "blend.label": "Переход",
+  "threshold.label": "Порог λ",
+  "threshold.edges": "Показано {shown} связей из {total}",
+  "withoutConnectivity": "{count} без связности",
+  "node.noConnectivity": "нет измеренной связности",
+  "window": "λ измерена {start} — {end}",
+  "legend.title": "Кодировка",
+  "loading": "Загрузка проекции…",
+  "error": "Проекцию не удалось загрузить",
+  "errorHint": "Нужны wells.json и graph.json артефакта прогона.",
+  "empty": "В артефакте нет ни скважин, ни узлов",
+  "emptyHint": "Проекции нечего показать: обе раскладки пусты."
+}

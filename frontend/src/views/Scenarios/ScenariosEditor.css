@@ -40,7 +40,7 @@
 .scenarios-add-button,
 .scenarios-row-button {
   border: 1.5px solid var(--color-border-strong);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-accent);
   font-family: var(--font-family-base);
@@ -58,7 +58,6 @@
 .scenarios-row-button:hover:not(:disabled) {
   background: var(--color-accent-dim);
   border-color: var(--color-accent);
-  transform: translateY(-2px);
 }
 
 .scenarios-button:active:not(:disabled),
@@ -76,13 +75,11 @@
   border-color: transparent;
   background: var(--color-accent);
   color: var(--color-accent-contrast);
-  box-shadow: var(--shadow-accent);
 }
 
 .scenarios-button-primary:hover:not(:disabled) {
   background: var(--color-accent-hover);
   border-color: transparent;
-  box-shadow: var(--shadow-accent-hover);
 }
 
 .scenarios-button:disabled,
@@ -153,7 +150,12 @@
 .scenarios-empty {
   margin: 0;
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
+}
+
+.scenarios-section[data-empty='true'] {
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
 }
 
 .scenarios-table {

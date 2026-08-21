@@ -5,8 +5,7 @@
   padding: var(--space-1);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
-  box-shadow: var(--shadow-1);
+  border-radius: var(--radius-sm);
 }
 
 .segmented-thumb {
@@ -14,11 +13,10 @@
   top: var(--space-1);
   left: 0;
   height: var(--size-control-height);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background: var(--color-accent);
-  box-shadow: var(--shadow-accent);
-  transition: transform var(--duration-state) var(--ease-overshoot),
-    width var(--duration-state) var(--ease-overshoot),
+  transition: transform var(--duration-state) var(--ease-emphasis),
+    width var(--duration-state) var(--ease-emphasis),
     opacity var(--duration-fast) var(--ease-out);
   pointer-events: none;
 }
@@ -29,7 +27,7 @@
   height: var(--size-control-height);
   padding: 0 var(--space-4);
   border: none;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-muted);
   font-family: var(--font-family-base);
@@ -45,4 +43,14 @@
 
 .segmented-button[aria-pressed='true'] {
   color: var(--color-accent-contrast);
+}
+
+.segmented-button:disabled {
+  color: var(--color-text-muted);
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.segmented-button:disabled:hover {
+  color: var(--color-text-muted);
 }

@@ -1,4 +1,5 @@
 import { useT } from '../../i18n/I18nContext';
+import { SortHeader } from '../../ui/SortHeader';
 import type { SortDir, SortKey } from './sorting';
 
 interface SortableHeaderProps {
@@ -22,23 +23,14 @@ export const SortableHeader = ({
   const active = activeKey === columnKey;
 
   return (
-    <th
-      scope="col"
-      className={numeric ? 'timeline-cell-num' : undefined}
-      aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-    >
-      <button
-        type="button"
-        className="timeline-sort-button"
-        data-active={active}
-        title={t(active && dir === 'asc' ? 'steps.sort.asc' : 'steps.sort.desc')}
-        onClick={() => onSort(columnKey)}
-      >
-        <span>{label}</span>
-        <span className="timeline-sort-arrow" aria-hidden="true" data-active={active}>
-          {active && dir === 'asc' ? '↑' : '↓'}
-        </span>
-      </button>
-    </th>
+    <SortHeader
+      prefix="timeline"
+      label={label}
+      active={active}
+      dir={dir}
+      title={t(active && dir === 'asc' ? 'steps.sort.asc' : 'steps.sort.desc')}
+      numericClass={numeric ? 'timeline-cell-num' : undefined}
+      onSort={() => onSort(columnKey)}
+    />
   );
 };

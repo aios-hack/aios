@@ -1,0 +1,101 @@
+.wellcard-connectivity {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.wellcard-group {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.wellcard-group-value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.wellcard-group-value[data-group=''] {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-normal);
+}
+
+.wellcard-window {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.wellcard-window-badge {
+  color: var(--color-text);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  letter-spacing: var(--tracking-mono);
+}
+
+.wellcard-window-note {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.wellcard-neighbours {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wellcard-neighbour-button {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--size-row);
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.wellcard-neighbour-button:hover {
+  border-color: var(--color-border);
+  background: var(--color-accent-dim);
+}
+
+.wellcard-neighbour-button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.wellcard-neighbour-well {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  letter-spacing: var(--tracking-mono);
+}
+
+.wellcard-neighbour-role {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.wellcard-neighbour-weight {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tracking-mono);
+  text-align: right;
+}

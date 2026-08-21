@@ -1,3 +1,12 @@
+export interface ArtifactMeta {
+  kind: string;
+  provenance: string;
+  synthetic: boolean;
+  seed?: number;
+  notice_ru?: string;
+  notice_en?: string;
+}
+
 export interface GridSize {
   ni: number;
   nj: number;
@@ -19,16 +28,21 @@ export interface WellPoint {
 }
 
 export interface WellsFile {
+  meta?: ArtifactMeta;
   grid: GridSize;
   layers: LayerRange[];
   wells: WellPoint[];
 }
 
+export type WellAvailability = 'AVAILABLE' | 'NOT_COMMISSIONED';
+export type WellRole = 'INJ' | 'PROD' | 'NONE';
+export type WellOperatingStatus = 'OPEN' | 'SHUT';
+
 export interface TimelineWellRow {
   well: string;
-  availability: string;
-  role: string;
-  operating_status: string;
+  availability: WellAvailability;
+  role: WellRole;
+  operating_status: WellOperatingStatus;
   setpoint: number;
   liquid_rate: number;
   injection_rate: number;
@@ -63,13 +77,24 @@ export interface TimelineStep {
   wells: TimelineWellRow[];
 }
 
+export interface FieldNormBand {
+  min: number;
+  max: number;
+}
+
+export interface TimelineFieldNorms {
+  compensation?: FieldNormBand;
+}
+
 export interface TimelineFile {
+  meta?: ArtifactMeta;
   model: string;
   t0: string;
   n_control_dates: number;
   n_intervals: number;
   wells: string[];
   steps: TimelineStep[];
+  field_norms?: TimelineFieldNorms;
 }
 
 export interface NpvWellRow {
@@ -84,9 +109,24 @@ export interface NpvTotals {
 }
 
 export interface NpvFile {
+  meta?: ArtifactMeta;
   wells: NpvWellRow[];
   total: NpvTotals;
   npv_methodology: number;
+}
+
+export interface AblationRule {
+  rule: string;
+  enabled: boolean;
+  delta_npv: number | null;
+  share: number | null;
+  disabled_reason?: string;
+}
+
+export interface AblationFile {
+  meta?: ArtifactMeta;
+  npv_total: number;
+  rules: AblationRule[];
 }
 
 export interface WellOutageDoc {
@@ -116,6 +156,19 @@ export interface ScenarioConstraintsSummary {
   empty: boolean;
 }
 
+export type RegretPart = 'optimization' | 'holdout';
+
+export interface ScenarioWorstRegret {
+  scenario_id: string;
+  value_rub: number;
+  part: RegretPart;
+}
+
+export interface ScenarioFinalNpv {
+  npv_rub: number;
+  run_id: string;
+}
+
 export interface ScenarioEntry {
   id: string;
   config_hash: string;
@@ -124,9 +177,15 @@ export interface ScenarioEntry {
   is_submitted: boolean;
   npv_methodology: number | null;
   constraints: ScenarioConstraintsSummary;
+  ood_score?: number | null;
+  ood_threshold?: number | null;
+  worst_regret?: ScenarioWorstRegret | null;
+  final_npv?: ScenarioFinalNpv | null;
+  run_validation_clean?: boolean | null;
 }
 
 export interface ScenariosFile {
+  meta?: ArtifactMeta;
   scenarios: ScenarioEntry[];
   submitted: string | null;
 }
@@ -169,6 +228,81 @@ export interface GraphFile {
   edges: GraphEdge[];
   groups: GraphGroup[];
   weight_range: { min: number; max: number };
-  meta: GraphMeta;
+  meta: GraphMeta & Partial<ArtifactMeta>;
   layout: { size: number; seed: number };
+}
+
+export interface HierarchyFieldAllocation {
+  group: string;
+  limit_m3_per_day: number;
+}
+
+export interface HierarchyFieldLevel {
+  injection_limit_m3_per_day: number;
+  water_available_m3_per_day: number;
+  allocations: HierarchyFieldAllocation[];
+}
+
+export interface HierarchyGroupAllocation {
+  well: string;
+  value_m3_per_day: number;
+}
+
+export interface HierarchyGroupLevel {
+  group: string;
+  received_m3_per_day: number;
+  allocations: HierarchyGroupAllocation[];
+}
+
+export interface HierarchyWellDecision {
+  well: string;
+  group: string | null;
+  decision: string;
+  rule: string;
+  inputs: Record<string, number>;
+  constraint: string | null;
+}
+
+export interface HierarchyStep {
+  control_step: number;
+  field: HierarchyFieldLevel;
+  groups: HierarchyGroupLevel[];
+  ungrouped?: HierarchyGroupAllocation[];
+  wells: HierarchyWellDecision[];
+}
+
+export interface HierarchyFile {
+  meta?: ArtifactMeta;
+  n_control_dates: number;
+  groups: string[];
+  ungrouped: string[];
+  steps: HierarchyStep[];
+}
+
+export type DemoEventType =
+  | 'COMMISSIONED'
+  | 'ROLE_CHANGE'
+  | 'SHUT'
+  | 'RULE_FIRED'
+  | 'MORPH';
+
+export interface DemoEvent {
+  type: DemoEventType;
+  well?: string;
+  rule?: string;
+}
+
+export interface DemoFrame {
+  step: number;
+  scene: string;
+  well: string | null;
+  event: DemoEvent | null;
+  hold_ms: number;
+  t?: number;
+}
+
+export interface DemoScriptFile {
+  meta?: ArtifactMeta;
+  frames: DemoFrame[];
+  total_ms?: number;
 }

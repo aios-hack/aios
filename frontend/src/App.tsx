@@ -1,69 +1,96 @@
 import { useState } from 'react';
+import { DemoControls, DemoProvider, DemoStage, useDemo } from './app/DemoMode';
+import { FieldStrip } from './app/FieldStrip';
+import { Scene } from './app/Scene';
+import { TimeScale } from './app/TimeScale';
 import { useDocumentTitle } from './app/useDocumentTitle';
 import { useI18n } from './i18n/I18nContext';
+import { useConsole } from './state/ConsoleContext';
+import { useTimeline } from './state/TimelineContext';
 import { BrandLogo } from './ui/BrandLogo';
+import { ErrorBoundary } from './ui/ErrorBoundary';
 import { HeaderControls } from './ui/HeaderControls';
+import { CommandPalette } from './ui/CommandPalette';
+import { useWorkspaceRouting } from './app/useWorkspaceRouting';
+import { ConsoleInspector } from './ui/Inspector';
+import type { InspectorContext } from './ui/Inspector';
 import { ScenarioBadge } from './ui/ScenarioBadge';
-import { SyntheticBanner } from './ui/SyntheticBanner';
-import { TabBar } from './ui/TabBar';
-import { FieldMap } from './views/FieldMap';
-import { LambdaGraph } from './views/LambdaGraph';
-import { NpvRank } from './views/NpvRank';
-import { Scenarios } from './views/Scenarios';
-import { Timeline } from './views/Timeline';
-import { WellCard } from './views/WellCard';
+import { StatusChip } from './ui/TrustBoard';
+import { WorkspaceNav } from './ui/WorkspaceNav';
+import './app/console.css';
 
-type ViewId = 'graph' | 'map' | 'steps' | 'npv' | 'scenarios';
-
-const VIEWS: ViewId[] = ['graph', 'map', 'steps', 'npv', 'scenarios'];
-
-export const App = () => {
+const ConsoleShell = () => {
   const { t, lang } = useI18n();
-  const [view, setView] = useState<ViewId>('graph');
-  useDocumentTitle(t(`tab.${view}`), t('app.documentTitle'), lang);
+  const { selectedWell } = useTimeline();
+  const demo = useDemo();
+  const { workspace, view, setWorkspace, setView } = useConsole();
+  const [scenarioContext, setScenarioContext] = useState<InspectorContext | null>(null);
+  useWorkspaceRouting({ workspace, view, setWorkspace, setView });
+  useDocumentTitle(t(`workspace.${workspace}`), t('app.documentTitle'), lang);
+
+  const inspectorOpen = selectedWell !== null || scenarioContext !== null;
 
   return (
-    <div className="app">
-      <header className="app-header">
+    <div
+      className="app console"
+      data-inspector={inspectorOpen ? 'open' : 'closed'}
+    >
+      <header className="console-area-header app-header">
         <BrandLogo />
         <div className="app-identity">
           <h1 className="app-title">
             <span className="app-title-accent">AIOS</span>
             <span className="app-title-rest">{t('app.title')}</span>
           </h1>
-          <p className="app-subtitle">
-            {t('app.subtitle')}
-            <SyntheticBanner />
-          </p>
+          <p className="app-subtitle">{t('app.subtitle')}</p>
         </div>
+        <ErrorBoundary>
+          <StatusChip />
+        </ErrorBoundary>
+        <ErrorBoundary>
+          <ScenarioBadge
+            onOpenDetails={(scenarioId) => setScenarioContext({ kind: 'scenario', scenarioId })}
+          />
+        </ErrorBoundary>
+        <ErrorBoundary>
+          <DemoControls playback={demo} />
+        </ErrorBoundary>
         <HeaderControls />
       </header>
-      <div className="app-navigation">
-        <TabBar
-          ids={VIEWS}
-          active={view}
-          label={t('tabs.label')}
-          renderLabel={(id) => t(`tab.${id}`)}
-          onSelect={setView}
-        />
-        <ScenarioBadge />
+      <ErrorBoundary>
+        <FieldStrip />
+      </ErrorBoundary>
+      <div className="console-area-nav">
+        <WorkspaceNav />
       </div>
-      <main
-        key={view}
-        className="app-main app-view-enter"
-        id={`panel-${view}`}
-        role="tabpanel"
-        aria-labelledby={`tab-${view}`}
-        tabIndex={-1}
-      >
-        <h2 className="app-view-title">{t(`${view}.title`)}</h2>
-        {view === 'graph' && <LambdaGraph />}
-        {view === 'map' && <FieldMap />}
-        {view === 'steps' && <Timeline />}
-        {view === 'npv' && <NpvRank />}
-        {view === 'scenarios' && <Scenarios />}
+      <main className="console-area-scene console-main">
+        <Scene />
       </main>
-      <WellCard />
+      <div className="console-area-inspector">
+        <ErrorBoundary>
+          <ConsoleInspector
+            scenarioContext={scenarioContext}
+            onCloseScenario={() => setScenarioContext(null)}
+          />
+        </ErrorBoundary>
+      </div>
+      <ErrorBoundary>
+        <DemoStage />
+      </ErrorBoundary>
+      <div className="console-area-timeaxis">
+        <ErrorBoundary>
+          <TimeScale />
+        </ErrorBoundary>
+      </div>
+      <ErrorBoundary>
+        <CommandPalette />
+      </ErrorBoundary>
     </div>
   );
 };
+
+export const App = () => (
+  <DemoProvider>
+    <ConsoleShell />
+  </DemoProvider>
+);

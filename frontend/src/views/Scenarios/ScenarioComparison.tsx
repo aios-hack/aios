@@ -4,9 +4,10 @@ import { useScenarioDataset } from '../../data';
 import { useI18n } from '../../i18n/I18nContext';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { ViewStatus } from '../../ui/ViewStatus';
-import { formatNumber } from '../Timeline/format';
+import { formatNumber } from '../../ui/format';
 import type { TaxMode } from '../NpvRank/types';
 import { alternativesOf, compareScenarios, submittedOf, valueFor } from './comparison';
+import './ScenariosCompare.css';
 
 const MODES: TaxMode[] = ['preTax', 'withTax'];
 
@@ -65,6 +66,9 @@ export const ScenarioComparison = ({ entries }: ScenarioComparisonProps) => {
           <span className="scenario-compare-value">
             {formatNumber(lang, valueFor(result.base, mode))}
           </span>
+          <span className="scenario-compare-basis">
+            {t(`npv.mode.${mode}`)}, {t('scenarios.compare.unit')}
+          </span>
         </div>
 
         <div className="scenario-compare-delta" data-better={better}>
@@ -99,6 +103,9 @@ export const ScenarioComparison = ({ entries }: ScenarioComparisonProps) => {
           )}
           <span className="scenario-compare-value">
             {formatNumber(lang, valueFor(result.other, mode))}
+          </span>
+          <span className="scenario-compare-basis">
+            {t(`npv.mode.${mode}`)}, {t('scenarios.compare.unit')}
           </span>
         </div>
       </div>
