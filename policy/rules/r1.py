@@ -69,7 +69,10 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
     injectors = tuple(
         well for well in state.injectors() if well in influence.injectors
     )
-    if not injectors:
+    unmeasured = tuple(
+        well for well in state.injectors() if well not in influence.injectors
+    )
+    if not injectors and not unmeasured:
         return RuleOutcome(decisions=(), trace=())
 
     values: dict[str, float] = {}
@@ -78,6 +81,15 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
         value, inputs = marginal_value_rub_per_m3(state, context, injector)
         values[injector] = value
         inputs_by_well[injector] = inputs
+
+    # Вода, уже занятая скважинами вне окна замера. Их уставка не решение
+    # правила, а удержанный базовый уровень, но фонд воды у месторождения
+    # один: если не вычесть его из бюджета, измеренным скважинам раздаётся
+    # весь лимит целиком, сумма выходит за лимит участка, и агент участка
+    # срезает множителем уже всех — включая тех, кого трогать было незачем.
+    baseline = context.baseline_injection_m3_per_day
+    held = float(sum(max(0.0, float(baseline.get(well, 0.0))) for well in unmeasured))
+    budget_for_measured = max(0.0, budget - held)
 
     profitable = {well: value for well, value in values.items() if value > 0.0}
     weight_total = sum(profitable.values())
@@ -88,7 +100,7 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
         value = values[injector]
         if value > 0.0 and weight_total > 0.0:
             share = value / weight_total
-            target = budget * share
+            target = budget_for_measured * share
             decision = "SET_RATE"
         else:
             share = 0.0
@@ -107,6 +119,8 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
             {
                 "theta_r1_lag_months": lag_months,
                 "injection_budget_m3_per_day": budget,
+                "budget_held_outside_lambda_m3_per_day": held,
+                "budget_for_measured_m3_per_day": budget_for_measured,
                 "share_of_budget": share,
                 "target_rate_m3_per_day": target,
                 "previous_setpoint_m3_per_day": state.wells[injector].setpoint_m3_per_day,
@@ -119,6 +133,42 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
                 rule=RULE,
                 inputs=entry_inputs,
                 decision=decision,
+            )
+        )
+
+    # Нагнетательная вне окна измерения λ. Предельная ценность её закачки не
+    # определена — не равна нулю, а именно неизвестна, — поэтому правило её не
+    # ранжирует и бюджет между такими скважинами не делит. Но и молчать про
+    # них нельзя: без уставки плотный слой оставляет скважину на нуле, и
+    # отсутствие замера превращается в решение заглушить. Кампания Плакетта—
+    # Бермана покрыла 22 нагнетательных из 41, а невошедшие несут 46% закачки
+    # месторождения — на прогоне G7 из-за этого потеряно около 662 м³/сут из
+    # 835 всей недокачки. Держим базовую уставку: нет основания менять.
+    for injector in unmeasured:
+        target = float(baseline.get(injector, 0.0))
+        decisions.append(
+            ControlEvent(
+                control_step=state.control_step,
+                well=injector,
+                kind=EventKind.SET_RATE,
+                value=target,
+            )
+        )
+        trace.append(
+            TraceEntry(
+                control_step=state.control_step,
+                well=injector,
+                rule=RULE,
+                inputs={
+                    "target_rate_m3_per_day": target,
+                    "baseline_rate_m3_per_day": target,
+                    "previous_setpoint_m3_per_day": state.wells[
+                        injector
+                    ].setpoint_m3_per_day,
+                    "outside_lambda_window": 1.0,
+                    "producers_covered": 0.0,
+                },
+                decision="HOLD_BASELINE_OUTSIDE_LAMBDA",
             )
         )
     return RuleOutcome(decisions=tuple(decisions), trace=tuple(trace))

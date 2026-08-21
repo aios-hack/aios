@@ -150,3 +150,69 @@ def test_missing_budget_raises(context: RuleContext) -> None:
     ctx = replace(context, influence=influence)
     with pytest.raises(ValueError):
         apply_rule(Rule.R1, two_producer_state(), ctx, default_theta(), RuleFlags())
+
+
+def test_injector_outside_lambda_holds_its_baseline_rate(
+    context: RuleContext, normatives: NormativeSet
+) -> None:
+    """Нагнетательная вне окна замера держит базовую уставку, а не ноль.
+
+    Кампания Плакетта—Бермана покрыла 22 нагнетательных из 41, а невошедшие
+    несут 46% закачки месторождения. Пока R1 их не адресовал, плотный слой
+    оставлял их на нуле, и отсутствие замера превращалось в решение
+    заглушить: на прогоне G7 это 662 м³/сут из 835 всей недокачки. Ценность
+    их закачки по-прежнему не считается — она неизвестна, а не равна нулю, —
+    поэтому в дележе бюджета они не участвуют.
+    """
+
+    ctx = replace(
+        two_producer_context(context),
+        baseline_injection_m3_per_day={"103": 70.0},
+    )
+    state = state_of(
+        producer("42", liquid_rate_m3_per_day=40.0, watercut=0.50),
+        producer("43", liquid_rate_m3_per_day=40.0, watercut=WASHED_OUT_WATERCUT),
+        injector("101", injection_rate_m3_per_day=200.0),
+        injector("102", injection_rate_m3_per_day=200.0),
+        injector("103", injection_rate_m3_per_day=70.0),
+    )
+    outcome = apply_rule(Rule.R1, state, ctx, default_theta(), RuleFlags())
+    by_well = {event.well: event for event in outcome.decisions}
+
+    assert by_well["103"].kind is EventKind.SET_RATE
+    assert by_well["103"].value == pytest.approx(70.0)
+
+    entry = next(item for item in outcome.trace if item.well == "103")
+    assert entry.decision == "HOLD_BASELINE_OUTSIDE_LAMBDA"
+    assert entry.inputs["outside_lambda_window"] == 1.0
+
+    # Фонд воды у месторождения один: удержанный базовый уровень вычитается
+    # из бюджета, а не прибавляется сверх него. Иначе сумма выходит за лимит
+    # участка и агент участка срезает множителем всех, включая измеренных.
+    measured = sum(by_well[well].value or 0.0 for well in ("101", "102"))
+    budget = ctx.injection_budget_m3_per_day
+    assert measured == pytest.approx(budget - 70.0)
+    assert measured + (by_well["103"].value or 0.0) == pytest.approx(budget)
+
+
+def test_injector_outside_lambda_without_baseline_is_shut_explicitly(
+    context: RuleContext,
+) -> None:
+    """Без базовой уставки скважина получает явный ноль, а не молчание.
+
+    Разница существенна: молчание правила плотный слой трактует сам, и
+    поведение зависит от того, что осталось в состоянии. Явный ноль — это
+    решение, и оно видно в трассе.
+    """
+
+    ctx = two_producer_context(context)
+    state = state_of(
+        producer("42", liquid_rate_m3_per_day=40.0, watercut=0.50),
+        producer("43", liquid_rate_m3_per_day=40.0, watercut=WASHED_OUT_WATERCUT),
+        injector("101", injection_rate_m3_per_day=200.0),
+        injector("102", injection_rate_m3_per_day=200.0),
+        injector("103", injection_rate_m3_per_day=70.0),
+    )
+    outcome = apply_rule(Rule.R1, state, ctx, default_theta(), RuleFlags())
+    by_well = {event.well: event for event in outcome.decisions}
+    assert by_well["103"].value == pytest.approx(0.0)

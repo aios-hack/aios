@@ -76,6 +76,11 @@ class RuleContext:
     group_injection_m3_per_day: Mapping[str, float] = field(default_factory=dict)
     group_offtake_m3_per_day: Mapping[str, float] = field(default_factory=dict)
     cyclic_uplift_rub_per_well: Mapping[str, float] = field(default_factory=dict)
+    #: Уставка закачки базового расписания на текущем шаге, м³/сут, по
+    #: скважинам. Нужна там, где решение принимать не на чем: R1 не
+    #: считает предельную ценность для нагнетательной, которой нет в λ,
+    #: и без базовой уставки такая скважина молча остаётся на нуле.
+    baseline_injection_m3_per_day: Mapping[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.oil_density_t_per_m3 <= 0:

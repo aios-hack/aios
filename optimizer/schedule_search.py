@@ -79,6 +79,7 @@ from contracts import (
     NormativeSet,
     Policies,
     ResponseArtifact,
+    OperatingStatus,
     Role,
     Schedule,
     Theta,
@@ -399,6 +400,39 @@ def _physical_caps(schedule: Schedule) -> tuple[dict[str, float], float]:
     return per_well, field_limit
 
 
+def _baseline_injection_by_step(schedule: Schedule) -> tuple[dict[str, float], ...]:
+    """Уставка закачки базового расписания на каждом шаге, плотно.
+
+    Базовое расписание разрежено: событие пишется только там, где величина
+    меняется. R1 же спрашивает про конкретный шаг, поэтому значения
+    протягиваются вперёд от `initial_state`. Закрытие скважины обнуляет
+    уставку до следующего `SET_RATE`: закачки у закрытой нет, и подставлять
+    ей прежний уровень значило бы обещать воду, которой не будет.
+    """
+
+    current: dict[str, float] = {
+        well: (
+            float(state.setpoint or 0.0)
+            if state.operating_status is OperatingStatus.OPEN
+            else 0.0
+        )
+        for well, state in schedule.initial_state.items()
+    }
+    by_step: dict[int, list[ControlEvent]] = {}
+    for event in schedule.control_events:
+        by_step.setdefault(event.control_step, []).append(event)
+
+    dense: list[dict[str, float]] = []
+    for step in range(schedule.meta.n_intervals):
+        for event in by_step.get(step, ()):
+            if event.kind is EventKind.SET_RATE:
+                current[event.well] = float(event.value or 0.0)
+            elif event.kind is EventKind.SHUT:
+                current[event.well] = 0.0
+        dense.append(dict(current))
+    return tuple(dense)
+
+
 def _capped(event: ControlEvent, caps: Mapping[str, float]) -> ControlEvent:
     """Уставка, срезанная физическим потолком скважины."""
 
@@ -499,6 +533,7 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
     commission_step = _commission_steps(env.base_schedule)
     role_at_commission = _role_at_commission(env.base_schedule)
     well_caps, field_limit = _physical_caps(env.base_schedule)
+    baseline_injection = _baseline_injection_by_step(env.base_schedule)
     # Уставка, с которой дек вводит скважину: с неё начинается наша, иначе
     # только что введённая скважина стоит с нулём и закрытой.
     commissioning_setpoint: dict[str, float] = {}
@@ -565,6 +600,7 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
                     context,
                     group_injection_m3_per_day=injection,
                     group_offtake_m3_per_day=offtake,
+                    baseline_injection_m3_per_day=baseline_injection[step],
                 ),
                 theta,
                 env.flags,

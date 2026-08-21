@@ -234,6 +234,11 @@ def test_group_agent_scales_down_a_request_above_its_limit(
         group_injection_m3_per_day={GROUP_A: 550.0},
         group_offtake_m3_per_day={GROUP_A: 60.0},
         memory=memory_of(),
+        # i9 вне окна λ и держит базовую уставку: ценность её закачки
+        # неизвестна, но обнулять скважину из-за отсутствия замера нельзя.
+        # Именно этот удержанный уровень и делает запрос участка выше лимита,
+        # то есть проверяет ровно то, ради чего тест написан.
+        baseline_injection_m3_per_day={"i9": 400.0},
     )
     flags = only_r1_flags()
     limit = GroupLimit(
