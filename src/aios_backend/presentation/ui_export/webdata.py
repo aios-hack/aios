@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from aios_backend.core.paths import project_root
 from aios_backend.presentation.ui_export.deck import load_completions, load_wellheads
 
 GRID_NI: int = 91
@@ -16,7 +17,7 @@ def default_deck_path() -> Path:
     roots = (
         (Path(from_env),)
         if from_env
-        else tuple(parent / "docs" for parent in Path(__file__).resolve().parents)
+        else tuple(parent / "docs" for parent in project_root().parents)
     )
     for root in roots:
         candidate = root / DECK_RELATIVE
@@ -26,7 +27,7 @@ def default_deck_path() -> Path:
 
 
 DEFAULT_DECK_PATH: Path = default_deck_path()
-DEFAULT_OUT_PATH: Path = Path(__file__).resolve().parents[1] / "frontend" / "public" / "data" / "wells.json"
+DEFAULT_OUT_PATH: Path = project_root() / "frontend" / "public" / "data" / "wells.json"
 
 
 def occupied_k_values(completions: dict[str, list[tuple[int, int, int, int]]]) -> list[int]:

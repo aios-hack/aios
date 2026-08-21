@@ -36,6 +36,7 @@ from typing import Sequence
 
 from aios_backend.core.contracts import N_CONTROL_DATES, Role, Schedule
 from aios_backend.core.contracts.response import N_DECK_DATES
+from aios_backend.core.paths import data_root
 from aios_backend.infrastructure.opm.dataset_plan import (
     LevelPerturbation,
     PerturbationFamily,
@@ -196,7 +197,7 @@ def main() -> int:
     root = Path(
         os.environ.get(
             "AIOS_LAMBDA_ROOT",
-            Path(__file__).resolve().parents[1] / "data" / "lambda-window-2007",
+            data_root() / "lambda-window-2007",
         )
     )
     workers = int(os.environ.get("AIOS_LAMBDA_WORKERS", "3"))

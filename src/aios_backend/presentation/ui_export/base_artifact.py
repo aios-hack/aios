@@ -33,6 +33,7 @@ from aios_backend.core.contracts import (
     RunArtifact,
     canonical_bytes,
 )
+from aios_backend.core.paths import data_root
 from aios_backend.domain.connectivity.groups import GroupingParams, group_hash, lambda_hash
 from aios_backend.domain.economics import analyze_base_case, load_response_artifact
 from aios_backend.domain.schedule import build_schedule, parse_schedule
@@ -43,9 +44,7 @@ REAL_NOTICE_EN = "Real result: OPM baseline run with zero retiming, reference NP
 
 _SCHEDULE_INCLUDE = "Model_Z_sch.inc"
 
-DEFAULT_RESPONSE_PATH: Path = (
-    Path(__file__).resolve().parents[1] / "data" / "base_case" / "response.json"
-)
+DEFAULT_RESPONSE_PATH: Path = data_root() / "base_case" / "response.json"
 
 
 @dataclass(frozen=True, slots=True)

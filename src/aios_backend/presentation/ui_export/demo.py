@@ -18,6 +18,7 @@ from aios_backend.core.contracts import (
     T0,
 )
 from aios_backend.core.contracts.response import N_DECK_DATES
+from aios_backend.core.paths import project_root
 from aios_backend.domain.economics import ESP_CATALOG_2007
 
 from aios_backend.presentation.ui_export.ablation_view import export_ablation_json
@@ -36,7 +37,7 @@ DEMO_NOTICE_RU = "Демонстрационные данные, не резул
 DEMO_NOTICE_EN = "Demonstration data, not a computed result"
 BASE_ID = "base"
 WHATIF_ID = "whatif-injection-cut"
-DEFAULT_OUT_DIR: Path = Path(__file__).resolve().parents[1] / "frontend" / "public" / "data"
+DEFAULT_OUT_DIR: Path = project_root() / "frontend" / "public" / "data"
 _DEFAULT_DENSITY = 860.0
 
 # F8: у `base` показатели устойчивости измерены (батарея `robustness/`

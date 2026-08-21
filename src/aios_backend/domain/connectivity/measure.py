@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Mapping, Sequence
 
 from aios_backend.core.contracts import IntervalResponse, Lambda, ResponseArtifact, StateAtDate
+from aios_backend.core.paths import data_root
 from aios_backend.infrastructure.opm.dataset import DatasetSample
 
 from aios_backend.domain.connectivity.campaign import (
@@ -437,11 +438,11 @@ def main() -> int:
     root = Path(
         os.environ.get(
             "AIOS_LAMBDA_ROOT",
-            Path(__file__).resolve().parents[1] / "data" / "lambda-window-2007",
+            data_root() / "lambda-window-2007",
         )
     )
     n_steps = int(os.environ.get("AIOS_LAMBDA_STEPS", str(DEFAULT_WINDOW_STEPS)))
-    baseline_path = Path(__file__).resolve().parents[1] / "data" / "base_case" / "response.json"
+    baseline_path = data_root() / "base_case" / "response.json"
 
     generator = DatasetGenerator(model_z, root, max_workers=1, timeout_seconds=7200.0)
     prepared = setup(model_z, generator.base_schedule(), n_steps=n_steps)
