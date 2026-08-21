@@ -405,3 +405,41 @@ def test_watercut_targets_survive_the_full_encode_decode_path() -> None:
         restored = liquid * (1.0 - min(watercut, 1.5)) * density
         assert restored == pytest.approx(fact.oil_mass_delta, abs=1e-2)
         assert liquid == pytest.approx(fact.liquid_volume_delta, abs=1e-2)
+
+
+def test_new_config_fields_do_not_invalidate_an_existing_checkpoint(tmp_path) -> None:
+    """Отпечаток сверяется с конфигом из файла, а не с текущим `ModelConfig`.
+
+    Иначе любое поле, добавленное в `ModelConfig` с умолчанием, меняет
+    `_fingerprint` и объявляет повреждённой каждую ранее обученную модель —
+    включая `model-task34-700`, на котором держатся G5 и G7. Тест
+    воспроизводит ровно это: checkpoint, записанный до появления полей
+    денежного лосса, обязан грузиться после их появления.
+    """
+
+    model = _model()
+    saved = model.save(tmp_path / "surrogate.pt")
+    payload = torch.load(saved, map_location="cpu", weights_only=False)
+
+    older = {
+        name: value
+        for name, value in payload["config"].items()
+        if name
+        not in {
+            "money_rub_per_unit",
+            "money_weight_alpha",
+            "money_weight_cap",
+            "lr_schedule",
+            "select_by",
+            "target_parameterization",
+            "oil_density_t_per_m3",
+        }
+    }
+    assert len(older) < len(payload["config"])
+    payload["config"] = older
+    payload["version"] = model._fingerprint(older)
+    torch.save(payload, saved)
+
+    restored = TrajectorySurrogate.load(saved)
+    assert restored.version == payload["version"]
+    assert restored.predict(_input()).output.nodes[0] == model.predict(_input()).output.nodes[0]

@@ -945,11 +945,20 @@ class TrajectorySurrogate:
         )
         return predict_with_score(output, candidate, self.domain)
 
-    def _fingerprint(self) -> str:
+    def _fingerprint(self, config: dict | None = None) -> str:
+        """Отпечаток весов и метаданных checkpoint.
+
+        `config` передаётся только при проверке загруженного файла: там
+        берётся словарь, записанный при сохранении, а не `asdict` текущего
+        `ModelConfig`. Иначе любое новое поле конфига с умолчанием меняет
+        отпечаток и объявляет повреждёнными все ранее обученные модели,
+        включая `model-task34-700`, на котором держатся G5 и G7.
+        """
+
         digest = hashlib.sha256()
         metadata = {
             "format": self.CHECKPOINT_FORMAT,
-            "config": asdict(self.config),
+            "config": asdict(self.config) if config is None else dict(config),
             "dataset_hash": self.dataset_hash,
             "input_scaler": asdict(self.input_scaler),
             "static_feature_names": self.static_feature_names,
@@ -1004,7 +1013,7 @@ class TrajectorySurrogate:
             dataset_hash=str(payload["dataset_hash"]),
             version=str(payload["version"]),
         )
-        if model._fingerprint() != model.version:
+        if model._fingerprint(payload["config"]) != model.version:
             raise SurrogateModelError("checkpoint повреждён: version не совпадает с весами")
         return model
 
