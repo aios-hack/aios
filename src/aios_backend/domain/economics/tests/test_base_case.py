@@ -26,7 +26,7 @@ from aios_backend.domain.schedule import parse_schedule
 from conftest import missing_reason, model_z_schedule
 
 BASE_CASE_RESPONSE = (
-    Path(__file__).resolve().parents[2] / "data" / "base_case" / "response.json"
+    Path(__file__).resolve().parents[5] / "data" / "base_case" / "response.json"
 )
 
 MODEL_Z_SCHEDULE = model_z_schedule()

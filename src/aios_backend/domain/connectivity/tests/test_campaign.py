@@ -30,7 +30,7 @@ from aios_backend.domain.connectivity.measure import load_lambda, measure, save_
 from conftest import missing_reason, model_z_dir
 
 MODEL_Z = model_z_dir()
-BASE_RESPONSE = Path(__file__).resolve().parents[2] / "data" / "base_case" / "response.json"
+BASE_RESPONSE = Path(__file__).resolve().parents[5] / "data" / "base_case" / "response.json"
 
 pytestmark = pytest.mark.skipif(
     MODEL_Z is None or not BASE_RESPONSE.is_file(),

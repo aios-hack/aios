@@ -35,7 +35,7 @@ from conftest import chdd_python_dir, missing_reason, model_z_schedule
 CHDD_PYTHON_DIR = chdd_python_dir()
 MODEL_Z_SCHEDULE = model_z_schedule()
 BASE_CASE_RESPONSE = (
-    Path(__file__).resolve().parents[2] / "data" / "base_case" / "response.json"
+    Path(__file__).resolve().parents[5] / "data" / "base_case" / "response.json"
 )
 
 NORMATIVES = NormativeSet(**DEFAULT_NORMATIVES_2007, esp_catalog=ESP_CATALOG_2007)

@@ -30,7 +30,7 @@ pytestmark = [
 # Общий с продовым запуском кеш (§4.5): полный физический прогон Model_Z
 # занимает реальное время, повторный `pytest` с тем же ключом дека/расписания/
 # SummarySpec обязан попасть в кеш, а не гонять симулятор заново.
-WORK_ROOT = Path(__file__).resolve().parents[2] / "data" / "base_run"
+WORK_ROOT = Path(__file__).resolve().parents[5] / "data" / "base_run"
 
 
 @pytest.fixture(scope="module")
