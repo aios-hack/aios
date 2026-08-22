@@ -34,3 +34,10 @@ def model_z_dir() -> Path:
 
 def chdd_python_dir() -> Path:
     return docs_root() / "models" / "CHDD_PYTHON"
+
+
+def normatives_xlsx() -> Path:
+    path = chdd_python_dir() / "input" / "Нормативы_ЧДД.xlsx"
+    if not path.is_file():
+        raise FileNotFoundError(f"Organizer normatives not found: {path}")
+    return path

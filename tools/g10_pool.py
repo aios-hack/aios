@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-import conftest
+from backend.infrastructure.resources import model_z_dir, normatives_xlsx
 from backend.core.contracts import OptimizerResult
 from backend.core.contracts.hashing import hash_schedule
 from backend.domain.economics import load_response_artifact
@@ -34,8 +34,8 @@ POOL_BUDGET = int(sys.argv[2]) if len(sys.argv) > 2 else BUDGET
 
 def main() -> int:
     env = load_environment(
-        model_dir=conftest.model_z_dir(),
-        normatives_path=conftest.chdd_python_dir() / "input" / "Нормативы_ЧДД.xlsx",
+        model_dir=model_z_dir(),
+        normatives_path=normatives_xlsx(),
         response_path=RESPONSE,
         checkpoint_path=DATASET / "model.pt",
         feature_context_path=DATASET / "feature_context.json",

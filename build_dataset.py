@@ -8,9 +8,9 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-import conftest
 from backend.infrastructure.opm.dataset import DatasetGenerator
 from backend.infrastructure.opm.dataset_plan import build_plan
+from backend.infrastructure.resources import model_z_dir
 
 SEED = 20260816
 ROOT = Path(os.environ.get("AIOS_DATASET_ROOT", "w:/Projects/hacks/aios/data/dataset-main"))
@@ -18,9 +18,10 @@ WORKERS = int(os.environ.get("AIOS_DATASET_WORKERS", "4"))
 
 
 def main() -> int:
-    model_z = conftest.model_z_dir()
-    if model_z is None:
-        print("дек Model_Z не найден", flush=True)
+    try:
+        model_z = model_z_dir()
+    except FileNotFoundError as error:
+        print(error, flush=True)
         return 2
     ROOT.mkdir(parents=True, exist_ok=True)
     generator = DatasetGenerator(

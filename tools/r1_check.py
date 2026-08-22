@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-import conftest
+from backend.infrastructure.resources import model_z_dir, normatives_xlsx
 
 # `optimizer.search_run` читает sys.argv на импорте (там это точка входа
 # поиска), а сюда приходит текстовая метка прогона. Подменяем argv на время
@@ -54,8 +54,8 @@ def injection_by_step(schedule) -> dict[int, float]:
 
 
 def main() -> int:
-    model_dir = conftest.model_z_dir()
-    normatives_path = conftest.chdd_python_dir() / "input" / "Нормативы_ЧДД.xlsx"
+    model_dir = model_z_dir()
+    normatives_path = normatives_xlsx()
     env = load_environment(
         model_dir=model_dir,
         normatives_path=normatives_path,

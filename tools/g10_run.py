@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-import conftest
+from backend.infrastructure.resources import model_z_dir, normatives_xlsx
 from backend.infrastructure.opm import submit_schedule
 from backend.infrastructure.opm.opm_deck import OpmDeckEmitter
 from backend.infrastructure.opm.runner import deck_hashes, summary_spec_hash
@@ -47,8 +47,8 @@ def main() -> int:
         print(f"[{INDEX:02d}] уже посчитан, пропуск", flush=True)
         return 0
 
-    model_dir = conftest.model_z_dir()
-    normatives_path = conftest.chdd_python_dir() / "input" / "Нормативы_ЧДД.xlsx"
+    model_dir = model_z_dir()
+    normatives_path = normatives_xlsx()
     env = load_environment(
         model_dir=model_dir,
         normatives_path=normatives_path,
