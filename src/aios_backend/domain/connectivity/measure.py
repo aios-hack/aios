@@ -419,77 +419,9 @@ def load_lambda(path: Path | str) -> Lambda:
 
 
 def main() -> int:
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-
-    import os
-
-    from aios_backend.infrastructure.opm.dataset import DatasetGenerator
-    from aios_backend.infrastructure.resources import model_z_dir
-    from aios_backend.domain.economics import load_response_artifact
-
-    from aios_backend.domain.connectivity.campaign import DEFAULT_BATCH_SEEDS, DEFAULT_WINDOW_STEPS
-    from aios_backend.domain.connectivity.campaign import campaign_plan, setup
-
-    try:
-        model_z = model_z_dir()
-    except FileNotFoundError:
-        print("дек Model_Z не найден", flush=True)
-        return 2
-
-    root = Path(
-        os.environ.get(
-            "AIOS_LAMBDA_ROOT",
-            data_root() / "lambda-window-2007",
-        )
-    )
-    n_steps = int(os.environ.get("AIOS_LAMBDA_STEPS", str(DEFAULT_WINDOW_STEPS)))
-    baseline_path = data_root() / "base_case" / "response.json"
-
-    generator = DatasetGenerator(model_z, root, max_workers=1, timeout_seconds=7200.0)
-    prepared = setup(model_z, generator.base_schedule(), n_steps=n_steps)
-    plan = campaign_plan(prepared, seed=DEFAULT_BATCH_SEEDS[0])
-
-    # Прогоны уже в кеше: этот `build` ничего не считает, он их поднимает.
-    report = generator.build(plan)
-    if report.failed:
-        print(f"упавших прогонов {len(report.failed)} — λ на дырявой матрице не считается", flush=True)
-        return 3
-
-    baseline = load_response_artifact(baseline_path)
-    measured = measure(prepared, report.samples, baseline, n_steps=n_steps)
-
-    print(f"лаг: {measured.influence.lag_months} мес", flush=True)
-    print(
-        "развёртка R²: "
-        + ", ".join(f"{lag}={value:.3f}" for lag, value in measured.lag_scan),
-        flush=True,
-    )
-    print(
-        f"ранг {measured.influence.rank} из {len(measured.influence.injectors)} "
-        f"столбцов (фонд окна {len(prepared.fund.injectors)}), "
-        f"обусловленность {measured.influence.condition_number:.1f}, "
-        f"устойчивость {measured.influence.stability:.3f}",
-        flush=True,
-    )
-    print(
-        f"ненулевых рёбер {measured.nonzero_edges} из "
-        f"{len(measured.influence.producers) * len(measured.influence.injectors)}, "
-        f"недостижимых нагнетательных {len(measured.unreachable)}, "
-        f"не сдвинулось {len(measured.unmoved)}"
-        + (f" ({', '.join(measured.unmoved)})" if measured.unmoved else ""),
-        flush=True,
-    )
-
-    out = save_lambda(measured, root / "lambda.json")
-    print(f"матрица записана: {out}", flush=True)
-
-    groups, grouping = build_groups(measured.influence, GroupingParams())
-    print(
-        f"групп из λ: {len(groups.groups)}, покрытие "
-        f"{sum(len(wells) for wells in groups.groups.values())} скважин",
-        flush=True,
-    )
-    return 0
+    """Compatibility entry point; orchestration lives in application."""
+    from aios_backend.application.connectivity_measure import main as run
+    return run()
 
 
 if __name__ == "__main__":
