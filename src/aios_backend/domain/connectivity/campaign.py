@@ -184,60 +184,9 @@ def campaign_plan(setup_result: CampaignSetup, seed: int) -> PerturbationPlan:
 
 
 def main() -> int:
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-
-    from aios_backend.infrastructure.opm.dataset import DatasetGenerator
-    from aios_backend.infrastructure.resources import model_z_dir
-
-    try:
-        model_z = model_z_dir()
-    except FileNotFoundError:
-        print("дек Model_Z не найден", flush=True)
-        return 2
-
-    root = Path(
-        os.environ.get(
-            "AIOS_LAMBDA_ROOT",
-            data_root() / "lambda-window-2007",
-        )
-    )
-    workers = int(os.environ.get("AIOS_LAMBDA_WORKERS", "3"))
-    limit_text = os.environ.get("AIOS_LAMBDA_LIMIT")
-    limit = int(limit_text) if limit_text else None
-    n_steps = int(os.environ.get("AIOS_LAMBDA_STEPS", str(DEFAULT_WINDOW_STEPS)))
-
-    root.mkdir(parents=True, exist_ok=True)
-    generator = DatasetGenerator(model_z, root, max_workers=workers, timeout_seconds=7200.0)
-    prepared = setup(model_z, generator.base_schedule(), n_steps=n_steps)
-    plan = campaign_plan(prepared, seed=DEFAULT_BATCH_SEEDS[0])
-
-    print(
-        f"окно {prepared.window.start}…{prepared.window.end}, "
-        f"нагнетательных {len(prepared.fund.injectors)}, "
-        f"партий {len(prepared.plans)}, прогонов {prepared.n_runs}"
-        + (f", ограничение {limit}" if limit else ""),
-        flush=True,
-    )
-    print(
-        f"амплитуда: медиана {prepared.amplitude.base_level_m3_per_day:.1f} м³/сут, "
-        f"шаг {prepared.amplitude.step_m3_per_day:.1f} м³/сут "
-        f"({prepared.amplitude.step_m3_per_day / prepared.amplitude.base_level_m3_per_day:.0%} уровня), "
-        f"воркеров {workers}",
-        flush=True,
-    )
-
-    started = time.monotonic()
-    report = generator.build(plan, limit=limit)
-    elapsed = time.monotonic() - started
-    print(
-        f"готово за {elapsed / 60:.1f} мин: посчитано {report.n_simulated}, "
-        f"из кеша {report.n_from_cache}, пропущено {len(report.skipped)}, "
-        f"упало {len(report.failed)}",
-        flush=True,
-    )
-    for item in report.failed:
-        print(f"  FAILED {item.message}", flush=True)
-    return 0
+    """Compatibility entry point; orchestration lives in application."""
+    from aios_backend.application.connectivity_campaign import main as run
+    return run()
 
 
 if __name__ == "__main__":
