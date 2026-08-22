@@ -49,3 +49,20 @@ code must be added under `src/aios_backend/`.
 Use `python -m aios_cli.run search`, `verify`, or `full`. The `full` mode runs
 the real fast-model search and then the real OPM verification. It stops if the
 first step fails; a prediction is never presented as a verified result.
+
+Every new run is isolated under `out/runs/<run-id>/`:
+
+```text
+manifest.json     Status, schedule hash, predicted and verified NPV.
+schedule/         Canonical schedule passed through the workflow.
+prediction/       Fast-model result.
+opm/              OPM work directory for the same schedule.
+validation/       Soundness, OPM status, dynamic violations, identities.
+economics/        Verified NPV when the tract reached Economics.
+inputs/, ui/      Reserved inputs and presentation output for this run.
+```
+
+`ready_to_submit` is written only when OPM reports `sound=true`; otherwise the
+same evidence is retained but the manifest is `rejected`. Existing commands
+such as `python -m optimizer.search_run` and `python -m bridge.submission_run`
+remain available as compatibility entry points.
