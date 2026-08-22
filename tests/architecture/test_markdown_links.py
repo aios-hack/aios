@@ -37,10 +37,6 @@ EXCLUDED_FILES = {
 # Точечные исключения: (файл, путь) -> обоснование.
 EXPLICIT_EXCLUSIONS: dict[tuple[str, str], str] = {
     (
-        "SURROGATE-REQUESTS-20.08.md",
-        "dataset-700/model-task34-700/training_report.json",
-    ): "dataset-700 — отдельный репозиторий aios-hack/dataset-700 (см. README §8), не часть aios",
-    (
         "README.md",
         "public/data/demo-script.json",
     ): "путь внутри frontend/public/, генерируется отдельной командой; в git и в образе отсутствует (README §9)",
