@@ -23,20 +23,20 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 import conftest
-from aios_backend.infrastructure.opm import submit_schedule
-from aios_backend.infrastructure.opm.opm_deck import OpmDeckEmitter
-from aios_backend.infrastructure.opm.runner import deck_hashes, summary_spec_hash
-from aios_backend.domain.configuration.schema import default_config
-from aios_backend.core.contracts import ArtifactHashes, Constraints, Theta
-from aios_backend.core.contracts.economics import LineItems
-from aios_backend.core.contracts.hashing import hash_schedule
-from aios_backend.domain.economics import load_normatives, load_response_artifact
-from aios_backend.domain.economics.base_case import analyze_base_case
-from aios_backend.application.optimization.schedule_search import load_environment, make_evaluator, make_policy
-from aios_backend.application.optimization.search_run import DATASET, FINAL_CAP, LAMBDA, RESPONSE, SEED
-from aios_backend.domain.policy.fixed_point import resolve
-from aios_backend.domain.policy.theta import default_theta
-from aios_backend.domain.schedule.canonical import canonical_part_hash
+from backend.infrastructure.opm import submit_schedule
+from backend.infrastructure.opm.opm_deck import OpmDeckEmitter
+from backend.infrastructure.opm.runner import deck_hashes, summary_spec_hash
+from backend.domain.configuration.schema import default_config
+from backend.core.contracts import ArtifactHashes, Constraints, Theta
+from backend.core.contracts.economics import LineItems
+from backend.core.contracts.hashing import hash_schedule
+from backend.domain.economics import load_normatives, load_response_artifact
+from backend.domain.economics.base_case import analyze_base_case
+from backend.application.optimization.schedule_search import load_environment, make_evaluator, make_policy
+from backend.application.optimization.search_run import DATASET, FINAL_CAP, LAMBDA, RESPONSE, SEED
+from backend.domain.policy.fixed_point import resolve
+from backend.domain.policy.theta import default_theta
+from backend.domain.schedule.canonical import canonical_part_hash
 
 OUT = Path("data/g9-attribution.json")
 WORK_ROOT = Path("data/g7-submission")

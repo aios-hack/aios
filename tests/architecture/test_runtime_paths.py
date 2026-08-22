@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from aios_backend.core.paths import data_root, project_root
-from aios_backend.presentation.ui_export.base_artifact import DEFAULT_RESPONSE_PATH
-from aios_backend.presentation.ui_export.demo import DEFAULT_OUT_DIR
-from aios_backend.presentation.ui_export.webdata import DEFAULT_OUT_PATH
+from backend.core.paths import data_root, project_root
+from backend.presentation.ui_export.base_artifact import DEFAULT_RESPONSE_PATH
+from backend.presentation.ui_export.demo import DEFAULT_OUT_DIR
+from backend.presentation.ui_export.webdata import DEFAULT_OUT_PATH
 
 
 def test_runtime_defaults_are_under_project_not_source_package() -> None:

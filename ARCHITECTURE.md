@@ -6,7 +6,7 @@ works.
 
 ## Source tree
 
-New backend code lives in `src/aios_backend/`.
+Backend code lives in `backend/`.
 
 ```text
 core/            Shared data types and hashes.
@@ -40,16 +40,16 @@ presentation → application → domain → core
 - `presentation` is the only layer that parses command-line input or writes
   UI-facing files.
 
-Only `src/aios_backend/` contains backend code. Temporary top-level package
+Only `backend/` contains backend code. Temporary top-level package
 paths were removed after migration.
 
 ## Run command
 
-Use `python -m aios_backend.presentation.cli.run search`, `verify`, or `full`. The `full` mode runs
+Use `python -m backend.presentation.cli.run search`, `verify`, or `full`. The `full` mode runs
 the real fast-model search and then the real OPM verification. It stops if the
 first step fails; a prediction is never presented as a verified result. To
 verify a previously searched plan without searching again, use
-`python -m aios_backend.presentation.cli.run verify --run-id <id>`; it reads that run's saved
+`python -m backend.presentation.cli.run verify --run-id <id>`; it reads that run's saved
 schedule, never the global legacy `cmaes.json`.
 
 Every new run is isolated under `out/runs/<run-id>/`:

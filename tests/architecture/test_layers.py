@@ -6,7 +6,7 @@ import ast
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2] / "src" / "aios_backend"
+ROOT = Path(__file__).resolve().parents[2] / "src" / "backend"
 
 # These are legacy executable modules still being reached through their old
 # ``python -m`` paths.  Their orchestration code will move behind the new CLI;
@@ -25,21 +25,21 @@ COMPATIBILITY_SHIMS = {
 
 FORBIDDEN: dict[str, tuple[str, ...]] = {
     "core": (
-        "aios_backend.domain",
-        "aios_backend.ml",
-        "aios_backend.infrastructure",
-        "aios_backend.application",
-        "aios_backend.presentation",
+        "backend.domain",
+        "backend.ml",
+        "backend.infrastructure",
+        "backend.application",
+        "backend.presentation",
     ),
     "domain": (
-        "aios_backend.ml",
-        "aios_backend.infrastructure",
-        "aios_backend.application",
-        "aios_backend.presentation",
+        "backend.ml",
+        "backend.infrastructure",
+        "backend.application",
+        "backend.presentation",
     ),
-    "ml": ("aios_backend.application", "aios_backend.presentation"),
-    "infrastructure": ("aios_backend.application", "aios_backend.presentation"),
-    "application": ("aios_backend.presentation",),
+    "ml": ("backend.application", "backend.presentation"),
+    "infrastructure": ("backend.application", "backend.presentation"),
+    "application": ("backend.presentation",),
 }
 
 

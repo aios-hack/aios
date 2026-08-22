@@ -1,8 +1,8 @@
 import json
 from dataclasses import dataclass
 
-from aios_backend.application.runs import RunRequest, RunWorkflow, WorkflowStatus
-from aios_backend.core.contracts import (
+from backend.application.runs import RunRequest, RunWorkflow, WorkflowStatus
+from backend.core.contracts import (
     Availability,
     OperatingStatus,
     Role,

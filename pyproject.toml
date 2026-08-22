@@ -26,26 +26,26 @@ ml = [
 [tool.setuptools]
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["."]
 include = [
-    "aios_backend*",
+    "backend*",
 ]
 exclude = ["*.tests", "tests*"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["."]
 testpaths = [
     "tests",
-    "src/aios_backend/infrastructure/opm/tests",
-    "src/aios_backend/domain/configuration/tests",
-    "src/aios_backend/domain/connectivity/tests",
-    "src/aios_backend/core/contracts/tests",
-    "src/aios_backend/domain/economics/tests",
-    "src/aios_backend/infrastructure/llm/tests",
-    "src/aios_backend/application/optimization/tests",
-    "src/aios_backend/domain/policy/tests",
-    "src/aios_backend/domain/robustness/tests",
-    "src/aios_backend/domain/schedule/tests",
-    "src/aios_backend/ml/surrogate/tests",
-    "src/aios_backend/presentation/ui_export/tests",
+    "backend/infrastructure/opm/tests",
+    "backend/domain/configuration/tests",
+    "backend/domain/connectivity/tests",
+    "backend/core/contracts/tests",
+    "backend/domain/economics/tests",
+    "backend/infrastructure/llm/tests",
+    "backend/application/optimization/tests",
+    "backend/domain/policy/tests",
+    "backend/domain/robustness/tests",
+    "backend/domain/schedule/tests",
+    "backend/ml/surrogate/tests",
+    "backend/presentation/ui_export/tests",
 ]

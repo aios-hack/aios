@@ -1,5 +1,5 @@
-from aios_backend.application.runs import RunRequest, RunWorkflow
-from aios_backend.presentation.cli.run import build_parser, load_run_request
+from backend.application.runs import RunRequest, RunWorkflow
+from backend.presentation.cli.run import build_parser, load_run_request
 from tests.application.test_run_workflow import sample_schedule
 
 
