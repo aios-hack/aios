@@ -536,3 +536,24 @@ def test_scenario_context_survives_checkpoint_round_trip(tmp_path) -> None:
     restored = TrajectorySurrogate.load(path)
     assert restored.config.scenario_context is True
     assert restored.predict(examples[0].input).output is not None
+
+
+def test_rich_scenario_summary_splits_producers_from_injectors() -> None:
+    """Фонд разнороден: среднее по нему смешивает две несравнимые популяции,
+    поэтому богатая сводка считает добывающие и нагнетательные раздельно."""
+    item = _input()
+    plain, _ = _features(item, item.wells)
+    rich, _ = _features(item, item.wells, scenario_context="rich")
+    width = plain.shape[1]
+    # средние, разброс, максимум, средние по PROD, средние по INJ
+    assert rich.shape == (plain.shape[0], width * 6)
+    summary = rich[0, width:]
+    prod = summary[3 * width : 4 * width]
+    inj = summary[4 * width : 5 * width]
+    assert not torch.allclose(prod, inj)
+    assert torch.isfinite(summary).all()
+
+
+def test_scenario_context_rejects_unknown_mode() -> None:
+    with pytest.raises(SurrogateModelError, match="scenario_context"):
+        replace(ModelConfig(), scenario_context="everything")

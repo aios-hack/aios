@@ -64,6 +64,9 @@ WATERCUT_TARGET_NAMES: tuple[str, ...] = (
 # держит декодирование в пределах, где `_BACKFLOW_FLOOR` ещё осмыслен.
 _WATERCUT_CEILING = 1.5
 
+# False — без сводки, True/"mean" — средние, "rich" — плюс разброс, крайние
+# значения и раздельные средние по добывающим и нагнетательным.
+_SCENARIO_CONTEXTS: tuple[object, ...] = (False, True, "mean", "rich")
 _LOSSES: tuple[str, ...] = ("smooth_l1", "mse", "huber")
 _LR_SCHEDULES: tuple[str, ...] = ("none", "cosine")
 _SELECTION_CRITERIA: tuple[str, ...] = ("loss", "money", "rank")
@@ -147,7 +150,7 @@ class ModelConfig:
     loss: str = "smooth_l1"
     huber_delta: float = 0.1
     residual: bool = False
-    scenario_context: bool = False
+    scenario_context: object = False
 
     def __post_init__(self) -> None:
         if self.hidden_width < 1 or self.hidden_layers < 1:
@@ -183,6 +186,10 @@ class ModelConfig:
             raise SurrogateModelError("oil_density_t_per_m3 должна быть положительной")
         if self.loss not in _LOSSES:
             raise SurrogateModelError(f"loss: {', '.join(_LOSSES)}")
+        if self.scenario_context not in _SCENARIO_CONTEXTS:
+            raise SurrogateModelError(
+                "scenario_context: False, True, 'mean' или 'rich'"
+            )
         if not self.huber_delta > 0.0:
             raise SurrogateModelError("huber_delta должна быть положительной")
 
@@ -327,11 +334,36 @@ def _validate_input(item: SurrogateInput) -> None:
         raise SurrogateModelError("static_values не совпадает со static_feature_names")
 
 
+def _scenario_summary(x: Tensor, item: SurrogateInput, *, mode: object) -> Tensor:
+    """Сводка сценария, одинаковая для всех его узлов.
+
+    `mean` — средние по всем узлам. `rich` добавляет разброс, крайние значения
+    и раздельные средние по добывающим и нагнетательным: фонд разнороден, и
+    среднее по нему смешивает две несравнимые популяции.
+    """
+    rows = x.shape[0]
+    blocks = [x.mean(dim=0, keepdim=True)]
+    if mode == "rich":
+        blocks.extend((x.std(dim=0, keepdim=True), x.amax(dim=0, keepdim=True)))
+        role_index = {role: index for index, role in enumerate(Role)}
+        for role in (Role.PROD, Role.INJ):
+            mask = torch.tensor(
+                [node.role is role for node in item.nodes], dtype=torch.bool
+            )
+            blocks.append(
+                x[mask].mean(dim=0, keepdim=True)
+                if bool(mask.any())
+                else torch.zeros(1, x.shape[1], dtype=x.dtype)
+            )
+    summary = torch.cat(blocks, dim=1)
+    return torch.nan_to_num(summary).expand(rows, -1)
+
+
 def _features(
     item: SurrogateInput,
     wells: tuple[str, ...],
     *,
-    scenario_context: bool = False,
+    scenario_context: object = False,
 ) -> tuple[Tensor, Tensor]:
     """Признаки узлов одного сценария.
 
@@ -349,8 +381,7 @@ def _features(
     well_to_index = {well: index for index, well in enumerate(wells)}
     x = torch.tensor([_node_vector(node) for node in item.nodes], dtype=torch.float32)
     if scenario_context:
-        summary = x.mean(dim=0, keepdim=True).expand(x.shape[0], -1)
-        x = torch.cat((x, summary), dim=1)
+        x = torch.cat((x, _scenario_summary(x, item, mode=scenario_context)), dim=1)
     well_index = torch.tensor(
         [well_to_index[node.well] for node in item.nodes], dtype=torch.long
     )
