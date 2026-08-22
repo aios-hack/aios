@@ -87,7 +87,9 @@ docker build -t aios:latest .
 # что попало в образ и какие данные видны
 docker run --rm -v /путь/к/aios/docs:/data/docs:ro aios:latest selfcheck
 
-# тесты
+# тесты: обе формы запускают весь pytest; в обычном образе без Docker daemon
+# Flow-зависимые проверки честно покажутся как skipped
+docker run --rm -v /путь/к/aios/docs:/data/docs:ro aios:latest tests
 docker run --rm -v /путь/к/aios/docs:/data/docs:ro aios:latest tests -q
 
 # расчёт ЧДД со сверкой с эталонным расчётчиком
@@ -109,6 +111,12 @@ AIOS_DOCS=/путь/к/aios/docs docker compose run --rm tests
 AIOS_DOCS=/путь/к/aios/docs docker compose run --rm npv
 docker compose up -d --build web  # сначала webdata соберёт JSON, затем стартует web
 ```
+
+`tests` и `tests -q` передают аргументы одному и тому же `pytest`. В образе Docker
+client и daemon намеренно не устанавливаются и не подключаются: проверки, которым
+нужен настоящий OPM Flow или отсутствующий кеш отклика, помечены точечным `skip`,
+остальные тесты из тех же файлов продолжают выполняться. Без смонтированного `docs/`
+добавляются только законные `skip` тестов, которым нужны данные организаторов.
 
 Обычный `docker compose up -d --build` делает то же самое: одноразовые команды
 `tests`, `npv`, `emit` и `selfcheck` вынесены в профиль `tools` и сами при старте
