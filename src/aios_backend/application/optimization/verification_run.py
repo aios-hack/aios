@@ -24,7 +24,6 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-import conftest
 from aios_backend.infrastructure.opm import submit_schedule
 from aios_backend.infrastructure.opm.opm_deck import OpmDeckEmitter
 from aios_backend.infrastructure.opm.runner import deck_hashes, summary_spec_hash
@@ -39,6 +38,7 @@ from aios_backend.application.optimization.search_run import BUDGET, FINAL_CAP, 
 from aios_backend.domain.policy.fixed_point import resolve
 from aios_backend.domain.policy.theta import default_theta
 from aios_backend.core.contracts import OptimizerResult
+from aios_backend.infrastructure.resources import chdd_python_dir, model_z_dir
 
 DATASET = Path("../dataset-700/model-task34-700")
 LAMBDA = Path("data/lambda-window-2007/lambda.json")
@@ -50,8 +50,8 @@ BASE_NPV = 11_873_676_459.64
 
 def verify_schedule(schedule: Schedule, work_root: Path):
     """Run the real OPM tract for the exact schedule supplied by a caller."""
-    model_dir = conftest.model_z_dir()
-    normatives_path = conftest.chdd_python_dir() / "input" / "Нормативы_ЧДД.xlsx"
+    model_dir = model_z_dir()
+    normatives_path = chdd_python_dir() / "input" / "Нормативы_ЧДД.xlsx"
     normatives = load_normatives(normatives_path)
     emitter = OpmDeckEmitter(model_dir)
     with tempfile.TemporaryDirectory() as scratch:
@@ -75,8 +75,8 @@ def verify_schedule(schedule: Schedule, work_root: Path):
 
 
 def main() -> int:
-    model_dir = conftest.model_z_dir()
-    normatives_path = conftest.chdd_python_dir() / "input" / "Нормативы_ЧДД.xlsx"
+    model_dir = model_z_dir()
+    normatives_path = chdd_python_dir() / "input" / "Нормативы_ЧДД.xlsx"
     env = load_environment(
         model_dir=model_dir,
         normatives_path=normatives_path,

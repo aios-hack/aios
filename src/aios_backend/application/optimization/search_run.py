@@ -28,7 +28,6 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-import conftest
 from aios_backend.core.contracts import OptimizerResult, Schedule, Theta
 from aios_backend.core.contracts.hashing import hash_schedule
 from aios_backend.domain.economics import load_response_artifact
@@ -37,6 +36,7 @@ from aios_backend.application.optimization.search import optimize
 from aios_backend.domain.policy.fixed_point import resolve
 from aios_backend.domain.policy.theta import default_theta
 from aios_backend.domain.schedule import validate_static
+from aios_backend.infrastructure.resources import chdd_python_dir, model_z_dir
 
 DATASET = Path(os.environ.get("AIOS_CHECKPOINT_DIR", "../dataset-700/model-task34-700"))
 LAMBDA = Path(os.environ.get("AIOS_LAMBDA_PATH", "data/lambda-window-2007/lambda.json"))
@@ -63,8 +63,8 @@ class SearchOutcome:
 def run_search(*, budget: int = BUDGET) -> SearchOutcome:
     """Run CMA-ES and return the plan instead of deciding where to save it."""
     env = load_environment(
-        model_dir=conftest.model_z_dir(),
-        normatives_path=conftest.chdd_python_dir() / "input" / "Нормативы_ЧДД.xlsx",
+        model_dir=model_z_dir(),
+        normatives_path=chdd_python_dir() / "input" / "Нормативы_ЧДД.xlsx",
         response_path=RESPONSE,
         checkpoint_path=DATASET / "model.pt",
         feature_context_path=DATASET / "feature_context.json",
