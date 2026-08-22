@@ -18,14 +18,14 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 import conftest
-from contracts import OptimizerResult
-from contracts.hashing import hash_schedule
-from economics import load_response_artifact
-from optimizer.schedule_search import load_environment, make_evaluator, make_policy
-from optimizer.search import optimize
-from optimizer.search_run import BUDGET, DATASET, FINAL_CAP, LAMBDA, RESPONSE, SEARCH_CAP, SEED
-from policy.fixed_point import resolve
-from policy.theta import default_theta
+from aios_backend.core.contracts import OptimizerResult
+from aios_backend.core.contracts.hashing import hash_schedule
+from aios_backend.domain.economics import load_response_artifact
+from aios_backend.application.optimization.schedule_search import load_environment, make_evaluator, make_policy
+from aios_backend.application.optimization.search import optimize
+from aios_backend.application.optimization.search_run import BUDGET, DATASET, FINAL_CAP, LAMBDA, RESPONSE, SEARCH_CAP, SEED
+from aios_backend.domain.policy.fixed_point import resolve
+from aios_backend.domain.policy.theta import default_theta
 
 OUT = Path("data/g10-verification")
 TOP_K = int(sys.argv[1]) if len(sys.argv) > 1 else 40

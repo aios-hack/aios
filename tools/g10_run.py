@@ -21,18 +21,18 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 import conftest
-from bridge import submit_schedule
-from bridge.opm_deck import OpmDeckEmitter
-from bridge.runner import deck_hashes, summary_spec_hash
-from config.schema import default_config
-from contracts import ArtifactHashes, Constraints, Theta
-from contracts.hashing import hash_schedule
-from economics import load_normatives, load_response_artifact
-from optimizer.schedule_search import load_environment, make_evaluator, make_policy
-from optimizer.search_run import DATASET, FINAL_CAP, LAMBDA, RESPONSE, SEED
-from policy.fixed_point import resolve
-from policy.theta import default_theta
-from schedule.canonical import canonical_part_hash
+from aios_backend.infrastructure.opm import submit_schedule
+from aios_backend.infrastructure.opm.opm_deck import OpmDeckEmitter
+from aios_backend.infrastructure.opm.runner import deck_hashes, summary_spec_hash
+from aios_backend.domain.configuration.schema import default_config
+from aios_backend.core.contracts import ArtifactHashes, Constraints, Theta
+from aios_backend.core.contracts.hashing import hash_schedule
+from aios_backend.domain.economics import load_normatives, load_response_artifact
+from aios_backend.application.optimization.schedule_search import load_environment, make_evaluator, make_policy
+from aios_backend.application.optimization.search_run import DATASET, FINAL_CAP, LAMBDA, RESPONSE, SEED
+from aios_backend.domain.policy.fixed_point import resolve
+from aios_backend.domain.policy.theta import default_theta
+from aios_backend.domain.schedule.canonical import canonical_part_hash
 
 OUT = Path("data/g10-verification")
 BASE_NPV = 11_873_676_459.64

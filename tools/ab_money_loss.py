@@ -31,11 +31,11 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 import conftest
-from economics import load_normatives
-from surrogate.cycle import EXTRA_CONFIG, PILOT_CONFIG, _build_stage, _combined_hash
-from surrogate.model import ModelConfig, TrajectorySurrogate
-from surrogate.model_z_context import build_model_z_context
-from surrogate.train import _examples, evaluate, money_rub_per_unit, split_samples
+from aios_backend.domain.economics import load_normatives
+from aios_backend.ml.surrogate.cycle import EXTRA_CONFIG, PILOT_CONFIG, _build_stage, _combined_hash
+from aios_backend.ml.surrogate.model import ModelConfig, TrajectorySurrogate
+from aios_backend.ml.surrogate.model_z_context import build_model_z_context
+from aios_backend.ml.surrogate.train import _examples, evaluate, money_rub_per_unit, split_samples
 
 DATA_ROOT = Path("data")
 OUT_ROOT = Path("data/ab-money-loss")

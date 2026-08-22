@@ -9,8 +9,8 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 import conftest
-from bridge.dataset import DatasetGenerator
-from bridge.dataset_plan import build_plan
+from aios_backend.infrastructure.opm.dataset import DatasetGenerator
+from aios_backend.infrastructure.opm.dataset_plan import build_plan
 
 SEED = 20260816
 ROOT = Path(os.environ.get("AIOS_DATASET_ROOT", "w:/Projects/hacks/aios/data/dataset-main"))

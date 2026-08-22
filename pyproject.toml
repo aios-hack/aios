@@ -26,22 +26,9 @@ ml = [
 [tool.setuptools]
 
 [tool.setuptools.packages.find]
-where = ["src", "."]
+where = ["src"]
 include = [
     "aios_backend*",
-    "aios_cli",
-    "bridge",
-    "config",
-    "connectivity",
-    "contracts",
-    "economics",
-    "llm",
-    "optimizer",
-    "policy",
-    "robustness",
-    "schedule",
-    "surrogate",
-    "ui",
 ]
 exclude = ["*.tests", "tests*"]
 

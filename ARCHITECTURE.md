@@ -40,17 +40,16 @@ presentation → application → domain → core
 - `presentation` is the only layer that parses command-line input or writes
   UI-facing files.
 
-The temporary top-level packages (`contracts`, `bridge`, `optimizer`, and so
-on) stay as compatibility entry points while callers migrate. New production
-code must be added under `src/aios_backend/`.
+Only `src/aios_backend/` contains backend code. Temporary top-level package
+paths were removed after migration.
 
 ## Run command
 
-Use `python -m aios_cli.run search`, `verify`, or `full`. The `full` mode runs
+Use `python -m aios_backend.presentation.cli.run search`, `verify`, or `full`. The `full` mode runs
 the real fast-model search and then the real OPM verification. It stops if the
 first step fails; a prediction is never presented as a verified result. To
 verify a previously searched plan without searching again, use
-`python -m aios_cli.run verify --run-id <id>`; it reads that run's saved
+`python -m aios_backend.presentation.cli.run verify --run-id <id>`; it reads that run's saved
 schedule, never the global legacy `cmaes.json`.
 
 Every new run is isolated under `out/runs/<run-id>/`:
@@ -66,6 +65,4 @@ inputs/, ui/      Reserved inputs and presentation output for this run.
 ```
 
 `ready_to_submit` is written only when OPM reports `sound=true`; otherwise the
-same evidence is retained but the manifest is `rejected`. Existing commands
-such as `python -m optimizer.search_run` and `python -m bridge.submission_run`
-remain available as compatibility entry points.
+same evidence is retained but the manifest is `rejected`.
