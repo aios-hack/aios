@@ -34,7 +34,8 @@ def main(argv: list[str] | None = None) -> int:
         request = RunRequest(run_id, outcome.schedule, outcome.predicted_npv)
         workflow = RunWorkflow(args.runs_root)
         if mode == "search":
-            workflow.search(request)
+            manifest = workflow.search(request)
+            export_run_summary(manifest, args.runs_root / run_id / "ui")
             return 0
         manifest = workflow.full(
             lambda: request,
