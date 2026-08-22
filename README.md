@@ -81,8 +81,6 @@ npm test
 
 Образ собирается для полного репозитория. Данные организаторов монтируются снаружи и в образ не копируются.
 
-**`docker build` сейчас не проходит, и это не свойство раскладки backend.** Стадия фронта выполняет `npm run build` = `tsc --noEmit && vite build`, а `tsc` типизирует и тестовые файлы: `frontend/src/app/DemoMode/frames.test.ts` импортирует `../../../public/data/demo-script.json`, и каталог `frontend/public/data/` исключён из контекста сборки `.dockerignore`. Стадия падает с `TS2307`, до python-стадии сборка не доходит. Дефект не новый: и тест, и строка в `.dockerignore` были на `main` до переноса кода в `backend/`. Каталог `frontend/` принадлежит своему владельцу, поэтому правка идёт отдельной задачей.
-
 ```bash
 docker build -t aios:latest .
 
@@ -109,17 +107,18 @@ docker run --rm -p 8000:8000 -v /путь/к/aios/docs:/data/docs:ro aios:latest
 ```bash
 AIOS_DOCS=/путь/к/aios/docs docker compose run --rm tests
 AIOS_DOCS=/путь/к/aios/docs docker compose run --rm npv
+docker compose up -d --build web
 ```
 
 **Устройство образа.** Две стадии: `node:22.11.0-bookworm-slim` собирает фронт `frontend` (`npm ci && npm run build`), `python:3.12.7-slim-bookworm` обслуживает расчёт и отдаёт собранную статику. Точка входа — `docker/entrypoint.sh` со свободным `CMD`, выбирающим команду; варианты перечислены выше, плюс `shell` и произвольная команда.
 
-**Данные витрины в поставку не входят.** Каталог `frontend/public/data/` исключён и из git (`frontend/.gitignore`), и из контекста сборки образа (`.dockerignore`), а генерации нет ни в `Dockerfile`, ни в `docker/entrypoint.sh`, ни в `backend/presentation/cli/`. Поэтому на чистом клоне `docker build` с последующим `web` отдаёт собранный интерфейс без единого JSON — все виды поднимаются в пустом состоянии. Набор собирается отдельной командой на той машине, с которой идёт показ:
+**Данные витрины не запекаются в image.** Каталог `frontend/public/data/` исключён из git и контекста сборки, потому что это генерируемые артефакты размером около 130 МБ. Сервис compose `web` автоматически монтирует этот каталог read-only в `/app/frontend/dist/data`, поэтому после генерации JSON обычный `docker compose up -d web` поднимает заполненную витрину:
 
 ```bash
 .venv/bin/python -m backend.presentation.ui_export.demo    # собирает весь набор в frontend/public/data/
 ```
 
-Одна команда собирает оба сценария библиотеки: `base` — настоящий бандл базового прогона (`backend.presentation.ui_export.base_artifact` по сохранённому отклику `data/base_case/response.json`), `whatif-injection-cut` — демонстрационный, помеченный `synthetic-demo`. Это известный разрыв поставки, а не свойство образа: он записан в `docs/v2/STATUS.md`, «Вне очередей».
+Одна команда собирает оба сценария библиотеки: `base` — настоящий бандл базового прогона (`backend.presentation.ui_export.base_artifact` по сохранённому отклику `data/base_case/response.json`), `whatif-injection-cut` — демонстрационный, помеченный `synthetic-demo`. Если каталог не сгенерирован, web поднимется, но честно покажет отсутствие данных.
 
 На сборке образа выполняется `RUN python -m backend.presentation.cli.selfcheck`: он сообщает о доступности CLI, данных, Docker и опциональных зависимостей. Команда, которой не хватает данных, отказывается работать явным кодом возврата (`2`), а веб-интерфейс без собранного фронта — кодом `3`.
 

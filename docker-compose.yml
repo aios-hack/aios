@@ -53,3 +53,6 @@ services:
     volumes:
       - ${AIOS_DOCS:-./../docs}:/data/docs:ro
       - ./out:/out
+      # JSON-витрина генерируется локально и не входит в image. Подключаем её
+      # прямо к каталогу статики, откуда frontend запрашивает /data/*.json.
+      - ./frontend/public/data:/app/frontend/dist/data:ro
