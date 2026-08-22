@@ -147,6 +147,7 @@ class ModelConfig:
     loss: str = "smooth_l1"
     huber_delta: float = 0.1
     residual: bool = False
+    scenario_context: bool = False
 
     def __post_init__(self) -> None:
         if self.hidden_width < 1 or self.hidden_layers < 1:
@@ -329,12 +330,27 @@ def _validate_input(item: SurrogateInput) -> None:
 def _features(
     item: SurrogateInput,
     wells: tuple[str, ...],
+    *,
+    scenario_context: bool = False,
 ) -> tuple[Tensor, Tensor]:
+    """Признаки узлов одного сценария.
+
+    `scenario_context` дописывает к каждому узлу средние по всем узлам его
+    сценария. Без этого узел видит свою скважину, свой шаг и двух соседей
+    через λ — то есть из двадцати одного признака сценарий различают ровно
+    два, оба λ-производные. Обнуление этих двух роняет ранговую корреляцию по
+    ЧДД с +0.53 до −0.14, значит модель ранжирует сценарии почти
+    исключительно через них. Сводка даёт прямой канал вместо единственного
+    косвенного; считается по `item.nodes`, то есть точно по одному сценарию.
+    """
     _validate_input(item)
     if item.wells != wells:
         raise SurrogateModelError(f"ось wells разошлась: {item.wells} != {wells}")
     well_to_index = {well: index for index, well in enumerate(wells)}
     x = torch.tensor([_node_vector(node) for node in item.nodes], dtype=torch.float32)
+    if scenario_context:
+        summary = x.mean(dim=0, keepdim=True).expand(x.shape[0], -1)
+        x = torch.cat((x, summary), dim=1)
     well_index = torch.tensor(
         [well_to_index[node.well] for node in item.nodes], dtype=torch.long
     )
@@ -431,13 +447,16 @@ def _example_tensors(
     *,
     parameterization: str = "absolute",
     oil_density_t_per_m3: float = 0.9131,
+    scenario_context: bool = False,
 ) -> tuple[Tensor, Tensor, Tensor]:
     xs: list[Tensor] = []
     indices: list[Tensor] = []
     ys: list[Tensor] = []
     counters: dict[str, int] = {}
     for example in examples:
-        x, well_index = _features(example.input, wells)
+        x, well_index = _features(
+            example.input, wells, scenario_context=scenario_context
+        )
         xs.append(x)
         indices.append(well_index)
         ys.append(
@@ -781,6 +800,7 @@ class TrajectorySurrogate:
             wells,
             parameterization=settings.target_parameterization,
             oil_density_t_per_m3=settings.oil_density_t_per_m3,
+            scenario_context=settings.scenario_context,
         )
         network = _NodeNetwork(x.shape[1], len(wells), settings)
         return cls(
@@ -818,6 +838,7 @@ class TrajectorySurrogate:
         parameterization = dict(
             parameterization=settings.target_parameterization,
             oil_density_t_per_m3=settings.oil_density_t_per_m3,
+            scenario_context=settings.scenario_context,
         )
         train_x, train_wells, train_y = _example_tensors(
             train, model.wells, target_stats, **parameterization
@@ -1029,7 +1050,9 @@ class TrajectorySurrogate:
     def predict(self, candidate: SurrogateInput) -> ScoredPrediction:
         if candidate.static_feature_names != self.static_feature_names:
             raise SurrogateModelError("статика кандидата не совпадает с checkpoint")
-        x, well_index = _features(candidate, self.wells)
+        x, well_index = _features(
+            candidate, self.wells, scenario_context=self.config.scenario_context
+        )
         x = self.input_scaler.transform(x)
         self.network.eval()
         chunks: list[Tensor] = []

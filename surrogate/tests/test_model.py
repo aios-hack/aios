@@ -22,6 +22,7 @@ from contracts import (  # noqa: E402
 from surrogate.features import SurrogateInput, WellStepFeatures  # noqa: E402
 from surrogate.model import (
     TARGET_NAMES,
+    _features,
     Standardizer,
     _NodeNetwork,
     _elementwise_loss,
@@ -508,3 +509,30 @@ def test_loss_choice_changes_the_elementwise_residual() -> None:
     assert float(huber[0, 1]) < float(smooth[0, 1])
     for tensor in (smooth, squared, huber):
         assert float(tensor[0, 0]) == pytest.approx(0.0)
+
+
+def test_scenario_context_doubles_features_and_shares_one_summary() -> None:
+    """Сводка считается по одному сценарию и одинакова у всех его узлов."""
+    item = _input()
+    plain, _ = _features(item, item.wells)
+    enriched, _ = _features(item, item.wells, scenario_context=True)
+    assert enriched.shape == (plain.shape[0], plain.shape[1] * 2)
+    assert torch.allclose(enriched[:, : plain.shape[1]], plain)
+    summary = enriched[:, plain.shape[1] :]
+    assert torch.allclose(summary[0], summary[-1])
+    assert torch.allclose(summary[0], plain.mean(dim=0), atol=1e-5)
+
+
+def test_scenario_context_survives_checkpoint_round_trip(tmp_path) -> None:
+    """Настройка обязана ехать в чекпоинте: иначе predict построит 21 признак
+    там, где сеть обучена на 42, и упадёт на несовпадении формы."""
+    config = replace(_model().config, scenario_context=True, max_epochs=1,
+                     patience=1, batch_size=64)
+    examples = tuple(_example(f"schedule-{index}") for index in range(4))
+    result = TrajectorySurrogate.fit(
+        examples[:3], examples[3:], config=config, dataset_hash="e" * 64
+    )
+    path = result.model.save(tmp_path / "model.pt")
+    restored = TrajectorySurrogate.load(path)
+    assert restored.config.scenario_context is True
+    assert restored.predict(examples[0].input).output is not None
