@@ -55,7 +55,7 @@
 490/105/105 (воспроизводится, проверено):
 
 ```bash
-python -m surrogate.train \
+python -m backend.ml.surrogate.train \
   --model-dir docs/models/Model_Z \
   --dataset-root data/dataset-main \
   --normatives docs/models/CHDD_PYTHON/input/Нормативы_ЧДД.xlsx \
@@ -63,11 +63,11 @@ python -m surrogate.train \
   --seed 20260817 --epochs 80 --patience 10 \
   --money-loss-alpha 0 --target-parameterization absolute   # рука ДО
 
-python -m surrogate.train ... --output-dir data/model-ab-money \
+python -m backend.ml.surrogate.train ... --output-dir data/model-ab-money \
   --money-loss-alpha 0.7 --target-parameterization absolute  # рука ПОСЛЕ
 ```
 
-Для объединённых 700 удобнее через `surrogate/cycle.py` — он и обучал
+Для объединённых 700 удобнее через `backend/ml/surrogate/cycle.py` — он и обучал
 `model-task34-700`. Скрипт моего стенда лежит вне git, могу прислать.
 
 **Цена.** ~2.9 часа на руку плюс ~30 минут на сборку. Итого ~6.5 часов.
@@ -84,7 +84,7 @@ Spearman не упал. На синтетике он давал 0.491 → 0.808 
 
 **Зачем.** У λ теперь два источника, и они могут расходиться. Твоя измеренная
 матрица из кампании Плакетта—Бермана — в `data/lambda-window-2007/lambda.json`.
-А `estimate_training_lambda` (`surrogate/model_z_context.py:289`) оценивает λ
+А `estimate_training_lambda` (`backend/ml/surrogate/model_z_context.py:289`) оценивает λ
 по откликам train-сплита и запекает её в `feature_context.json`. Если
 оптимизатор считает по измеренной, а признаки суррогата построены на
 оценённой — модель и поиск живут в разных физиках, и никакая точность модели
@@ -107,7 +107,7 @@ lam = json.load(open("data/lambda-window-2007/lambda.json"))
 
 ## 3. Десять минут: сработал ли OOD на θ\*
 
-**Зачем.** `optimizer/schedule_search.py:621` берёт `scored.output` и **нигде
+**Зачем.** `backend/application/optimization/schedule_search.py:621` берёт `scored.output` и **нигде
 не читает `scored.score`**. Детектор выхода за обучающий диапазон считается и
 выбрасывается. После истории с уставкой 584 000 при историческом максимуме 30
 это ровно тот механизм: CMA-ES уходит за пределы обучающей области, а суррогат
@@ -131,7 +131,7 @@ print(scored.score, scored.worst)   # score > 0 — вне обучающей о
 ## 4. Полчаса: verification loop на настоящих кандидатах
 
 **Зачем.** Внешний цикл верификации не отсутствует — он написан,
-`optimizer/verification.py`, задача 39: `verify()` гоняет настоящий OPM по
+`backend/application/optimization/verification.py`, задача 39: `verify()` гоняет настоящий OPM по
 `top_k` кандидатам от суррогата, с trust-region фильтром.
 
 Кривая `regret` по тестовому набору опубликованного чекпоинта:
@@ -172,7 +172,7 @@ print(scored.score, scored.worst)   # score > 0 — вне обучающей о
 ## 6. Что я предлагаю для G9, чтобы не писать лишнего
 
 Постатейное сравнение уже реализовано, отдельный расчётчик не нужен.
-`NpvTable` (`contracts/economics.py`) несёт три разложения — `by_year`,
+`NpvTable` (`backend/core/contracts/economics.py`) несёт три разложения — `by_year`,
 `by_month` по control_step, `by_well` — и каждое со статьями `revenue`,
 `deductions`, `opex_oil`, `opex_liquid`, `opex_injection`, `opex_wellstock`,
 `event_costs`, `capex_esp`, `ebitda`, `fcf`, `discounted_fcf`.

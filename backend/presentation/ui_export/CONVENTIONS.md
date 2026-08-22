@@ -26,7 +26,7 @@
   только отображает готовые данные из JSON (`public/data/`, генерируется Python-стороной).
 - **Синтетика обязана быть помечена.** Файлы видов (`graph.json`, `npv.json`,
   `timeline.json`, `scenarios.json`) несут в `meta` поля `provenance` и
-  `synthetic` (см. `ui/demo.py`): у демо-набора `synthetic: true`, у `wells.json`
+  `synthetic` (см. `backend/presentation/ui_export/demo.py`): у демо-набора `synthetic: true`, у `wells.json`
   из настоящего дека — `provenance: "deck"`, `synthetic: false`. Плашку
   `SyntheticBanner` интерфейс показывает по ним; `trace.json` и бандлы —
   отображения без обёртки `meta`, флага в них нет. Флаг читается из данных
@@ -80,5 +80,5 @@ Node.js — ровно `22.11.0`, как в `Dockerfile`. На Node 24 и нов
 равный `undefined` без `--localstorage-file`, и он перекрывает хранилище jsdom.
 
 `public/data/` в git не кладётся (см. `frontend/.gitignore`) — набор генерируется
-Python-стороной (`ui/demo.py` пишет в `frontend/public/data/`). Каталог `src/data/`
+Python-стороной (`backend/presentation/ui_export/demo.py` пишет в `frontend/public/data/`). Каталог `src/data/`
 — это слой загрузки данных на TypeScript, он в git есть и с `public/data/` не связан.

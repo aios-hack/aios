@@ -1,6 +1,6 @@
 # Схема JSON-бандла `RunArtifact`
 
-Файл на диске, который читает интерфейс. Пишет `ui/artifact_io.dump_bundle`, читает `ui/artifact_io.load_bundle`. Интерфейс ничего не вычисляет — всё берёт отсюда (contracts/README.md §9). Имена полей — ровно как в `contracts/`, включая `lambda_` (с подчёркиванием) и `canonical_schedule_hash`.
+Файл на диске, который читает интерфейс. Пишет `backend/presentation/ui_export/artifact_io.dump_bundle`, читает `backend/presentation/ui_export/artifact_io.load_bundle`. Интерфейс ничего не вычисляет — всё берёт отсюда (`backend/core/contracts/README.md` §9). Имена полей — ровно как в `backend/core/contracts/`, включая `lambda_` (с подчёркиванием) и `canonical_schedule_hash`.
 
 ## Кодирование
 
