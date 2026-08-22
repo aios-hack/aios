@@ -6,7 +6,10 @@ from backend.presentation.ui_export.demo import DEFAULT_OUT_DIR
 from backend.presentation.ui_export.webdata import DEFAULT_OUT_PATH
 
 
-def test_runtime_defaults_are_under_project_not_source_package() -> None:
+def test_runtime_defaults_are_under_project_not_source_package(monkeypatch) -> None:
+    for name in ("AIOS_PROJECT_ROOT", "AIOS_DATA_ROOT", "AIOS_OUT_DIR"):
+        monkeypatch.delenv(name, raising=False)
+
     root = project_root()
 
     assert (root / "pyproject.toml").is_file()
@@ -20,3 +23,8 @@ def test_runtime_defaults_are_under_project_not_source_package() -> None:
 def test_out_root_honours_its_own_environment_variable(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("AIOS_OUT_DIR", str(tmp_path / "results"))
     assert out_root() == (tmp_path / "results").resolve()
+
+
+def test_data_root_honours_its_own_environment_variable(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("AIOS_DATA_ROOT", str(tmp_path / "inputs"))
+    assert data_root() == (tmp_path / "inputs").resolve()

@@ -73,11 +73,11 @@ from backend.core.contracts import (
 from backend.core.paths import data_root
 from backend.domain.economics import ESP_CATALOG_2007, methodology_version_hash
 from backend.domain.economics.base_case import analyze_base_case
-from backend.domain.schedule import parse_schedule
+from backend.domain.schedule import ViolationKind, parse_schedule
 from backend.domain.schedule.build import deck_well_axis, initial_state_from_prefix
 from backend.domain.schedule.canonical import canonical_part_hash
 
-from conftest import missing_reason, model_z_dir
+from conftest import docker_unavailable_reason, missing_reason, model_z_dir
 
 MODEL_Z = model_z_dir()
 WORK_ROOT = data_root() / "base_run"
@@ -86,6 +86,43 @@ _SCHEDULE_INCLUDE = "Model_Z_sch.inc"
 pytestmark = pytest.mark.skipif(MODEL_Z is None, reason=missing_reason("каталог Model_Z"))
 
 NORMATIVES = NormativeSet(**DEFAULT_NORMATIVES_2007, esp_catalog=ESP_CATALOG_2007)
+
+
+def _cached_response_entry() -> dict[str, object] | None:
+    """Возвращает пригодный настоящий отклик из базового кеша, если он есть."""
+
+    for path in (WORK_ROOT / "cache").glob("*.json"):
+        try:
+            entry = json.loads(path.read_text(encoding="utf-8"))
+            artifacts = tuple(Path(item) for item in entry["artifacts"])
+        except (KeyError, TypeError, json.JSONDecodeError, OSError):
+            continue
+        names = {artifact.suffix.upper() for artifact in artifacts}
+        if (
+            entry.get("status") == RunStatus.OK.value
+            and all(artifact.is_file() for artifact in artifacts)
+            and {".SMSPEC", ".UNSMRY"} <= names
+        ):
+            return entry
+    return None
+
+
+def _submission_environment_unavailable_reason() -> str | None:
+    if _cached_response_entry() is not None or docker_unavailable_reason() is None:
+        return None
+    return (
+        "нет пригодного кешированного отклика для submission-тракта и "
+        f"{docker_unavailable_reason()}"
+    )
+
+
+requires_submission_response = pytest.mark.skipif(
+    _submission_environment_unavailable_reason() is not None,
+    reason=(
+        "приёмка submission-тракта требует настоящий кеш отклика или Docker; "
+        f"{_submission_environment_unavailable_reason()}"
+    ),
+)
 
 
 def _hybrid_schedule() -> Schedule:
@@ -106,10 +143,13 @@ def _seed_cache_entry_for(schedule: Schedule, tmp_path: Path) -> None:
     записывает вторую запись кеша под его собственным `canonical_schedule_hash`,
     указывающую на те же реальные артефакты, что и существующая запись."""
 
-    existing = list((WORK_ROOT / "cache").glob("*.json"))
-    if not existing:
-        pytest.skip("нет ни одной записи кеша в aios/data/base_run/cache — материализовать G1")
-    entry = json.loads(existing[0].read_text(encoding="utf-8"))
+    entry = _cached_response_entry()
+    if entry is None:
+        if docker_unavailable_reason() is not None:
+            pytest.skip(_submission_environment_unavailable_reason())
+        # При доступном Docker CachingOpmRunner создаст запись сам на первом
+        # вызове _run ниже; преждевременно пропускать такую приёмку нельзя.
+        return
 
     emitter = OpmDeckEmitter(MODEL_Z)
     deck = emitter.emit(schedule, tmp_path / "scratch-deck")
@@ -212,6 +252,7 @@ def test_validate_static_gate_rejects_before_any_run(schedule, config) -> None:
 # --- Гейт validate_dynamic — реальная, задокументированная находка ----------
 
 
+@requires_submission_response
 def test_dynamic_gate_rejects_the_real_baseline_over_well_71(schedule, config) -> None:
     """Тракт целиком: гейт `validate_dynamic` обязан остановить выдачу
     `FinalNpvArtifact`, пока открытый вопрос №17 не закрыт. Пин регрессии —
@@ -284,6 +325,7 @@ def test_final_npv_methodology_matches_its_own_table(final_npv) -> None:
 # одно» и «цепочка разошлась целиком» надо до неё, а не после.
 
 
+@requires_submission_response
 def test_all_six_identities_are_computed_even_when_the_tract_fails(schedule, config) -> None:
     """Базовое расписание не проходит динамику — но отчёт всё равно полон."""
 
@@ -305,6 +347,16 @@ def test_all_six_identities_are_computed_even_when_the_tract_fails(schedule, con
     assert result.failed_identities == ()
     assert result.sound is False
     assert result.dynamic_report is not None and not result.dynamic_report.ok
+    assert result.dynamic_report.counts() == {
+        ViolationKind.OPEN_WITHOUT_FLOW: 60,
+        ViolationKind.BHP_LIMITED_WITHOUT_UNDERSHOOT: 10,
+        ViolationKind.BHP_BELOW_PRODUCER_LIMIT: 1,
+    }
+    assert {
+        violation.control_step
+        for violation in result.dynamic_report.by_kind()[ViolationKind.OPEN_WITHOUT_FLOW]
+        if violation.well == "71"
+    } == set(range(60))
     # ЧДД посчитан, но заявлять его нечем — это и есть различение «нарушена
     # динамика» против «ошибка в деньгах», ради которого отчёт собирается.
     assert result.final_npv is not None
@@ -312,10 +364,13 @@ def test_all_six_identities_are_computed_even_when_the_tract_fails(schedule, con
         _ = result.npv_methodology
 
 
+@requires_submission_response
 def test_strict_mode_lists_every_reason_at_once(schedule, config) -> None:
     """Одно исключение, все причины: не первая попавшаяся."""
 
     with pytest.raises(SubmissionTractError, match="звено А §10.5 не пройдено") as excinfo:
         submit_schedule(schedule, MODEL_Z, WORK_ROOT, config, use_cache=True)
 
-    assert "validate_dynamic" in str(excinfo.value)
+    message = str(excinfo.value)
+    assert "validate_dynamic: 71 нарушени" in message
+    assert "validate_dynamic не выполнялся" not in message

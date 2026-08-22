@@ -136,6 +136,7 @@ def test_unavailable_docker_is_failed_not_subprocess_exception(tmp_path: Path) -
     assert "не удалось запустить" in result.message
 
 
+@requires_real_flow
 def test_timeout_is_failed_and_does_not_leak_a_container(tmp_path: Path) -> None:
     runner = OpmRunner(tmp_path / "runs", timeout_seconds=0.001)
     result = runner.run_data_file(DECKS / "MINI.DATA", **KEY)

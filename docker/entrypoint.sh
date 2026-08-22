@@ -15,27 +15,27 @@ warn_no_docs() {
     echo "Смонтируйте каталог docs: -v /путь/к/aios/docs:/data/docs:ro" >&2
 }
 
+have_docker_flow() {
+    command -v docker >/dev/null 2>&1 \
+        && docker info --format '{{.ServerVersion}}' >/dev/null 2>&1
+}
+
 cmd_tests() {
     if have_docs; then
-        echo "== тесты: данные организаторов найдены в $DOCS_ROOT, полный прогон"
+        if have_docker_flow; then
+            echo "== тесты: данные организаторов и Docker daemon доступны, полный прогон"
+        else
+            echo "== тесты: данные организаторов найдены, Docker daemon недоступен"
+            echo "   тесты настоящего OPM Flow будут пропущены через pytest skip"
+        fi
     else
         warn_no_docs
-        echo "== тесты: прогон без данных, тесты на данных будут пропущены (skip)"
+        echo "== тесты: тесты на данных организаторов будут пропущены через pytest skip"
+        if ! have_docker_flow; then
+            echo "   Docker daemon недоступен: тесты настоящего OPM Flow тоже будут пропущены"
+        fi
     fi
-    if [ "$#" -gt 0 ]; then
-        exec python -m pytest "$@"
-    fi
-    if command -v docker >/dev/null 2>&1; then
-        exec python -m pytest
-    fi
-    local ignores=()
-    local path
-    for path in $(grep -rlE 'shutil\.which\("docker"\)' backend/infrastructure/opm/tests 2>/dev/null | sort); do
-        ignores+=("--ignore=$path")
-    done
-    echo "== в образе нет docker: исключены тесты, требующие настоящий OPM Flow"
-    printf '   %s\n' "${ignores[@]#--ignore=}"
-    exec python -m pytest "${ignores[@]}"
+    exec python -m pytest "$@"
 }
 
 cmd_npv() {
