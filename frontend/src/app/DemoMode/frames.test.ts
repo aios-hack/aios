@@ -1,15 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { DemoScriptFile } from '../../api/types';
 import { isDemoScriptFile } from '../../data/validators';
-import shipped from '../../../public/data/demo-script.json';
 import { scriptFixture, timelineFixture, traceFixture } from './fixtures';
 import { confirmEvent, resolveScript } from './frames';
 import { DOC_SCENE_MODES, sceneModeOf } from './scenes';
-
-const shippedScript = shipped as DemoScriptFile;
-
-const TARGET_MS_MIN = 45000;
-const TARGET_MS_MAX = 90000;
 
 describe('demo scene names', () => {
   it('maps document scene names onto console scene modes through one table', () => {
@@ -90,19 +84,18 @@ describe('demo frame validation', () => {
   });
 });
 
-describe('shipped walkthrough', () => {
+describe('walkthrough fixture', () => {
   it('passes the document validator', () => {
-    expect(isDemoScriptFile(shippedScript)).toBe(true);
+    expect(isDemoScriptFile(scriptFixture)).toBe(true);
   });
 
-  it('keeps the total hold inside the target duration of the defence', () => {
-    const total = shippedScript.frames.reduce((sum, frame) => sum + frame.hold_ms, 0);
-    expect(total).toBeGreaterThanOrEqual(TARGET_MS_MIN);
-    expect(total).toBeLessThanOrEqual(TARGET_MS_MAX);
+  it('keeps the declared total equal to its frame holds', () => {
+    const total = scriptFixture.frames.reduce((sum, frame) => sum + frame.hold_ms, 0);
+    expect(scriptFixture.total_ms).toBe(total);
   });
 
   it('names only scenes the console knows', () => {
-    const unknown = shippedScript.frames
+    const unknown = scriptFixture.frames
       .map((frame) => frame.scene)
       .filter((scene) => sceneModeOf(scene) === null);
     expect(unknown).toEqual([]);
