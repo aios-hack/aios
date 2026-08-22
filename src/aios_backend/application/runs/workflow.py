@@ -91,7 +91,23 @@ class RunWorkflow:
         )
         (run_dir / "validation").mkdir(exist_ok=True)
         (run_dir / "validation" / "result.json").write_text(
-            json.dumps({"sound": sound}, indent=2) + "\n", encoding="utf-8"
+            json.dumps(
+                {
+                    "sound": sound,
+                    "opm_status": getattr(getattr(result, "opm_run", None), "status", None).value
+                    if getattr(getattr(result, "opm_run", None), "status", None) is not None
+                    else None,
+                    "dynamic_violations": len(getattr(getattr(result, "dynamic_report", None), "violations", ())),
+                    "failed_identities": [item.name for item in getattr(result, "failed_identities", ())],
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (run_dir / "economics" / "result.json").write_text(
+            json.dumps({"npv_methodology": result.npv_methodology}, indent=2) + "\n",
+            encoding="utf-8",
         )
         self._write_manifest(run_dir, manifest)
         return manifest
