@@ -24,3 +24,11 @@ def data_root() -> Path:
     if override:
         return Path(override).expanduser().resolve()
     return project_root() / "data"
+
+
+def out_root() -> Path:
+    """Return the root for generated human-facing results."""
+    override = os.environ.get("AIOS_OUT_DIR")
+    if override:
+        return Path(override).expanduser().resolve()
+    return project_root() / "out"

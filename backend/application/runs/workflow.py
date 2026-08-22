@@ -17,7 +17,6 @@ from backend.core.contracts import Schedule, canonical_bytes, hash_schedule
 
 class WorkflowStatus(Enum):
     SEARCHED = "searched"
-    VERIFIED = "verified"
     REJECTED = "rejected"
     READY_TO_SUBMIT = "ready_to_submit"
 

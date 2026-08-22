@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 
 from backend.application.runs import RunRequest, RunWorkflow
+from backend.core.paths import out_root
 from backend.presentation.ui_export.run_summary import export_run_summary
 from backend.presentation.ui_export.artifact_io import load_schedule_json
 
@@ -20,7 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="AIOS optimisation workflow")
     parser.add_argument("mode", choices=("search", "verify", "full"))
     parser.add_argument("--run-id", default=None)
-    parser.add_argument("--runs-root", type=Path, default=Path("out/runs"))
+    parser.add_argument("--runs-root", type=Path, default=out_root() / "runs")
     return parser
 
 
