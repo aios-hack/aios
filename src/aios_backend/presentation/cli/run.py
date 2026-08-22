@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 from aios_backend.application.runs import RunRequest, RunWorkflow
+from aios_backend.presentation.ui_export.run_summary import export_run_summary
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -35,10 +36,11 @@ def main(argv: list[str] | None = None) -> int:
         if mode == "search":
             workflow.search(request)
             return 0
-        workflow.full(
+        manifest = workflow.full(
             lambda: request,
             lambda schedule, opm_root: verify_schedule(schedule, opm_root),
         )
+        export_run_summary(manifest, args.runs_root / run_id / "ui")
         return 0
     if mode in {"verify", "full"}:
         from aios_backend.application.optimization.verification_run import main as verify
