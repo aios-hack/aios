@@ -48,7 +48,10 @@ code must be added under `src/aios_backend/`.
 
 Use `python -m aios_cli.run search`, `verify`, or `full`. The `full` mode runs
 the real fast-model search and then the real OPM verification. It stops if the
-first step fails; a prediction is never presented as a verified result.
+first step fails; a prediction is never presented as a verified result. To
+verify a previously searched plan without searching again, use
+`python -m aios_cli.run verify --run-id <id>`; it reads that run's saved
+schedule, never the global legacy `cmaes.json`.
 
 Every new run is isolated under `out/runs/<run-id>/`:
 
