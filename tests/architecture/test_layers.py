@@ -11,9 +11,7 @@ ROOT = Path(__file__).resolve().parents[2] / "src" / "aios_backend"
 # These are legacy executable modules still being reached through their old
 # ``python -m`` paths.  Their orchestration code will move behind the new CLI;
 # the business functions in the same files remain domain code for now.
-LEGACY_WORKFLOW_MODULES = {
-    "infrastructure/opm/verification.py",
-}
+LEGACY_WORKFLOW_MODULES: set[str] = set()
 
 # These files only keep old module commands alive while callers migrate.
 # They deliberately point upward and contain no business logic.
@@ -21,6 +19,8 @@ COMPATIBILITY_SHIMS = {
     "domain/connectivity/campaign.py",
     "domain/connectivity/measure.py",
     "infrastructure/opm/submission_run.py",
+    "infrastructure/opm/verification.py",
+    "infrastructure/opm/convergence.py",
 }
 
 FORBIDDEN: dict[str, tuple[str, ...]] = {
