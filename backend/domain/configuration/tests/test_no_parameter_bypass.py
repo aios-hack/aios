@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from backend.core.contracts import ArtifactHashes, Budgets, NormativeSet
+from backend.core.contracts.config import DEFAULT_NORMATIVES_2007
 
 from backend.domain.configuration import COMPONENT_SEEDS, GLOBAL_SEED_KEY
 from backend.domain.configuration.schema import DEFAULT_BUDGETS, default_seeds
@@ -29,15 +30,17 @@ NORMATIVE_VALUES: frozenset[float] = frozenset(
         1_000_000.0,
         1_800_000.0,
         5_000_000.0,
+        0.10,
         0.022,
         0.25,
     }
 )
 
-# ``0.10`` нельзя проверять простым поиском числа: это одновременно ставка
-# дисконтирования из методики и нормальный технический допуск/доля в измерении
-# связности. Экономический норматив проверяется parity-тестами, а этот тест
-# остаётся защитой от прочих уникальных нормативных значений.
+TECHNICAL_TOLERANCE_LITERALS: dict[str, frozenset[str]] = {
+    "domain/connectivity/measure.py": frozenset(
+        {"DEFAULT_TOLERANCE", "SEPARATION_FLOOR_SHARE"}
+    ),
+}
 
 DECK_SCALE_VALUES: frozenset[float] = frozenset(
     {146.0, 147.0, 225.0, 224.0, 103.0, 371.0, 27.0, 41.0}
@@ -70,6 +73,33 @@ def numeric_literals(path: Path) -> list[tuple[int, float]]:
     return found
 
 
+def allowed_technical_tolerance_lines(path: Path) -> set[int]:
+    """Return only the two named non-economic uses of the 0.10 literal.
+
+    The names are part of this exception: a new bare ``0.10`` must fail the
+    guard instead of silently becoming another exemption.
+    """
+
+    names = TECHNICAL_TOLERANCE_LITERALS.get(str(path.relative_to(ROOT)))
+    if names is None:
+        return set()
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    lines: set[int] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Constant):
+            continue
+        if not isinstance(node.value.value, (int, float)) or isinstance(node.value.value, bool):
+            continue
+        if float(node.value.value) != 0.10:
+            continue
+        assigned = {
+            target.id for target in node.targets if isinstance(target, ast.Name)
+        }
+        if assigned & names:
+            lines.add(node.value.lineno)
+    return lines
+
+
 def test_owned_packages_are_scanned() -> None:
     sources = owned_sources()
     assert sources
@@ -80,12 +110,19 @@ def test_owned_packages_are_scanned() -> None:
 def test_no_normative_value_is_hardcoded_outside_the_config() -> None:
     offenders: list[str] = []
     for path in owned_sources():
+        allowed_lines = allowed_technical_tolerance_lines(path)
         for line, value in numeric_literals(path):
+            if value == 0.10 and line in allowed_lines:
+                continue
             if value in NORMATIVE_VALUES:
                 offenders.append(f"{path.relative_to(ROOT)}:{line} → {value}")
     assert offenders == [], (
         "нормативы читаются мимо конфига: " + "; ".join(offenders)
     )
+
+
+def test_wacc_normative_is_explicitly_protected() -> None:
+    assert DEFAULT_NORMATIVES_2007["wacc"] == pytest.approx(0.10)
 
 
 def test_no_deck_scale_literal_is_hardcoded() -> None:

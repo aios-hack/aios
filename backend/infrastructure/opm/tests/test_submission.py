@@ -70,6 +70,7 @@ from backend.core.contracts import (
     ScheduleMeta,
     DEFAULT_NORMATIVES_2007,
 )
+from backend.core.paths import data_root
 from backend.domain.economics import ESP_CATALOG_2007, methodology_version_hash
 from backend.domain.economics.base_case import analyze_base_case
 from backend.domain.schedule import parse_schedule
@@ -79,7 +80,7 @@ from backend.domain.schedule.canonical import canonical_part_hash
 from conftest import missing_reason, model_z_dir
 
 MODEL_Z = model_z_dir()
-WORK_ROOT = Path(__file__).resolve().parents[5] / "data" / "base_run"
+WORK_ROOT = data_root() / "base_run"
 _SCHEDULE_INCLUDE = "Model_Z_sch.inc"
 
 pytestmark = pytest.mark.skipif(MODEL_Z is None, reason=missing_reason("каталог Model_Z"))

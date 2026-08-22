@@ -6,7 +6,7 @@ import ast
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2] / "src" / "backend"
+ROOT = Path(__file__).resolve().parents[2] / "backend"
 
 # These are legacy executable modules still being reached through their old
 # ``python -m`` paths.  Their orchestration code will move behind the new CLI;
@@ -55,6 +55,8 @@ def imported_modules(path: Path) -> set[str]:
 
 
 def test_backend_layers_only_depend_downward() -> None:
+    assert ROOT.is_dir(), f"backend package directory is missing: {ROOT}"
+    assert any(ROOT.rglob("*.py")), f"backend package directory is empty: {ROOT}"
     for layer, forbidden in FORBIDDEN.items():
         for path in (ROOT / layer).rglob("*.py"):
             if "tests" in path.parts:
@@ -72,6 +74,7 @@ def test_backend_layers_only_depend_downward() -> None:
 
 
 def test_production_code_does_not_import_test_configuration() -> None:
+    assert ROOT.is_dir(), f"backend package directory is missing: {ROOT}"
     offenders = []
     for path in ROOT.rglob("*.py"):
         if "tests" in path.parts:

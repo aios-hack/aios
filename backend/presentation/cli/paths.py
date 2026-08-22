@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from backend.infrastructure.resources import find_docs_root
+
 DOCS_ROOT_ENV_VAR = "AIOS_DOCS_ROOT"
 SEED_ENV_VAR = "AIOS_SEED"
 DEFAULT_SEED = 20260816
@@ -14,18 +16,12 @@ EXAMPLE_INPUT_RELATIVE = CHDD_PYTHON_RELATIVE / "input" / "Пример_исхо
 
 
 def _candidate_roots() -> tuple[Path, ...]:
-    from_env = os.environ.get(DOCS_ROOT_ENV_VAR)
-    if from_env:
-        return (Path(from_env),)
-    here = Path(__file__).resolve()
-    return tuple(parent / "docs" for parent in here.parents[1:4])
+    root = find_docs_root()
+    return (root,) if root is not None else ()
 
 
 def docs_root() -> Path | None:
-    for candidate in _candidate_roots():
-        if (candidate / "models").is_dir():
-            return candidate
-    return None
+    return find_docs_root()
 
 
 def _docs_path(relative: Path) -> Path | None:

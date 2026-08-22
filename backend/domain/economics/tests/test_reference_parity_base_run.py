@@ -25,6 +25,7 @@ from pathlib import Path
 import pytest
 
 from backend.core.contracts import ChargeInitialEsp, DEFAULT_NORMATIVES_2007, NormativeSet, Policies, QuantizationPolicy
+from backend.core.paths import data_root
 from backend.domain.economics import ESP_CATALOG_2007, analyze_base_case, load_response_artifact
 from backend.domain.economics.base_case import responses_by_well_from_artifact, states_by_well_from_artifact
 from backend.domain.economics.reference_parity import build_reference_records, compare_with_reference, run_reference
@@ -35,7 +36,7 @@ from conftest import chdd_python_dir, missing_reason, model_z_schedule
 CHDD_PYTHON_DIR = chdd_python_dir()
 MODEL_Z_SCHEDULE = model_z_schedule()
 BASE_CASE_RESPONSE = (
-    Path(__file__).resolve().parents[5] / "data" / "base_case" / "response.json"
+    data_root() / "base_case" / "response.json"
 )
 
 NORMATIVES = NormativeSet(**DEFAULT_NORMATIVES_2007, esp_catalog=ESP_CATALOG_2007)

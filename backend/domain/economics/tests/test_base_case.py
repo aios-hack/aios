@@ -11,6 +11,7 @@ from backend.core.contracts import (
     Policies,
     QuantizationPolicy,
 )
+from backend.core.paths import data_root
 from backend.domain.economics import (
     ESP_CATALOG_2007,
     MACHINE_ZERO_RUB,
@@ -26,7 +27,7 @@ from backend.domain.schedule import parse_schedule
 from conftest import missing_reason, model_z_schedule
 
 BASE_CASE_RESPONSE = (
-    Path(__file__).resolve().parents[5] / "data" / "base_case" / "response.json"
+    data_root() / "base_case" / "response.json"
 )
 
 MODEL_Z_SCHEDULE = model_z_schedule()

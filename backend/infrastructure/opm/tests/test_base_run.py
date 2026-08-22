@@ -7,6 +7,7 @@ import pytest
 
 from backend.infrastructure.opm import MATERIAL_BALANCE_RELATIVE_TOLERANCE, run_base_case
 from backend.core.contracts import RunStatus
+from backend.core.paths import data_root
 
 
 from conftest import docker_unavailable_reason, missing_reason, model_z_dir
@@ -30,7 +31,7 @@ pytestmark = [
 # Общий с продовым запуском кеш (§4.5): полный физический прогон Model_Z
 # занимает реальное время, повторный `pytest` с тем же ключом дека/расписания/
 # SummarySpec обязан попасть в кеш, а не гонять симулятор заново.
-WORK_ROOT = Path(__file__).resolve().parents[5] / "data" / "base_run"
+WORK_ROOT = data_root() / "base_run"
 
 
 @pytest.fixture(scope="module")

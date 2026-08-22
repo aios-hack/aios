@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 
 from backend.core.contracts import ResponseArtifact
+from backend.core.paths import data_root
 from backend.domain.connectivity.campaign import (
     BATCHES_PER_HALF,
     DEFAULT_WINDOW_STEPS,
@@ -30,7 +31,7 @@ from backend.domain.connectivity.measure import load_lambda, measure, save_lambd
 from conftest import missing_reason, model_z_dir
 
 MODEL_Z = model_z_dir()
-BASE_RESPONSE = Path(__file__).resolve().parents[5] / "data" / "base_case" / "response.json"
+BASE_RESPONSE = data_root() / "base_case" / "response.json"
 
 pytestmark = pytest.mark.skipif(
     MODEL_Z is None or not BASE_RESPONSE.is_file(),
