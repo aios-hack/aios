@@ -128,6 +128,19 @@ class RunWorkflow:
         run_dir = self.runs_root / request.run_id
         for name in ("inputs", "schedule", "prediction", "opm", "validation", "economics", "ui"):
             (run_dir / name).mkdir(parents=True, exist_ok=True)
+        (run_dir / "inputs" / "request.json").write_text(
+            json.dumps(
+                {
+                    "run_id": request.run_id,
+                    "schedule_hash": hash_schedule(request.schedule),
+                    "predicted_npv": request.predicted_npv,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         (run_dir / "schedule" / "schedule.json").write_bytes(canonical_bytes(request.schedule))
         (run_dir / "prediction" / "result.json").write_text(
             json.dumps({"npv": request.predicted_npv}, indent=2) + "\n", encoding="utf-8"

@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 
 from aios_backend.application.runs import RunRequest, RunWorkflow, WorkflowStatus
@@ -39,6 +40,7 @@ def test_verified_run_has_complete_layout_and_ready_status(tmp_path) -> None:
     run_dir = tmp_path / "runs" / "good-plan"
     assert (run_dir / "manifest.json").is_file()
     assert all((run_dir / part).is_dir() for part in ("inputs", "schedule", "prediction", "opm", "validation", "economics", "ui"))
+    assert json.loads((run_dir / "inputs" / "request.json").read_text())["run_id"] == "good-plan"
 
 
 def test_unsound_opm_result_is_rejected(tmp_path) -> None:
