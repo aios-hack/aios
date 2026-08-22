@@ -76,7 +76,7 @@
   "load.error.infrastructureShape": "Раздел infrastructure: ожидается объект ключ-значение.",
   "load.error.infrastructureValue": "infrastructure[{name}]: значение должно быть строкой или числом.",
   "preview.title": "Документ, который будет сохранён",
-  "library.errorHint": "Соберите индекс: python -m ui.demo.",
+  "library.errorHint": "Пересоберите данные: docker compose run --rm webdata.",
   "library.emptyHint": "Добавьте артефакт прогона и пересоберите индекс.",
   "compare.title": "Сданный против гипотезы",
   "compare.submitted": "Сдан",

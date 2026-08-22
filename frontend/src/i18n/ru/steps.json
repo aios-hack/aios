@@ -28,7 +28,7 @@
   "role.NONE": "без роли",
   "status.OPEN": "работает",
   "status.SHUT": "остановлена",
-  "errorHint": "Соберите timeline.json: python -m ui.demo.",
+  "errorHint": "Пересоберите данные: docker compose run --rm webdata.",
   "sort.asc": "По возрастанию",
   "sort.desc": "По убыванию",
   "transport": "Управление проигрыванием",

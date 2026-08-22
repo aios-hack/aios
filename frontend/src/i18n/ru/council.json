@@ -32,7 +32,7 @@
   "constraint.KNS_LIMIT": "Лимит КНС",
   "loading": "Загрузка трассы уровней…",
   "error": "Не удалось загрузить трассу уровней",
-  "errorHint": "Соберите hierarchy.json: python -m ui.webdata или python -m ui.demo.",
+  "errorHint": "Пересоберите данные: docker compose run --rm webdata.",
   "empty": "Трасса уровней пуста",
   "emptyHint": "В hierarchy.json нет ни одного управляющего шага."
 }

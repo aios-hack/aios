@@ -65,7 +65,35 @@ cmd_web() {
         echo "попал в контекст сборки и npm run build прошёл без ошибок." >&2
         exit 3
     fi
+    for path in wells.json graph.json hierarchy.json npv.json timeline.json scenarios.json; do
+        if [ ! -f "/app/frontend/dist/data/$path" ]; then
+            echo "ВНИМАНИЕ: нет /app/frontend/dist/data/$path." >&2
+            echo "Через compose этот набор автоматически готовит сервис webdata." >&2
+            exit 4
+        fi
+    done
     exec python -m backend.presentation.cli.web --host "${AIOS_HOST:-0.0.0.0}" --port "${AIOS_PORT:-8000}" "$@"
+}
+
+cmd_webdata() {
+    if ! have_docs; then
+        warn_no_docs
+        echo "Сборка данных интерфейса невозможна без дека организаторов." >&2
+        exit 2
+    fi
+    if [ ! -f /app/data/base_case/response.json ]; then
+        echo "Нет /app/data/base_case/response.json — базового отклика для витрины." >&2
+        exit 2
+    fi
+    mkdir -p /app/frontend/public/data
+    if [ -f /app/data/lambda-window-2007/lambda.json ]; then
+        export AIOS_LAMBDA_PATH=/app/data/lambda-window-2007/lambda.json
+    fi
+    python -m backend.presentation.ui_export.demo
+    for path in wells.json graph.json hierarchy.json npv.json timeline.json scenarios.json; do
+        test -f "/app/frontend/public/data/$path"
+    done
+    echo "Данные интерфейса собраны в /app/frontend/public/data"
 }
 
 cmd_selfcheck() {
@@ -81,6 +109,7 @@ usage() {
   npv [аргументы]            расчёт ЧДД и сверка с эталонным расчётчиком
   emit [аргументы]           эмит wells_schedule.inc из дека организаторов
   web [аргументы]            веб-интерфейс (требует собранного frontend)
+  webdata                    собрать полный JSON-набор для интерфейса
   selfcheck                  что найдено в образе и в смонтированных данных
   shell                      интерактивная оболочка
 
@@ -103,6 +132,7 @@ main() {
         npv) cmd_npv "$@" ;;
         emit) cmd_emit "$@" ;;
         web) cmd_web "$@" ;;
+        webdata) cmd_webdata "$@" ;;
         selfcheck) cmd_selfcheck "$@" ;;
         shell) exec /bin/bash "$@" ;;
         help | --help | -h) usage ;;

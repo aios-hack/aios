@@ -76,7 +76,7 @@
   "load.error.infrastructureShape": "Section infrastructure: a key-value object is expected.",
   "load.error.infrastructureValue": "infrastructure[{name}]: the value must be a string or a number.",
   "preview.title": "The document that will be saved",
-  "library.errorHint": "Build the index: python -m ui.demo.",
+  "library.errorHint": "Rebuild the data: docker compose run --rm webdata.",
   "library.emptyHint": "Add a run artifact and rebuild the index.",
   "compare.title": "Submitted against a what-if",
   "compare.submitted": "Submitted",

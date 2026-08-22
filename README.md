@@ -107,18 +107,23 @@ docker run --rm -p 8000:8000 -v /путь/к/aios/docs:/data/docs:ro aios:latest
 ```bash
 AIOS_DOCS=/путь/к/aios/docs docker compose run --rm tests
 AIOS_DOCS=/путь/к/aios/docs docker compose run --rm npv
-docker compose up -d --build web
+docker compose up -d --build web  # сначала webdata соберёт JSON, затем стартует web
 ```
+
+Обычный `docker compose up -d --build` делает то же самое: одноразовые команды
+`tests`, `npv`, `emit` и `selfcheck` вынесены в профиль `tools` и сами при старте
+веб-приложения не запускаются. Их по-прежнему можно вызвать явно через
+`docker compose run --rm <команда>`.
 
 **Устройство образа.** Две стадии: `node:22.11.0-bookworm-slim` собирает фронт `frontend` (`npm ci && npm run build`), `python:3.12.7-slim-bookworm` обслуживает расчёт и отдаёт собранную статику. Точка входа — `docker/entrypoint.sh` со свободным `CMD`, выбирающим команду; варианты перечислены выше, плюс `shell` и произвольная команда.
 
-**Данные витрины не запекаются в image.** Каталог `frontend/public/data/` исключён из git и контекста сборки, потому что это генерируемые артефакты размером около 130 МБ. Сервис compose `web` автоматически монтирует этот каталог read-only в `/app/frontend/dist/data`, поэтому после генерации JSON обычный `docker compose up -d web` поднимает заполненную витрину:
+**Данные витрины не запекаются в image.** Каталог `frontend/public/data/` исключён из git и контекста сборки, потому что это генерируемые артефакты размером около 130 МБ. При `docker compose up web` одноразовый сервис `webdata` получает `docs/` и локальный `data/`, собирает полный комплект JSON в `frontend/public/data/`, проверяет обязательные файлы и завершается. Только после его успеха запускается `web`, который монтирует тот же каталог read-only.
 
 ```bash
-.venv/bin/python -m backend.presentation.ui_export.demo    # собирает весь набор в frontend/public/data/
+docker compose run --rm webdata  # явная пересборка без запуска web
 ```
 
-Одна команда собирает оба сценария библиотеки: `base` — настоящий бандл базового прогона (`backend.presentation.ui_export.base_artifact` по сохранённому отклику `data/base_case/response.json`), `whatif-injection-cut` — демонстрационный, помеченный `synthetic-demo`. Если каталог не сгенерирован, web поднимется, но честно покажет отсутствие данных.
+Генератор собирает оба сценария библиотеки: `base` — настоящий бандл базового прогона (`backend.presentation.ui_export.base_artifact` по сохранённому отклику `data/base_case/response.json`), `whatif-injection-cut` — демонстрационный, помеченный `synthetic-demo`. Если обязательных входов или JSON нет, compose не запускает пустой web и выводит точную причину в логах `webdata`.
 
 На сборке образа выполняется `RUN python -m backend.presentation.cli.selfcheck`: он сообщает о доступности CLI, данных, Docker и опциональных зависимостей. Команда, которой не хватает данных, отказывается работать явным кодом возврата (`2`), а веб-интерфейс без собранного фронта — кодом `3`.
 

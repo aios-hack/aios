@@ -13,7 +13,7 @@
   "tile": "Well {well}",
   "loading": "Loading history…",
   "error": "Could not load the step history",
-  "errorHint": "Build timeline.json: python -m ui.webdata or python -m ui.demo.",
+  "errorHint": "Rebuild the data: docker compose run --rm webdata.",
   "empty": "The step history is empty",
   "emptyHint": "timeline.json contains no control steps."
 }

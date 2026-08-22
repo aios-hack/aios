@@ -32,7 +32,7 @@
   "constraint.KNS_LIMIT": "Injection station limit",
   "loading": "Loading level trace…",
   "error": "Failed to load the level trace",
-  "errorHint": "Build hierarchy.json: python -m ui.webdata or python -m ui.demo.",
+  "errorHint": "Rebuild the data: docker compose run --rm webdata.",
   "empty": "Level trace is empty",
   "emptyHint": "hierarchy.json has no control steps."
 }

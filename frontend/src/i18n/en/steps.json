@@ -28,7 +28,7 @@
   "role.NONE": "no role",
   "status.OPEN": "operating",
   "status.SHUT": "shut",
-  "errorHint": "Build timeline.json: python -m ui.demo.",
+  "errorHint": "Rebuild the data: docker compose run --rm webdata.",
   "sort.asc": "Ascending",
   "sort.desc": "Descending",
   "transport": "Playback controls",

@@ -4,6 +4,7 @@
 
 services:
   tests:
+    profiles: ["tools"]
     build:
       context: .
       dockerfile: Dockerfile
@@ -14,6 +15,7 @@ services:
       - ./out:/out
 
   npv:
+    profiles: ["tools"]
     image: aios:latest
     build:
       context: .
@@ -24,6 +26,7 @@ services:
       - ./out:/out
 
   emit:
+    profiles: ["tools"]
     image: aios:latest
     build:
       context: .
@@ -34,6 +37,7 @@ services:
       - ./out:/out
 
   selfcheck:
+    profiles: ["tools"]
     image: aios:latest
     build:
       context: .
@@ -42,12 +46,26 @@ services:
     volumes:
       - ${AIOS_DOCS:-./../docs}:/data/docs:ro
 
+  webdata:
+    image: aios:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["webdata"]
+    volumes:
+      - ${AIOS_DOCS:-./../docs}:/data/docs:ro
+      - ./data:/app/data:ro
+      - ${AIOS_UI_DATA:-./frontend/public/data}:/app/frontend/public/data
+
   web:
     image: aios:latest
     build:
       context: .
       dockerfile: Dockerfile
     command: ["web"]
+    depends_on:
+      webdata:
+        condition: service_completed_successfully
     ports:
       - "${AIOS_PORT:-8000}:8000"
     volumes:
@@ -55,4 +73,10 @@ services:
       - ./out:/out
       # JSON-витрина генерируется локально и не входит в image. Подключаем её
       # прямо к каталогу статики, откуда frontend запрашивает /data/*.json.
-      - ./frontend/public/data:/app/frontend/dist/data:ro
+      - ${AIOS_UI_DATA:-./frontend/public/data}:/app/frontend/dist/data:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/data/wells.json', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 3s

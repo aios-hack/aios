@@ -4,7 +4,7 @@
   "empty": "История шагов пуста",
   "emptyHint": "В timeline.json нет ни одного управляющего шага.",
   "error": "Не удалось загрузить историю шагов",
-  "errorHint": "Соберите timeline.json: python -m ui.webdata или python -m ui.demo.",
+  "errorHint": "Пересоберите данные: docker compose run --rm webdata.",
   "legend.high.npv": "максимум фонда",
   "legend.high.ratio": "цель достигнута",
   "legend.high.watercut": "вода",
