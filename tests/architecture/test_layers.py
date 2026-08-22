@@ -67,3 +67,13 @@ def test_backend_layers_only_depend_downward() -> None:
                 if any(module == prefix or module.startswith(prefix + ".") for prefix in forbidden)
             )
             assert not bad, f"{path.relative_to(ROOT)} imports higher layer: {bad}"
+
+
+def test_production_code_does_not_import_test_configuration() -> None:
+    offenders = []
+    for path in ROOT.rglob("*.py"):
+        if "tests" in path.parts:
+            continue
+        if "conftest" in imported_modules(path):
+            offenders.append(str(path.relative_to(ROOT)))
+    assert not offenders, f"production code imports conftest: {offenders}"

@@ -16,13 +16,13 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-import conftest
 from aios_backend.core.contracts import Constraints, RunArtifact, Theta
 from aios_backend.core.contracts.hashing import canonical_bytes, hash_schedule
 from aios_backend.domain.economics import analyze_base_case, load_response_artifact
 from aios_backend.domain.connectivity.groups import GroupingParams, build_groups
 from aios_backend.domain.connectivity.measure import load_lambda
 from aios_backend.application.optimization.schedule_search import load_environment, make_evaluator, make_policy
+from aios_backend.infrastructure.resources import chdd_python_dir, model_z_dir
 from aios_backend.domain.policy.fixed_point import resolve
 from aios_backend.domain.policy.theta import default_theta
 from aios_backend.domain.schedule import parse_schedule
@@ -46,10 +46,10 @@ def main() -> int:
     base_theta = default_theta()
     theta = Theta(values=dict(saved["theta"]), bounds=base_theta.bounds)
 
-    model_dir = conftest.model_z_dir()
+    model_dir = model_z_dir()
     env = load_environment(
         model_dir=model_dir,
-        normatives_path=conftest.chdd_python_dir() / "input" / "Нормативы_ЧДД.xlsx",
+        normatives_path=chdd_python_dir() / "input" / "Нормативы_ЧДД.xlsx",
         response_path=RESPONSE,
         checkpoint_path=DATASET / "model.pt",
         feature_context_path=DATASET / "feature_context.json",

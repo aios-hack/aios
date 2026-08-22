@@ -186,11 +186,12 @@ def campaign_plan(setup_result: CampaignSetup, seed: int) -> PerturbationPlan:
 def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-    import conftest
     from aios_backend.infrastructure.opm.dataset import DatasetGenerator
+    from aios_backend.infrastructure.resources import model_z_dir
 
-    model_z = conftest.model_z_dir()
-    if model_z is None:
+    try:
+        model_z = model_z_dir()
+    except FileNotFoundError:
         print("дек Model_Z не найден", flush=True)
         return 2
 

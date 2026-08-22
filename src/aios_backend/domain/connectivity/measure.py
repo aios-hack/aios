@@ -423,15 +423,16 @@ def main() -> int:
 
     import os
 
-    import conftest
     from aios_backend.infrastructure.opm.dataset import DatasetGenerator
+    from aios_backend.infrastructure.resources import model_z_dir
     from aios_backend.domain.economics import load_response_artifact
 
     from aios_backend.domain.connectivity.campaign import DEFAULT_BATCH_SEEDS, DEFAULT_WINDOW_STEPS
     from aios_backend.domain.connectivity.campaign import campaign_plan, setup
 
-    model_z = conftest.model_z_dir()
-    if model_z is None:
+    try:
+        model_z = model_z_dir()
+    except FileNotFoundError:
         print("дек Model_Z не найден", flush=True)
         return 2
 
