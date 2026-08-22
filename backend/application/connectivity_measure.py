@@ -6,7 +6,8 @@ import os
 from pathlib import Path
 
 from backend.core.paths import data_root
-from backend.domain.connectivity.campaign import DEFAULT_BATCH_SEEDS, DEFAULT_WINDOW_STEPS, campaign_plan, setup
+from backend.application.connectivity_plan import campaign_plan
+from backend.domain.connectivity.campaign import DEFAULT_BATCH_SEEDS, DEFAULT_WINDOW_STEPS, setup
 from backend.domain.connectivity.measure import measure, save_lambda
 from backend.domain.economics import load_response_artifact
 from backend.infrastructure.opm.dataset import DatasetGenerator

@@ -29,12 +29,10 @@ import sys
 from datetime import date
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Mapping, Protocol, Sequence
 
 from backend.core.contracts import IntervalResponse, Lambda, ResponseArtifact, StateAtDate
 from backend.core.paths import data_root
-from backend.infrastructure.opm.dataset import DatasetSample
-
 from backend.domain.connectivity.campaign import (
     BATCHES_PER_HALF,
     T0_DECK_DATE_INDEX,
@@ -91,15 +89,26 @@ class MeasurementReport:
         )
 
 
-def _samples_by_scenario(samples: Sequence[DatasetSample]) -> dict[str, DatasetSample]:
+class CampaignMetadata(Protocol):
+    scenario_id: str
+
+
+class CampaignSample(Protocol):
+    """The small read-only view of an OPM result needed by the domain."""
+
+    response: ResponseArtifact | None
+    metadata: CampaignMetadata
+
+
+def _samples_by_scenario(samples: Sequence[CampaignSample]) -> dict[str, CampaignSample]:
     return {sample.metadata.scenario_id: sample for sample in samples}
 
 
 def _batch_samples(
-    samples: Sequence[DatasetSample], batch: int, plan: DoEPlan
-) -> tuple[DatasetSample, ...]:
+    samples: Sequence[CampaignSample], batch: int, plan: DoEPlan
+) -> tuple[CampaignSample, ...]:
     by_id = _samples_by_scenario(samples)
-    ordered: list[DatasetSample] = []
+    ordered: list[CampaignSample] = []
     for row in plan.rows:
         scenario_id = f"lambda-b{batch}-{row.run_index:04d}"
         sample = by_id.get(scenario_id)
@@ -236,7 +245,7 @@ def _movable(
 
 def measure(
     prepared: CampaignSetup,
-    samples: Sequence[DatasetSample],
+    samples: Sequence[CampaignSample],
     baseline: ResponseArtifact,
     *,
     n_steps: int,
@@ -399,7 +408,7 @@ def load_lambda(path: Path | str) -> Lambda:
     if not resolved.is_file():
         raise CampaignError(
             f"измеренной λ нет по пути {resolved}: кампания замера "
-            f"(`python -m connectivity.campaign`) ещё не отрабатывала, "
+            "(application connectivity campaign) ещё не отрабатывала, "
             f"подставлять нулевую матрицу вместо измерения запрещено"
         )
     data = json.loads(resolved.read_text(encoding="utf-8"))
@@ -417,12 +426,3 @@ def load_lambda(path: Path | str) -> Lambda:
         achievability_ok={well: bool(ok) for well, ok in data["achievability_ok"].items()},
     )
 
-
-def main() -> int:
-    """Compatibility entry point; orchestration lives in application."""
-    from backend.application.connectivity_measure import main as run
-    return run()
-
-
-if __name__ == "__main__":
-    sys.exit(main())

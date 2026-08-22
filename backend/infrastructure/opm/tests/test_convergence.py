@@ -28,7 +28,7 @@ import pytest
 
 from backend.core.contracts import Theta
 
-from backend.infrastructure.opm.convergence import (
+from backend.application.optimization.convergence import (
     CalibrationReport,
     ConvergenceError,
     CriterionMeasurement,
@@ -38,7 +38,7 @@ from backend.infrastructure.opm.convergence import (
     rank_agreement_criterion,
     trust_was_justified,
 )
-from backend.infrastructure.opm.verification import CandidateCheck, RoundReport
+from backend.application.optimization.verification import CandidateCheck, RoundReport
 
 ROOT = Path(__file__).resolve().parent.parent
 

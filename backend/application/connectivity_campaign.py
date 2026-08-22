@@ -7,7 +7,8 @@ import time
 from pathlib import Path
 
 from backend.core.paths import data_root
-from backend.domain.connectivity.campaign import DEFAULT_BATCH_SEEDS, DEFAULT_WINDOW_STEPS, campaign_plan, setup
+from backend.application.connectivity_plan import campaign_plan
+from backend.domain.connectivity.campaign import DEFAULT_BATCH_SEEDS, DEFAULT_WINDOW_STEPS, setup
 from backend.infrastructure.opm.dataset import DatasetGenerator
 from backend.infrastructure.resources import model_z_dir
 

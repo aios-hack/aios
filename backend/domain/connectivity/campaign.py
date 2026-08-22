@@ -27,8 +27,6 @@
 
 from __future__ import annotations
 
-import os
-import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,14 +35,6 @@ from typing import Sequence
 from backend.core.contracts import N_CONTROL_DATES, Role, Schedule
 from backend.core.contracts.response import N_DECK_DATES
 from backend.core.paths import data_root
-from backend.infrastructure.opm.dataset_plan import (
-    LevelPerturbation,
-    PerturbationFamily,
-    PerturbationPlan,
-    PerturbationSpec,
-    PlanConfig,
-)
-
 from backend.domain.connectivity.deck import parse_deck_schedule
 from backend.domain.connectivity.doe import Amplitude, DoEPlan, Level, amplitude_from_prior, plackett_burman
 from backend.domain.connectivity.fund import ActiveFund, Window, active_fund_in_window, build_fund_history
@@ -130,14 +120,7 @@ def setup(
 
 
 def _factor(level: Level, amplitude: Amplitude) -> float:
-    """Множитель к базовой уставке: шаг амплитуды в долях медианного уровня.
-
-    Множитель, а не абсолютная уставка, потому что материализация датасета
-    работает множителями (`LevelPerturbation`), а фактические уровни скважин
-    различаются на порядок: общий абсолютный шаг увёл бы слабые скважины в
-    ноль, а сильные не тронул.
-    """
-
+    """Return the domain-level multiplier for one experiment level."""
     relative = amplitude.step_m3_per_day / amplitude.base_level_m3_per_day
     if level is Level.HIGH:
         return 1.0 + relative
@@ -145,49 +128,6 @@ def _factor(level: Level, amplitude: Amplitude) -> float:
     if factor <= 0.0:
         raise CampaignError(
             f"нижний уровень плана обнуляет уставку (множитель {factor}): "
-            f"остановка скважины — не возмущение амплитуды"
+            "остановка скважины — не возмущение амплитуды"
         )
     return factor
-
-
-def specs_of(plan: DoEPlan, batch: int, first_step: int = 0) -> tuple[PerturbationSpec, ...]:
-    """Строки плана как сценарии датасета семейства `LEVELS`."""
-
-    specs: list[PerturbationSpec] = []
-    for row in plan.rows:
-        levels = tuple(
-            LevelPerturbation(
-                well=well,
-                from_step=first_step,
-                factor=_factor(level, plan.amplitude),
-            )
-            for well, level in sorted(row.levels.items())
-        )
-        specs.append(
-            PerturbationSpec(
-                scenario_id=f"lambda-b{batch}-{row.run_index:04d}",
-                family=PerturbationFamily.LEVELS,
-                seed=plan.seed + row.run_index,
-                levels=levels,
-            )
-        )
-    return tuple(specs)
-
-
-def campaign_plan(setup_result: CampaignSetup, seed: int) -> PerturbationPlan:
-    """План кампании целиком: обе партии одним списком сценариев."""
-
-    specs: list[PerturbationSpec] = []
-    for batch, plan in enumerate(setup_result.plans):
-        specs.extend(specs_of(plan, batch))
-    return PerturbationPlan(config=PlanConfig(), seed=seed, specs=tuple(specs))
-
-
-def main() -> int:
-    """Compatibility entry point; orchestration lives in application."""
-    from backend.application.connectivity_campaign import main as run
-    return run()
-
-
-if __name__ == "__main__":
-    sys.exit(main())

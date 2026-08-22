@@ -18,11 +18,11 @@ import pytest
 
 from backend.core.contracts import ResponseArtifact
 from backend.core.paths import data_root
+from backend.application.connectivity_plan import campaign_plan
 from backend.domain.connectivity.campaign import (
     BATCHES_PER_HALF,
     DEFAULT_WINDOW_STEPS,
     CampaignError,
-    campaign_plan,
     setup,
 )
 from backend.domain.connectivity.doe import Level

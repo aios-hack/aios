@@ -13,15 +13,7 @@ ROOT = Path(__file__).resolve().parents[2] / "backend"
 # the business functions in the same files remain domain code for now.
 LEGACY_WORKFLOW_MODULES: set[str] = set()
 
-# These files only keep old module commands alive while callers migrate.
-# They deliberately point upward and contain no business logic.
-COMPATIBILITY_SHIMS = {
-    "domain/connectivity/campaign.py",
-    "domain/connectivity/measure.py",
-    "infrastructure/opm/submission_run.py",
-    "infrastructure/opm/verification.py",
-    "infrastructure/opm/convergence.py",
-}
+COMPATIBILITY_SHIMS: set[str] = set()
 
 FORBIDDEN: dict[str, tuple[str, ...]] = {
     "core": (
