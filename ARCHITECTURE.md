@@ -43,3 +43,9 @@ presentation → application → domain → core
 The temporary top-level packages (`contracts`, `bridge`, `optimizer`, and so
 on) stay as compatibility entry points while callers migrate. New production
 code must be added under `src/aios_backend/`.
+
+## Run command
+
+Use `python -m aios_cli.run search`, `verify`, or `full`. The `full` mode runs
+the real fast-model search and then the real OPM verification. It stops if the
+first step fails; a prediction is never presented as a verified result.
