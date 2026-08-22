@@ -7,22 +7,26 @@ import pytest
 
 from backend.domain.connectivity import DeckSchedule, FundHistory, build_fund_history, parse_deck_schedule
 
+from conftest import missing_reason, model_z_schedule
+
+#: Явный путь к деку в обход поиска каталога docs. Нужен, когда дек лежит
+#: не сиблингом репозитория; обычная раскладка разрешается сама.
 DECK_ENV = "AIOS_DECK_SCHEDULE"
-DEFAULT_DECK = Path(
-    "W:/Projects/hacks/aios/docs/models/Model_Z/Model_Z_sch.inc"
-)
 
 
-def deck_path() -> Path:
+def deck_path() -> Path | None:
     override = os.environ.get(DECK_ENV)
-    return Path(override) if override else DEFAULT_DECK
+    if override:
+        path = Path(override)
+        return path if path.exists() else None
+    return model_z_schedule()
 
 
 @pytest.fixture(scope="session")
 def deck() -> DeckSchedule:
     path = deck_path()
-    if not path.exists():
-        pytest.skip(f"дек не найден: {path}; путь задаётся через {DECK_ENV}")
+    if path is None:
+        pytest.skip(missing_reason(f"дек Model_Z (либо путь через {DECK_ENV})"))
     return parse_deck_schedule(path)
 
 

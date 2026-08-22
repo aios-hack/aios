@@ -14,9 +14,11 @@ from backend.domain.configuration import (
 )
 from backend.domain.configuration.normatives import METHODOLOGY_LOCKED
 
-XLSX = Path(
-    "W:/Projects/hacks/aios/docs/models/CHDD_PYTHON/input/Нормативы_ЧДД.xlsx"
-)
+from conftest import missing_reason, normatives_xlsx
+
+#: Путь-образец для структурных проверок `NormativeSource`: файл по нему не
+#: читается, проверяется лишь то, что источник отдаёт путь загрузчику как есть.
+XLSX = Path("models") / "CHDD_PYTHON" / "input" / "Нормативы_ЧДД.xlsx"
 
 
 def test_declared_fields_match_the_contract() -> None:
@@ -103,6 +105,7 @@ def test_source_delegates_reading_to_the_caller() -> None:
 
 
 def test_xlsx_is_the_declared_source_of_values() -> None:
-    if not XLSX.exists():
-        pytest.skip(f"файл нормативов не найден: {XLSX}")
-    assert XLSX.suffix == ".xlsx"
+    path = normatives_xlsx()
+    if path is None:
+        pytest.skip(missing_reason("файл нормативов Нормативы_ЧДД.xlsx"))
+    assert path.suffix == ".xlsx"
