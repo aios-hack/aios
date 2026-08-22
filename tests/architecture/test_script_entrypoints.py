@@ -10,7 +10,6 @@ from backend.core.paths import project_root
 
 SCRIPTS = (
     Path("build_dataset.py"),
-    Path("tools/ab_money_loss.py"),
     Path("tools/g10_pool.py"),
     Path("tools/g10_run.py"),
     Path("tools/g10_violations.py"),
