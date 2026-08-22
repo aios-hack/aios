@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import functools
 import http.server
-import socketserver
 from pathlib import Path
 
 DEFAULT_DIST = Path("/app/frontend/dist")
@@ -39,7 +38,10 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     handler = functools.partial(SpaRequestHandler, directory=str(args.dist))
-    with socketserver.TCPServer((args.host, args.port), handler) as server:
+    # The UI loads several multi-megabyte JSON files at the same time.  A
+    # single-threaded TCPServer makes every request wait for the previous one,
+    # which can leave the page blank while a large artifact is being served.
+    with http.server.ThreadingHTTPServer((args.host, args.port), handler) as server:
         print(f"веб-интерфейс: http://{args.host}:{args.port} из {args.dist}")
         server.serve_forever()
     return 0
