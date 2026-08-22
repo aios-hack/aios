@@ -21,7 +21,10 @@ from contracts import (  # noqa: E402
 )
 from surrogate.features import SurrogateInput, WellStepFeatures  # noqa: E402
 from surrogate.model import (
+    TARGET_NAMES,
     Standardizer,
+    _NodeNetwork,
+    _elementwise_loss,
     _money_weights,
     _targets,
     _watercut_row,
@@ -470,3 +473,38 @@ def test_fit_applies_scalers_before_training() -> None:
     # заведомо положительны, потому что все величины неотрицательны.
     assert abs(float(seen["train_y"].mean())) < 0.5
     assert abs(float(seen["train_x"].mean())) < 0.5
+
+
+def test_residual_network_matches_output_shape_and_differs_from_plain() -> None:
+    """Остаточная сеть — другая функция, а не переименование: при одинаковом
+    сиде она обязана давать другой выход при той же форме."""
+    numeric = torch.randn(8, 5)
+    wells = torch.zeros(8, dtype=torch.long)
+    plain_config = replace(ModelConfig(), hidden_width=16, hidden_layers=3,
+                           well_embedding_dim=4, dropout=0.0)
+    residual_config = replace(plain_config, residual=True)
+    torch.manual_seed(3)
+    plain = _NodeNetwork(numeric.shape[1], 2, plain_config).eval()
+    torch.manual_seed(3)
+    residual = _NodeNetwork(numeric.shape[1], 2, residual_config).eval()
+    with torch.no_grad():
+        left, right = plain(numeric, wells), residual(numeric, wells)
+    assert left.shape == right.shape == (8, len(TARGET_NAMES))
+    assert not torch.allclose(left, right)
+
+
+def test_loss_choice_changes_the_elementwise_residual() -> None:
+    prediction = torch.tensor([[0.0, 3.0]])
+    target = torch.tensor([[0.0, 0.0]])
+    base = ModelConfig()
+    smooth = _elementwise_loss(prediction, target, base)
+    squared = _elementwise_loss(prediction, target, replace(base, loss="mse"))
+    huber = _elementwise_loss(prediction, target, replace(base, loss="huber",
+                                                          huber_delta=0.1))
+    # На ошибке 3.0 квадратичная невязка равна 9, smooth_l1 линеен выше beta=1
+    # и даёт 2.5, huber с дельтой 0.1 — ещё меньше.
+    assert float(squared[0, 1]) == pytest.approx(9.0)
+    assert float(smooth[0, 1]) == pytest.approx(2.5)
+    assert float(huber[0, 1]) < float(smooth[0, 1])
+    for tensor in (smooth, squared, huber):
+        assert float(tensor[0, 0]) == pytest.approx(0.0)

@@ -64,6 +64,7 @@ WATERCUT_TARGET_NAMES: tuple[str, ...] = (
 # держит декодирование в пределах, где `_BACKFLOW_FLOOR` ещё осмыслен.
 _WATERCUT_CEILING = 1.5
 
+_LOSSES: tuple[str, ...] = ("smooth_l1", "mse", "huber")
 _LR_SCHEDULES: tuple[str, ...] = ("none", "cosine")
 _SELECTION_CRITERIA: tuple[str, ...] = ("loss", "money", "rank")
 
@@ -143,6 +144,9 @@ class ModelConfig:
     select_by: str = "loss"
     target_parameterization: str = "absolute"
     oil_density_t_per_m3: float = 0.9131
+    loss: str = "smooth_l1"
+    huber_delta: float = 0.1
+    residual: bool = False
 
     def __post_init__(self) -> None:
         if self.hidden_width < 1 or self.hidden_layers < 1:
@@ -176,6 +180,10 @@ class ModelConfig:
             )
         if not self.oil_density_t_per_m3 > 0.0:
             raise SurrogateModelError("oil_density_t_per_m3 должна быть положительной")
+        if self.loss not in _LOSSES:
+            raise SurrogateModelError(f"loss: {', '.join(_LOSSES)}")
+        if not self.huber_delta > 0.0:
+            raise SurrogateModelError("huber_delta должна быть положительной")
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,6 +250,27 @@ class _NodeNetwork(nn.Module):
         super().__init__()
         self.well_embedding = nn.Embedding(n_wells, config.well_embedding_dim)
         width = numeric_width + config.well_embedding_dim
+        self.residual = config.residual
+        if self.residual:
+            # Остаточные блоки одинаковой ширины: градиент доходит до первых
+            # слоёв без затухания, поэтому глубина перестаёт мешать обучению.
+            self.stem = nn.Linear(width, config.hidden_width)
+            self.blocks = nn.ModuleList(
+                nn.Sequential(
+                    nn.LayerNorm(config.hidden_width),
+                    nn.Linear(config.hidden_width, config.hidden_width),
+                    nn.SiLU(),
+                    nn.Dropout(config.dropout),
+                    nn.Linear(config.hidden_width, config.hidden_width),
+                )
+                for _ in range(config.hidden_layers)
+            )
+            self.head = nn.Sequential(
+                nn.LayerNorm(config.hidden_width),
+                nn.Linear(config.hidden_width, len(TARGET_NAMES)),
+            )
+            self.body = None
+            return
         layers: list[nn.Module] = []
         for _ in range(config.hidden_layers):
             layers.extend(
@@ -258,7 +287,13 @@ class _NodeNetwork(nn.Module):
 
     def forward(self, numeric: Tensor, well_index: Tensor) -> Tensor:
         embedded = self.well_embedding(well_index)
-        return self.body(torch.cat((numeric, embedded), dim=1))
+        features = torch.cat((numeric, embedded), dim=1)
+        if not self.residual:
+            return self.body(features)
+        hidden = self.stem(features)
+        for block in self.blocks:
+            hidden = hidden + block(hidden)
+        return self.head(hidden)
 
 
 def _one_hot(value: object, members: Sequence[object]) -> list[float]:
@@ -428,6 +463,25 @@ def _example_tensors(
         stats.update(counters)
         stats["target_rows"] = int(target.shape[0])
     return torch.cat(xs), torch.cat(indices), target
+
+
+def _elementwise_loss(
+    prediction: Tensor, target: Tensor, settings: "ModelConfig"
+) -> Tensor:
+    """Поэлементная невязка выбранной функцией потерь.
+
+    `smooth_l1` с beta=1 в стандартизованных целях почти везде квадратичен:
+    ошибка выше одного стандартного отклонения — редкость. То есть заявленная
+    устойчивость к выбросам не работает, и `huber` с малой дельтой даёт другой
+    режим, а `mse` — противоположный.
+    """
+    if settings.loss == "mse":
+        return (prediction - target) ** 2
+    if settings.loss == "huber":
+        return torch.nn.functional.huber_loss(
+            prediction, target, reduction="none", delta=settings.huber_delta
+        )
+    return torch.nn.functional.smooth_l1_loss(prediction, target, reduction="none")
 
 
 def _money_coefficients(
@@ -625,9 +679,11 @@ def _validate(
     scenario_count: int = 0,
     parameterization: str = "absolute",
     oil_density_t_per_m3: float = 0.9131,
+    settings: "ModelConfig | None" = None,
 ) -> _ValidationOutcome:
     """Один проход валидации, отдающий все три критерия отбора чекпоинта."""
     network.eval()
+    settings = settings or ModelConfig()
     total = 0.0
     money_total = 0.0
     count = 0
@@ -641,9 +697,7 @@ def _validate(
             well_index = well_index.to(device)
             y = y.to(device)
             prediction = network(x, well_index)
-            elementwise = torch.nn.functional.smooth_l1_loss(
-                prediction, y, reduction="none"
-            )
+            elementwise = _elementwise_loss(prediction, y, settings)
             total += float(elementwise.sum().item())
             if weighted:
                 weights = _money_weights(
@@ -886,9 +940,7 @@ class TrajectorySurrogate:
                 optimizer.zero_grad(set_to_none=True)
                 prediction = network(x, well_index)
                 if weighted:
-                    elementwise = torch.nn.functional.smooth_l1_loss(
-                        prediction, y, reduction="none"
-                    )
+                    elementwise = _elementwise_loss(prediction, y, settings)
                     weights = _money_weights(
                         y,
                         scale=target_scale,
@@ -901,7 +953,7 @@ class TrajectorySurrogate:
                     )
                     loss = (elementwise * weights).mean()
                 else:
-                    loss = torch.nn.functional.smooth_l1_loss(prediction, y)
+                    loss = _elementwise_loss(prediction, y, settings).mean()
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(network.parameters(), max_norm=5.0)
                 optimizer.step()
@@ -921,6 +973,7 @@ class TrajectorySurrogate:
                 scenario_count=validation_scenarios if criterion == "rank" else 0,
                 parameterization=settings.target_parameterization,
                 oil_density_t_per_m3=settings.oil_density_t_per_m3,
+                settings=settings,
             )
             validation_loss = outcome.loss
             current_lr = float(optimizer.param_groups[0]["lr"])
