@@ -23,12 +23,13 @@ import json
 import os
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 import conftest
-from aios_backend.core.contracts import OptimizerResult
+from aios_backend.core.contracts import OptimizerResult, Schedule, Theta
 from aios_backend.core.contracts.hashing import hash_schedule
 from aios_backend.domain.economics import load_response_artifact
 from aios_backend.application.optimization.schedule_search import load_environment, make_evaluator, make_policy
@@ -47,7 +48,20 @@ FINAL_CAP = 4
 BUDGET = int(sys.argv[1]) if len(sys.argv) > 1 else 120
 
 
-def main() -> int:
+@dataclass(frozen=True, slots=True)
+class SearchOutcome:
+    """The one plan selected by the fast-model search."""
+
+    schedule: Schedule
+    theta: Theta
+    predicted_npv: float
+    schedule_hash: str
+    provenance: dict[str, str]
+    evaluations: int
+
+
+def run_search(*, budget: int = BUDGET) -> SearchOutcome:
+    """Run CMA-ES and return the plan instead of deciding where to save it."""
     env = load_environment(
         model_dir=conftest.model_z_dir(),
         normatives_path=conftest.chdd_python_dir() / "input" / "Нормативы_ЧДД.xlsx",
@@ -84,13 +98,13 @@ def main() -> int:
         )
 
     print(
-        f"CMA-ES: параметров 10, бюджет {BUDGET} оценок, потолок неподвижной "
+        f"CMA-ES: параметров 10, бюджет {budget} оценок, потолок неподвижной "
         f"точки в поиске {SEARCH_CAP}, seed {SEED}",
         flush=True,
     )
     started = time.monotonic()
     report = optimize(
-        objective, default_theta(), seed=SEED, max_evaluations=BUDGET
+        objective, default_theta(), seed=SEED, max_evaluations=budget
     )
     elapsed = time.monotonic() - started
     print(
@@ -117,21 +131,33 @@ def main() -> int:
     )
     print(f"canonical_schedule_hash: {hash_schedule(best.schedule)}", flush=True)
 
+    return SearchOutcome(
+        schedule=best.schedule,
+        theta=best_theta,
+        predicted_npv=best.npv,
+        schedule_hash=hash_schedule(best.schedule),
+        provenance=provenance,
+        evaluations=report.evaluations,
+    )
+
+
+def main() -> int:
+    outcome = run_search()
     out = Path("data/lambda-window-2007/cmaes.json")
     out.write_text(
         json.dumps(
             {
                 "seed": SEED,
                 "budget": BUDGET,
-                "evaluations": report.evaluations,
+                "evaluations": outcome.evaluations,
                 "search_cap": SEARCH_CAP,
                 "final_cap": FINAL_CAP,
-                "theta": dict(best_theta.values),
-                "npv_predicted": best.npv,
+                "theta": dict(outcome.theta.values),
+                "npv_predicted": outcome.predicted_npv,
                 "npv_baseline": BASE_NPV,
-                "canonical_schedule_hash": hash_schedule(best.schedule),
-                "static_violations": len(check.violations),
-                "provenance": provenance,
+                "canonical_schedule_hash": outcome.schedule_hash,
+                "static_violations": len(validate_static(outcome.schedule).violations),
+                "provenance": outcome.provenance,
             },
             ensure_ascii=False,
             indent=2,

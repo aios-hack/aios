@@ -29,7 +29,7 @@ from aios_backend.infrastructure.opm import submit_schedule
 from aios_backend.infrastructure.opm.opm_deck import OpmDeckEmitter
 from aios_backend.infrastructure.opm.runner import deck_hashes, summary_spec_hash
 from aios_backend.domain.configuration.schema import default_config
-from aios_backend.core.contracts import ArtifactHashes, Constraints, Theta
+from aios_backend.core.contracts import ArtifactHashes, Constraints, Schedule, Theta
 from aios_backend.core.contracts.hashing import hash_schedule
 from aios_backend.domain.schedule.canonical import canonical_part_hash
 from aios_backend.domain.economics import load_normatives, load_response_artifact
@@ -46,6 +46,32 @@ RESPONSE = Path("data/base_case/response.json")
 WORK_ROOT = Path("data/g7-submission")
 EXPECTED_HASH = None  # сверяется с cmaes.json; None — принять любой
 BASE_NPV = 11_873_676_459.64
+
+
+def verify_schedule(schedule: Schedule, work_root: Path):
+    """Run the real OPM tract for the exact schedule supplied by a caller."""
+    model_dir = conftest.model_z_dir()
+    normatives_path = conftest.chdd_python_dir() / "input" / "Нормативы_ЧДД.xlsx"
+    normatives = load_normatives(normatives_path)
+    emitter = OpmDeckEmitter(model_dir)
+    with tempfile.TemporaryDirectory() as scratch:
+        deck = emitter.emit(schedule, Path(scratch) / "deck")
+        hashes = deck_hashes(deck, schedule)
+        summary_hash = summary_spec_hash(deck.summary_plan.spec)
+    config = default_config(
+        normatives,
+        ArtifactHashes(
+            deck_hash=hashes.deck_hash,
+            history_prefix_hash=canonical_part_hash(schedule.initial_state),
+            summary_spec_hash=summary_hash,
+            groups_hash="0" * 64,
+            dataset_version_hash="0" * 64,
+            surrogate_checkpoint_hash="0" * 64,
+        ),
+        global_seed=SEED,
+    )
+    work_root.mkdir(parents=True, exist_ok=True)
+    return submit_schedule(schedule, model_dir, work_root, config, constraints=Constraints(), strict=False)
 
 
 def main() -> int:
@@ -93,36 +119,9 @@ def main() -> int:
         return 3
     print("хеш совпал с записанным в cmaes.json", flush=True)
 
-    normatives = load_normatives(normatives_path)
-    emitter = OpmDeckEmitter(model_dir)
-    with tempfile.TemporaryDirectory() as scratch:
-        deck = emitter.emit(schedule, Path(scratch) / "deck")
-        hashes = deck_hashes(deck, schedule)
-        summary_hash = summary_spec_hash(deck.summary_plan.spec)
-    config = default_config(
-        normatives,
-        ArtifactHashes(
-            deck_hash=hashes.deck_hash,
-            history_prefix_hash=canonical_part_hash(schedule.initial_state),
-            summary_spec_hash=summary_hash,
-            groups_hash="0" * 64,
-            dataset_version_hash="0" * 64,
-            surrogate_checkpoint_hash="0" * 64,
-        ),
-        global_seed=SEED,
-    )
-
-    WORK_ROOT.mkdir(parents=True, exist_ok=True)
     print("\nзвено А: эмит, прогон Flow, отклик, гейт, экономика...", flush=True)
     started = time.monotonic()
-    result = submit_schedule(
-        schedule,
-        model_dir,
-        WORK_ROOT,
-        config,
-        constraints=Constraints(),
-        strict=False,
-    )
+    result = verify_schedule(schedule, WORK_ROOT)
     print(f"тракт отработал за {(time.monotonic() - started) / 60:.1f} мин", flush=True)
 
     print(f"\nстатус прогона: {result.opm_run.status}", flush=True)
