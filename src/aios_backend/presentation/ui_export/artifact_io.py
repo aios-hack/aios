@@ -109,6 +109,11 @@ def _load_schedule(data: dict[str, Any]) -> Schedule:
     )
 
 
+def load_schedule_json(path: str | Path) -> Schedule:
+    """Load a canonical schedule written by the run workflow."""
+    return _load_schedule(json.loads(Path(path).read_text(encoding="utf-8")))
+
+
 def _load_state_at_date(data: dict[str, Any]) -> StateAtDate:
     return StateAtDate(
         deck_date_index=data["deck_date_index"],

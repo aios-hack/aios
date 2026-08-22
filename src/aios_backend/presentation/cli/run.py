@@ -8,10 +8,12 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime
+import json
 from pathlib import Path
 
 from aios_backend.application.runs import RunRequest, RunWorkflow
 from aios_backend.presentation.ui_export.run_summary import export_run_summary
+from aios_backend.presentation.ui_export.artifact_io import load_schedule_json
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -20,6 +22,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--runs-root", type=Path, default=Path("out/runs"))
     return parser
+
+
+def load_run_request(runs_root: Path, run_id: str) -> RunRequest:
+    run_dir = runs_root / run_id
+    request_path = run_dir / "inputs" / "request.json"
+    if not request_path.is_file():
+        raise SystemExit(f"Запуск {run_id!r} не найден: {request_path}")
+    data = json.loads(request_path.read_text(encoding="utf-8"))
+    return RunRequest(
+        run_id=run_id,
+        schedule=load_schedule_json(run_dir / "schedule" / "schedule.json"),
+        predicted_npv=data.get("predicted_npv"),
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -43,10 +58,16 @@ def main(argv: list[str] | None = None) -> int:
         )
         export_run_summary(manifest, args.runs_root / run_id / "ui")
         return 0
-    if mode in {"verify", "full"}:
-        from aios_backend.application.optimization.verification_run import main as verify
+    if mode == "verify":
+        if not args.run_id:
+            raise SystemExit("verify требует --run-id ранее найденного запуска")
+        from aios_backend.application.optimization.verification_run import verify_schedule
 
-        return verify()
+        request = load_run_request(args.runs_root, args.run_id)
+        workflow = RunWorkflow(args.runs_root)
+        manifest = workflow.verify(request, verify_schedule)
+        export_run_summary(manifest, args.runs_root / args.run_id / "ui")
+        return 0
     return 0
 
 
