@@ -64,7 +64,7 @@ def _spy_subprocess_run(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
         calls.append(list(command))
         return original(command, *args, **kwargs)
 
-    monkeypatch.setattr("bridge.runner.subprocess.run", spy)
+    monkeypatch.setattr("aios_backend.infrastructure.opm.runner.subprocess.run", spy)
     return calls
 
 
