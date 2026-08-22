@@ -82,7 +82,7 @@ RUN set -eux; \
     mkdir -p /out /data/docs
 
 # Состав образа печатается на сборке: видно, что попало, а что отсутствует.
-RUN python -m aios_cli.selfcheck
+RUN python -m backend.presentation.cli.selfcheck
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/app/docker/entrypoint.sh"]
 CMD ["selfcheck"]

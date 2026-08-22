@@ -30,7 +30,7 @@ cmd_tests() {
     fi
     local ignores=()
     local path
-    for path in $(grep -rlE 'shutil\.which\("docker"\)' bridge/tests 2>/dev/null | sort); do
+    for path in $(grep -rlE 'shutil\.which\("docker"\)' backend/infrastructure/opm/tests 2>/dev/null | sort); do
         ignores+=("--ignore=$path")
     done
     echo "== в образе нет docker: исключены тесты, требующие настоящий OPM Flow"
@@ -45,7 +45,7 @@ cmd_npv() {
         exit 2
     fi
     mkdir -p "$OUT_DIR"
-    exec python -m aios_cli.npv --out "$OUT_DIR" "$@"
+    exec python -m backend.presentation.cli.npv --out "$OUT_DIR" "$@"
 }
 
 cmd_emit() {
@@ -55,7 +55,7 @@ cmd_emit() {
         exit 2
     fi
     mkdir -p "$OUT_DIR"
-    exec python -m aios_cli.emit --out "$OUT_DIR" "$@"
+    exec python -m backend.presentation.cli.emit --out "$OUT_DIR" "$@"
 }
 
 cmd_web() {
@@ -65,11 +65,11 @@ cmd_web() {
         echo "попал в контекст сборки и npm run build прошёл без ошибок." >&2
         exit 3
     fi
-    exec python -m aios_cli.web --host "${AIOS_HOST:-0.0.0.0}" --port "${AIOS_PORT:-8000}" "$@"
+    exec python -m backend.presentation.cli.web --host "${AIOS_HOST:-0.0.0.0}" --port "${AIOS_PORT:-8000}" "$@"
 }
 
 cmd_selfcheck() {
-    python -m aios_cli.selfcheck
+    python -m backend.presentation.cli.selfcheck
 }
 
 usage() {
