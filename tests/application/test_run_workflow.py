@@ -51,3 +51,17 @@ def test_unsound_opm_result_is_rejected(tmp_path) -> None:
 
     assert result.status is WorkflowStatus.REJECTED
     assert result.sound is False
+
+
+def test_full_passes_the_schedule_returned_by_search_to_verification(tmp_path) -> None:
+    schedule = sample_schedule()
+    workflow = RunWorkflow(tmp_path / "runs")
+    seen = []
+
+    result = workflow.full(
+        lambda: RunRequest("full-plan", schedule, predicted_npv=12.5),
+        lambda actual, _opm: (seen.append(actual) or FakeVerification(True, 11.0)),
+    )
+
+    assert seen == [schedule]
+    assert result.status is WorkflowStatus.READY_TO_SUBMIT

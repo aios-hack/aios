@@ -96,6 +96,16 @@ class RunWorkflow:
         self._write_manifest(run_dir, manifest)
         return manifest
 
+    def full(
+        self,
+        search: Callable[[], RunRequest],
+        verify: Callable[[Schedule, Path], Verification],
+    ) -> RunManifest:
+        """Run search once, then verify the exact returned schedule once."""
+        request = search()
+        self.search(request)
+        return self.verify(request, verify)
+
     def _prepare(self, request: RunRequest) -> Path:
         if not request.run_id or Path(request.run_id).name != request.run_id:
             raise ValueError("run_id must be one plain directory name")
