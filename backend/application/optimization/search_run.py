@@ -13,7 +13,7 @@
 `regret@1` в 201 млн руб (`SURROGATE_HANDOFF.md` §6). Поиск даёт план, а
 честный ЧДД — только прогон OPM, задача G7.
 
-Запуск: `PYTHONPATH=. python -m optimizer.search_run [бюджет оценок]`.
+Запуск: `PYTHONPATH=. python -m backend.application.optimization.search_run [бюджет оценок]`.
 Нужны `torch` (extras `ml`), чекпойнт суррогата и измеренная λ.
 """
 

@@ -66,8 +66,8 @@
 Из корня `aios`:
 
 ```
-.venv/bin/python -m ui.webdata   # только wells.json из дека
-.venv/bin/python -m ui.demo      # весь демонстрационный набор (см. ui/DEMO.md)
+.venv/bin/python -m backend.presentation.ui_export.webdata   # только wells.json из дека
+.venv/bin/python -m backend.presentation.ui_export.demo      # весь демонстрационный набор
 cd frontend
 npm ci
 npm run dev       # дев-сервер

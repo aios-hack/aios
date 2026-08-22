@@ -13,8 +13,8 @@
 ## Порядок чтения, обязательный
 
 1. `../docs/v2/assignments/<имя>.md` — что делать и в каком порядке.
-2. `contracts/README.md` (этот каталог) — точная форма всех общих типов: имена полей, единицы, оси, инварианты.
-3. `contracts/*.py` — те же типы, но исполняемые. **Импортировать их, не переизобретать.** `from contracts import Schedule, StateAtDate, IntervalResponse, ...` — весь публичный API в `contracts/__init__.py`.
+2. `backend/core/contracts/README.md` — точная форма всех общих типов: имена полей, единицы, оси, инварианты.
+3. `backend/core/contracts/*.py` — те же типы, но исполняемые. **Импортировать их, не переизобретать.** `from backend.core.contracts import Schedule, StateAtDate, IntervalResponse, ...`.
 4. Разделы `../docs/context/08_contracts.md`, на которые ссылается карточка (§N) — там объяснено, почему контракт именно такой, а не просто какой он.
 
 Если контракт неясен из `contracts/*.py` и `contracts/README.md` — смотреть `docs/context/08_contracts.md`, не гадать и не придумывать своё поле.

@@ -7,7 +7,7 @@
 ## Подготовка до выхода к жюри
 
 ```
-.venv/bin/python -m ui.demo     # собирает весь набор в frontend/public/data/
+.venv/bin/python -m backend.presentation.ui_export.demo     # собирает весь набор в frontend/public/data/
 cd frontend
 npm run dev                     # или npm run build && npm run preview
 ```

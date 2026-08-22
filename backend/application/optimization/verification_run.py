@@ -1,6 +1,6 @@
 """G7: найденный CMA-ES план через настоящий OPM и звено А §10.5.
 
-Запуск: `PYTHONPATH=. python -m optimizer.verification_run`. Нужны Docker с
+Запуск: `PYTHONPATH=. python -m backend.application.optimization.verification_run`. Нужны Docker с
 образом OPM, чекпойнт суррогата, измеренная λ и `torch` (extras `ml`).
 
 θ* воспроизводится тем же поиском с тем же seed — иначе плана взять неоткуда:
