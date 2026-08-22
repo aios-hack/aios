@@ -25,7 +25,6 @@ response.json`, задача G1) — того же дека без перекл�
 from __future__ import annotations
 
 import json
-import sys
 from datetime import date
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,7 +37,7 @@ from backend.domain.connectivity.campaign import (
     T0_DECK_DATE_INDEX,
     CampaignError,
     CampaignSetup,
-    _factor,
+    level_factor,
 )
 from backend.domain.connectivity.doe import DoEPlan, Level, achievability
 from backend.domain.connectivity.estimator import (
@@ -155,7 +154,7 @@ def _targets_by_run(
 
     `Amplitude.target` двигает уставку на абсолютный шаг (медиана ±10
     м³/сут), а кампания задаёт возмущение множителем от собственной уставки
-    скважины (`campaign._factor`), потому что материализация датасета
+    скважины (`campaign.level_factor`), потому что материализация датасета
     работает множителями. На скважине с медианным уровнем это одно и то же,
     на слабой — расходится вдвое, и сверка объявляла недостижимой скважину,
     у которой никто и не просил столько воды. Цель считается тем же
@@ -164,7 +163,7 @@ def _targets_by_run(
 
     return tuple(
         {
-            well: baseline_by_well[well] * _factor(level, plan.amplitude)
+            well: baseline_by_well[well] * level_factor(level, plan.amplitude)
             for well, level in row.levels.items()
         }
         for row in plan.rows

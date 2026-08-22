@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from backend.domain.connectivity.campaign import CampaignSetup, _factor
+from backend.domain.connectivity.campaign import CampaignSetup, level_factor
 from backend.domain.connectivity.doe import DoEPlan
 from backend.infrastructure.opm.dataset_plan import (
     LevelPerturbation,
@@ -21,7 +21,7 @@ def specs_of(plan: DoEPlan, batch: int, first_step: int = 0) -> tuple[Perturbati
             family=PerturbationFamily.LEVELS,
             seed=plan.seed + row.run_index,
             levels=tuple(
-                LevelPerturbation(well=well, from_step=first_step, factor=_factor(level, plan.amplitude))
+                LevelPerturbation(well=well, from_step=first_step, factor=level_factor(level, plan.amplitude))
                 for well, level in sorted(row.levels.items())
             ),
         )

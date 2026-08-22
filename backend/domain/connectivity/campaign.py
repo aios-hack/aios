@@ -119,8 +119,15 @@ def setup(
     return CampaignSetup(window=window, fund=fund, amplitude=amplitude, plans=plans)
 
 
-def _factor(level: Level, amplitude: Amplitude) -> float:
-    """Return the domain-level multiplier for one experiment level."""
+def level_factor(level: Level, amplitude: Amplitude) -> float:
+    """Множитель к базовой уставке: шаг амплитуды в долях медианного уровня.
+
+    Множитель, а не абсолютная уставка, потому что материализация датасета
+    работает множителями (`LevelPerturbation`), а фактические уровни скважин
+    различаются на порядок: общий абсолютный шаг увёл бы слабые скважины в
+    ноль, а сильные не тронул.
+    """
+
     relative = amplitude.step_m3_per_day / amplitude.base_level_m3_per_day
     if level is Level.HIGH:
         return 1.0 + relative
