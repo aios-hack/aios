@@ -64,6 +64,8 @@ WATERCUT_TARGET_NAMES: tuple[str, ...] = (
 # держит декодирование в пределах, где `_BACKFLOW_FLOOR` ещё осмыслен.
 _WATERCUT_CEILING = 1.5
 
+_SCENARIO_CONTEXTS: tuple[object, ...] = (False, True, "mean", "rich")
+_LOSSES: tuple[str, ...] = ("smooth_l1", "mse", "huber")
 _LR_SCHEDULES: tuple[str, ...] = ("none", "cosine")
 _SELECTION_CRITERIA: tuple[str, ...] = ("loss", "money", "rank")
 
@@ -143,6 +145,10 @@ class ModelConfig:
     select_by: str = "loss"
     target_parameterization: str = "absolute"
     oil_density_t_per_m3: float = 0.9131
+    loss: str = "smooth_l1"
+    huber_delta: float = 0.1
+    residual: bool = False
+    scenario_context: object = False
 
     def __post_init__(self) -> None:
         if self.hidden_width < 1 or self.hidden_layers < 1:
@@ -176,6 +182,12 @@ class ModelConfig:
             )
         if not self.oil_density_t_per_m3 > 0.0:
             raise SurrogateModelError("oil_density_t_per_m3 должна быть положительной")
+        if self.loss not in _LOSSES:
+            raise SurrogateModelError(f"loss: {', '.join(_LOSSES)}")
+        if self.scenario_context not in _SCENARIO_CONTEXTS:
+            raise SurrogateModelError("scenario_context: False, True, 'mean' или 'rich'")
+        if not self.huber_delta > 0.0:
+            raise SurrogateModelError("huber_delta должна быть положительной")
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,6 +254,25 @@ class _NodeNetwork(nn.Module):
         super().__init__()
         self.well_embedding = nn.Embedding(n_wells, config.well_embedding_dim)
         width = numeric_width + config.well_embedding_dim
+        self.residual = config.residual
+        if self.residual:
+            self.stem = nn.Linear(width, config.hidden_width)
+            self.blocks = nn.ModuleList(
+                nn.Sequential(
+                    nn.LayerNorm(config.hidden_width),
+                    nn.Linear(config.hidden_width, config.hidden_width),
+                    nn.SiLU(),
+                    nn.Dropout(config.dropout),
+                    nn.Linear(config.hidden_width, config.hidden_width),
+                )
+                for _ in range(config.hidden_layers)
+            )
+            self.head = nn.Sequential(
+                nn.LayerNorm(config.hidden_width),
+                nn.Linear(config.hidden_width, len(TARGET_NAMES)),
+            )
+            self.body = None
+            return
         layers: list[nn.Module] = []
         for _ in range(config.hidden_layers):
             layers.extend(
@@ -258,7 +289,13 @@ class _NodeNetwork(nn.Module):
 
     def forward(self, numeric: Tensor, well_index: Tensor) -> Tensor:
         embedded = self.well_embedding(well_index)
-        return self.body(torch.cat((numeric, embedded), dim=1))
+        features = torch.cat((numeric, embedded), dim=1)
+        if not self.residual:
+            return self.body(features)
+        hidden = self.stem(features)
+        for block in self.blocks:
+            hidden = hidden + block(hidden)
+        return self.head(hidden)
 
 
 def _one_hot(value: object, members: Sequence[object]) -> list[float]:
@@ -291,15 +328,38 @@ def _validate_input(item: SurrogateInput) -> None:
         raise SurrogateModelError("static_values не совпадает со static_feature_names")
 
 
+def _scenario_summary(x: Tensor, item: SurrogateInput, *, mode: object) -> Tensor:
+    """Return a scenario-level summary repeated for each node."""
+    blocks = [x.mean(dim=0, keepdim=True)]
+    if mode == "rich":
+        blocks.extend((x.std(dim=0, keepdim=True), x.amax(dim=0, keepdim=True)))
+        for role in (Role.PROD, Role.INJ):
+            mask = torch.tensor(
+                [node.role is role for node in item.nodes],
+                dtype=torch.bool,
+                device=x.device,
+            )
+            blocks.append(
+                x[mask].mean(dim=0, keepdim=True)
+                if bool(mask.any())
+                else torch.zeros(1, x.shape[1], dtype=x.dtype, device=x.device)
+            )
+    return torch.nan_to_num(torch.cat(blocks, dim=1)).expand(x.shape[0], -1)
+
+
 def _features(
     item: SurrogateInput,
     wells: tuple[str, ...],
+    *,
+    scenario_context: object = False,
 ) -> tuple[Tensor, Tensor]:
     _validate_input(item)
     if item.wells != wells:
         raise SurrogateModelError(f"ось wells разошлась: {item.wells} != {wells}")
     well_to_index = {well: index for index, well in enumerate(wells)}
     x = torch.tensor([_node_vector(node) for node in item.nodes], dtype=torch.float32)
+    if scenario_context:
+        x = torch.cat((x, _scenario_summary(x, item, mode=scenario_context)), dim=1)
     well_index = torch.tensor(
         [well_to_index[node.well] for node in item.nodes], dtype=torch.long
     )
@@ -396,13 +456,16 @@ def _example_tensors(
     *,
     parameterization: str = "absolute",
     oil_density_t_per_m3: float = 0.9131,
+    scenario_context: object = False,
 ) -> tuple[Tensor, Tensor, Tensor]:
     xs: list[Tensor] = []
     indices: list[Tensor] = []
     ys: list[Tensor] = []
     counters: dict[str, int] = {}
     for example in examples:
-        x, well_index = _features(example.input, wells)
+        x, well_index = _features(
+            example.input, wells, scenario_context=scenario_context
+        )
         xs.append(x)
         indices.append(well_index)
         ys.append(
@@ -562,9 +625,45 @@ def _scenario_money(
     return totals
 
 
+def _elementwise_loss(prediction: Tensor, target: Tensor, settings: ModelConfig) -> Tensor:
+    if settings.loss == "mse":
+        return (prediction - target) ** 2
+    if settings.loss == "huber":
+        return torch.nn.functional.huber_loss(
+            prediction, target, reduction="none", delta=settings.huber_delta
+        )
+    return torch.nn.functional.smooth_l1_loss(prediction, target, reduction="none")
+
+
+class _Batches:
+    """Iterate prebuilt tensors by slices instead of per-row collation."""
+
+    def __init__(
+        self,
+        tensors: tuple[Tensor, ...],
+        *,
+        batch_size: int,
+        generator: torch.Generator | None = None,
+    ) -> None:
+        self.tensors = tensors
+        self.batch_size = batch_size
+        self.generator = generator
+        self.n_rows = tensors[0].shape[0]
+
+    def __iter__(self):
+        if self.generator is None:
+            for start in range(0, self.n_rows, self.batch_size):
+                yield tuple(tensor[start : start + self.batch_size] for tensor in self.tensors)
+            return
+        order = torch.randperm(self.n_rows, generator=self.generator)
+        for start in range(0, self.n_rows, self.batch_size):
+            index = order[start : start + self.batch_size]
+            yield tuple(tensor[index] for tensor in self.tensors)
+
+
 def _loss_on_loader(
     network: _NodeNetwork,
-    loader: DataLoader,
+    loader: _Batches | DataLoader,
     device: torch.device,
 ) -> float:
     return _validate(network, loader, device).loss
@@ -579,7 +678,7 @@ class _ValidationOutcome:
 
 def _validate(
     network: _NodeNetwork,
-    loader: DataLoader,
+    loader: _Batches | DataLoader,
     device: torch.device,
     *,
     scale: Tensor | None = None,
@@ -591,9 +690,11 @@ def _validate(
     scenario_count: int = 0,
     parameterization: str = "absolute",
     oil_density_t_per_m3: float = 0.9131,
+    settings: ModelConfig | None = None,
 ) -> _ValidationOutcome:
     """Один проход валидации, отдающий все три критерия отбора чекпоинта."""
     network.eval()
+    settings = settings or ModelConfig()
     total = 0.0
     money_total = 0.0
     count = 0
@@ -607,9 +708,7 @@ def _validate(
             well_index = well_index.to(device)
             y = y.to(device)
             prediction = network(x, well_index)
-            elementwise = torch.nn.functional.smooth_l1_loss(
-                prediction, y, reduction="none"
-            )
+            elementwise = _elementwise_loss(prediction, y, settings)
             total += float(elementwise.sum().item())
             if weighted:
                 weights = _money_weights(
@@ -693,6 +792,7 @@ class TrajectorySurrogate:
             wells,
             parameterization=settings.target_parameterization,
             oil_density_t_per_m3=settings.oil_density_t_per_m3,
+            scenario_context=settings.scenario_context,
         )
         network = _NodeNetwork(x.shape[1], len(wells), settings)
         return cls(
@@ -730,6 +830,7 @@ class TrajectorySurrogate:
         parameterization = dict(
             parameterization=settings.target_parameterization,
             oil_density_t_per_m3=settings.oil_density_t_per_m3,
+            scenario_context=settings.scenario_context,
         )
         train_x, train_wells, train_y = _example_tensors(
             train, model.wells, target_stats, **parameterization
@@ -743,16 +844,13 @@ class TrajectorySurrogate:
         val_y = model.target_scaler.transform(val_y)
 
         generator = torch.Generator().manual_seed(settings.seed)
-        train_loader = DataLoader(
-            TensorDataset(train_x, train_wells, train_y),
+        train_loader = _Batches(
+            (train_x, train_wells, train_y),
             batch_size=settings.batch_size,
-            shuffle=True,
             generator=generator,
         )
-        validation_loader = DataLoader(
-            TensorDataset(val_x, val_wells, val_y),
-            batch_size=settings.batch_size,
-            shuffle=False,
+        validation_loader = _Batches(
+            (val_x, val_wells, val_y), batch_size=settings.batch_size
         )
         optimizer = torch.optim.AdamW(
             network.parameters(),
@@ -804,9 +902,7 @@ class TrajectorySurrogate:
                 optimizer.zero_grad(set_to_none=True)
                 prediction = network(x, well_index)
                 if weighted:
-                    elementwise = torch.nn.functional.smooth_l1_loss(
-                        prediction, y, reduction="none"
-                    )
+                    elementwise = _elementwise_loss(prediction, y, settings)
                     weights = _money_weights(
                         y,
                         scale=target_scale,
@@ -819,7 +915,7 @@ class TrajectorySurrogate:
                     )
                     loss = (elementwise * weights).mean()
                 else:
-                    loss = torch.nn.functional.smooth_l1_loss(prediction, y)
+                    loss = _elementwise_loss(prediction, y, settings).mean()
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(network.parameters(), max_norm=5.0)
                 optimizer.step()
@@ -839,6 +935,7 @@ class TrajectorySurrogate:
                 scenario_count=len(validation) if criterion == "rank" else 0,
                 parameterization=settings.target_parameterization,
                 oil_density_t_per_m3=settings.oil_density_t_per_m3,
+                settings=settings,
             )
             validation_loss = outcome.loss
             current_lr = float(optimizer.param_groups[0]["lr"])
@@ -891,10 +988,147 @@ class TrajectorySurrogate:
             target_rows=target_stats.get("target_rows", 0),
         )
 
+    @classmethod
+    def fit_tensors(
+        cls,
+        model: "TrajectorySurrogate",
+        *,
+        train: tuple[Tensor, Tensor, Tensor],
+        validation: tuple[Tensor, Tensor, Tensor],
+        validation_node_counts: Sequence[int],
+        dataset_hash: str,
+        device: str | None = None,
+        epoch_callback: Callable[[EpochMetrics], None] | None = None,
+        target_stats: MutableMapping[str, int] | None = None,
+    ) -> TrainingResult:
+        """Train from already standardized tensors without keeping responses in memory."""
+        settings = model.config
+        target_stats = {} if target_stats is None else target_stats
+        selected_device = torch.device(
+            device or ("cuda" if torch.cuda.is_available() else "cpu")
+        )
+        network = model.network.to(selected_device)
+        train_x, train_wells, train_y = train
+        val_x, val_wells, val_y = validation
+        generator = torch.Generator().manual_seed(settings.seed)
+        train_loader = _Batches(
+            (train_x, train_wells, train_y),
+            batch_size=settings.batch_size,
+            generator=generator,
+        )
+        validation_loader = _Batches(
+            (val_x, val_wells, val_y), batch_size=settings.batch_size
+        )
+        optimizer = torch.optim.AdamW(
+            network.parameters(),
+            lr=settings.learning_rate,
+            weight_decay=settings.weight_decay,
+        )
+        scheduler = (
+            torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer, T_max=settings.max_epochs
+            )
+            if settings.lr_schedule == "cosine"
+            else None
+        )
+        weighted = bool(settings.money_rub_per_unit)
+        target_scale = torch.tensor(
+            model.target_scaler.scale, dtype=train_y.dtype, device=selected_device
+        )
+        target_mean = torch.tensor(
+            model.target_scaler.mean, dtype=train_y.dtype, device=selected_device
+        )
+        rub_per_unit = torch.tensor(
+            settings.money_rub_per_unit or (0.0,) * len(TARGET_NAMES),
+            dtype=train_y.dtype,
+            device=selected_device,
+        )
+        scenario_index = torch.repeat_interleave(
+            torch.arange(len(validation_node_counts)),
+            torch.tensor(list(validation_node_counts)),
+        )
+        criterion = settings.select_by if weighted else "loss"
+        best_loss = math.inf
+        best_state: dict[str, Tensor] | None = None
+        best_epoch = 0
+        stale = 0
+        history: list[EpochMetrics] = []
+        for epoch in range(1, settings.max_epochs + 1):
+            network.train()
+            total = 0.0
+            count = 0
+            for x, well_index, y in train_loader:
+                x, well_index, y = x.to(selected_device), well_index.to(selected_device), y.to(selected_device)
+                optimizer.zero_grad(set_to_none=True)
+                elementwise = _elementwise_loss(network(x, well_index), y, settings)
+                if weighted:
+                    weights = _money_weights(
+                        y, scale=target_scale, mean=target_mean, rub_per_unit=rub_per_unit,
+                        alpha=settings.money_weight_alpha, cap=settings.money_weight_cap,
+                        parameterization=settings.target_parameterization,
+                        oil_density_t_per_m3=settings.oil_density_t_per_m3,
+                    )
+                    loss = (elementwise * weights).mean()
+                else:
+                    loss = elementwise.mean()
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(network.parameters(), max_norm=5.0)
+                optimizer.step()
+                total += float(loss.item()) * y.numel()
+                count += y.numel()
+            outcome = _validate(
+                network, validation_loader, selected_device,
+                scale=target_scale if weighted else None,
+                mean=target_mean if weighted else None,
+                rub_per_unit=rub_per_unit if weighted else None,
+                alpha=settings.money_weight_alpha, cap=settings.money_weight_cap,
+                scenario_index=scenario_index if criterion == "rank" else None,
+                scenario_count=len(validation_node_counts) if criterion == "rank" else 0,
+                parameterization=settings.target_parameterization,
+                oil_density_t_per_m3=settings.oil_density_t_per_m3,
+                settings=settings,
+            )
+            current_lr = float(optimizer.param_groups[0]["lr"])
+            if scheduler is not None:
+                scheduler.step()
+            score = -outcome.rank if criterion == "rank" else (
+                outcome.money_loss if criterion == "money" else outcome.loss
+            )
+            metrics = EpochMetrics(
+                epoch, total / max(1, count), outcome.loss,
+                validation_money_loss=outcome.money_loss,
+                validation_rank=outcome.rank,
+                learning_rate=current_lr,
+            )
+            history.append(metrics)
+            if epoch_callback is not None:
+                epoch_callback(metrics)
+            if score < best_loss - 1e-6:
+                best_loss, best_epoch, stale = score, epoch, 0
+                best_state = {key: value.detach().cpu().clone() for key, value in network.state_dict().items()}
+            else:
+                stale += 1
+                if stale >= settings.patience:
+                    break
+        if best_state is None:
+            raise SurrogateModelError("обучение не дало конечного validation loss")
+        network.load_state_dict(best_state)
+        model.network = network.cpu().eval()
+        model.version = model._fingerprint()
+        return TrainingResult(
+            model=model, history=tuple(history), best_epoch=best_epoch,
+            dataset_hash=dataset_hash,
+            backflow_intervals=target_stats.get("backflow_intervals", 0),
+            backflow_worst_tonnes=target_stats.get("backflow_worst_milli", 0) / 1000.0,
+            target_rows=target_stats.get("target_rows", 0),
+        )
+
     def predict(self, candidate: SurrogateInput) -> ScoredPrediction:
         if candidate.static_feature_names != self.static_feature_names:
             raise SurrogateModelError("статика кандидата не совпадает с checkpoint")
-        x, well_index = _features(candidate, self.wells)
+        x, well_index = _features(
+            candidate, self.wells, scenario_context=self.config.scenario_context
+        )
         x = self.input_scaler.transform(x)
         self.network.eval()
         chunks: list[Tensor] = []

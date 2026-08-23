@@ -21,7 +21,12 @@ from backend.core.contracts import (  # noqa: E402
 )
 from backend.ml.surrogate.features import SurrogateInput, WellStepFeatures  # noqa: E402
 from backend.ml.surrogate.model import (
+    TARGET_NAMES,
     Standardizer,
+    _NodeNetwork,
+    _elementwise_loss,
+    _example_tensors,
+    _features,
     _money_weights,
     _targets,
     _watercut_row,
@@ -433,6 +438,10 @@ def test_new_config_fields_do_not_invalidate_an_existing_checkpoint(tmp_path) ->
             "select_by",
             "target_parameterization",
             "oil_density_t_per_m3",
+            "loss",
+            "huber_delta",
+            "residual",
+            "scenario_context",
         }
     }
     assert len(older) < len(payload["config"])
@@ -443,3 +452,77 @@ def test_new_config_fields_do_not_invalidate_an_existing_checkpoint(tmp_path) ->
     restored = TrajectorySurrogate.load(saved)
     assert restored.version == payload["version"]
     assert restored.predict(_input()).output.nodes[0] == model.predict(_input()).output.nodes[0]
+
+
+def test_fit_tensors_accepts_prepared_standardized_tensors() -> None:
+    examples = tuple(_example(f"schedule-{index}") for index in range(4))
+    model = TrajectorySurrogate.initialize(examples[:3], dataset_hash="d" * 64)
+    train_x, train_wells, train_y = _example_tensors(examples[:3], model.wells)
+    val_x, val_wells, val_y = _example_tensors(examples[3:], model.wells)
+
+    result = TrajectorySurrogate.fit_tensors(
+        model,
+        train=(
+            model.input_scaler.transform(train_x),
+            train_wells,
+            model.target_scaler.transform(train_y),
+        ),
+        validation=(
+            model.input_scaler.transform(val_x),
+            val_wells,
+            model.target_scaler.transform(val_y),
+        ),
+        validation_node_counts=(len(examples[3].input.nodes),),
+        dataset_hash="d" * 64,
+    )
+
+    assert result.history
+
+
+def test_residual_network_has_the_contract_output_shape() -> None:
+    numeric = torch.randn(8, 5)
+    wells = torch.zeros(8, dtype=torch.long)
+    config = ModelConfig(hidden_width=16, hidden_layers=3, well_embedding_dim=4, residual=True)
+    output = _NodeNetwork(numeric.shape[1], 2, config)(numeric, wells)
+
+    assert output.shape == (8, len(TARGET_NAMES))
+
+
+def test_loss_choice_changes_elementwise_residual() -> None:
+    prediction = torch.tensor([[0.0, 3.0]])
+    target = torch.tensor([[0.0, 0.0]])
+
+    smooth = _elementwise_loss(prediction, target, ModelConfig())
+    squared = _elementwise_loss(prediction, target, ModelConfig(loss="mse"))
+    huber = _elementwise_loss(
+        prediction, target, ModelConfig(loss="huber", huber_delta=0.1)
+    )
+
+    assert float(squared[0, 1]) == pytest.approx(9.0)
+    assert float(smooth[0, 1]) == pytest.approx(2.5)
+    assert float(huber[0, 1]) < float(smooth[0, 1])
+
+
+def test_scenario_context_is_shared_by_every_node() -> None:
+    item = _input()
+    plain, _ = _features(item, item.wells)
+    enriched, _ = _features(item, item.wells, scenario_context=True)
+
+    assert enriched.shape == (plain.shape[0], plain.shape[1] * 2)
+    assert torch.allclose(enriched[:, : plain.shape[1]], plain)
+    assert torch.allclose(enriched[0, plain.shape[1] :], enriched[-1, plain.shape[1] :])
+
+
+def test_rich_scenario_context_separates_producers_and_injectors() -> None:
+    item = _input()
+    plain, _ = _features(item, item.wells)
+    rich, _ = _features(item, item.wells, scenario_context="rich")
+    width = plain.shape[1]
+
+    assert rich.shape == (plain.shape[0], width * 6)
+    assert not torch.allclose(rich[0, 4 * width : 5 * width], rich[0, 5 * width :])
+
+
+def test_scenario_context_rejects_unknown_mode() -> None:
+    with pytest.raises(SurrogateModelError, match="scenario_context"):
+        ModelConfig(scenario_context="everything")
