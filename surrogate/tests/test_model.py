@@ -22,6 +22,8 @@ from contracts import (  # noqa: E402
 from surrogate.features import SurrogateInput, WellStepFeatures  # noqa: E402
 from surrogate.model import (
     TARGET_NAMES,
+    _ScenarioBatches,
+    _pairwise_ranking_loss,
     _features,
     Standardizer,
     _NodeNetwork,
@@ -557,3 +559,67 @@ def test_rich_scenario_summary_splits_producers_from_injectors() -> None:
 def test_scenario_context_rejects_unknown_mode() -> None:
     with pytest.raises(SurrogateModelError, match="scenario_context"):
         replace(ModelConfig(), scenario_context="everything")
+
+
+def test_pairwise_ranking_loss_rewards_correct_order() -> None:
+    """Верный порядок с запасом почти не штрафуется, перевёрнутый — линейно."""
+    actual = torch.tensor([3.0, 2.0, 1.0])
+    right = _pairwise_ranking_loss(torch.tensor([9.0, 5.0, 1.0]), actual)
+    wrong = _pairwise_ranking_loss(torch.tensor([1.0, 5.0, 9.0]), actual)
+    flat = _pairwise_ranking_loss(torch.tensor([2.0, 2.0, 2.0]), actual)
+    assert float(right) < float(flat) < float(wrong)
+    # После нормировки оценок разности имеют порядок единицы, поэтому верный
+    # порядок даёт не ноль, а заметно меньше, чем softplus(0) = 0.693 у
+    # вырожденного предсказания.
+    assert float(right) < 0.5 * float(flat)
+
+
+def test_pairwise_ranking_loss_ignores_ties_in_truth() -> None:
+    tied = _pairwise_ranking_loss(
+        torch.tensor([5.0, 1.0]), torch.tensor([7.0, 7.0])
+    )
+    assert float(tied) == pytest.approx(0.0)
+
+
+def test_scenario_batches_keep_scenarios_whole_and_labelled() -> None:
+    """Батч обязан содержать несколько сценариев сразу и помечать их: без
+    этого попарное сравнение не собрать."""
+    x = torch.arange(60, dtype=torch.float32).reshape(30, 2)
+    w = torch.zeros(30, dtype=torch.long)
+    y = torch.zeros(30, 2)
+    batches = _ScenarioBatches(
+        (x, w, y), [10, 10, 10], scenarios_per_batch=3, nodes_per_scenario=4,
+        generator=torch.Generator().manual_seed(1),
+    )
+    seen = list(batches)
+    assert len(seen) == 1
+    bx, bw, by, groups, n_groups = seen[0]
+    assert n_groups == 3
+    assert bx.shape[0] == 12 and groups.shape[0] == 12
+    assert sorted(groups.tolist()) == sorted([0] * 4 + [1] * 4 + [2] * 4)
+    # Узлы каждой группы обязаны прийти из одного сценария: их исходные строки
+    # лежат в одном блоке по десять.
+    for group in range(3):
+        block = bx[groups == group][:, 0] // 2
+        assert len(set((int(v) // 10) for v in block.tolist())) == 1
+
+
+def test_scenario_batches_reject_counts_that_do_not_cover_rows() -> None:
+    with pytest.raises(SurrogateModelError, match="счётчики сценариев"):
+        _ScenarioBatches(
+            (torch.zeros(30, 2), torch.zeros(30, dtype=torch.long), torch.zeros(30, 2)),
+            [10, 10],
+            scenarios_per_batch=2, nodes_per_scenario=4,
+            generator=torch.Generator().manual_seed(1),
+        )
+
+
+def test_ranking_loss_is_invariant_to_the_scale_of_money() -> None:
+    """Прокси измеряется в рублях порядка 1e9. Без нормировки softplus от такой
+    разности возвращает саму разность, и член перекрывает поштатный лосс при
+    любом весе — три разных веса давали неотличимый результат."""
+    actual = torch.tensor([3.0, 2.0, 1.0])
+    small = _pairwise_ranking_loss(torch.tensor([3.0, 2.0, 1.0]), actual)
+    huge = _pairwise_ranking_loss(torch.tensor([3e9, 2e9, 1e9]), actual)
+    assert float(huge) == pytest.approx(float(small), rel=1e-4)
+    assert float(huge) < 1.0

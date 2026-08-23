@@ -151,6 +151,11 @@ class ModelConfig:
     huber_delta: float = 0.1
     residual: bool = False
     scenario_context: object = False
+    ranking_loss_weight: float = 0.0
+    ranking_scenarios_per_batch: int = 48
+    # Полный сценарий — 23 072 узла; подвыборка ускоряет эпоху, но слишком
+    # малая оставляет её без данных: при 640 узлах эпоха видела 2.8% выборки.
+    ranking_nodes_per_scenario: int = 4096
 
     def __post_init__(self) -> None:
         if self.hidden_width < 1 or self.hidden_layers < 1:
@@ -189,6 +194,17 @@ class ModelConfig:
         if self.scenario_context not in _SCENARIO_CONTEXTS:
             raise SurrogateModelError(
                 "scenario_context: False, True, 'mean' или 'rich'"
+            )
+        if self.ranking_loss_weight < 0.0:
+            raise SurrogateModelError("ranking_loss_weight не может быть отрицательным")
+        if self.ranking_scenarios_per_batch < 2:
+            raise SurrogateModelError(
+                "ranking_scenarios_per_batch должен быть не меньше двух: "
+                "попарное сравнение требует пары"
+            )
+        if self.ranking_nodes_per_scenario < 1:
+            raise SurrogateModelError(
+                "ranking_nodes_per_scenario должен быть положительным"
             )
         if not self.huber_delta > 0.0:
             raise SurrogateModelError("huber_delta должна быть положительной")
@@ -666,6 +682,111 @@ def _scenario_money(
     return totals
 
 
+class _ScenarioBatches:
+    """Батчи, собранные из целых сценариев, а не из перемешанных узлов.
+
+    Ранговый член лосса сравнивает сценарии между собой, поэтому в батче их
+    должно быть несколько сразу. Из каждого сценария берётся случайная выборка
+    узлов: денежный прокси — сумма по узлам, значит подвыборка даёт его
+    несмещённую оценку с точностью до множителя, а множитель для попарного
+    сравнения не важен, он одинаков у всех сценариев батча.
+    """
+
+    def __init__(
+        self,
+        tensors: tuple[Tensor, ...],
+        counts: Sequence[int],
+        *,
+        scenarios_per_batch: int,
+        nodes_per_scenario: int,
+        generator: torch.Generator,
+    ) -> None:
+        self.tensors = tensors
+        self.scenarios_per_batch = scenarios_per_batch
+        self.nodes_per_scenario = nodes_per_scenario
+        self.generator = generator
+        offsets, start = [], 0
+        for size in counts:
+            offsets.append((start, size))
+            start += size
+        if start != tensors[0].shape[0]:
+            raise SurrogateModelError(
+                f"счётчики сценариев дают {start} строк против {tensors[0].shape[0]}"
+            )
+        self.offsets = offsets
+
+    def __iter__(self):
+        order = torch.randperm(len(self.offsets), generator=self.generator)
+        for position in range(0, len(order), self.scenarios_per_batch):
+            chosen = order[position : position + self.scenarios_per_batch]
+            if len(chosen) < 2:
+                continue
+            rows, groups = [], []
+            for group, index in enumerate(chosen.tolist()):
+                start, size = self.offsets[index]
+                take = min(self.nodes_per_scenario, size)
+                picked = torch.randperm(size, generator=self.generator)[:take]
+                rows.append(picked + start)
+                groups.append(torch.full((take,), group, dtype=torch.long))
+            selection = torch.cat(rows)
+            yield (
+                *(tensor[selection] for tensor in self.tensors),
+                torch.cat(groups),
+                len(chosen),
+            )
+
+
+def _standardize_scores(values: Tensor) -> Tensor:
+    """Нулевое среднее и единичный разброс; вырожденный случай не делит на ноль."""
+    centred = values - values.mean()
+    scale = torch.sqrt((centred * centred).mean() + 1e-12)
+    return centred / scale
+
+
+def _proxy_value(
+    standardized: Tensor,
+    scale: Tensor,
+    mean: Tensor,
+    rub_per_unit: Tensor,
+    settings: "ModelConfig",
+) -> Tensor:
+    """Денежная ценность каждого узла — то, что суммируется в сценарный прокси."""
+    physical = torch.expm1(standardized * scale + mean).clamp_min(0.0)
+    if settings.target_parameterization == "watercut":
+        liquid = physical[:, 0]
+        watercut = physical[:, 1].clamp(max=_WATERCUT_CEILING)
+        oil = liquid * (1.0 - watercut) * settings.oil_density_t_per_m3
+        return (oil * rub_per_unit[0] + liquid * rub_per_unit[1]
+                + physical[:, 2] * rub_per_unit[2])
+    return (physical * rub_per_unit).sum(dim=1)
+
+
+def _pairwise_ranking_loss(
+    predicted: Tensor, actual: Tensor
+) -> Tensor:
+    """Логистическая попарная невязка порядка сценариев.
+
+    Для каждой пары с различающимся фактом штраф равен softplus от разности,
+    взятой со знаком правильного порядка: пара, упорядоченная верно и с
+    запасом, не штрафуется, перевёрнутая — линейно по величине ошибки.
+
+    Оценки предварительно приводятся к нулевому среднему и единичному разбросу
+    внутри батча. Без этого сравниваются рубли порядка 1e9, softplus от такой
+    разности возвращает саму разность, и член в сто миллионов раз перекрывает
+    поштатный лосс — при любом весе, отчего веса 0.3, 1 и 3 давали неотличимый
+    результат и обучение не шло вовсе.
+    """
+    predicted = _standardize_scores(predicted)
+    difference = predicted.unsqueeze(0) - predicted.unsqueeze(1)
+    truth = actual.unsqueeze(0) - actual.unsqueeze(1)
+    mask = truth != 0
+    if not bool(mask.any()):
+        return predicted.sum() * 0.0
+    return torch.nn.functional.softplus(
+        -difference[mask] * torch.sign(truth[mask])
+    ).mean()
+
+
 class _Batches:
     """Нарезка батчей срезом вместо DataLoader.
 
@@ -892,6 +1013,7 @@ class TrajectorySurrogate:
             validation_node_counts=tuple(
                 len(item.input.nodes) for item in validation
             ),
+            train_node_counts=tuple(len(item.input.nodes) for item in train),
             dataset_hash=dataset_hash,
             device=device,
             epoch_callback=epoch_callback,
@@ -906,6 +1028,7 @@ class TrajectorySurrogate:
         train: tuple[Tensor, Tensor, Tensor],
         validation: tuple[Tensor, Tensor, Tensor],
         validation_node_counts: Sequence[int],
+        train_node_counts: Sequence[int] | None = None,
         dataset_hash: str,
         device: str | None = None,
         epoch_callback: Callable[[EpochMetrics], None] | None = None,
@@ -934,10 +1057,26 @@ class TrajectorySurrogate:
         validation_scenarios = len(validation_node_counts)
 
         generator = torch.Generator().manual_seed(settings.seed)
-        train_loader = _Batches(
-            (train_x, train_wells, train_y),
-            batch_size=settings.batch_size,
-            generator=generator,
+        ranking = settings.ranking_loss_weight > 0.0
+        if ranking and train_node_counts is None:
+            raise SurrogateModelError(
+                "ranking_loss_weight требует train_node_counts: без разбиения по "
+                "сценариям попарное сравнение не собрать"
+            )
+        train_loader = (
+            _ScenarioBatches(
+                (train_x, train_wells, train_y),
+                train_node_counts,
+                scenarios_per_batch=settings.ranking_scenarios_per_batch,
+                nodes_per_scenario=settings.ranking_nodes_per_scenario,
+                generator=generator,
+            )
+            if ranking
+            else _Batches(
+                (train_x, train_wells, train_y),
+                batch_size=settings.batch_size,
+                generator=generator,
+            )
         )
         validation_loader = _Batches(
             (val_x, val_wells, val_y), batch_size=settings.batch_size
@@ -985,7 +1124,12 @@ class TrajectorySurrogate:
             network.train()
             total = 0.0
             count = 0
-            for x, well_index, y in train_loader:
+            for batch in train_loader:
+                if ranking:
+                    x, well_index, y, groups, n_groups = batch
+                    groups = groups.to(selected_device)
+                else:
+                    x, well_index, y = batch
                 x = x.to(selected_device)
                 well_index = well_index.to(selected_device)
                 y = y.to(selected_device)
@@ -1006,6 +1150,21 @@ class TrajectorySurrogate:
                     loss = (elementwise * weights).mean()
                 else:
                     loss = _elementwise_loss(prediction, y, settings).mean()
+                if ranking:
+                    # Денежный прокси по подвыборке узлов каждого сценария:
+                    # множитель одинаков у всех, поэтому порядок не искажает.
+                    money = torch.zeros(
+                        n_groups, dtype=prediction.dtype, device=prediction.device
+                    )
+                    truth = torch.zeros_like(money)
+                    money.index_add_(0, groups, _proxy_value(
+                        prediction, target_scale, target_mean, rub_per_unit,
+                        settings))
+                    truth.index_add_(0, groups, _proxy_value(
+                        y, target_scale, target_mean, rub_per_unit, settings))
+                    loss = loss + settings.ranking_loss_weight * (
+                        _pairwise_ranking_loss(money, truth)
+                    )
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(network.parameters(), max_norm=5.0)
                 optimizer.step()
