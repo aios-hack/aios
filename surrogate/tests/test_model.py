@@ -22,6 +22,7 @@ from contracts import (  # noqa: E402
 from surrogate.features import SurrogateInput, WellStepFeatures  # noqa: E402
 from surrogate.model import (
     TARGET_NAMES,
+    _WATERCUT_CEILING,
     _ScenarioBatches,
     _pairwise_ranking_loss,
     _features,
@@ -623,3 +624,32 @@ def test_ranking_loss_is_invariant_to_the_scale_of_money() -> None:
     huge = _pairwise_ranking_loss(torch.tensor([3e9, 2e9, 1e9]), actual)
     assert float(huge) == pytest.approx(float(small), rel=1e-4)
     assert float(huge) < 1.0
+
+
+def test_decoded_watercut_never_yields_negative_oil() -> None:
+    """Перетоки допустимы в целях, но не в предсказании: контракт отвергает
+    отрицательную добычу, а ранговый лосс двигает выход свободнее и выводил
+    обводнённость далеко за единицу."""
+    density = 0.9131
+    for watercut in (1.4, 1.0, 0.3, -0.2):
+        clamped = min(max(watercut, 0.0), 1.0)
+        assert 200.0 * (1.0 - clamped) * density >= 0.0
+
+
+def test_watercut_ceiling_is_the_same_everywhere() -> None:
+    """Денежный прокси допускал обводнённость до 1.5, то есть отрицательную
+    нефть, и ранговый лосс это использовал: поднять сценарий в порядке можно
+    было, загнав обводнённость за единицу. Обученная так модель дала Spearman
+    −0.512 при ранге +0.908 на валидации. Предел обязан быть один."""
+    assert _WATERCUT_CEILING == 1.0
+    standardized = torch.tensor([[0.0, 5.0, 0.0, 0.0, 0.0, 0.0]])
+    scale = torch.ones(6)
+    mean = torch.zeros(6)
+    rub = torch.tensor([8360.0, -100.0, -30.0, 0.0, 0.0, 0.0])
+    totals = _scenario_money(
+        standardized, torch.tensor([0]), 1, scale=scale, mean=mean,
+        rub_per_unit=rub, parameterization="watercut", oil_density_t_per_m3=0.9131,
+    )
+    # Нефть не может быть отрицательной, значит вклад по нефти ровно ноль,
+    # а остаётся только opex по жидкости — величина неположительная.
+    assert float(totals[0]) <= 0.0

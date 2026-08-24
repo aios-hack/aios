@@ -60,9 +60,14 @@ WATERCUT_TARGET_NAMES: tuple[str, ...] = (
     "injection_rate",
     "bhp",
 )
-# Обводнённость выше единицы означает переток (отрицательная нефть); потолок
-# держит декодирование в пределах, где `_BACKFLOW_FLOOR` ещё осмыслен.
-_WATERCUT_CEILING = 1.5
+# Обводнённость выше единицы означала бы отрицательную добычу. В измеренных
+# целях такое встречается — это перетоки, артефакт разбора UNSMRY, — но ни
+# предсказывать, ни оценивать их нельзя: контракт отрицательную нефть отвергает.
+# Потолок 1.5 в денежном прокси оказался дырой, которую ранговый лосс нашёл и
+# использовал: поднять сценарий в порядке можно было, загнав обводнённость за
+# единицу, и обученная так модель дала Spearman −0.512 при ранге 0.908 на
+# валидации. Предел один и тот же во всех путях.
+_WATERCUT_CEILING = 1.0
 
 # False — без сводки, True/"mean" — средние, "rich" — плюс разброс, крайние
 # значения и раздельные средние по добывающим и нагнетательным.
@@ -568,7 +573,7 @@ def _money_coefficients(
     if parameterization != "watercut":
         return rub_per_unit
     liquid = physical[:, 0:1]
-    watercut = physical[:, 1:2].clamp(max=_WATERCUT_CEILING)
+    watercut = physical[:, 1:2].clamp(min=0.0, max=_WATERCUT_CEILING)
     oil_margin = rub_per_unit[0]
     opex_liquid = rub_per_unit[1]
     opex_injection = rub_per_unit[2]
@@ -668,7 +673,7 @@ def _scenario_money(
     physical = torch.expm1(standardized * scale + mean).clamp_min(0.0)
     if parameterization == "watercut":
         liquid = physical[:, 0]
-        watercut = physical[:, 1].clamp(max=_WATERCUT_CEILING)
+        watercut = physical[:, 1].clamp(min=0.0, max=_WATERCUT_CEILING)
         oil = liquid * (1.0 - watercut) * oil_density_t_per_m3
         value = (
             oil * rub_per_unit[0]
@@ -754,7 +759,7 @@ def _proxy_value(
     physical = torch.expm1(standardized * scale + mean).clamp_min(0.0)
     if settings.target_parameterization == "watercut":
         liquid = physical[:, 0]
-        watercut = physical[:, 1].clamp(max=_WATERCUT_CEILING)
+        watercut = physical[:, 1].clamp(min=0.0, max=_WATERCUT_CEILING)
         oil = liquid * (1.0 - watercut) * settings.oil_density_t_per_m3
         return (oil * rub_per_unit[0] + liquid * rub_per_unit[1]
                 + physical[:, 2] * rub_per_unit[2])
@@ -1260,7 +1265,12 @@ class TrajectorySurrogate:
                 # Нефть выводится тождеством контракта, а не предсказывается:
                 # это гарантирует согласованность с жидкостью по построению.
                 liquid, watercut, injection, liquid_rate, injection_rate, bhp = values
-                watercut = min(watercut, _WATERCUT_CEILING)
+                # Обводнённость выше единицы означала бы отрицательную добычу.
+                # В целях такое встречается — это перетоки, измеренный артефакт
+                # разбора UNSMRY, — но предсказывать их нельзя: контракт
+                # отрицательную нефть отвергает, и ранговый лосс, двигая
+                # предсказания свободнее, выводил её за −160 т.
+                watercut = min(max(watercut, 0.0), _WATERCUT_CEILING)
                 oil = liquid * (1.0 - watercut) * self.config.oil_density_t_per_m3
             else:
                 oil, liquid, injection, liquid_rate, injection_rate, bhp = values
