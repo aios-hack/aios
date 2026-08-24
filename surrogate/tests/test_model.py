@@ -653,3 +653,16 @@ def test_watercut_ceiling_is_the_same_everywhere() -> None:
     # Нефть не может быть отрицательной, значит вклад по нефти ровно ноль,
     # а остаётся только opex по жидкости — величина неположительная.
     assert float(totals[0]) <= 0.0
+
+
+def test_measured_defaults_do_not_combine_ranking_loss_with_watercut() -> None:
+    """Связка даёт Spearman −0.278 на тесте при ранге +0.930 на валидации:
+    ранговый лосс оптимизирует денежный прокси через обводнённость, минуя
+    статьи ЧДД, которых в прокси нет. Дефолты не должны её собирать."""
+    from surrogate.train import _parser
+    args = _parser().parse_args(
+        ["--model-dir", ".", "--dataset-root", ".", "--normatives", "n.xlsx",
+         "--output-dir", "."]
+    )
+    assert not (args.ranking_loss_weight > 0.0
+                and args.target_parameterization == "watercut")
