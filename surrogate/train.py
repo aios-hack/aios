@@ -298,8 +298,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--validation-fraction", type=float, default=0.15)
     parser.add_argument("--test-fraction", type=float, default=0.15)
     parser.add_argument("--workers", type=int, default=8)
-    parser.add_argument("--epochs", type=int, default=80)
-    parser.add_argument("--patience", type=int, default=10)
+    # Прежние 80 эпох с терпением 10 обрывали обучение задолго до сходимости:
+    # лучшая эпоха оказывалась на 250-330 из 400 при терпении 100.
+    parser.add_argument("--epochs", type=int, default=600)
+    parser.add_argument("--patience", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=32768)
     parser.add_argument("--hidden-width", type=int, default=128)
     parser.add_argument("--hidden-layers", type=int, default=3)
@@ -309,6 +311,13 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--money-weight-cap", type=float, default=50.0)
     parser.add_argument("--lr-schedule", choices=("none", "cosine"), default="none")
     parser.add_argument("--select-by", choices=("loss", "money", "rank"), default="loss")
+    # Замерено на 700 прогонах: связка сценарной сводки, попарного рангового
+    # члена и длинного обучения даёт Spearman 0.733 ± 0.010 по трём сидам
+    # против 0.526 у прежних настроек, сжатие разброса ЧДД 0.95 против 0.27, а
+    # различающий шум падает вдвое. Порознь ни один из трёх ничего не давал.
+    parser.add_argument("--scenario-context", choices=("none", "mean", "rich"),
+                        default="mean")
+    parser.add_argument("--ranking-loss-weight", type=float, default=4.0)
     parser.add_argument(
         "--target-parameterization",
         choices=("absolute", "watercut"),
@@ -384,13 +393,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         max_epochs=args.epochs,
         patience=args.patience,
         seed=args.seed,
-        money_rub_per_unit=money_rub_per_unit(load_normatives(args.normatives)),
-        money_weight_alpha=args.money_loss_alpha,
         money_weight_cap=args.money_weight_cap,
         lr_schedule=args.lr_schedule,
-        select_by=args.select_by,
         target_parameterization=args.target_parameterization,
         oil_density_t_per_m3=args.oil_density,
+        scenario_context=(
+            False if args.scenario_context == "none" else args.scenario_context
+        ),
+        ranking_loss_weight=args.ranking_loss_weight,
+        money_rub_per_unit=(
+            money_rub_per_unit(load_normatives(args.normatives))
+            if args.ranking_loss_weight > 0.0
+            else ()
+        ),
+        money_weight_alpha=0.0,
+        select_by="rank" if args.ranking_loss_weight > 0.0 else args.select_by,
     )
     result = TrajectorySurrogate.fit(
         train,
