@@ -525,3 +525,27 @@ def test_axis_mismatch_between_fact_and_prediction_is_rejected() -> None:
 
     with pytest.raises(MetricsError):
         watercut_metrics(actual, predicted, oil_density_t_per_m3=OIL_DENSITY)
+
+
+def test_npv_calibration_removes_bias_and_compression() -> None:
+    """Аффинное преобразование монотонно, поэтому порядок сценариев не меняет,
+    а смещение и сжатие снимает полностью."""
+    from surrogate.train import npv_calibration
+
+    actual = [1.0e10, 1.1e10, 1.2e10, 1.3e10]
+    # Сжато втрое и смещено на −2e9 — как у обученной с ранговым членом модели.
+    predicted = [9.0e9 + (value - 1.15e10) / 3.0 for value in actual]
+    a, b = npv_calibration(actual, predicted)
+    fixed = [a + b * value for value in predicted]
+    for got, want in zip(fixed, actual):
+        assert got == pytest.approx(want, rel=1e-9)
+    order_before = sorted(range(4), key=lambda i: predicted[i])
+    order_after = sorted(range(4), key=lambda i: fixed[i])
+    assert order_before == order_after
+
+
+def test_npv_calibration_rejects_degenerate_predictions() -> None:
+    from surrogate.train import TrainingCommandError, npv_calibration
+
+    with pytest.raises(TrainingCommandError, match="вырождены"):
+        npv_calibration([1.0, 2.0, 3.0], [5.0, 5.0, 5.0])
