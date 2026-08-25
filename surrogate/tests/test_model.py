@@ -666,3 +666,17 @@ def test_measured_defaults_do_not_combine_ranking_loss_with_watercut() -> None:
     )
     assert not (args.ranking_loss_weight > 0.0
                 and args.target_parameterization == "watercut")
+
+
+def test_top_weighted_ranking_cares_about_the_head_not_the_tail() -> None:
+    """Перепутать лидеров обязано стоить много дороже, чем перепутать хвост."""
+    actual = torch.tensor([10.0, 9.0, 3.0, 2.0])
+    head_swapped = torch.tensor([9.0, 10.0, 3.0, 2.0])
+    tail_swapped = torch.tensor([10.0, 9.0, 2.0, 3.0])
+    head = _pairwise_ranking_loss(head_swapped, actual, top_weighted=True)
+    tail = _pairwise_ranking_loss(tail_swapped, actual, top_weighted=True)
+    assert float(head) > float(tail)
+    # Без взвешивания обе перестановки стоят одинаково — в этом и разница.
+    flat_head = _pairwise_ranking_loss(head_swapped, actual)
+    flat_tail = _pairwise_ranking_loss(tail_swapped, actual)
+    assert float(flat_head) == pytest.approx(float(flat_tail), rel=1e-6)

@@ -157,6 +157,7 @@ class ModelConfig:
     residual: bool = False
     scenario_context: object = False
     ranking_loss_weight: float = 0.0
+    ranking_top_weighted: bool = False
     ranking_scenarios_per_batch: int = 48
     # Полный сценарий — 23 072 узла; подвыборка ускоряет эпоху, но слишком
     # малая оставляет её без данных: при 640 узлах эпоха видела 2.8% выборки.
@@ -767,7 +768,7 @@ def _proxy_value(
 
 
 def _pairwise_ranking_loss(
-    predicted: Tensor, actual: Tensor
+    predicted: Tensor, actual: Tensor, *, top_weighted: bool = False
 ) -> Tensor:
     """Логистическая попарная невязка порядка сценариев.
 
@@ -787,9 +788,26 @@ def _pairwise_ranking_loss(
     mask = truth != 0
     if not bool(mask.any()):
         return predicted.sum() * 0.0
-    return torch.nn.functional.softplus(
+    penalty = torch.nn.functional.softplus(
         -difference[mask] * torch.sign(truth[mask])
-    ).mean()
+    )
+    if not top_weighted:
+        return penalty.mean()
+    # Для шортлиста важна верхушка: перепутать сотое место с сто первым стоит
+    # ровно ничего, а первое со вторым — весь смысл. Вес пары равен разнице
+    # ценностей 1/(1+позиция), как в NDCG: пары с участием лидеров получают
+    # на два порядка больший вес, чем пары из хвоста.
+    order = torch.argsort(actual, descending=True)
+    position = torch.empty_like(actual)
+    position[order] = torch.arange(
+        actual.numel(), dtype=actual.dtype, device=actual.device
+    )
+    gain = 1.0 / (1.0 + position)
+    weight = (gain.unsqueeze(0) - gain.unsqueeze(1)).abs()[mask]
+    total = weight.sum()
+    if float(total) <= 0.0:
+        return penalty.mean()
+    return (penalty * weight).sum() / total
 
 
 class _Batches:
@@ -1168,7 +1186,10 @@ class TrajectorySurrogate:
                     truth.index_add_(0, groups, _proxy_value(
                         y, target_scale, target_mean, rub_per_unit, settings))
                     loss = loss + settings.ranking_loss_weight * (
-                        _pairwise_ranking_loss(money, truth)
+                        _pairwise_ranking_loss(
+                            money, truth,
+                            top_weighted=settings.ranking_top_weighted,
+                        )
                     )
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(network.parameters(), max_norm=5.0)
