@@ -1,5 +1,4 @@
 import { useEffect, useId, useMemo, useRef, type KeyboardEvent } from 'react';
-import { useDemo } from '../../app/DemoMode';
 import { useDataset } from '../../data';
 import { useI18n } from '../../i18n/I18nContext';
 import {
@@ -20,7 +19,6 @@ export const CommandPalette = () => {
   const { t, lang } = useI18n();
   const { timeline, setStepIndex, selectWell } = useTimeline();
   const { selectScenario } = useScenario();
-  const demo = useDemo();
   const { setWorkspace, setView } = useConsole();
   const scenarios = useDataset('scenarios');
   const { open, query, active, setQuery, setActive, move, closePalette } =
@@ -32,7 +30,6 @@ export const CommandPalette = () => {
   const steps = timeline.status === 'ready' ? timeline.data.steps : [];
   const wells = timeline.status === 'ready' ? timeline.data.wells : [];
   const entries = scenarios.status === 'ready' ? scenarios.data.scenarios : [];
-  const demoReady = demo.script !== null && demo.script.frames.length > 0;
   const actions = useMemo(() => {
     const navigation = WORKSPACES.flatMap((workspace) => [
       { id: `workspace:${workspace}`, label: t(`workspace.${workspace}`) },
@@ -41,10 +38,8 @@ export const CommandPalette = () => {
         label: `${t(`workspace.${workspace}`)} · ${t(`view.${view}`)}`
       }))
     ]);
-    return demoReady
-      ? [...navigation, { id: 'demo', label: t('demo.command') }]
-      : navigation;
-  }, [demoReady, t]);
+    return navigation;
+  }, [t]);
 
   const commands = useMemo(
     () =>
@@ -91,8 +86,6 @@ export const CommandPalette = () => {
       } else if (scope === 'view') {
         setWorkspace(workspace as Workspace);
         setView(view as WorkspaceView);
-      } else {
-        demo.start();
       }
     } else if (command.kind === 'well') {
       selectWell(command.value);

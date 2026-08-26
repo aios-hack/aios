@@ -1,6 +1,5 @@
 import enChrono from './en/chrono.json';
 import enCouncil from './en/council.json';
-import enDemo from './en/demo.json';
 import enCommon from './en/common.json';
 import enHistory from './en/history.json';
 import enInspector from './en/inspector.json';
@@ -14,7 +13,6 @@ import enWall from './en/wall.json';
 import enWellcard from './en/wellcard.json';
 import ruChrono from './ru/chrono.json';
 import ruCouncil from './ru/council.json';
-import ruDemo from './ru/demo.json';
 import ruCommon from './ru/common.json';
 import ruHistory from './ru/history.json';
 import ruInspector from './ru/inspector.json';
@@ -58,7 +56,6 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     scenarios: ruScenarios,
     chrono: ruChrono,
     council: ruCouncil,
-    demo: ruDemo,
     projection: ruProjection,
     palette: ruPalette,
     trust: ruTrust,
@@ -73,7 +70,6 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     scenarios: enScenarios,
     chrono: enChrono,
     council: enCouncil,
-    demo: enDemo,
     projection: enProjection,
     palette: enPalette,
     trust: enTrust,

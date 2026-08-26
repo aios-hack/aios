@@ -1,6 +1,5 @@
 import type {
   AblationFile,
-  DemoScriptFile,
   GraphFile,
   HierarchyFile,
   NpvFile,
@@ -223,26 +222,4 @@ export const isHierarchyFile = (data: unknown): data is HierarchyFile =>
   isFilledArray(data.steps) &&
   data.steps.every(isHierarchyStep);
 
-const isOptionalStr = (value: unknown): boolean => isAbsent(value) || isStr(value);
 
-const isDemoEvent = (data: unknown): boolean =>
-  isRecord(data) &&
-  isStr(data.type) &&
-  isOptionalStr(data.well) &&
-  isOptionalStr(data.rule);
-
-const isDemoFrame = (data: unknown): boolean =>
-  isRecord(data) &&
-  isNum(data.step) &&
-  isStr(data.scene) &&
-  (data.well === null || isStr(data.well)) &&
-  (data.event === null || isDemoEvent(data.event)) &&
-  isNum(data.hold_ms) &&
-  data.hold_ms > 0 &&
-  isOptionalNum(data.t);
-
-export const isDemoScriptFile = (data: unknown): data is DemoScriptFile =>
-  isRecord(data) &&
-  isFilledArray(data.frames) &&
-  data.frames.every(isDemoFrame) &&
-  isOptionalNum(data.total_ms);

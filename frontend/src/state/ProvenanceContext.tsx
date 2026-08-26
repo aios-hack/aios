@@ -2,7 +2,6 @@ import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useDataset } from '../data';
 
 export interface ProvenanceValue {
-  synthetic: boolean;
   provenance: string;
 }
 
@@ -13,11 +12,10 @@ export const ProvenanceProvider = ({ children }: { children: ReactNode }) => {
 
   const value = useMemo<ProvenanceValue>(() => {
     if (source.status !== 'ready') {
-      return { synthetic: false, provenance: '' };
+      return { provenance: '' };
     }
     const meta = source.data.meta;
     return {
-      synthetic: meta?.synthetic === true,
       provenance: meta?.provenance ?? ''
     };
   }, [source]);
@@ -27,7 +25,7 @@ export const ProvenanceProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-const DETACHED: ProvenanceValue = { synthetic: false, provenance: '' };
+const DETACHED: ProvenanceValue = { provenance: '' };
 
 export const useProvenance = (): ProvenanceValue =>
   useContext(ProvenanceContext) ?? DETACHED;

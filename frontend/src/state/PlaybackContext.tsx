@@ -12,9 +12,15 @@ import { useTimeline } from './TimelineContext';
 
 export const PLAY_INTERVAL_MS = 300;
 
-export const PLAY_SPEEDS = [1, 4, 16] as const;
+export const PLAY_SPEED_MIN = 0.25;
+export const PLAY_SPEED_MAX = 3;
+export const PLAY_SPEED_STEP = 0.05;
+export const PLAY_SPEED_DEFAULT = 1;
 
-export type PlaySpeed = (typeof PLAY_SPEEDS)[number];
+export type PlaySpeed = number;
+
+export const clampSpeed = (speed: number): PlaySpeed =>
+  Math.min(PLAY_SPEED_MAX, Math.max(PLAY_SPEED_MIN, Math.round(speed / PLAY_SPEED_STEP) * PLAY_SPEED_STEP));
 
 export const playIntervalMs = (speed: PlaySpeed): number =>
   Math.max(1, Math.round(PLAY_INTERVAL_MS / speed));
@@ -22,6 +28,15 @@ export const playIntervalMs = (speed: PlaySpeed): number =>
 interface PlaybackContextValue {
   playing: boolean;
   speed: PlaySpeed;
+  speedMin: number;
+  speedMax: number;
+  speedStep: number;
+  showDate: boolean;
+  settingsOpen: boolean;
+  axisCollapsed: boolean;
+  setAxisCollapsed: (collapsed: boolean) => void;
+  setSettingsOpen: (open: boolean) => void;
+  setShowDate: (show: boolean) => void;
   setSpeed: (speed: PlaySpeed) => void;
   selectStep: (index: number) => void;
   onStep: (delta: number) => void;
@@ -34,7 +49,10 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
   const { timeline, stepIndex, setStepIndex } = useTimeline();
   const stepCount = timeline.status === 'ready' ? timeline.data.steps.length : 0;
   const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState<PlaySpeed>(PLAY_SPEEDS[0]);
+  const [speed, setSpeed] = useState<PlaySpeed>(PLAY_SPEED_DEFAULT);
+  const [showDate, setShowDate] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [axisCollapsed, setAxisCollapsed] = useState(false);
   const stepCountRef = useRef(stepCount);
   stepCountRef.current = stepCount;
   const currentRef = useRef(stepIndex);
@@ -44,17 +62,20 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
     if (!playing || stepCount === 0) {
       return;
     }
+    const last = stepCount - 1;
+    if (currentRef.current >= last) {
+      setPlaying(false);
+      return;
+    }
     const id = window.setInterval(() => {
-      setStepIndex((current) => Math.min(current + 1, stepCount - 1));
+      if (currentRef.current >= last) {
+        setPlaying(false);
+        return;
+      }
+      setStepIndex((current) => Math.min(current + 1, last));
     }, playIntervalMs(speed));
     return () => window.clearInterval(id);
   }, [playing, speed, stepCount, setStepIndex]);
-
-  useEffect(() => {
-    if (playing && stepCount > 0 && stepIndex >= stepCount - 1) {
-      setPlaying(false);
-    }
-  }, [playing, stepIndex, stepCount]);
 
   const selectStep = useCallback(
     (index: number) => {
@@ -78,8 +99,24 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
   }, [setStepIndex]);
 
   const value = useMemo<PlaybackContextValue>(
-    () => ({ playing, speed, setSpeed, selectStep, onStep, togglePlay }),
-    [playing, speed, selectStep, onStep, togglePlay]
+    () => ({
+      playing,
+      speed,
+      speedMin: PLAY_SPEED_MIN,
+      speedMax: PLAY_SPEED_MAX,
+      speedStep: PLAY_SPEED_STEP,
+      showDate,
+      settingsOpen,
+      axisCollapsed,
+      setAxisCollapsed,
+      setSettingsOpen,
+      setShowDate,
+      setSpeed,
+      selectStep,
+      onStep,
+      togglePlay
+    }),
+    [playing, speed, showDate, settingsOpen, axisCollapsed, selectStep, onStep, togglePlay]
   );
 
   return <PlaybackContext.Provider value={value}>{children}</PlaybackContext.Provider>;

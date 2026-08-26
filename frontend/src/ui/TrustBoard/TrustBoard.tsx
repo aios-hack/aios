@@ -3,7 +3,6 @@ import { useI18n, type Lang, type Translate } from '../../i18n/I18nContext';
 import { DEFAULT_SCENARIO_ID, useOptionalScenario } from '../../state/ScenarioContext';
 import { useProvenance } from '../../state/ProvenanceContext';
 import { formatNumber } from '../format';
-import { SyntheticBanner } from '../SyntheticBanner';
 import { buildIndicators, type TrustIndicator } from './indicators';
 import './TrustBoard.css';
 
@@ -58,18 +57,12 @@ const Row = ({ indicator }: { indicator: TrustIndicator }) => {
     >
       <span className="trust-dot" aria-hidden="true" />
       <span className="trust-label">{t(indicator.labelKey)}</span>
-      {indicator.banner === true ? (
-        <SyntheticBanner />
-      ) : (
-        <>
-          {brief !== null && (
-            <span className="trust-brief" aria-hidden="true">
-              {brief}
-            </span>
-          )}
-          <span className="trust-value">{value}</span>
-        </>
+      {brief !== null && (
+        <span className="trust-brief" aria-hidden="true">
+          {brief}
+        </span>
       )}
+      <span className="trust-value">{value}</span>
       {detail !== null && <span className="trust-detail">{detail}</span>}
     </li>
   );

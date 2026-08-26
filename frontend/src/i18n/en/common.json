@@ -19,14 +19,19 @@
   "view.rank": "NPV rank",
   "view.comparison": "Comparison",
   "view.constraints": "Constraints",
-  "synthetic.title": "Demonstration data",
-  "synthetic.note": "Not a computed result: a synthetic artifact at the same scale, showing shape and pipeline. The NPV figures carry no meaning.",
   "boundary.title": "This section could not be displayed",
   "boundary.hint": "Internal error: {message}. Reload the page or pick another section.",
   "app.brandAlt": "Blue Sky Research",
-  "synthetic.short": "demo",
   "app.documentTitle": "AIOS",
   "app.viewLoading": "Loading view…",
   "toolbar.legend": "Legend",
-  "toolbar.settings": "View settings"
+  "toolbar.settings": "View settings",
+  "workspace.field.lead": "Which wells are linked through the reservoir and what happens at the selected step",
+  "workspace.history.lead": "How the well stock changed across every control step",
+  "workspace.decisions.lead": "Which rule fired and how much it moved NPV",
+  "workspace.money.lead": "Which wells earn money and which ones burn it",
+  "playback.settings": "Playback settings",
+  "playback.speed": "Speed",
+  "playback.speedValue": "{value}×",
+  "playback.showDate": "Show the month"
 }

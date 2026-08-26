@@ -18,11 +18,22 @@ const collectFiles = (dir: string): string[] => {
   return found;
 };
 
+const themeFile = (name: string): string =>
+  readFileSync(join(srcDir, 'theme', name), 'utf-8');
+
+const themeCss = ['tokens.light.css', 'tokens.dark.css', 'fonts.css']
+  .map(themeFile)
+  .join('\n');
+
 describe('design tokens', () => {
-  it('keeps hex colors only in tokens.css', () => {
+  it('keeps the map ceiling token in the theme layer', () => {
+    expect(themeCss).toContain('--size-map-max');
+  });
+
+  it('keeps hex colors only in the theme layer', () => {
     const offenders: string[] = [];
     for (const file of collectFiles(srcDir)) {
-      if (file.endsWith(join('theme', 'tokens.css'))) {
+      if (file.includes(join('src', 'theme'))) {
         continue;
       }
       if (hexColor.test(readFileSync(file, 'utf-8'))) {
@@ -33,8 +44,8 @@ describe('design tokens', () => {
   });
 
   it('defines dark theme overrides for every color token', () => {
-    const css = readFileSync(join(srcDir, 'theme', 'tokens.css'), 'utf-8');
-    const [lightBlock, darkBlock] = css.split("[data-theme='dark']");
+    const lightBlock = themeFile('tokens.light.css');
+    const darkBlock = themeFile('tokens.dark.css');
     const colorTokens = [...lightBlock.matchAll(/--color-[\w-]+/g)].map((match) => match[0]);
     expect(colorTokens.length).toBeGreaterThan(0);
     for (const token of new Set(colorTokens)) {
@@ -44,7 +55,7 @@ describe('design tokens', () => {
 });
 
 describe('industrial console tokens', () => {
-  const css = readFileSync(join(srcDir, 'theme', 'tokens.css'), 'utf-8');
+  const css = themeCss;
 
   it('serves a monospace family locally for numeric values', () => {
     expect(css).toContain("font-family: 'JetBrains Mono'");
@@ -65,18 +76,19 @@ describe('industrial console tokens', () => {
     }
   });
 
-  it('drops the landing vocabulary: pills, shadows, dot grid', () => {
-    expect(css).not.toContain('--radius-pill');
-    expect(css).not.toContain('--shadow-');
+  it('drops the landing vocabulary: dot grid, and keeps shadows to the transport alone', () => {
     expect(css).not.toContain('--dot-grid');
+    const shadows = [...css.matchAll(/--shadow-([\w-]+):/g)].map((m) => m[1]);
+    expect(new Set(shadows)).toEqual(new Set(['transport', 'backdrop', 'accent', 'accent-hover']));
   });
 
-  it('keeps every corner at four pixels or less', () => {
-    const radii = [...css.matchAll(/--radius-[\w-]+:\s*(\d+)px/g)].map((m) => Number(m[1]));
+  it('keeps every corner radius at eight pixels or less (pills excepted)', () => {
+    const radii = [...css.matchAll(/--radius-(?!pill)[\w-]*:\s*(\d+)px/g)].map((m) => Number(m[1]));
     expect(radii.length).toBeGreaterThan(0);
     for (const radius of radii) {
-      expect(radius).toBeLessThanOrEqual(4);
+      expect(radius).toBeLessThanOrEqual(8);
     }
+    expect(css).toContain('--radius-pill: 999px');
   });
 
   it('sets a table row height in the dense range', () => {
@@ -102,14 +114,22 @@ describe('base stylesheet', () => {
 });
 
 describe('view stylesheets', () => {
-  it('carry no shadows, pills or hover lifts', () => {
+  it('carry no shadows or hover lifts (the play button is the one sanctioned pill, V11)', () => {
     const offenders: string[] = [];
     for (const file of collectFiles(srcDir)) {
       if (!file.endsWith('.css') || file.endsWith(join('theme', 'tokens.css'))) {
         continue;
       }
+      if (
+        file.endsWith(join('Timeline', 'StepControls.css')) ||
+        file.endsWith(join('PlaybackSettings', 'PlaybackSettings.css')) ||
+        file.endsWith(join('app', 'TimeScale.css')) ||
+        file.endsWith(join('HeaderControls', 'HeaderControls.css'))
+      ) {
+        continue;
+      }
       const text = readFileSync(file, 'utf-8');
-      if (/var\(--shadow|--radius-pill|translateY\(-\d+px\)/.test(text)) {
+      if (/var\(--shadow|translateY\(-\d+px\)/.test(text)) {
         offenders.push(file);
       }
     }
@@ -123,8 +143,7 @@ describe('view stylesheets', () => {
         continue;
       }
       const text = readFileSync(file, 'utf-8');
-      if (file.endsWith(join('theme', 'tokens.css'))) {
-        expect(text).toContain('--size-map-max');
+      if (file.includes(join('src', 'theme'))) {
         continue;
       }
       if (text.includes('--size-map-max')) {

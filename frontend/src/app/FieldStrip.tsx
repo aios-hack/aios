@@ -1,8 +1,16 @@
+import { useConsole } from '../state/ConsoleContext';
 import { useTimeline } from '../state/TimelineContext';
 import { FieldStats } from '../views/Timeline/FieldStats';
 
+const STRIP_WORKSPACES = new Set(['field', 'history']);
+
 export const FieldStrip = () => {
   const { timeline, stepIndex } = useTimeline();
+  const { workspace } = useConsole();
+
+  if (!STRIP_WORKSPACES.has(workspace)) {
+    return null;
+  }
 
   if (timeline.status !== 'ready' || timeline.data.steps.length === 0) {
     return null;

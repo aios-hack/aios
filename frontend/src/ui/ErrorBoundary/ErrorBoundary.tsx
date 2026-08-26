@@ -4,6 +4,7 @@ import { ViewStatus } from '../ViewStatus';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
+  silent?: boolean;
 }
 
 interface ErrorBoundaryState {
@@ -28,6 +29,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   render(): ReactNode {
     if (this.state.message !== null) {
+      if (this.props.silent === true) {
+        return null;
+      }
       return <ErrorFallback message={this.state.message} />;
     }
     return this.props.children;

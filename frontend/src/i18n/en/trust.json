@@ -33,7 +33,6 @@
   "index.error": "Scenario index is unavailable",
   "index.missing": "Active scenario is absent from the index",
   "chip.label": "Trust status",
-  "chip.syntheticDemo": "Demo data · not for conclusions",
   "chip.confirmed": "Confirmed by OPM · run {run}",
   "chip.unconfirmedNumber": "OPM run · figure not claimable",
   "chip.outOfDomain": "Forecast · out of domain, sent to HDM",

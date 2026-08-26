@@ -103,6 +103,16 @@ export const useHotkeys = ({
         state.onStep(1);
         return;
       }
+      if (event.key === 'Home') {
+        event.preventDefault();
+        state.onSelect(0);
+        return;
+      }
+      if (event.key === 'End') {
+        event.preventDefault();
+        state.onSelect(Math.max(state.steps.length - 1, 0));
+        return;
+      }
       if (event.key === '[' || event.key === ']') {
         event.preventDefault();
         const direction = event.key === ']' ? 1 : -1;

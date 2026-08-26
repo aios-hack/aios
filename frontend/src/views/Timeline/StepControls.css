@@ -9,10 +9,37 @@
   align-items: center;
   align-self: center;
   gap: var(--space-2);
+  padding: var(--space-2) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-transport);
+}
+
+.time-scale-island {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: calc(var(--size-control-height) + var(--space-4));
+  margin: 0;
+  padding: var(--space-2) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-transport);
+  white-space: nowrap;
+}
+
+.playback-settings-island {
+  position: absolute;
+  right: 0;
+  display: flex;
+  align-items: center;
   padding: var(--space-2);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   background: var(--color-surface);
+  box-shadow: var(--shadow-transport);
 }
 
 .transport-button {
@@ -23,12 +50,13 @@
   height: var(--size-control-height);
   padding: 0;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--color-accent);
   cursor: pointer;
   transition: background var(--duration-state) var(--ease-out),
-    color var(--duration-state) var(--ease-out);
+    color var(--duration-state) var(--ease-out),
+    box-shadow var(--duration-state) var(--ease-out);
 }
 
 .transport-button::after {
@@ -55,10 +83,33 @@
   height: 46px;
   background: var(--color-accent);
   color: var(--color-accent-contrast);
+  box-shadow: var(--shadow-accent);
 }
 
 .transport-button--play:hover:not(:disabled) {
   background: var(--color-accent-hover);
+  box-shadow: var(--shadow-accent-hover);
+}
+
+.transport-button--play[data-playing='true'] {
+  animation: transport-pulse 2.4s var(--ease-in-out) infinite;
+}
+
+@keyframes transport-pulse {
+  0%,
+  100% {
+    box-shadow: var(--shadow-accent);
+  }
+
+  50% {
+    box-shadow: var(--shadow-accent-hover);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transport-button--play[data-playing='true'] {
+    animation: none;
+  }
 }
 
 .timeline-slider {

@@ -6,7 +6,5 @@
   "kind.well": "скважина",
   "kind.step": "шаг",
   "kind.scenario": "сценарий",
-  "kind.action": "действие",
-  "speed": "Скорость воспроизведения",
-  "speedValue": "{value}×"
+  "kind.action": "действие"
 }

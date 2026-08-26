@@ -10,9 +10,16 @@
 }
 
 .view-status[data-kind='error'] {
+  align-self: start;
+  max-width: var(--size-prose-max);
+  padding: var(--space-4) var(--space-5);
   border-style: solid;
   border-color: var(--color-error);
   background: var(--color-error-bg);
+}
+
+.view-status[data-kind='error'] .view-status-title {
+  font-size: var(--font-size-md);
 }
 
 .view-status-title {

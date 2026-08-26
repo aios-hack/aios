@@ -1,6 +1,5 @@
 import type {
   AblationFile,
-  DemoScriptFile,
   GraphFile,
   HierarchyFile,
   NpvFile,
@@ -11,7 +10,6 @@ import type {
 } from '../api/types';
 import {
   isAblationFile,
-  isDemoScriptFile,
   isGraphFile,
   isHierarchyFile,
   isNpvFile,
@@ -38,7 +36,6 @@ export interface DatasetMap {
   scenarios: ScenariosFile;
   ablation: AblationFile;
   hierarchy: HierarchyFile;
-  demoScript: DemoScriptFile;
 }
 
 export type DatasetName = keyof DatasetMap;
@@ -53,6 +50,5 @@ export const DATASETS: DatasetRegistry = {
   graph: { file: 'graph.json', scope: 'scenario', validate: isGraphFile },
   scenarios: { file: 'scenarios.json', scope: 'global', validate: isScenariosFile },
   ablation: { file: 'ablation.json', scope: 'scenario', validate: isAblationFile },
-  hierarchy: { file: 'hierarchy.json', scope: 'scenario', validate: isHierarchyFile },
-  demoScript: { file: 'demo-script.json', scope: 'global', validate: isDemoScriptFile }
+  hierarchy: { file: 'hierarchy.json', scope: 'scenario', validate: isHierarchyFile }
 };

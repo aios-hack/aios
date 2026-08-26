@@ -41,5 +41,8 @@
   "chart.production": "Liquid production, m³/month",
   "scaleLabel": "Time scale",
   "scaleEmpty": "Control steps are not loaded yet",
-  "event": "{date}: field events — {count}"
+  "event": "{date}: field events — {count}",
+  "terminalShort": "without a month",
+  "collapseAxis": "Collapse the time panel",
+  "expandAxis": "Expand the time panel"
 }

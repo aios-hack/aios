@@ -27,7 +27,7 @@ const scenario = (overrides: Partial<ScenarioEntry> = {}): ScenarioEntry => ({
 });
 
 describe('trust indicators built from a scenario entry', () => {
-  const source = { synthetic: false, provenance: 'run' };
+  const source = { provenance: 'run' };
 
   it('never reports a measured status for an absent field', () => {
     const byId = Object.fromEntries(

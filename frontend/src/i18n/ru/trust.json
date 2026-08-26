@@ -33,7 +33,6 @@
   "index.error": "Индекс сценариев недоступен",
   "index.missing": "Активный сценарий отсутствует в индексе",
   "chip.label": "Статус доверия",
-  "chip.syntheticDemo": "Демо-данные · не для выводов",
   "chip.confirmed": "Подтверждено OPM · прогон {run}",
   "chip.unconfirmedNumber": "Прогон OPM · число не заявляемо",
   "chip.outOfDomain": "Прогноз · вне домена, отправлен на ГГДМ",

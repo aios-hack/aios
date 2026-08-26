@@ -134,7 +134,7 @@ describe('NpvRank', () => {
 
   it('switches the tax label, changing the column and the badge', async () => {
     const { container } = await renderView(<NpvRank />);
-    fireEvent.click(screen.getByRole('button', { name: ru['npv.mode.withTax'] }));
+    fireEvent.click(screen.getByRole('tab', { name: ru['npv.mode.withTax'] }));
     expect(screen.getByText(ru['npv.column.withTax'])).toBeTruthy();
     expect(screen.getByText(ru['npv.badge.withTax'])).toBeTruthy();
     expect(screen.queryByText(ru['npv.column.preTax'])).toBeNull();

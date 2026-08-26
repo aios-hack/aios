@@ -193,18 +193,6 @@ describe('TrustBoard indicator statuses', () => {
     expect(converged.getAttribute('data-status')).toBe('danger');
   });
 
-  it('carries the synthetic banner as the provenance indicator', async () => {
-    const board = await renderBoard([scenario()], {
-      kind: 'timeline',
-      provenance: 'synthetic-demo',
-      synthetic: true
-    });
-    const provenance = item(board, 'provenance');
-
-    expect(provenance.querySelector('.synthetic-mark')).not.toBeNull();
-    expect(provenance.getAttribute('data-status')).toBe('danger');
-  });
-
   it('states that provenance is unknown when the bundle carries no meta', async () => {
     const board = await renderBoard([scenario()]);
     const provenance = item(board, 'provenance');

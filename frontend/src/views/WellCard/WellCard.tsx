@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { useDataset } from '../../data';
 import { useI18n } from '../../i18n/I18nContext';
 import { useTimeline } from '../../state/TimelineContext';
-import { SyntheticBanner } from '../../ui/SyntheticBanner';
 import { ViewStatus } from '../../ui/ViewStatus';
 import { formatStepDate } from '../../ui/format';
 import { ConnectivityBlock } from './ConnectivityBlock';
@@ -40,7 +39,6 @@ export const WellCard = ({ well }: WellCardProps) => {
   return (
     <div className="wellcard" data-testid="wellcard">
       <div className="wellcard-title-row">
-        <SyntheticBanner />
       </div>
       {step && steps && (
         <p className="wellcard-step">

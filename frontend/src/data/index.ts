@@ -12,7 +12,6 @@ export {
 export { useDataset, useScenarioDataset } from './useDataset';
 export {
   isAblationFile,
-  isDemoScriptFile,
   isGraphFile,
   isHierarchyFile,
   isNpvFile,

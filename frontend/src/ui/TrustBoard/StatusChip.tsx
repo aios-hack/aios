@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useDataset } from '../../data';
 import { useI18n } from '../../i18n/I18nContext';
 import { DEFAULT_SCENARIO_ID, useOptionalScenario } from '../../state/ScenarioContext';
-import { useProvenance } from '../../state/ProvenanceContext';
 import { TrustBoard } from './TrustBoard';
 import { buildVerdict } from './verdict';
 import './StatusChip.css';
@@ -11,7 +10,6 @@ import './StatusChip.css';
 export const StatusChip = () => {
   const { t } = useI18n();
   const { activeId } = useOptionalScenario();
-  const source = useProvenance();
   const index = useDataset('scenarios');
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -58,7 +56,7 @@ export const StatusChip = () => {
     return null;
   }
 
-  const verdict = buildVerdict(active, source);
+  const verdict = buildVerdict(active);
   const label = t(
     verdict.labelKey,
     verdict.labelParams?.field

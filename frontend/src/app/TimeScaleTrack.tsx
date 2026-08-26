@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef, type MouseEvent } from 'react';
+import { memo, type CSSProperties } from 'react';
 import type { TimelineStep } from '../api/types';
 import { useT } from '../i18n/I18nContext';
 import type { EventMark, YearTick } from './events';
@@ -11,6 +11,7 @@ interface TimeScaleTrackProps {
   stepIndex: number;
   ticks: YearTick[];
   marks: EventMark[];
+  glideMs: number;
   onSelect: (index: number) => void;
 }
 
@@ -19,35 +20,22 @@ const TimeScaleTrackView = ({
   stepIndex,
   ticks,
   marks,
+  glideMs,
   onSelect
 }: TimeScaleTrackProps) => {
   const t = useT();
-  const trackRef = useRef<HTMLDivElement | null>(null);
   const last = steps.length - 1;
-  const terminal = steps.findIndex((step) => step.terminal);
-
-  const onTrackClick = useCallback(
-    (event: MouseEvent<HTMLDivElement>) => {
-      const node = trackRef.current;
-      if (node === null || last <= 0) {
-        return;
-      }
-      const rect = node.getBoundingClientRect();
-      if (rect.width === 0) {
-        return;
-      }
-      const ratio = (event.clientX - rect.left) / rect.width;
-      onSelect(Math.round(Math.min(Math.max(ratio, 0), 1) * last));
-    },
-    [last, onSelect]
-  );
+  const progress = last <= 0 ? 0 : stepIndex / last;
+  const trackStyle = {
+    '--time-scale-progress': progress,
+    '--time-scale-glide': `${glideMs}ms`
+  } as CSSProperties;
 
   return (
     <div
-      ref={trackRef}
       className="time-scale-track"
       data-testid="time-scale-track"
-      onClick={onTrackClick}
+      style={trackStyle}
     >
       <div className="time-scale-years" aria-hidden="true">
         {ticks.map((tick) => (
@@ -61,24 +49,31 @@ const TimeScaleTrackView = ({
           </span>
         ))}
       </div>
+      <input
+        className="time-scale-input"
+        type="range"
+        min={0}
+        max={Math.max(last, 0)}
+        step={1}
+        value={stepIndex}
+        aria-label={t('steps.sliderLabel')}
+        onChange={(event) => onSelect(Number(event.target.value))}
+      />
       <div className="time-scale-rail" aria-hidden="true">
-        <span
-          className="time-scale-fill"
-          style={{ width: `${percentOf(stepIndex, last)}%` }}
-        />
-        {terminal >= 0 && (
-          <span
-            className="time-scale-terminal"
-            data-testid="time-scale-terminal"
-            style={{ left: `${percentOf(terminal, last)}%` }}
-            title={t('steps.terminalBadge')}
-          />
-        )}
+        <span className="time-scale-fill" />
+        <span className="time-scale-marks">
+          {ticks.map((tick) => (
+            <span
+              key={tick.year}
+              className="time-scale-mark"
+              style={{ left: `${percentOf(tick.step, last)}%` }}
+            />
+          ))}
+        </span>
         <span
           className="time-scale-cursor"
           data-testid="time-scale-cursor"
           data-step={stepIndex}
-          style={{ left: `${percentOf(stepIndex, last)}%` }}
         />
       </div>
       <div className="time-scale-events" data-testid="time-scale-events">

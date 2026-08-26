@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { DemoControls, DemoProvider, DemoStage, useDemo } from './app/DemoMode';
 import { FieldStrip } from './app/FieldStrip';
 import { Scene } from './app/Scene';
 import { TimeScale } from './app/TimeScale';
 import { useDocumentTitle } from './app/useDocumentTitle';
 import { useI18n } from './i18n/I18nContext';
 import { useConsole } from './state/ConsoleContext';
+import { usePlayback } from './state/PlaybackContext';
 import { useTimeline } from './state/TimelineContext';
 import { BrandLogo } from './ui/BrandLogo';
 import { ErrorBoundary } from './ui/ErrorBoundary';
@@ -22,18 +22,21 @@ import './app/console.css';
 const ConsoleShell = () => {
   const { t, lang } = useI18n();
   const { selectedWell } = useTimeline();
-  const demo = useDemo();
   const { workspace, view, setWorkspace, setView } = useConsole();
+  const { axisCollapsed } = usePlayback();
   const [scenarioContext, setScenarioContext] = useState<InspectorContext | null>(null);
   useWorkspaceRouting({ workspace, view, setWorkspace, setView });
   useDocumentTitle(t(`workspace.${workspace}`), t('app.documentTitle'), lang);
 
   const inspectorOpen = selectedWell !== null || scenarioContext !== null;
+  const stripVisible = workspace === 'field' || workspace === 'history';
 
   return (
     <div
       className="app console"
       data-inspector={inspectorOpen ? 'open' : 'closed'}
+      data-strip={stripVisible ? 'shown' : 'hidden'}
+      data-axis={axisCollapsed ? 'collapsed' : undefined}
     >
       <header className="console-area-header app-header">
         <BrandLogo />
@@ -51,9 +54,6 @@ const ConsoleShell = () => {
           <ScenarioBadge
             onOpenDetails={(scenarioId) => setScenarioContext({ kind: 'scenario', scenarioId })}
           />
-        </ErrorBoundary>
-        <ErrorBoundary>
-          <DemoControls playback={demo} />
         </ErrorBoundary>
         <HeaderControls />
       </header>
@@ -74,23 +74,16 @@ const ConsoleShell = () => {
           />
         </ErrorBoundary>
       </div>
-      <ErrorBoundary>
-        <DemoStage />
-      </ErrorBoundary>
       <div className="console-area-timeaxis">
         <ErrorBoundary>
           <TimeScale />
         </ErrorBoundary>
       </div>
-      <ErrorBoundary>
+      <ErrorBoundary silent>
         <CommandPalette />
       </ErrorBoundary>
     </div>
   );
 };
 
-export const App = () => (
-  <DemoProvider>
-    <ConsoleShell />
-  </DemoProvider>
-);
+export const App = () => <ConsoleShell />;

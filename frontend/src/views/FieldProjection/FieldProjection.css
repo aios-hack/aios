@@ -8,13 +8,14 @@
 .field-projection-canvas {
   align-self: center;
   width: 100%;
-  max-width: min(100%, calc(100vh - var(--h-header) - var(--h-strip) - var(--h-timeaxis) - var(--space-8)));
+  max-width: var(--size-graph-max);
+  min-height: 0;
 }
 
 .field-projection-plot {
   display: block;
   width: 100%;
-  aspect-ratio: 1 / 1;
+  height: calc(100vh - var(--h-header) - var(--h-strip) - var(--h-timeaxis) - var(--space-8));
   background: var(--color-plot-bg);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);

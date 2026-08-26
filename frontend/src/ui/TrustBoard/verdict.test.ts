@@ -25,28 +25,11 @@ const scenario = (overrides: Partial<ScenarioEntry> = {}): ScenarioEntry => ({
   ...overrides
 });
 
-const clean = { synthetic: false, provenance: 'run' };
-const demo = { synthetic: true, provenance: 'synthetic-demo' };
 
 describe('trust verdict synthesis priority', () => {
-  it('lets synthetic-demo provenance beat a green convergence', () => {
-    const verdict = buildVerdict(
-      scenario({
-        converged: true,
-        self_consistent: true,
-        final_npv: { npv_rub: 1, run_id: 'r' },
-        run_validation_clean: true
-      }),
-      demo
-    );
-    expect(verdict.kind).toBe('syntheticDemo');
-    expect(verdict.level).toBe('warn');
-  });
-
   it('confirms the run identifier when final_npv is present with clean validation', () => {
     const verdict = buildVerdict(
-      scenario({ final_npv: { npv_rub: 10786000000, run_id: 'run-7f3a' }, run_validation_clean: true }),
-      clean
+      scenario({ final_npv: { npv_rub: 10786000000, run_id: 'run-7f3a' }, run_validation_clean: true })
     );
     expect(verdict.kind).toBe('confirmed');
     expect(verdict.level).toBe('ok');
@@ -55,8 +38,7 @@ describe('trust verdict synthesis priority', () => {
 
   it('marks the chip amber when final_npv is present but validation is absent', () => {
     const verdict = buildVerdict(
-      scenario({ final_npv: { npv_rub: 10786000000, run_id: 'run-7f3a' } }),
-      clean
+      scenario({ final_npv: { npv_rub: 10786000000, run_id: 'run-7f3a' } })
     );
     expect(verdict.kind).toBe('unconfirmedNumber');
     expect(verdict.level).toBe('warn');
@@ -67,8 +49,7 @@ describe('trust verdict synthesis priority', () => {
       scenario({
         final_npv: { npv_rub: 10786000000, run_id: 'run-7f3a' },
         run_validation_clean: false
-      }),
-      clean
+      })
     );
     expect(verdict.kind).toBe('unconfirmedNumber');
     expect(verdict.level).toBe('warn');
@@ -76,36 +57,33 @@ describe('trust verdict synthesis priority', () => {
 
   it('flags out-of-domain before convergence when no final_npv is present', () => {
     const verdict = buildVerdict(
-      scenario({ ood_score: 0.9, ood_threshold: 0.5, converged: false }),
-      clean
+      scenario({ ood_score: 0.9, ood_threshold: 0.5, converged: false })
     );
     expect(verdict.kind).toBe('outOfDomain');
   });
 
   it('flags a fixed point that did not converge once domain is in range', () => {
     const verdict = buildVerdict(
-      scenario({ ood_score: 0.2, ood_threshold: 0.5, converged: false }),
-      clean
+      scenario({ ood_score: 0.2, ood_threshold: 0.5, converged: false })
     );
     expect(verdict.kind).toBe('notConverged');
   });
 
   it('flags self-inconsistency the same way as non-convergence', () => {
     const verdict = buildVerdict(
-      scenario({ ood_score: 0.2, ood_threshold: 0.5, self_consistent: false }),
-      clean
+      scenario({ ood_score: 0.2, ood_threshold: 0.5, self_consistent: false })
     );
     expect(verdict.kind).toBe('notConverged');
   });
 
   it('reports the missing field when domain is not measured', () => {
-    const verdict = buildVerdict(scenario({ ood_score: null, ood_threshold: null }), clean);
+    const verdict = buildVerdict(scenario({ ood_score: null, ood_threshold: null }));
     expect(verdict.kind).toBe('missingField');
     expect(verdict.labelParams?.field).toBe('trust.label.domain');
   });
 
   it('falls back to a neutral in-domain surrogate verdict when everything checks out', () => {
-    const verdict = buildVerdict(scenario({ ood_score: 0.1, ood_threshold: 0.5 }), clean);
+    const verdict = buildVerdict(scenario({ ood_score: 0.1, ood_threshold: 0.5 }));
     expect(verdict.kind).toBe('inDomain');
     expect(verdict.level).toBe('neutral');
   });

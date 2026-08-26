@@ -6,7 +6,5 @@
   "kind.well": "well",
   "kind.step": "step",
   "kind.scenario": "scenario",
-  "kind.action": "action",
-  "speed": "Playback speed",
-  "speedValue": "{value}×"
+  "kind.action": "action"
 }

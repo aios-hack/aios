@@ -1,0 +1,87 @@
+[data-theme='dark'] {
+  --color-accent: #8891ee;
+  --color-accent-hover: #a3aaf3;
+  --color-accent-soft: #5d68e4;
+  --color-accent-softer: #3d47da;
+  --color-accent-deep: #b3b9f7;
+  --color-accent-contrast: #0e1116;
+  --color-accent-dim: rgba(136, 145, 238, 0.14);
+  --color-accent-dim-2: rgba(136, 145, 238, 0.24);
+
+  --color-bg: #0e1116;
+  --color-bg-subtle: #12161d;
+  --color-surface: #151a21;
+  --color-surface-solid: #151a21;
+  --color-surface-sunken: #10141a;
+  --color-rail: rgba(136, 145, 238, 0.22);
+  --color-rail-fill: #8891ee;
+  --color-tick: rgba(136, 145, 238, 0.38);
+  --color-tick-on-fill: rgba(14, 17, 22, 0.35);
+
+  --shadow-transport: 0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-backdrop: 0 -12px 32px rgba(0, 0, 0, 0.55);
+  --shadow-accent: 0 6px 24px rgba(136, 145, 238, 0.3);
+  --shadow-accent-hover: 0 10px 36px rgba(136, 145, 238, 0.4);
+
+  --color-text: #dde3ea;
+  --color-text-muted: #8a94a1;
+  --color-text-subtle: rgba(221, 227, 234, 0.44);
+  --color-text-faint: rgba(221, 227, 234, 0.24);
+
+  --color-border: #262b3d;
+  --color-border-strong: #343b55;
+  --color-border-subtle: rgba(221, 227, 234, 0.09);
+
+  --color-error: #f08a80;
+  --color-danger: #f08a80;
+  --color-ok: #56c98a;
+  --color-focus: #a3aaf3;
+  --color-selected-bg: rgba(136, 145, 238, 0.16);
+
+  --color-oil: #d9973f;
+  --color-oil-strong: #e8b063;
+  --color-water: #4fb3c9;
+  --color-water-pale: #7d9aa4;
+  --color-injection: #5b8def;
+  --color-unknown: rgba(221, 227, 234, 0.32);
+
+  --scale-watercut-0: #d9973f;
+  --scale-watercut-1: #4fb3c9;
+  --scale-ratio-low: #f08a80;
+  --scale-ratio-mid: #d9973f;
+  --scale-ratio-high: #56c98a;
+
+  --color-layer-1: #d9973f;
+  --color-layer-2: #4fb3c9;
+  --color-layer-both: #9aa3c4;
+  --color-well-dim: rgba(221, 227, 234, 0.2);
+  --color-well-idle: rgba(221, 227, 234, 0.36);
+  --color-graph-injector: #5b8def;
+  --color-graph-producer: #d9973f;
+  --color-graph-edge: rgba(221, 227, 234, 0.3);
+  --color-graph-window: #e8b063;
+  --color-graph-window-bg: #2a2216;
+  --color-group-1: #5b8def;
+  --color-group-2: #a74a00;
+  --color-group-3: #4ea954;
+  --color-group-4: #8949a3;
+  --color-group-5: #bc78ad;
+  --color-group-6: #007d5f;
+  --color-submitted: #56c98a;
+  --color-submitted-bg: rgba(86, 201, 138, 0.14);
+  --color-whatif: rgba(221, 227, 234, 0.52);
+  --color-whatif-bg: rgba(221, 227, 234, 0.07);
+  --color-error-bg: rgba(240, 138, 128, 0.12);
+  --color-ok-bg: rgba(86, 201, 138, 0.14);
+  --color-synthetic: #e8b063;
+  --color-synthetic-bg: rgba(232, 176, 99, 0.1);
+  --color-synthetic-border: rgba(232, 176, 99, 0.3);
+
+  --color-backdrop: rgba(0, 0, 0, 0.4);
+  --color-plot-bg: #10141a;
+  --color-edge-positive: #d9973f;
+  --color-edge-negative: #5b8def;
+  --color-axis: rgba(221, 227, 234, 0.4);
+  --color-axis-tick: rgba(221, 227, 234, 0.56);
+  --line-grid: rgba(221, 227, 234, 0.06);
+}

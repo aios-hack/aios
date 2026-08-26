@@ -91,15 +91,6 @@ afterEach(() => {
 });
 
 describe('StatusChip synthesized verdict', () => {
-  it('shows the demo-data warning even when convergence is clean', async () => {
-    const button = await renderChip(
-      [scenario({ converged: true, self_consistent: true })],
-      { kind: 'timeline', provenance: 'synthetic-demo', synthetic: true }
-    );
-    expect(button.textContent).toContain('Демо-данные');
-    expect(button.getAttribute('data-level')).toBe('warn');
-  });
-
   it('shows the confirmed run identifier when final_npv has clean validation', async () => {
     const button = await renderChip([
       scenario({ final_npv: { npv_rub: 1, run_id: 'run-7f3a' }, run_validation_clean: true })

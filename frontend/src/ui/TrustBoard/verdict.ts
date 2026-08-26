@@ -1,10 +1,8 @@
 import type { ScenarioEntry } from '../../api/types';
-import type { TrustProvenance } from './indicators';
 
 export type TrustVerdictLevel = 'ok' | 'warn' | 'neutral';
 
 export type TrustVerdictKind =
-  | 'syntheticDemo'
   | 'confirmed'
   | 'unconfirmedNumber'
   | 'outOfDomain'
@@ -24,14 +22,7 @@ const isMeasured = (value: number | null | undefined): value is number =>
 
 const isFlag = (value: unknown): value is boolean => typeof value === 'boolean';
 
-export const buildVerdict = (
-  scenario: ScenarioEntry,
-  source: TrustProvenance
-): TrustVerdict => {
-  if (source.synthetic) {
-    return { kind: 'syntheticDemo', level: 'warn', labelKey: 'trust.chip.syntheticDemo' };
-  }
-
+export const buildVerdict = (scenario: ScenarioEntry): TrustVerdict => {
   const final = scenario.final_npv;
   const hasFinalNpv = Boolean(final) && isMeasured(final?.npv_rub);
   if (hasFinalNpv) {

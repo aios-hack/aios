@@ -137,6 +137,3 @@
   font-size: var(--font-size-mono);
 }
 
-.trust-item .synthetic-mark {
-  padding: 0 var(--space-2) 0 var(--space-2);
-}

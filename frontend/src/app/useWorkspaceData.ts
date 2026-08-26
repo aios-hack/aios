@@ -24,8 +24,7 @@ export const useWorkspaceData = (workspace: Workspace): WorkspaceDataStatus => {
       graph,
       scenarios,
       ablation,
-      hierarchy,
-      demoScript: { status: 'ready' }
+      hierarchy
     };
     const required = datasetsFor(workspace);
     if (required.some((name) => states[name]?.status === 'error')) {

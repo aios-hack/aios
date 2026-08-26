@@ -1,7 +1,6 @@
 export interface ArtifactMeta {
   kind: string;
   provenance: string;
-  synthetic: boolean;
   seed?: number;
   notice_ru?: string;
   notice_en?: string;
@@ -277,32 +276,4 @@ export interface HierarchyFile {
   groups: string[];
   ungrouped: string[];
   steps: HierarchyStep[];
-}
-
-export type DemoEventType =
-  | 'COMMISSIONED'
-  | 'ROLE_CHANGE'
-  | 'SHUT'
-  | 'RULE_FIRED'
-  | 'MORPH';
-
-export interface DemoEvent {
-  type: DemoEventType;
-  well?: string;
-  rule?: string;
-}
-
-export interface DemoFrame {
-  step: number;
-  scene: string;
-  well: string | null;
-  event: DemoEvent | null;
-  hold_ms: number;
-  t?: number;
-}
-
-export interface DemoScriptFile {
-  meta?: ArtifactMeta;
-  frames: DemoFrame[];
-  total_ms?: number;
 }

@@ -393,7 +393,7 @@ describe('WallOfLives', () => {
   it('changes the order of the thumbnails on a new sort, not their content', async () => {
     await renderWall();
     const before = wellOrder();
-    fireEvent.click(screen.getByRole('button', { name: ru['history.sort.npv'] }));
+    fireEvent.click(screen.getByRole('tab', { name: ru['history.sort.npv'] }));
     await waitFor(() => expect(wellOrder()).not.toEqual(before));
     const after = wellOrder();
     expect([...after].sort()).toEqual([...before].sort());
@@ -403,7 +403,7 @@ describe('WallOfLives', () => {
 
   it('names the wells outside any area when sorting by area', async () => {
     await renderWall();
-    fireEvent.click(screen.getByRole('button', { name: ru['history.sort.group'] }));
+    fireEvent.click(screen.getByRole('tab', { name: ru['history.sort.group'] }));
     openLegend();
     const note = await screen.findByTestId('wall-ungrouped');
     const grouped = graphFixture.groups.flatMap((group) => group.wells);

@@ -1,1 +1,0 @@
-export { SyntheticBanner } from './SyntheticBanner';

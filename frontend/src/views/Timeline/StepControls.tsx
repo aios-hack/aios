@@ -18,6 +18,7 @@ interface StepControlsProps {
   stepIndex: number;
   playing: boolean;
   label?: boolean;
+  slider?: boolean;
   onSelect: (index: number) => void;
   onStep: (delta: number) => void;
   onTogglePlay: () => void;
@@ -28,6 +29,7 @@ const StepControlsView = ({
   stepIndex,
   playing,
   label = true,
+  slider = true,
   onSelect,
   onStep,
   onTogglePlay
@@ -96,15 +98,17 @@ const StepControlsView = ({
           <SkipForwardIcon size={18} weight="fill" aria-hidden="true" />
         </button>
       </div>
-      <Slider
-        className="timeline-slider"
-        min={0}
-        max={last}
-        step={1}
-        value={stepIndex}
-        ariaLabel={t('steps.sliderLabel')}
-        onChange={onSelect}
-      />
+      {slider && (
+        <Slider
+          className="timeline-slider"
+          min={0}
+          max={last}
+          step={1}
+          value={stepIndex}
+          ariaLabel={t('steps.sliderLabel')}
+          onChange={onSelect}
+        />
+      )}
       {label && (
         <p className="timeline-step-label">
           <span className="timeline-step-position">

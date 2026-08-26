@@ -41,5 +41,8 @@
   "chart.production": "Отбор жидкости, м³/мес",
   "scaleLabel": "Шкала времени",
   "scaleEmpty": "Шаги управления ещё не загружены",
-  "event": "{date}: событий фонда — {count}"
+  "event": "{date}: событий фонда — {count}",
+  "terminalShort": "без месяца",
+  "collapseAxis": "Свернуть панель времени",
+  "expandAxis": "Развернуть панель времени"
 }

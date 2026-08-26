@@ -26,16 +26,22 @@ export const Scene = () => {
 
   return (
     <section className="console-scene" data-workspace={workspace}>
-      {views.length > 1 && (
-        <div className="console-scene-bar">
-          <SegmentedControl<WorkspaceView>
-            options={options}
-            active={view}
-            label={t('view.label')}
-            onSelect={setView}
-          />
+      <div className="console-scene-head">
+        <div className="console-scene-identity">
+          <h2 className="console-scene-title">{t(`workspace.${workspace}`)}</h2>
+          <p className="console-scene-lead">{t(`workspace.${workspace}.lead`)}</p>
         </div>
-      )}
+        {views.length > 1 && (
+          <div className="console-scene-bar">
+            <SegmentedControl<WorkspaceView>
+              options={options}
+              active={view}
+              label={t('view.label')}
+              onSelect={setView}
+            />
+          </div>
+        )}
+      </div>
       <div
         className="console-scene-body"
         data-testid="console-scene"

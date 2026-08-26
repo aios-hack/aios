@@ -3,11 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ScenariosFile, TimelineFile, TimelineWellRow } from '../../api/types';
 import { TimeScale } from '../../app/TimeScale';
 import { stepForYearShift } from '../../app/useHotkeys';
-import { PLAY_INTERVAL_MS, PLAY_SPEEDS, playIntervalMs } from '../../app/useStepPlayback';
+import { PLAY_INTERVAL_MS, playIntervalMs } from '../../app/useStepPlayback';
 import { dictionaries } from '../../i18n/dictionaries';
 import { I18nProvider } from '../../i18n/I18nContext';
 import { ConsoleProvider } from '../../state/ConsoleContext';
-import { PlaybackProvider } from '../../state/PlaybackContext';
+import { PlaybackProvider, usePlayback } from '../../state/PlaybackContext';
 import { ScenarioProvider } from '../../state/ScenarioContext';
 import { TimelineProvider, useTimeline } from '../../state/TimelineContext';
 import { ThemeProvider } from '../../theme/ThemeContext';
@@ -96,10 +96,21 @@ const mockFetch = () => {
 
 const SelectionProbe = () => {
   const { selectedWell, stepIndex } = useTimeline();
+  const { setSpeed } = usePlayback();
   return (
     <p>
       <span data-testid="selected-well">{selectedWell ?? ''}</span>
       <span data-testid="step-index">{stepIndex}</span>
+      {[1, 2, 3].map((value) => (
+        <button
+          key={value}
+          type="button"
+          data-testid={`probe-speed-${value}`}
+          onClick={() => setSpeed(value)}
+        >
+          {value}
+        </button>
+      ))}
     </p>
   );
 };
@@ -224,16 +235,17 @@ describe('command palette', () => {
 describe('playback speed', () => {
   it('divides the base interval by the multiplier', () => {
     expect(playIntervalMs(1)).toBe(PLAY_INTERVAL_MS);
-    expect(playIntervalMs(4)).toBe(PLAY_INTERVAL_MS / 4);
-    expect(playIntervalMs(16)).toBe(Math.round(PLAY_INTERVAL_MS / 16));
+    expect(playIntervalMs(2)).toBe(PLAY_INTERVAL_MS / 2);
+    expect(playIntervalMs(3)).toBe(Math.round(PLAY_INTERVAL_MS / 3));
   });
 
   it('changes the timer interval when the speed is switched', async () => {
     const setInterval = vi.spyOn(window, 'setInterval');
+    const watched = [playIntervalMs(1), playIntervalMs(2), playIntervalMs(3)];
     const playbackIntervals = () =>
       setInterval.mock.calls
         .map((call) => call[1])
-        .filter((delay) => PLAY_SPEEDS.some((value) => playIntervalMs(value) === delay));
+        .filter((delay) => watched.includes(delay as number));
     renderScale();
     await screen.findByTestId('time-scale-track');
 
@@ -241,9 +253,11 @@ describe('playback speed', () => {
     await waitFor(() => expect(playbackIntervals().length).toBeGreaterThan(0));
     expect(playbackIntervals().at(-1)).toBe(PLAY_INTERVAL_MS);
 
-    fireEvent.click(screen.getByTestId('speed-16'));
-    await waitFor(() => expect(playbackIntervals().at(-1)).toBe(playIntervalMs(16)));
-    expect(playIntervalMs(16)).not.toBe(PLAY_INTERVAL_MS);
+    fireEvent.click(screen.getByTestId('probe-speed-2'));
+    await waitFor(() => expect(playbackIntervals().at(-1)).toBe(playIntervalMs(2)));
+    fireEvent.click(screen.getByTestId('probe-speed-3'));
+    await waitFor(() => expect(playbackIntervals().at(-1)).toBe(playIntervalMs(3)));
+    expect(playIntervalMs(3)).not.toBe(PLAY_INTERVAL_MS);
     setInterval.mockRestore();
   });
 });

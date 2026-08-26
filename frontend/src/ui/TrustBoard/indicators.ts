@@ -25,7 +25,6 @@ export interface TrustIndicator {
 }
 
 export interface TrustProvenance {
-  synthetic: boolean;
   provenance: string;
 }
 
@@ -122,15 +121,6 @@ const numberIndicator = (scenario: ScenarioEntry): TrustIndicator => {
 };
 
 const provenanceIndicator = (source: TrustProvenance): TrustIndicator => {
-  if (source.synthetic) {
-    return {
-      id: 'provenance',
-      status: 'danger',
-      labelKey: 'trust.label.provenance',
-      valueKey: 'synthetic.title',
-      banner: true
-    };
-  }
   if (source.provenance.length === 0) {
     return {
       id: 'provenance',
