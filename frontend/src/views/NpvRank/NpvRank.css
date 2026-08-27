@@ -73,6 +73,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  min-height: var(--size-hit-min);
   padding: 0;
   border: none;
   background: none;
@@ -106,7 +107,10 @@
 }
 
 .npv-well-button {
-  padding: 0;
+  min-width: var(--size-hit-min);
+  min-height: var(--size-hit-min);
+  padding: 0 var(--space-2);
+  margin: 0 calc(-1 * var(--space-2));
   border: none;
   background: none;
   color: var(--color-text);

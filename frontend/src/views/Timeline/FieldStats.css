@@ -1,6 +1,8 @@
+@import './FieldStatsChart.css';
+
 .timeline-stats {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: stretch;
   gap: 0;
   margin: 0;
@@ -13,9 +15,9 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-content: start;
   gap: 0 var(--space-3);
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-width: 0;
-  padding: var(--space-1) var(--space-5) var(--space-2);
+  padding: var(--space-2) var(--space-5);
 }
 
 .timeline-stat + .timeline-stat {
@@ -35,13 +37,14 @@
   align-self: baseline;
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-wrap: balance;
 }
 
 .timeline-stat-value {
   grid-column: 2;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
   align-self: baseline;
   justify-self: end;
   margin: 0;
@@ -54,11 +57,31 @@
   white-space: nowrap;
 }
 
+.timeline-stat-delta {
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.timeline-stat[data-band='inside'] .timeline-stat-norm {
+  color: var(--color-ok);
+}
+
+.timeline-stat[data-band='below'] .timeline-stat-value,
+.timeline-stat[data-band='above'] .timeline-stat-value {
+  color: var(--color-danger);
+}
+
+.timeline-stat[data-band='below'] .timeline-stat-norm,
+.timeline-stat[data-band='above'] .timeline-stat-norm {
+  color: var(--color-danger);
+}
+
 .timeline-stat-spark {
   grid-column: 1 / -1;
   margin-top: var(--space-1);
   line-height: 0;
-  opacity: 0.55;
+  opacity: 0.62;
 }
 
 .timeline-stat-norm {
@@ -70,6 +93,28 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.timeline-stats[data-expanded='true'] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4) var(--space-5);
+}
+
+.timeline-stats[data-expanded='true'] .timeline-stat {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.timeline-stats[data-expanded='true'] .timeline-stat + .timeline-stat {
+  border-left: 1px solid var(--color-border);
+}
+
+.timeline-stats[data-expanded='true'] .timeline-stat-chart {
+  grid-column: 1 / -1;
+  margin-top: var(--space-2);
 }
 
 @media (max-width: 1100px) {

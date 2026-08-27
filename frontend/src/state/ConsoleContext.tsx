@@ -7,11 +7,12 @@ import {
   type ReactNode
 } from 'react';
 
-export const WORKSPACES = ['field', 'history', 'decisions', 'money'] as const;
+export const WORKSPACES = ['overview', 'field', 'history', 'decisions', 'money'] as const;
 
 export type Workspace = (typeof WORKSPACES)[number];
 
 export const WORKSPACE_VIEWS = {
+  overview: ['fund'],
   field: ['projection'],
   history: ['matrix', 'wall', 'table'],
   decisions: ['council', 'rules'],
@@ -42,8 +43,8 @@ const ConsoleContext = createContext<ConsoleContextValue | null>(null);
 const defaultViewOf = (workspace: Workspace): WorkspaceView => WORKSPACE_VIEWS[workspace][0];
 
 export const ConsoleProvider = ({ children }: { children: ReactNode }) => {
-  const [workspace, setWorkspaceState] = useState<Workspace>('field');
-  const [view, setView] = useState<WorkspaceView>(defaultViewOf('field'));
+  const [workspace, setWorkspaceState] = useState<Workspace>('overview');
+  const [view, setView] = useState<WorkspaceView>(defaultViewOf('overview'));
   const [morphRequest, setMorphRequest] = useState<MorphRequest | null>(null);
 
   const setWorkspace = useCallback((next: Workspace) => {

@@ -85,7 +85,7 @@
 .scenarios-button:disabled,
 .scenarios-add-button:disabled,
 .scenarios-row-button:disabled {
-  color: var(--color-text-faint);
+  color: var(--color-text-disabled);
   border-color: var(--color-border);
   cursor: not-allowed;
 }

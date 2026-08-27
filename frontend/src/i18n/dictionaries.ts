@@ -4,6 +4,7 @@ import enCommon from './en/common.json';
 import enHistory from './en/history.json';
 import enInspector from './en/inspector.json';
 import enNpv from './en/npv.json';
+import enOverview from './en/overview.json';
 import enPalette from './en/palette.json';
 import enProjection from './en/projection.json';
 import enScenarios from './en/scenarios.json';
@@ -17,6 +18,7 @@ import ruCommon from './ru/common.json';
 import ruHistory from './ru/history.json';
 import ruInspector from './ru/inspector.json';
 import ruNpv from './ru/npv.json';
+import ruOverview from './ru/overview.json';
 import ruPalette from './ru/palette.json';
 import ruProjection from './ru/projection.json';
 import ruScenarios from './ru/scenarios.json';
@@ -50,6 +52,7 @@ const buildDictionary = (
 export const dictionaries: Record<Lang, Record<string, string>> = {
   ru: buildDictionary(ruCommon, {
     history: ruHistory,
+    overview: ruOverview,
     steps: ruSteps,
     wellcard: ruWellcard,
     npv: ruNpv,
@@ -64,6 +67,7 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
   }),
   en: buildDictionary(enCommon, {
     history: enHistory,
+    overview: enOverview,
     steps: enSteps,
     wellcard: enWellcard,
     npv: enNpv,

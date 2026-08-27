@@ -70,9 +70,9 @@ export const Sparkline = ({
           height={corridor.height}
         />
       )}
-      {geometry.segments.map((segment) => (
+      {geometry.segments.map((segment, index) => (
         <polyline
-          key={segment.slice(0, 24)}
+          key={`${index}:${segment.slice(0, 16)}`}
           className="sparkline-line"
           points={segment}
           stroke={stroke}

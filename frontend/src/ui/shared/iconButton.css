@@ -1,0 +1,75 @@
+.icon-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--size-icon-button);
+  height: var(--size-icon-button);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-accent);
+  font-family: var(--font-family-base);
+  cursor: pointer;
+  transition: background var(--duration-state) var(--ease-out),
+    color var(--duration-state) var(--ease-out),
+    scale var(--duration-state) var(--ease-emphasis);
+}
+
+.icon-button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+.icon-button:hover:not(:disabled) {
+  background: var(--color-accent-dim);
+  color: var(--color-accent-hover);
+  scale: 1.04;
+}
+
+.icon-button:active:not(:disabled) {
+  scale: 0.94;
+}
+
+.icon-button[aria-expanded='true'] {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.icon-button:disabled {
+  color: var(--color-text-subtle);
+  cursor: default;
+}
+
+.icon-button:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.icon-button-glyph {
+  display: block;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-button {
+    transition: none;
+  }
+}
+
+.icon-island {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-transport);
+}

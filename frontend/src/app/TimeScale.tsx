@@ -124,7 +124,7 @@ export const TimeScale = () => {
             onStep={onStep}
             onTogglePlay={togglePlay}
           />
-          <div className="playback-settings-island">
+          <div className="icon-island playback-settings-island">
             <PlaybackSettings />
           </div>
         </div>

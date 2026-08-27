@@ -12,6 +12,7 @@ const FieldProjection = lazy(() =>
   import('../views/FieldProjection').then((m) => ({ default: m.FieldProjection }))
 );
 const Money = lazy(() => import('../views/Money').then((m) => ({ default: m.Money })));
+const Overview = lazy(() => import('../views/Overview').then((m) => ({ default: m.Overview })));
 
 export const Scene = () => {
   const t = useT();
@@ -47,6 +48,13 @@ export const Scene = () => {
         data-testid="console-scene"
         data-data-status={dataStatus}
       >
+        {workspace === 'overview' && (
+          <ErrorBoundary>
+            <Suspense fallback={<ViewStatus kind="loading" title={t('app.viewLoading')} />}>
+              <Overview />
+            </Suspense>
+          </ErrorBoundary>
+        )}
         {workspace === 'field' && (
           <ErrorBoundary>
             <Suspense fallback={<ViewStatus kind="loading" title={t('app.viewLoading')} />}>

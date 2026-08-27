@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { memo, useCallback, useMemo, useRef } from 'react';
 import type { TimelineStep } from '../../api/types';
 import { useI18n } from '../../i18n/I18nContext';
@@ -113,9 +114,9 @@ const MainChartView = ({ steps, stepIndex, onSelect }: MainChartProps) => {
               width={PLOT_WIDTH}
               height={PANEL_HEIGHT}
             />
-            {panel.geometry.segments.map((segment) => (
+            {panel.geometry.segments.map((segment, index) => (
               <polyline
-                key={segment.slice(0, 24)}
+                key={`${index}:${segment.slice(0, 16)}`}
                 className="timeline-chart-line"
                 points={segment}
                 stroke={panel.stroke}
@@ -158,7 +159,12 @@ const MainChartView = ({ steps, stepIndex, onSelect }: MainChartProps) => {
       </div>
       <div className="timeline-chart-legend">
         {panels.map((panel) => (
-          <p className="timeline-chart-axis" key={panel.key} data-axis={panel.key}>
+          <p
+            className="timeline-chart-axis"
+            key={panel.key}
+            data-axis={panel.key}
+            style={{ '--timeline-chart-axis-color': panel.stroke } as CSSProperties}
+          >
             <span className="timeline-chart-axis-label">{panel.label}</span>
             <span className="timeline-chart-axis-range">
               {formatNumber(lang, panel.geometry.min)} … {formatNumber(lang, panel.geometry.max)}

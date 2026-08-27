@@ -25,12 +25,21 @@
 
   --color-text: #dde3ea;
   --color-text-muted: #8a94a1;
-  --color-text-subtle: rgba(221, 227, 234, 0.44);
-  --color-text-faint: rgba(221, 227, 234, 0.24);
+  --color-text-subtle: rgba(221, 227, 234, 0.56);
+  --color-text-faint: rgba(221, 227, 234, 0.52);
+  --color-text-disabled: rgba(221, 227, 234, 0.32);
 
   --color-border: #262b3d;
   --color-border-strong: #343b55;
   --color-border-subtle: rgba(221, 227, 234, 0.09);
+  --color-on-fill: #ffffff;
+  --color-on-fill-muted: rgba(255, 255, 255, 0.94);
+  --color-fill-scrim: rgba(0, 0, 0, 0.34);
+  --color-fill-scrim-mid: rgba(0, 0, 0, 0.3);
+  --color-scroll-thumb: rgba(221, 227, 234, 0.18);
+  --color-scroll-thumb-hover: rgba(221, 227, 234, 0.3);
+  --color-scroll-thumb-active: rgba(221, 227, 234, 0.44);
+  --color-scroll-track: transparent;
 
   --color-error: #f08a80;
   --color-danger: #f08a80;

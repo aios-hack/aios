@@ -120,8 +120,8 @@ describe('TrustBoard number indicator', () => {
     ]);
     const number = item(board, 'number');
 
-    expect(number.textContent).toContain('run-7f3a');
-    expect(number.textContent).toContain(
+    expect(number.getAttribute('title')).toContain('run-7f3a');
+    expect(number.getAttribute('title')).toContain(
       ru['trust.number.confirmed'].replace('{run}', 'run-7f3a')
     );
     expect(number.getAttribute('data-status')).toBe('neutral');
@@ -137,7 +137,7 @@ describe('TrustBoard missing measurements', () => {
     expect(domain.textContent).toContain(ru['trust.unmeasured']);
     expect(domain.getAttribute('data-status')).toBe('unmeasured');
     expect(domain.textContent).not.toContain('0');
-    expect(domain.textContent).not.toContain(ru['trust.domain.inside']);
+    expect(`${domain.textContent}${domain.getAttribute('title') ?? ''}`).not.toContain(ru['trust.domain.inside']);
   });
 
   it('says "not measured" instead of zero for an absent worst regret', async () => {
@@ -153,7 +153,7 @@ describe('TrustBoard missing measurements', () => {
     const measured = await renderBoard([scenario({ ood_score: 0.18, ood_threshold: 0.5 })]);
     const domain = item(measured, 'domain');
 
-    expect(domain.textContent).toContain(ru['trust.domain.inside']);
+    expect(domain.getAttribute('title')).toContain(ru['trust.domain.inside']);
     expect(domain.getAttribute('data-status')).toBe('neutral');
     expect(domain.textContent).not.toContain(ru['trust.unmeasured']);
   });
@@ -164,7 +164,7 @@ describe('TrustBoard indicator statuses', () => {
     const board = await renderBoard([scenario({ ood_score: 0.82, ood_threshold: 0.5 })]);
     const domain = item(board, 'domain');
 
-    expect(domain.textContent).toContain(ru['trust.domain.outside']);
+    expect(domain.getAttribute('title')).toContain(ru['trust.domain.outside']);
     expect(domain.getAttribute('data-status')).toBe('danger');
   });
 
@@ -180,8 +180,8 @@ describe('TrustBoard indicator statuses', () => {
     ]);
     const regret = item(board, 'regret');
 
-    expect(regret.textContent).toContain('holdout-outage-and-injection-cap');
-    expect(regret.textContent).toContain(ru['trust.regret.part.holdout']);
+    expect(regret.getAttribute('title')).toContain('holdout-outage-and-injection-cap');
+    expect(regret.getAttribute('title')).toContain(ru['trust.regret.part.holdout']);
     expect(regret.textContent).not.toContain(ru['trust.unmeasured']);
   });
 
@@ -189,7 +189,7 @@ describe('TrustBoard indicator statuses', () => {
     const board = await renderBoard([scenario({ converged: false })]);
     const converged = item(board, 'converged');
 
-    expect(converged.textContent).toContain(ru['trust.converged.no']);
+    expect(converged.getAttribute('title')).toContain(ru['trust.converged.no']);
     expect(converged.getAttribute('data-status')).toBe('danger');
   });
 

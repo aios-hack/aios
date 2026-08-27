@@ -1,3 +1,5 @@
+@import '../../ui/shared/iconButton.css';
+
 .timeline-controls {
   display: flex;
   flex-direction: column;
@@ -33,13 +35,6 @@
 .playback-settings-island {
   position: absolute;
   right: 0;
-  display: flex;
-  align-items: center;
-  padding: var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-transport);
 }
 
 .transport-button {

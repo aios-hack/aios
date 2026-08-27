@@ -6,6 +6,7 @@ import { cellRgb, type CellContext } from './cells';
 import {
   CELL_HEIGHT,
   CELL_WIDTH,
+  ROW_GAP,
   GUTTER_LEFT,
   GUTTER_TOP,
   columnX,
@@ -45,7 +46,7 @@ export const paintChronomap = (
     for (let row = 0; row < rows.length; row += 1) {
       const entry = rows[row];
       ctx.fillStyle = toCanvasColor(cellRgb(stepRows?.get(entry.well), context));
-      ctx.fillRect(x, rowY(row), CELL_WIDTH, CELL_HEIGHT);
+      ctx.fillRect(x, rowY(row), CELL_WIDTH, CELL_HEIGHT - ROW_GAP);
     }
   }
   ctx.globalAlpha = 1;

@@ -26,13 +26,13 @@ export const useAxisCollapse = (): AxisCollapse => {
       const pointerId = event.pointerId;
       let settled = false;
 
-      target.setPointerCapture(pointerId);
+      target.setPointerCapture?.(pointerId);
 
       const finish = () => {
         target.removeEventListener('pointermove', onMove);
         target.removeEventListener('pointerup', onUp);
         target.removeEventListener('pointercancel', onUp);
-        if (target.hasPointerCapture(pointerId)) {
+        if (target.hasPointerCapture?.(pointerId)) {
           target.releasePointerCapture(pointerId);
         }
       };

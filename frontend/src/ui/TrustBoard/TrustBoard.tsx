@@ -33,37 +33,29 @@ const renderValue = (
 
 const Row = ({ indicator }: { indicator: TrustIndicator }) => {
   const { t, lang } = useI18n();
+  const full = renderValue(t, lang, indicator);
   const detail =
     indicator.detailKey === undefined
       ? null
       : t(indicator.detailKey, localizeParams(lang, indicator.detailParams));
-  const value = renderValue(t, lang, indicator);
-  const collapsed =
-    indicator.banner !== true &&
-    indicator.spoken !== true &&
-    indicator.briefKey !== undefined;
-  const brief = collapsed
-    ? t(indicator.briefKey as string, localizeParams(lang, indicator.briefParams))
-    : null;
+  const brief =
+    indicator.briefKey === undefined
+      ? full
+      : t(indicator.briefKey, localizeParams(lang, indicator.briefParams));
+  const parts = [full, detail].filter(
+    (part): part is string => typeof part === 'string' && part !== brief
+  );
+  const extra = parts.length === 0 ? null : parts.join(' · ');
 
   return (
     <li
       className="trust-item"
       data-indicator={indicator.id}
       data-status={indicator.status}
-      data-collapsed={collapsed ? 'true' : undefined}
-      data-full={collapsed ? [value, detail].filter(Boolean).join(' · ') : undefined}
-      tabIndex={collapsed ? 0 : undefined}
+      title={extra ?? undefined}
     >
-      <span className="trust-dot" aria-hidden="true" />
       <span className="trust-label">{t(indicator.labelKey)}</span>
-      {brief !== null && (
-        <span className="trust-brief" aria-hidden="true">
-          {brief}
-        </span>
-      )}
-      <span className="trust-value">{value}</span>
-      {detail !== null && <span className="trust-detail">{detail}</span>}
+      <span className="trust-value">{brief}</span>
     </li>
   );
 };
@@ -99,13 +91,42 @@ export const TrustBoard = () => {
     return <Notice textKey="trust.index.missing" />;
   }
 
+  const indicators = buildIndicators(active, source);
+  const byId = (id: string) => indicators.find((indicator) => indicator.id === id);
+  const groups: { key: string; ids: string[] }[] = [
+    { key: 'source', ids: ['number', 'provenance'] },
+    { key: 'checks', ids: ['converged', 'selfConsistent', 'domain'] },
+    { key: 'risk', ids: ['regret'] }
+  ];
+  const estimate = byId('number')?.status === 'unmeasured';
+  const failed = indicators.filter((indicator) => indicator.status === 'danger');
+
   return (
     <section className="trust-board" aria-label={t('trust.title')} data-testid="trust-board">
-      <ul className="trust-list">
-        {buildIndicators(active, source).map((indicator) => (
-          <Row key={indicator.id} indicator={indicator} />
-        ))}
-      </ul>
+      <header className="trust-board-head">
+        <h2 className="trust-board-title">{t('trust.title')}</h2>
+      </header>
+      {groups.map((group) => {
+        const rows = group.ids.map(byId).filter((row): row is TrustIndicator => row !== undefined);
+        if (rows.length === 0) {
+          return null;
+        }
+        return (
+          <div className="trust-group" key={group.key}>
+            <h3 className="trust-group-title">{t(`trust.group.${group.key}`)}</h3>
+            <ul className="trust-list">
+              {rows.map((indicator) => (
+                <Row key={indicator.id} indicator={indicator} />
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+      <footer className="trust-board-foot" data-tone={failed.length > 0 || estimate ? 'warn' : 'ok'}>
+        {failed.length > 0
+          ? t(failed[0].valueKey)
+          : t(estimate ? 'trust.flaggedOne' : 'trust.allClear')}
+      </footer>
     </section>
   );
 };

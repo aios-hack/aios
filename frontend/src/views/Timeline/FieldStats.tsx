@@ -3,17 +3,18 @@ import type { TimelineFieldNorms, TimelineStep } from '../../api/types';
 import { useI18n } from '../../i18n/I18nContext';
 import { Sparkline } from '../../ui/Sparkline';
 import { DASH, formatNumber, formatPercent } from '../../ui/format';
+import { fieldMetrics, type FieldMetricKey } from './fieldMetrics';
+import { MetricChart } from './MetricChart';
 import './FieldStats.css';
 
 interface FieldStatsProps {
   steps: TimelineStep[];
   stepIndex: number;
   norms?: TimelineFieldNorms;
+  expanded: boolean;
 }
 
-type StatKey = 'production' | 'injection' | 'compensation' | 'npv' | 'activeWells';
-
-const STROKE: Record<StatKey, string> = {
+const STROKE: Record<FieldMetricKey, string> = {
   production: 'var(--color-oil)',
   injection: 'var(--color-injection)',
   compensation: 'var(--color-water)',
@@ -21,82 +22,90 @@ const STROKE: Record<StatKey, string> = {
   activeWells: 'var(--color-text-muted)'
 };
 
-const SPARK_HEIGHT = 24;
+const LABEL: Record<FieldMetricKey, string> = {
+  production: 'steps.field.production',
+  injection: 'steps.field.injection',
+  compensation: 'steps.field.compensation',
+  npv: 'steps.field.npv',
+  activeWells: 'steps.field.activeWells'
+};
 
-const FieldStatsView = ({ steps, stepIndex, norms }: FieldStatsProps) => {
+const SPARK_HEIGHT = 22;
+
+const FieldStatsView = ({ steps, stepIndex, norms, expanded }: FieldStatsProps) => {
   const { t, lang } = useI18n();
-
-  const series = useMemo(
-    () => ({
-      production: steps.map((step) => step.field.production),
-      injection: steps.map((step) => step.field.injection),
-      compensation: steps.map((step) => step.field.compensation),
-      npv: steps.map((step) => step.field.npv_cumulative),
-      activeWells: steps.map((step) => step.field.active_wells)
-    }),
-    [steps]
-  );
-
-  const field = steps[stepIndex].field;
   const band = norms?.compensation ?? null;
 
-  const items: { key: StatKey; label: string; value: string }[] = [
-    {
-      key: 'production',
-      label: t('steps.field.production'),
-      value: field.production === null ? DASH : formatNumber(lang, field.production)
-    },
-    {
-      key: 'injection',
-      label: t('steps.field.injection'),
-      value: field.injection === null ? DASH : formatNumber(lang, field.injection)
-    },
-    {
-      key: 'compensation',
-      label: t('steps.field.compensation'),
-      value: field.compensation === null ? DASH : formatPercent(lang, field.compensation)
-    },
-    {
-      key: 'npv',
-      label: t('steps.field.npv'),
-      value: formatNumber(lang, field.npv_cumulative)
-    },
-    {
-      key: 'activeWells',
-      label: t('steps.field.activeWells'),
-      value: formatNumber(lang, field.active_wells)
-    }
-  ];
+  const metrics = useMemo(
+    () => fieldMetrics(steps, stepIndex, band),
+    [steps, stepIndex, band]
+  );
+
+  const formatOf = (key: FieldMetricKey) => (value: number) =>
+    key === 'compensation' ? formatPercent(lang, value) : formatNumber(lang, value);
 
   return (
-    <dl className="timeline-stats">
-      {items.map((item) => (
-        <div key={item.key} className="timeline-stat">
-          <dt className="timeline-stat-label">{item.label}</dt>
-          <dd className="timeline-stat-value" data-stat={item.key}>
-            {item.value}
-          </dd>
-          <div className="timeline-stat-spark" data-spark={item.key}>
-            <Sparkline
-              values={series[item.key]}
-              current={stepIndex}
-              total={steps.length}
-              label={t('steps.sparkline', { name: item.label })}
-              height={SPARK_HEIGHT}
-              stroke={STROKE[item.key]}
-              band={item.key === 'compensation' ? band : null}
-            />
+    <dl className="timeline-stats" data-expanded={expanded ? 'true' : undefined}>
+      {metrics.map((metric) => {
+        const label = t(LABEL[metric.key]);
+        const format = formatOf(metric.key);
+        const value = metric.current === null ? DASH : format(metric.current);
+        const deltaLabel =
+          metric.delta === null || metric.trend === 'flat'
+            ? null
+            : `${metric.delta > 0 ? '+' : '−'}${format(Math.abs(metric.delta))}`;
+
+        return (
+          <div
+            className="timeline-stat"
+            key={metric.key}
+            data-metric={metric.key}
+            data-band={metric.bandPosition ?? undefined}
+          >
+            <dt className="timeline-stat-label">{label}</dt>
+            <dd className="timeline-stat-value" data-stat={metric.key}>
+              <span className="timeline-stat-number">{value}</span>
+              {deltaLabel !== null && (
+                <span className="timeline-stat-delta" data-trend={metric.trend}>
+                  {deltaLabel}
+                </span>
+              )}
+            </dd>
+            {expanded ? (
+              <div className="timeline-stat-chart">
+                <MetricChart
+                  metric={metric}
+                  steps={steps}
+                  stepIndex={stepIndex}
+                  stroke={STROKE[metric.key]}
+                  label={t('steps.sparkline', { name: label })}
+                  format={format}
+                />
+              </div>
+            ) : (
+              <div className="timeline-stat-spark" data-spark={metric.key}>
+                <Sparkline
+                  values={metric.values}
+                  current={stepIndex}
+                  total={steps.length}
+                  label={t('steps.sparkline', { name: label })}
+                  height={SPARK_HEIGHT}
+                  stroke={STROKE[metric.key]}
+                  band={metric.band}
+                />
+              </div>
+            )}
+            {metric.key === 'compensation' && metric.band !== null && (
+              <p className="timeline-stat-norm">
+                {t('steps.field.compensationBand', {
+                  min: formatPercent(lang, metric.band.min),
+                  max: formatPercent(lang, metric.band.max)
+                })}
+              </p>
+            )}
           </div>
-          {item.key === 'compensation' && band !== null && (
-            <p className="timeline-stat-norm">
-              {t('steps.field.compensationBand', {
-                min: formatPercent(lang, band.min),
-                max: formatPercent(lang, band.max)
-              })}
-            </p>
-          )}
-        </div>
-      ))}
+        );
+      })}
     </dl>
   );
 };

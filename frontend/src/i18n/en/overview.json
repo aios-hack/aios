@@ -1,0 +1,16 @@
+{
+  "lead": "Every metric across all {count} control steps. The dashed line marks the selected step.",
+  "metric.production": "Liquid production",
+  "metric.injection": "Injection",
+  "metric.compensation": "Compensation",
+  "metric.npv": "Cumulative NPV",
+  "metric.activeWells": "Active wells",
+  "metric.watercut": "Mean watercut",
+  "metric.factToTarget": "Target fulfilment",
+  "metric.shutWells": "Shut wells",
+  "span": "{from} → {to}",
+  "bandInside": "inside the norm corridor",
+  "bandBelow": "below the norm corridor",
+  "bandAbove": "above the norm corridor",
+  "empty": "No steps to show"
+}

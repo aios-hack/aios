@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { FieldStrip } from './app/FieldStrip';
 import { Scene } from './app/Scene';
 import { TimeScale } from './app/TimeScale';
 import { useDocumentTitle } from './app/useDocumentTitle';
@@ -29,13 +28,11 @@ const ConsoleShell = () => {
   useDocumentTitle(t(`workspace.${workspace}`), t('app.documentTitle'), lang);
 
   const inspectorOpen = selectedWell !== null || scenarioContext !== null;
-  const stripVisible = workspace === 'field' || workspace === 'history';
 
   return (
     <div
       className="app console"
       data-inspector={inspectorOpen ? 'open' : 'closed'}
-      data-strip={stripVisible ? 'shown' : 'hidden'}
       data-axis={axisCollapsed ? 'collapsed' : undefined}
     >
       <header className="console-area-header app-header">
@@ -57,9 +54,6 @@ const ConsoleShell = () => {
         </ErrorBoundary>
         <HeaderControls />
       </header>
-      <ErrorBoundary>
-        <FieldStrip />
-      </ErrorBoundary>
       <div className="console-area-nav">
         <WorkspaceNav />
       </div>

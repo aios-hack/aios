@@ -1,6 +1,8 @@
 .segmented {
   position: relative;
   display: inline-flex;
+  flex: none;
+  max-width: 100%;
   gap: var(--space-1);
   padding: var(--space-1);
   background: var(--color-surface);
@@ -30,8 +32,10 @@
 .segmented-button {
   position: relative;
   z-index: 1;
+  flex: none;
   height: 30px;
   padding: 0 var(--space-4);
+  white-space: nowrap;
   border: none;
   border-radius: var(--radius-lg);
   background: transparent;

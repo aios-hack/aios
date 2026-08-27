@@ -16,7 +16,9 @@ import {
   readChronoPalette,
   type Palette
 } from './cells';
-import { CELL_HEIGHT, CELL_WIDTH, GUTTER_LEFT, GUTTER_TOP, geometryOf, hitTest, yearTicks } from './geometry';
+import { CELL_HEIGHT, CELL_WIDTH, GUTTER_LEFT, GUTTER_TOP, ROW_GAP, geometryOf, hitTest, yearTicks } from './geometry';
+
+const CELL_FILL_HEIGHT = CELL_HEIGHT - ROW_GAP;
 import { buildRows, sortRows, ungroupedCount } from './sortRows';
 import { paintChronomap } from './useChronomapCanvas';
 
@@ -192,7 +194,7 @@ const mockRoutes = (timeline: TimelineFile = timelineFixture) => {
 const cellCalls = (): unknown[][] =>
   spies.flatMap((spy) =>
     spy.fillRect.mock.calls.filter(
-      (call) => call[2] === CELL_WIDTH && call[3] === CELL_HEIGHT
+      (call) => call[2] === CELL_WIDTH && call[3] === CELL_FILL_HEIGHT
     )
   );
 
@@ -443,7 +445,7 @@ describe('Chronomap view', () => {
     );
     await waitFor(() => expect(cellCalls().length).toBeGreaterThan(0));
     expect(cellCalls().length % (STEP_COUNT * WELL_COUNT)).toBe(0);
-    expect(cellCalls()[0]).toEqual([GUTTER_LEFT, GUTTER_TOP, CELL_WIDTH, CELL_HEIGHT]);
+    expect(cellCalls()[0]).toEqual([GUTTER_LEFT, GUTTER_TOP, CELL_WIDTH, CELL_FILL_HEIGHT]);
   });
 
   it('selects the well and the step when a cell is clicked', async () => {
@@ -642,7 +644,7 @@ const countingContext = (): { ctx: CanvasRenderingContext2D; cells: () => number
   const noop = () => {};
   const ctx = {
     fillRect: (_x: number, _y: number, w: number, h: number) => {
-      if (w === CELL_WIDTH && h === CELL_HEIGHT) {
+      if (w === CELL_WIDTH && h === CELL_FILL_HEIGHT) {
         cells += 1;
       }
     },

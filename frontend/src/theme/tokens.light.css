@@ -27,13 +27,22 @@
   --shadow-accent-hover: 0 10px 36px rgba(35, 45, 205, 0.36);
 
   --color-text: #1a2028;
-  --color-text-muted: rgba(26, 32, 40, 0.62);
-  --color-text-subtle: rgba(26, 32, 40, 0.44);
-  --color-text-faint: rgba(26, 32, 40, 0.24);
+  --color-text-muted: rgba(26, 32, 40, 0.68);
+  --color-text-subtle: rgba(26, 32, 40, 0.66);
+  --color-text-faint: rgba(26, 32, 40, 0.64);
+  --color-text-disabled: rgba(26, 32, 40, 0.38);
 
   --color-border: rgba(35, 45, 205, 0.14);
   --color-border-strong: rgba(35, 45, 205, 0.26);
   --color-border-subtle: rgba(11, 12, 20, 0.08);
+  --color-on-fill: #ffffff;
+  --color-on-fill-muted: rgba(255, 255, 255, 0.94);
+  --color-fill-scrim: rgba(0, 0, 0, 0.34);
+  --color-fill-scrim-mid: rgba(0, 0, 0, 0.3);
+  --color-scroll-thumb: rgba(35, 45, 205, 0.26);
+  --color-scroll-thumb-hover: rgba(35, 45, 205, 0.44);
+  --color-scroll-thumb-active: rgba(35, 45, 205, 0.6);
+  --color-scroll-track: transparent;
 
   --color-error: #b3261e;
   --color-danger: #b3261e;
@@ -155,13 +164,19 @@
   --focus-ring-width: 2px;
   --focus-ring-offset: 1px;
 
+  --size-council-idle: 56px;
+  --size-scrollbar: 10px;
+  --size-scrollbar-thumb-min: 32px;
   --size-control-height: 26px;
+  --size-hit-min: 24px;
+  --size-icon-button: 34px;
   --size-transport-half: 100px;
   --size-row: 26px;
   --size-swatch: 10px;
   --size-map-max: 620px;
   --size-stat-min: 130px;
   --size-table-min: 640px;
+  --size-table-wide-min: 972px;
   --size-card-max: 380px;
   --size-graph-max: clamp(760px, 82vw, 1440px);
   --size-graph-node: 2.6;
@@ -170,7 +185,7 @@
   --size-trust-pop: 320px;
 
   --size-nav: 140px;
+  --size-console-min: 900px;
   --h-header: 96px;
-  --h-strip: 96px;
   --h-timeaxis: 184px;
 }

@@ -1,4 +1,3 @@
-import { CaretDownIcon } from '@phosphor-icons/react';
 import { useEffect, useRef, useState } from 'react';
 import { useDataset } from '../../data';
 import { useI18n } from '../../i18n/I18nContext';
@@ -12,8 +11,39 @@ export const StatusChip = () => {
   const { activeId } = useOptionalScenario();
   const index = useDataset('scenarios');
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      return;
+    }
+    const node = popoverRef.current;
+    if (node === null) {
+      setMounted(false);
+      return;
+    }
+    let cancelled = false;
+    const frame = requestAnimationFrame(() => {
+      const animations =
+        typeof node.getAnimations === 'function' ? node.getAnimations() : [];
+      if (animations.length === 0) {
+        setMounted(false);
+        return;
+      }
+      Promise.allSettled(animations.map((animation) => animation.finished)).then(() => {
+        if (!cancelled) {
+          setMounted(false);
+        }
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -65,24 +95,27 @@ export const StatusChip = () => {
   );
 
   return (
-    <div className="status-chip-wrap">
+    <div className="icon-island status-chip-wrap">
       <button
         ref={triggerRef}
         type="button"
-        className="status-chip"
+        className="icon-button status-chip"
         data-level={verdict.level}
         aria-expanded={open}
         aria-label={t('trust.chip.label')}
+        title={label}
         onClick={() => setOpen((value) => !value)}
       >
-        <span className="status-chip-dot" aria-hidden="true" />
-        <span className="status-chip-text">{label}</span>
-        <CaretDownIcon size={12} weight="bold" aria-hidden="true" />
+        <span className="icon-button-glyph" aria-hidden="true">
+          ?
+        </span>
+        <span className="visually-hidden">{label}</span>
       </button>
-      {open && (
+      {mounted && (
         <div
           ref={popoverRef}
           className="status-chip-popover"
+          data-state={open ? 'open' : 'closing'}
           role="dialog"
           aria-label={t('trust.title')}
         >

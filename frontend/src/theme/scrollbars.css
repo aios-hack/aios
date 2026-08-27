@@ -1,0 +1,46 @@
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-scroll-thumb) var(--color-scroll-track);
+  }
+}
+
+*::-webkit-scrollbar {
+  width: var(--size-scrollbar);
+  height: var(--size-scrollbar);
+  background: var(--color-scroll-track);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--color-scroll-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  min-height: var(--size-scrollbar-thumb-min);
+  min-width: var(--size-scrollbar-thumb-min);
+  border: 3px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--color-scroll-thumb);
+  background-clip: content-box;
+  transition: background-color var(--duration-state) var(--ease-out);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-scroll-thumb-hover);
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background: var(--color-scroll-thumb-active);
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--color-scroll-track);
+}
+
+*::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}

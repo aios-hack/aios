@@ -24,14 +24,14 @@ export const PlaybackSettings = () => {
         <button
           ref={ref}
           type="button"
-          className="transport-button playback-settings-trigger"
+          className="icon-button playback-settings-trigger"
           aria-label={t('playback.settings')}
           title={t('playback.settings')}
           aria-expanded={open}
           data-testid="playback-settings-trigger"
           onClick={onClick}
         >
-          <GearIcon size={18} weight="fill" aria-hidden="true" />
+          <GearIcon size={22} weight="fill" aria-hidden="true" />
         </button>
       )}
     >

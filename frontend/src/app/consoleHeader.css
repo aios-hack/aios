@@ -1,0 +1,33 @@
+.console > .app-header {
+  gap: var(--space-4) var(--space-6);
+  padding: var(--space-5) var(--space-6);
+  margin: 0;
+  background: var(--color-surface-sunken);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.console > .app-header .brand-logo {
+  width: 156px;
+  margin-right: var(--space-3);
+}
+
+.console > .app-header .app-identity {
+  gap: var(--space-1);
+  justify-content: center;
+}
+
+.console > .app-header .trust-board,
+.console > .app-header .trust-board-notice {
+  flex: 1 1 320px;
+}
+
+.console > .app-header .app-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-black);
+  letter-spacing: var(--tracking-display);
+}
+
+.console > .app-header .app-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-subtle);
+}

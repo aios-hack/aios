@@ -1,8 +1,17 @@
 export { Council } from './Council';
 export { Rules } from './Rules';
-export { FieldLevel } from './FieldLevel';
 export { GroupLevel } from './GroupLevel';
 export { WellLevel } from './WellLevel';
+export { WellSortHeader } from './WellSortHeader';
+export {
+  WELL_SORT_KEYS,
+  decisionAmount,
+  decisionVerb,
+  isNumericWellKey,
+  sortWellRows,
+  type SortDir,
+  type WellSortKey
+} from './wellSorting';
 export {
   TOP_ALLOCATIONS,
   UNGROUPED,

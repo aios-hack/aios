@@ -1,7 +1,18 @@
+@import './CouncilField.css';
+@import './CouncilGroups.css';
+@import './CouncilWells.css';
+
+.council-column[data-state='dim'],
+.council-card[data-state='dim'],
+.council-table tr[data-state='dim'] {
+  opacity: 0.34;
+}
+
 .council {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
+  padding-bottom: var(--h-axis-space, var(--h-timeaxis));
 }
 
 .council-level {
@@ -10,7 +21,7 @@
   gap: var(--space-3);
   padding: var(--space-panel-y) var(--space-panel-x);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
 
@@ -31,26 +42,9 @@
   color: var(--color-text-muted);
 }
 
-.council-field-stats {
-  display: flex;
-  gap: var(--space-5);
-  margin: 0;
-}
 
-.council-stat {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-}
 
-.council-stat dt {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
 
-.council-stat dd {
-  margin: 0;
-}
 
 .council-number {
   font-family: var(--font-family-mono);
@@ -59,214 +53,5 @@
 }
 
 .council-muted {
-  color: var(--color-text-muted);
-}
-
-.council-bar {
-  display: flex;
-  height: 22px;
-  gap: 1px;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-}
-
-.council-bar-segment {
-  flex-basis: 0;
-  min-width: 2px;
-  padding: 0;
-  border: 0;
-  cursor: pointer;
-  color: var(--color-accent-contrast);
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-mono);
-  opacity: 1;
-}
-
-.council-bar-segment[data-empty='true'] {
-  flex-grow: 0;
-  flex-basis: 4px;
-  background: var(--color-surface-sunken) !important;
-}
-
-.council-bar-segment[data-state='dim'],
-.council-legend-item[data-state='dim'],
-.council-card[data-state='dim'],
-.council-table tr[data-state='dim'] {
-  opacity: 0.34;
-}
-
-.council-bar-segment[data-state='path'] {
-  outline: 2px solid var(--color-text);
-  outline-offset: -2px;
-}
-
-.council-bar-label {
-  padding: 0 var(--space-1);
-}
-
-.council-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.council-legend-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-size-xs);
-}
-
-.council-swatch {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-sm);
-  flex: none;
-}
-
-.council-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: var(--space-3);
-}
-
-.council-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-top: 3px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-sunken);
-}
-
-.council-card[data-open='true'] {
-  border-color: var(--color-accent);
-}
-
-.council-card[data-ungrouped='true'] {
-  border-top-color: var(--color-text-muted);
-}
-
-.council-card-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  cursor: pointer;
-  text-align: left;
-}
-
-.council-card-name {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-}
-
-.council-card-rest {
-  margin: 0;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-
-.council-alloc {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.council-alloc-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: 1px var(--space-1);
-}
-
-.council-alloc-row[data-active='true'] {
-  background: var(--color-accent-dim-2);
-}
-
-.council-alloc-well {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--color-accent);
-  cursor: pointer;
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-mono);
-}
-
-.council-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--font-size-xs);
-}
-
-.council-table th,
-.council-table td {
-  padding: var(--space-1) var(--space-2);
-  text-align: left;
-  border-bottom: 1px solid var(--color-border-subtle);
-  vertical-align: baseline;
-}
-
-.council-table thead th {
-  color: var(--color-text-muted);
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.council-table tr[data-state='path'] {
-  background: var(--color-accent-dim-2);
-}
-
-.council-well-button {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--color-accent);
-  cursor: pointer;
-}
-
-.council-rule {
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-mono);
-  color: var(--color-text-muted);
-}
-
-.council-constraint {
-  color: var(--color-danger);
-}
-
-.council-inputs {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-3);
-}
-
-.council-input {
-  display: inline-flex;
-  gap: var(--space-1);
-}
-
-.council-empty {
-  margin: 0;
-  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }

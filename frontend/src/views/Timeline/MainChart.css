@@ -64,14 +64,24 @@
 .timeline-chart-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
+  gap: var(--space-2) var(--space-7);
 }
 
 .timeline-chart-axis {
   display: flex;
+  align-items: baseline;
   gap: var(--space-2);
   margin: 0;
   font-size: var(--font-size-xs);
+}
+
+.timeline-chart-axis::before {
+  content: '';
+  align-self: center;
+  width: 10px;
+  height: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--timeline-chart-axis-color, var(--color-border-strong));
 }
 
 .timeline-chart-axis-label {

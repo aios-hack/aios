@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEffect, type ReactNode } from 'react';
@@ -7,6 +9,7 @@ import { dictionaries } from '../../i18n/dictionaries';
 import { I18nProvider } from '../../i18n/I18nContext';
 import { TimelineProvider, useTimeline } from '../../state/TimelineContext';
 import { Council } from './Council';
+import { WellLevel } from './WellLevel';
 import {
   fieldSegments,
   groupOrder,
@@ -233,7 +236,7 @@ describe('Council selection path', () => {
     );
     const onPath = (selector: string) =>
       [...container.querySelectorAll(`${selector}[data-state="path"]`)].length;
-    expect(onPath('.council-bar-segment')).toBe(1);
+    expect(onPath('.council-column')).toBe(1);
     expect(onPath('.council-card')).toBe(1);
     expect(onPath('.council-table tbody tr')).toBe(1);
     expect(screen.getByTestId('council-segment-G1').getAttribute('data-state')).toBe(
@@ -241,6 +244,200 @@ describe('Council selection path', () => {
     );
     expect(screen.getByTestId('council-card-G1').getAttribute('data-state')).toBe('path');
     expect(screen.getByTestId('council-segment-G2').getAttribute('data-state')).toBe('dim');
+  });
+
+  it('marks groups that received nothing so they can shrink out of the way', async () => {
+    const { container } = await renderCouncil(0, null);
+    const cards = [...container.querySelectorAll('.council-card')];
+    expect(cards.length).toBeGreaterThan(0);
+
+    for (const card of cards) {
+      const received = card.querySelector('.council-number')?.textContent?.trim();
+      const empty = card.getAttribute('data-empty') === 'true';
+      expect(empty).toBe(received === '0');
+    }
+  });
+
+  it('names each group once: on the cap, never repeated in the card body', async () => {
+    const { container } = await renderCouncil(0, null);
+    const column = container.querySelector('.council-column') as HTMLElement;
+    const caps = column.querySelectorAll('.council-cap-name');
+    expect(caps).toHaveLength(1);
+    expect(column.querySelectorAll('.council-card-name')).toHaveLength(0);
+  });
+
+  it('makes the whole column pick the group, not just the coloured cap', async () => {
+    const { container } = await renderCouncil(0, null);
+    const column = container.querySelector('.council-column') as HTMLElement;
+    const pick = column.querySelector('.council-column-pick');
+    expect(pick).not.toBeNull();
+    expect(column.querySelector('.council-cap')?.tagName).toBe('SPAN');
+  });
+
+  it('labels the allocation total so no number floats without a name', async () => {
+    const { container } = await renderCouncil(0, null);
+    const total = container.querySelector('.council-column .council-card-total');
+    expect(total?.querySelector('.council-card-total-label')).not.toBeNull();
+    expect(container.querySelector('.council-card-listlabel')).not.toBeNull();
+  });
+
+  it('shows the water budget as labelled stats plus a usage meter, below the columns', async () => {
+    const { container } = await renderCouncil(0, null);
+    const stats = container.querySelectorAll('.council-budget-stat');
+    expect(stats).toHaveLength(3);
+    for (const stat of stats) {
+      expect(stat.querySelector('.council-budget-label')).not.toBeNull();
+    }
+    const meter = container.querySelector('.council-budget-meter-fill') as HTMLElement;
+    expect(meter.style.inlineSize).toMatch(/%$/);
+    const budget = container.querySelector('.council-budget') as HTMLElement;
+    const columns = container.querySelector('.council-groups') as HTMLElement;
+    expect(columns.compareDocumentPosition(budget) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('gives both budget figures the same weight: neither is the odd one out', async () => {
+    const { container } = await renderCouncil(0, null);
+    const values = [...container.querySelectorAll('.council-budget-value')];
+    expect(values).toHaveLength(2);
+    expect(values.every((v) => v.className === values[0].className)).toBe(true);
+  });
+
+  it('rings the whole column, cap included, rather than the text panel alone', async () => {
+    const css = readFileSync(
+      join(process.cwd(), 'src', 'views', 'Council', 'CouncilField.css'),
+      'utf-8'
+    );
+    expect(css).toMatch(/\.council-column\[data-open='true'\]\s*\{[^}]*outline:/);
+    expect(css).toMatch(/\.council-column\[data-state='path'\]\s*\{[^}]*outline:/);
+    const groups = readFileSync(
+      join(process.cwd(), 'src', 'views', 'Council', 'CouncilGroups.css'),
+      'utf-8'
+    );
+    expect(groups).not.toMatch(/\.council-card\[data-open='true'\]/);
+  });
+
+  it('dims the columns off the path, not a class that no longer renders', async () => {
+    const css = readFileSync(
+      join(process.cwd(), 'src', 'views', 'Council', 'Council.css'),
+      'utf-8'
+    );
+    expect(css).toContain(".council-column[data-state='dim']");
+    expect(css).not.toContain('.council-bar-segment');
+  });
+
+  it('titles both levels as plain phrases, with no separator punctuation', () => {
+    for (const lang of ['ru', 'en'] as const) {
+      const d = dictionaries[lang];
+      expect(d['council.groups.title']).not.toMatch(/[·|]/);
+      expect(d['council.wells.title']).not.toMatch(/[·|]/);
+      expect(d['council.wells.title']).toContain('{group}');
+      expect(d['council.wells.titleUngrouped']).not.toContain('{group}');
+    }
+  });
+
+  it('reads naturally for wells that belong to no group', () => {
+    render(
+      <I18nProvider>
+        <WellLevel rows={[]} groupLabel={null} path={null} onSelectWell={() => {}} />
+      </I18nProvider>
+    );
+    const heading = screen.getByRole('heading', { level: 3 });
+    expect(heading.textContent).toBe(ru['council.wells.titleUngrouped']);
+    expect(heading.textContent).not.toContain('Вне участков');
+  });
+
+  it('pins the executor columns so they cannot resize as the step changes', () => {
+    const css = readFileSync(
+      join(process.cwd(), 'src', 'views', 'Council', 'CouncilWells.css'),
+      'utf-8'
+    );
+    expect(css).toMatch(/\.council-table\s*\{[^}]*table-layout:\s*fixed/);
+    const cols = [...css.matchAll(/\.council-col-[\w-]+\s*\{[^}]*width:\s*(\d+)px/g)];
+    expect(cols.length).toBeGreaterThan(0);
+  });
+
+  it('starts every value at the same edge as its own header', () => {
+    const css = readFileSync(
+      join(process.cwd(), 'src', 'views', 'Council', 'CouncilWells.css'),
+      'utf-8'
+    );
+    expect(css).toContain('.council-table td.council-cell-num');
+    expect(css).toMatch(/td\.council-cell-num[^}]*text-align:\s*left/);
+    expect(css).not.toMatch(/text-align:\s*right/);
+  });
+
+  it('gives every executor column its own sortable header', async () => {
+    const { container } = await renderCouncil(0, null);
+    const headers = [...container.querySelectorAll('.council-table thead th')].filter(
+      (h) => h.querySelector('button') !== null
+    );
+    expect(headers).toHaveLength(8);
+    for (const th of headers) {
+      expect(th.getAttribute('aria-sort')).not.toBeNull();
+    }
+    expect(headers.filter((h) => h.getAttribute('aria-sort') !== 'none')).toHaveLength(1);
+  });
+
+  it('splits each input into its own cell instead of one run-on column', async () => {
+    const { container } = await renderCouncil(0, null);
+    const first = container.querySelector('.council-table tbody tr') as HTMLElement;
+    expect(first.children).toHaveLength(9);
+    expect(container.querySelector('.council-inputs')).toBeNull();
+    expect(first.querySelectorAll('.council-cell-num')).toHaveLength(4);
+  });
+
+  it('reorders rows when a header is clicked and marks the direction', async () => {
+    const { container } = await renderCouncil(0, null);
+    const before = [...container.querySelectorAll('.council-table tbody tr')].map(
+      (r) => r.getAttribute('data-testid')
+    );
+    const amount = container.querySelectorAll('.council-table thead th')[2];
+    fireEvent.click(amount.querySelector('button') as HTMLElement);
+    expect(amount.getAttribute('aria-sort')).toBe('ascending');
+    const after = [...container.querySelectorAll('.council-table tbody tr')].map(
+      (r) => r.getAttribute('data-testid')
+    );
+    expect(after).not.toEqual(before);
+    expect([...after].sort()).toEqual([...before].sort());
+  });
+
+  it('opens the well from any cell in the row, not just the number', async () => {
+    const { container } = await renderCouncil(0, null);
+    const row = container.querySelector('.council-table tbody tr') as HTMLElement;
+    const lastCell = row.children[row.children.length - 2] as HTMLElement;
+    expect(lastCell.querySelector('button')).toBeNull();
+    fireEvent.click(lastCell);
+    await waitFor(() =>
+      expect(row.getAttribute('data-selected')).toBe('true')
+    );
+  });
+
+  it('clears the time axis so the last rows are reachable', () => {
+    const css = readFileSync(
+      join(process.cwd(), 'src', 'views', 'Council', 'Council.css'),
+      'utf-8'
+    );
+    const block = css.match(/\.council\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(block).toMatch(/padding-bottom:\s*var\(--h-axis-space/);
+    expect(block).not.toMatch(/padding-bottom:\s*\d+px/);
+  });
+
+  it('keeps the eight columns legible by scrolling instead of crushing them', () => {
+    const css = readFileSync(
+      join(process.cwd(), 'src', 'views', 'Council', 'CouncilWells.css'),
+      'utf-8'
+    );
+    expect(css).toMatch(/\.council-table-wrap\s*\{[^}]*overflow-x:\s*auto/);
+    expect(css).toContain('min-width: var(--size-table-wide-min)');
+    const theme = readFileSync(join(process.cwd(), 'src', 'theme', 'tokens.light.css'), 'utf-8');
+    expect(theme).toMatch(/--size-table-wide-min:\s*\d+px/);
+  });
+
+  it('carries the group colour on a variable rather than a border stripe', async () => {
+    const { container } = await renderCouncil(0, null);
+    const card = container.querySelector('.council-card') as HTMLElement;
+    expect(card.style.getPropertyValue('--council-card-accent')).not.toBe('');
+    expect(card.style.borderTopColor).toBe('');
   });
 
   it('leaves everything undimmed when no well is selected', async () => {

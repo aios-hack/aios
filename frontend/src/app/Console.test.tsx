@@ -40,6 +40,7 @@ const timelineFixture: TimelineFile = {
   t0: '2007-01-01',
   n_control_dates: 14,
   n_intervals: 13,
+  field_norms: { compensation: { min: 0.95, max: 1.15 } },
   wells: WELLS,
   steps: Array.from({ length: 14 }, (_, k) => ({
     control_step: k,
@@ -205,6 +206,10 @@ describe('console layout', () => {
   it('keeps the time scale in the document in every workspace', async () => {
     renderConsole();
     await screen.findByTestId('time-scale');
+    await screen.findByTestId('overview');
+    expect(screen.getByTestId('time-scale')).toBeTruthy();
+
+    fireEvent.click(navButton(ru['workspace.field']));
     await screen.findByTestId('field-projection-plot');
     expect(screen.getByTestId('time-scale')).toBeTruthy();
 
@@ -217,12 +222,13 @@ describe('console layout', () => {
     expect(screen.getByTestId('time-scale')).toBeTruthy();
   });
 
-  it('reaches all four workspaces through the left navigation, none other', async () => {
+  it('reaches every workspace through the left navigation, none other', async () => {
     renderConsole();
     await screen.findByTestId('time-scale');
     const nav = screen.getByRole('navigation', { name: ru['nav.label'] });
     const items = [...nav.querySelectorAll('button')].map((button) => button.textContent);
     expect(items).toEqual([
+      ru['workspace.overview'],
       ru['workspace.field'],
       ru['workspace.history'],
       ru['workspace.decisions'],
@@ -245,14 +251,14 @@ describe('console layout', () => {
   it('switches workspaces with the number keys, but not while typing', async () => {
     renderConsole();
     await screen.findByTestId('time-scale');
-    fireEvent.keyDown(window, { key: '2' });
+    fireEvent.keyDown(window, { key: '3' });
     await waitFor(() =>
       expect(navButton(ru['workspace.history']).getAttribute('aria-selected')).toBe('true')
     );
     const editable = document.createElement('input');
     document.body.appendChild(editable);
     editable.focus();
-    fireEvent.keyDown(editable, { key: '4' });
+    fireEvent.keyDown(editable, { key: '5' });
     expect(navButton(ru['workspace.history']).getAttribute('aria-selected')).toBe('true');
     editable.remove();
   });
@@ -275,6 +281,8 @@ describe('console layout', () => {
 describe('global step propagation', () => {
   it('moves the chronomap cursor and the well card when the step changes', async () => {
     const { container } = renderConsole();
+    await screen.findByTestId('time-scale');
+    fireEvent.click(navButton(ru['workspace.field']));
     await screen.findByTestId('field-projection-plot');
 
     fireEvent.click(await screen.findByLabelText('P1'));
@@ -306,6 +314,100 @@ describe('global step propagation', () => {
     await screen.findByTestId('time-scale-track');
     seekTo(container, STEP_COUNT - 1);
     await waitFor(() => expect(stepPosition(container)).toContain(String(STEP_COUNT)));
+  });
+});
+
+describe('overview workspace', () => {
+  it('opens on the overview and draws a card per metric', async () => {
+    const { container } = renderConsole();
+    await screen.findByTestId('overview');
+
+    expect(navButton(ru['workspace.overview']).getAttribute('aria-selected')).toBe('true');
+    const cards = container.querySelectorAll('.overview-card');
+    expect(cards.length).toBe(8);
+    for (const card of cards) {
+      expect(card.querySelector('.overview-card-plot')).not.toBeNull();
+      expect(card.querySelector('.overview-card-value')?.textContent?.trim()).toBeTruthy();
+    }
+  });
+
+  it('marks compensation against its corridor and leaves the rest unflagged', async () => {
+    const { container } = renderConsole();
+    await screen.findByTestId('overview');
+
+    const flagged = [...container.querySelectorAll('.overview-card[data-band]')].map(
+      (card) => (card as HTMLElement).dataset.metric
+    );
+    expect(flagged).toEqual(['compensation']);
+  });
+
+  it('moves every cursor together when the step changes', async () => {
+    const { container } = renderConsole();
+    await screen.findByTestId('overview');
+
+    const cursorPositions = () =>
+      [...container.querySelectorAll('.overview-card-cursor')].map((line) =>
+        line.getAttribute('x1')
+      );
+    const before = cursorPositions();
+    expect(before.length).toBeGreaterThan(0);
+
+    const input = container.querySelector('.time-scale-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '5' } });
+
+    await waitFor(() => expect(cursorPositions()).not.toEqual(before));
+    expect(new Set(cursorPositions()).size).toBe(1);
+  });
+});
+
+describe('time axis collapse', () => {
+  it('collapses and restores the panel from the grip', async () => {
+    const { container } = renderConsole();
+    await screen.findByTestId('time-scale');
+    const grip = screen.getByTestId('time-scale-grip');
+    const shell = container.querySelector('.app.console') as HTMLElement;
+    const axis = container.querySelector('.time-scale') as HTMLElement;
+
+    expect(shell.dataset.axis).toBeUndefined();
+    expect(axis.dataset.collapsed).toBeUndefined();
+    expect(grip.getAttribute('aria-expanded')).toBe('true');
+
+    fireEvent.pointerDown(grip, { clientY: 100, pointerId: 1 });
+    fireEvent.pointerUp(grip, { clientY: 100, pointerId: 1 });
+    await waitFor(() => expect(shell.dataset.axis).toBe('collapsed'));
+    expect(axis.dataset.collapsed).toBe('true');
+    expect(grip.getAttribute('aria-expanded')).toBe('false');
+
+    fireEvent.pointerDown(grip, { clientY: 100, pointerId: 2 });
+    fireEvent.pointerUp(grip, { clientY: 100, pointerId: 2 });
+    await waitFor(() => expect(shell.dataset.axis).toBeUndefined());
+    expect(axis.dataset.collapsed).toBeUndefined();
+  });
+
+  it('keeps the rail reachable while collapsed so nothing scrolls out of reach', async () => {
+    const { container } = renderConsole();
+    await screen.findByTestId('time-scale');
+    const grip = screen.getByTestId('time-scale-grip');
+    fireEvent.pointerDown(grip, { clientY: 100, pointerId: 3 });
+    fireEvent.pointerUp(grip, { clientY: 100, pointerId: 3 });
+    await waitFor(() =>
+      expect((container.querySelector('.app.console') as HTMLElement).dataset.axis).toBe('collapsed')
+    );
+    expect(container.querySelector('.time-scale-input')).toBeTruthy();
+    expect(screen.getByTestId('time-scale-grip')).toBeTruthy();
+  });
+
+  it('toggles from the keyboard for pointer-free operation', async () => {
+    const { container } = renderConsole();
+    await screen.findByTestId('time-scale');
+    const grip = screen.getByTestId('time-scale-grip');
+    const shell = container.querySelector('.app.console') as HTMLElement;
+
+    fireEvent.keyDown(grip, { key: 'Enter' });
+    await waitFor(() => expect(shell.dataset.axis).toBe('collapsed'));
+
+    fireEvent.keyDown(grip, { key: ' ' });
+    await waitFor(() => expect(shell.dataset.axis).toBeUndefined());
   });
 });
 
@@ -403,25 +505,6 @@ describe('module wiring', () => {
   });
 });
 
-describe('field strip scope', () => {
-  it('shows the strip on field and history, hides it on decisions and money', async () => {
-    renderConsole();
-    await screen.findByTestId('time-scale');
-    await screen.findByTestId('console-strip');
-
-    fireEvent.click(navButton(ru['workspace.history']));
-    await screen.findByLabelText(ru['chrono.ariaLabel']);
-    expect(screen.queryByTestId('console-strip')).toBeTruthy();
-
-    fireEvent.click(navButton(ru['workspace.money']));
-    await screen.findByTestId('money-workspace', {}, { timeout: 5000 });
-    expect(screen.queryByTestId('console-strip')).toBeNull();
-
-    fireEvent.click(navButton(ru['workspace.decisions']));
-    await waitFor(() => expect(screen.queryByTestId('console-strip')).toBeNull());
-  });
-});
-
 describe('time scale marks', () => {
   it('draws a year tick per year found in the step dates', async () => {
     const { container } = renderConsole();
@@ -452,6 +535,8 @@ describe('time scale marks', () => {
 describe('scene highlight', () => {
   it('rings the group and the lambda neighbours of the selected well on the projection', async () => {
     const { container } = renderConsole();
+    await screen.findByTestId('time-scale');
+    fireEvent.click(navButton(ru['workspace.field']));
     await screen.findByTestId('field-projection-plot');
     fireEvent.click(await screen.findByLabelText('I1'));
 

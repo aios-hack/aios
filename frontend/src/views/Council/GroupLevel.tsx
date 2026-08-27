@@ -1,7 +1,10 @@
-import type { HierarchyGroupAllocation } from '../../api/types';
+import type { CSSProperties } from 'react';
+import type { HierarchyGroupAllocation, HierarchyStep } from '../../api/types';
 import { useI18n } from '../../i18n/I18nContext';
-import { formatNumber } from '../../ui/format';
-import { dimState, type CouncilPath, type GroupCard } from './levels';
+import { formatNumber, formatPercent } from '../../ui/format';
+import { dimState, type CouncilPath, type FieldSegment, type GroupCard } from './levels';
+
+const INLINE_SHARE = 0.08;
 
 interface AllocationListProps {
   items: readonly HierarchyGroupAllocation[];
@@ -31,6 +34,8 @@ const AllocationList = ({ items, selected, onSelectWell }: AllocationListProps) 
 };
 
 interface GroupLevelProps {
+  step: HierarchyStep;
+  segments: readonly FieldSegment[];
   cards: readonly GroupCard[];
   ungrouped: readonly HierarchyGroupAllocation[];
   showUngrouped: boolean;
@@ -41,6 +46,8 @@ interface GroupLevelProps {
 }
 
 export const GroupLevel = ({
+  step,
+  segments,
   cards,
   ungrouped,
   showUngrouped,
@@ -50,70 +57,149 @@ export const GroupLevel = ({
   onSelectWell
 }: GroupLevelProps) => {
   const { t, lang } = useI18n();
+  const limit = step.field.injection_limit_m3_per_day;
+  const available = step.field.water_available_m3_per_day;
+  const usage = available > 0 ? limit / available : 0;
 
   return (
     <section className="council-level" data-level="groups" data-testid="council-groups">
-      <h3 className="council-level-title">{t('council.groups.title')}</h3>
-      <div className="council-cards">
-        {cards.map((card) => (
-          <article
-            key={card.group}
-            className="council-card"
-            data-testid={`council-card-${card.group}`}
-            data-state={dimState(path, path?.group === card.group)}
-            data-open={activeGroup === card.group}
-            style={{ borderTopColor: card.color }}
-          >
-            <button
-              type="button"
-              className="council-card-head"
-              onClick={() => onSelectGroup(activeGroup === card.group ? null : card.group)}
+      <header className="council-level-head">
+        <h3 className="council-level-title">{t('council.groups.title')}</h3>
+      </header>
+      <div className="council-groups" role="list" aria-label={t('council.field.barLabel')}>
+        {cards.map((card) => {
+          const segment = segments.find((item) => item.group === card.group) ?? null;
+          const share = segment?.share ?? 0;
+          const idle = share === 0;
+          return (
+            <div
+              key={card.group}
+              role="listitem"
+              className="council-column"
+              data-testid={`council-segment-${card.group}`}
+              style={{ flexGrow: Math.max(share, 0) }}
+              data-empty={idle ? 'true' : undefined}
+              data-inline={share >= INLINE_SHARE}
+              data-state={dimState(path, path?.group === card.group)}
+              data-open={activeGroup === card.group}
+              title={`${card.group} · ${formatNumber(lang, segment?.limit ?? 0, 1)}`}
             >
-              <span className="council-card-name">{card.group}</span>
-              <span className="council-number" data-testid={`council-received-${card.group}`}>
-                {formatNumber(lang, card.received, 1)}
+              <button
+                type="button"
+                className="council-column-pick"
+                aria-label={card.group}
+                aria-pressed={activeGroup === card.group}
+                onClick={() => onSelectGroup(activeGroup === card.group ? null : card.group)}
+              />
+              <span className="council-cap" style={{ background: segment?.color }}>
+                <span className="council-cap-name">{card.group}</span>
+                <span className="council-cap-share council-number">
+                  {formatPercent(lang, share)}
+                </span>
               </span>
-            </button>
-            <AllocationList
-              items={card.top}
-              selected={path?.well ?? null}
-              onSelectWell={onSelectWell}
-            />
-            {card.rest > 0 && (
-              <p className="council-card-rest">
-                {t('council.groups.rest', {
-                  count: card.rest,
-                  value: formatNumber(lang, card.restTotal, 1)
-                })}
-              </p>
-            )}
-          </article>
-        ))}
-        {showUngrouped && (
-          <article
-            className="council-card"
-            data-ungrouped="true"
-            data-testid="council-card-ungrouped"
-            data-state={dimState(path, path?.group === null)}
-            data-open={activeGroup === null && path?.group === null}
-          >
-            <button
-              type="button"
-              className="council-card-head"
-              onClick={() => onSelectGroup(null)}
-            >
-              <span className="council-card-name">{t('council.groups.ungrouped')}</span>
-              <span className="council-number">{ungrouped.length}</span>
-            </button>
-            <p className="council-card-rest">{t('council.groups.ungroupedNote')}</p>
-            <AllocationList
-              items={ungrouped}
-              selected={path?.well ?? null}
-              onSelectWell={onSelectWell}
-            />
-          </article>
-        )}
+              <div
+                className="council-card"
+                data-testid={`council-card-${card.group}`}
+                data-state={dimState(path, path?.group === card.group)}
+                data-open={activeGroup === card.group}
+                data-empty={idle ? 'true' : undefined}
+                style={{ '--council-card-accent': card.color } as CSSProperties}
+              >
+                <span className="council-card-total">
+                  {idle ? null : (
+                    <span className="council-card-total-label">
+                      {t('council.groups.received')}
+                    </span>
+                  )}
+                  <span
+                    className="council-number"
+                    data-testid={`council-received-${card.group}`}
+                  >
+                    {formatNumber(lang, card.received, 1)}
+                  </span>
+                </span>
+                {idle ? null : (
+                  <>
+                    <span className="council-card-listlabel">
+                      {t('council.groups.wells')}
+                    </span>
+                    <AllocationList
+                      items={card.top}
+                      selected={path?.well ?? null}
+                      onSelectWell={onSelectWell}
+                    />
+                    {card.rest > 0 && (
+                      <p className="council-card-rest">
+                        {t('council.groups.rest', {
+                          count: card.rest,
+                          value: formatNumber(lang, card.restTotal, 1)
+                        })}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
+      <footer className="council-budget">
+        <div className="council-budget-stat">
+          <span className="council-budget-label">{t('council.field.budget')}</span>
+          <span className="council-number council-budget-value" data-testid="council-field-limit">
+            {formatNumber(lang, limit, 1)}
+            <span className="council-budget-unit">{t('council.field.unit')}</span>
+          </span>
+        </div>
+        <div className="council-budget-stat">
+          <span className="council-budget-label">{t('council.field.outOf')}</span>
+          <span
+            className="council-number council-budget-value"
+            data-testid="council-field-available"
+          >
+            {formatNumber(lang, available, 1)}
+            <span className="council-budget-unit">{t('council.field.unit')}</span>
+          </span>
+        </div>
+        <div className="council-budget-stat council-budget-stat-usage">
+          <span className="council-budget-label">{t('council.field.usage')}</span>
+          <span className="council-budget-gauge">
+            <span className="council-budget-meter" aria-hidden="true">
+              <span
+                className="council-budget-meter-fill"
+                style={{ inlineSize: `${Math.min(usage, 1) * 100}%` }}
+              />
+            </span>
+            <span className="council-number council-budget-usage">
+              {formatPercent(lang, usage)}
+            </span>
+          </span>
+        </div>
+      </footer>
+      {showUngrouped && (
+        <article
+          className="council-card council-card-loose"
+          data-ungrouped="true"
+          data-testid="council-card-ungrouped"
+          data-state={dimState(path, path?.group === null)}
+          data-open={activeGroup === null && path?.group === null}
+        >
+          <button
+            type="button"
+            className="council-card-head"
+            onClick={() => onSelectGroup(null)}
+          >
+            <span className="council-card-name">{t('council.groups.ungrouped')}</span>
+            <span className="council-number">{ungrouped.length}</span>
+          </button>
+          <p className="council-card-rest">{t('council.groups.ungroupedNote')}</p>
+          <AllocationList
+            items={ungrouped}
+            selected={path?.well ?? null}
+            onSelectWell={onSelectWell}
+          />
+        </article>
+      )}
     </section>
   );
 };

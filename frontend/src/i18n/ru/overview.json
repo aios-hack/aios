@@ -1,0 +1,16 @@
+{
+  "lead": "Каждая метрика — за все {count} управляющих шагов. Пунктир — выбранный шаг.",
+  "metric.production": "Отбор жидкости",
+  "metric.injection": "Закачка",
+  "metric.compensation": "Компенсация",
+  "metric.npv": "Накопленный ЧДД",
+  "metric.activeWells": "Действующие скважины",
+  "metric.watercut": "Средняя обводнённость",
+  "metric.factToTarget": "Исполнение задания",
+  "metric.shutWells": "Скважины в простое",
+  "span": "{from} → {to}",
+  "bandInside": "в коридоре нормы",
+  "bandBelow": "ниже коридора нормы",
+  "bandAbove": "выше коридора нормы",
+  "empty": "Нет шагов для показа"
+}

@@ -102,7 +102,7 @@ describe('StatusChip synthesized verdict', () => {
     const button = await renderChip([
       scenario({ final_npv: { npv_rub: 1, run_id: 'run-7f3a' } })
     ]);
-    expect(button.textContent).toContain('число не заявляемо');
+    expect(button.textContent).toContain('проверки прогона не пройдены');
   });
 });
 
@@ -120,6 +120,34 @@ describe('StatusChip popover accessibility', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(document.activeElement).toBe(button);
+  });
+
+  it('plays an exit before it leaves, so the panel does not vanish mid-gesture', async () => {
+    const button = await renderChip([scenario()]);
+    fireEvent.click(button);
+    await screen.findByRole('dialog');
+
+    fireEvent.click(button);
+    const closing = screen.queryByRole('dialog');
+    if (closing !== null) {
+      expect(closing.getAttribute('data-state')).toBe('closing');
+    }
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    fireEvent.click(button);
+    expect(await screen.findByRole('dialog')).not.toBeNull();
+  });
+
+  it('says each reading once, with any longer wording kept out of the visible row', async () => {
+    const button = await renderChip([scenario()]);
+    fireEvent.click(button);
+    const dialog = await screen.findByRole('dialog');
+
+    expect(dialog.querySelectorAll('.trust-full')).toHaveLength(0);
+    for (const row of dialog.querySelectorAll('.trust-item')) {
+      const value = row.querySelector('.trust-value')?.textContent?.trim();
+      expect(row.getAttribute('title') ?? '').not.toBe(value);
+    }
   });
 
   it('does not move focus into the popover when it opens', async () => {

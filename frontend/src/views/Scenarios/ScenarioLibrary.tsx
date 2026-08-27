@@ -4,6 +4,7 @@ import { useI18n } from '../../i18n/I18nContext';
 import { DEFAULT_SCENARIO_ID, useScenario } from '../../state/ScenarioContext';
 import { ViewStatus } from '../../ui/ViewStatus';
 import { formatNumber } from '../../ui/format';
+import './ScenariosLibrary.css';
 
 const summaryOf = (entry: ScenarioEntry): number =>
   entry.constraints.injection_limits +

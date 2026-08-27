@@ -1,5 +1,6 @@
 export const CELL_WIDTH = 4;
 export const CELL_HEIGHT = 6;
+export const ROW_GAP = 1;
 export const GUTTER_LEFT = 58;
 export const GUTTER_TOP = 18;
 export const LABEL_MIN_GAP = 11;

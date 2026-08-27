@@ -1,0 +1,202 @@
+.council-budget {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-7);
+  min-width: 0;
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.council-budget-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.council-budget-stat-usage {
+  margin-inline-start: auto;
+}
+
+.council-budget-label {
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+.council-budget .council-budget-value {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+  letter-spacing: var(--tracking-mono);
+  white-space: nowrap;
+}
+
+.council-budget-unit {
+  color: var(--color-text-subtle);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-xs);
+  letter-spacing: normal;
+}
+
+.council-budget-gauge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.council-budget-meter {
+  position: relative;
+  display: block;
+  width: 120px;
+  height: 8px;
+  flex: none;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+}
+
+.council-budget-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+}
+
+.council-budget .council-budget-usage {
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+  letter-spacing: var(--tracking-mono);
+  white-space: nowrap;
+}
+
+.council-groups {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.council-column {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex-basis: 0;
+  min-width: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.council-column-pick {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  cursor: pointer;
+}
+
+.council-column[data-open='true'] {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -1px;
+}
+
+.council-column[data-state='path'] {
+  outline: 2px solid var(--color-text);
+  outline-offset: -1px;
+}
+
+.council-column-pick:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: calc(var(--focus-ring-offset) * -1);
+}
+
+.council-column[data-empty='true'] {
+  flex-grow: 0;
+  flex-basis: var(--size-council-idle);
+  min-width: var(--size-council-idle);
+}
+
+.council-cap {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  height: 32px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  overflow: hidden;
+  transition: filter var(--duration-state) var(--ease-out);
+}
+
+.council-cap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    var(--color-fill-scrim-mid),
+    var(--color-fill-scrim)
+  );
+}
+
+.council-column:hover .council-cap {
+  filter: brightness(1.12);
+}
+
+.council-column[data-empty='true'] .council-cap {
+  justify-content: center;
+  padding: 0;
+  background: var(--color-surface-sunken) !important;
+}
+
+.council-column[data-empty='true'] .council-cap::before {
+  display: none;
+}
+
+.council-cap-name {
+  position: relative;
+  color: var(--color-on-fill);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.06em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.council-cap-share {
+  position: relative;
+  color: var(--color-on-fill-muted);
+  font-size: var(--font-size-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tracking-mono);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.council-column[data-inline='false'] .council-cap-share {
+  display: none;
+}
+
+.council-column[data-empty='true'] .council-cap-name {
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.04em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .council-cap {
+    transition: none;
+  }
+}

@@ -57,7 +57,7 @@
   max-height: 320px;
   overflow-y: auto;
   list-style: none;
-  scroll-padding-block: var(--h-strip) var(--h-timeaxis);
+  scroll-padding-block: var(--h-header) var(--h-timeaxis);
 }
 
 .palette-option {

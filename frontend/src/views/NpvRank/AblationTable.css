@@ -46,7 +46,7 @@
 }
 
 .abl-coverage-gap {
-  color: var(--color-text-faint);
+  color: var(--color-text-muted);
   font-style: italic;
 }
 
@@ -196,7 +196,7 @@
 }
 
 .abl-unmeasured {
-  color: var(--color-text-faint);
+  color: var(--color-text-muted);
   font-size: var(--font-size-xs);
   font-style: italic;
 }
