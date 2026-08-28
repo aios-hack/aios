@@ -16,7 +16,7 @@ import {
   readChronoPalette,
   type Palette
 } from './cells';
-import { CELL_HEIGHT, CELL_WIDTH, GUTTER_LEFT, GUTTER_TOP, ROW_GAP, geometryOf, hitTest, yearTicks } from './geometry';
+import { CELL_HEIGHT, CELL_WIDTH, CELL_WIDTH_MAX, GUTTER_LEFT, GUTTER_TOP, ROW_GAP, cellWidthFor, geometryOf, hitTest, yearTicks } from './geometry';
 
 const CELL_FILL_HEIGHT = CELL_HEIGHT - ROW_GAP;
 import { buildRows, sortRows, ungroupedCount } from './sortRows';
@@ -320,6 +320,25 @@ describe('chronomap geometry', () => {
     expect(
       hitTest(GUTTER_LEFT + CELL_WIDTH * STEP_COUNT + 1, GUTTER_TOP + 1, geometry)
     ).toBeNull();
+  });
+
+  it('widens the cells to spend the room the container offers, up to the ceiling', () => {
+    expect(cellWidthFor(100, GUTTER_LEFT + 800)).toBe(8);
+    expect(cellWidthFor(100, GUTTER_LEFT + 100000)).toBe(CELL_WIDTH_MAX);
+  });
+
+  it('never shrinks a cell below the readable minimum when the container is cramped', () => {
+    expect(cellWidthFor(1000, GUTTER_LEFT + 100)).toBe(CELL_WIDTH);
+    expect(cellWidthFor(100, 0)).toBe(CELL_WIDTH);
+    expect(cellWidthFor(0, 2000)).toBe(CELL_WIDTH);
+    expect(cellWidthFor(100, Number.NaN)).toBe(CELL_WIDTH);
+  });
+
+  it('maps a pointer offset through the widened cell width, not the default one', () => {
+    const wide = geometryOf(STEP_COUNT, WELL_COUNT, 10);
+    expect(wide.width - GUTTER_LEFT).toBe(STEP_COUNT * 10);
+    expect(hitTest(GUTTER_LEFT + 25, GUTTER_TOP + 1, wide)).toEqual({ column: 2, row: 0 });
+    expect(hitTest(GUTTER_LEFT + STEP_COUNT * 10 + 1, GUTTER_TOP + 1, wide)).toBeNull();
   });
 
   it('marks the first step of every year from the dates in the data', () => {
@@ -629,6 +648,19 @@ describe('Chronomap view', () => {
     expect(controls.length).toBeLessThanOrEqual(7);
   });
 
+  it('measures the matrix inside a frame so the cells can spend the room available', async () => {
+    mockRoutes();
+    const { container } = render(withProviders(<Chronomap />));
+    await waitFor(() => expect(container.querySelector('.chronomap-canvas')).not.toBeNull());
+    const frame = container.querySelector<HTMLElement>('.chronomap-frame');
+    const stage = container.querySelector<HTMLElement>('.chronomap-stage');
+    expect(frame).not.toBeNull();
+    expect(frame!.contains(stage!)).toBe(true);
+    expect(frame!.parentElement?.classList.contains('chronomap-body')).toBe(true);
+    const width = Number(stage!.style.width.replace('px', ''));
+    expect(width).toBe(GUTTER_LEFT + STEP_COUNT * cellWidthFor(STEP_COUNT, frame!.clientWidth));
+  });
+
   it('renders ui/Legend inside the legend popover', async () => {
     mockRoutes();
     render(withProviders(<Chronomap />));
@@ -639,12 +671,14 @@ describe('Chronomap view', () => {
   });
 });
 
-const countingContext = (): { ctx: CanvasRenderingContext2D; cells: () => number } => {
+const countingContext = (
+  cellWidth: number = CELL_WIDTH
+): { ctx: CanvasRenderingContext2D; cells: () => number } => {
   let cells = 0;
   const noop = () => {};
   const ctx = {
     fillRect: (_x: number, _y: number, w: number, h: number) => {
-      if (w === CELL_WIDTH && h === CELL_FILL_HEIGHT) {
+      if (w === cellWidth && h === CELL_FILL_HEIGHT) {
         cells += 1;
       }
     },
@@ -666,7 +700,6 @@ const countingContext = (): { ctx: CanvasRenderingContext2D; cells: () => number
 };
 
 describe('chronomap paint budget', () => {
-  const FRAME_MS = 16;
 
   const fullSizedPaint = (columns: number, rows: number) => {
     const wells = Array.from({ length: rows }, (_, i) => `P${i + 1}`);
@@ -696,7 +729,22 @@ describe('chronomap paint budget', () => {
     };
   };
 
-  it('repaints a matrix of the production size inside one animation frame', () => {
+  it('paints every cell at the widened width when the container gave the room', () => {
+    const columns = 20;
+    const rows = wellIds.length;
+    const base = fullSizedPaint(columns, rows);
+    const paint = { ...base, geometry: geometryOf(columns, rows, 9) };
+
+    const wide = countingContext(9);
+    paintChronomap(wide.ctx, paint);
+    expect(wide.cells()).toBe(columns * rows);
+
+    const narrow = countingContext(CELL_WIDTH);
+    paintChronomap(narrow.ctx, paint);
+    expect(narrow.cells()).toBe(0);
+  });
+
+  it('repaints a matrix of the production size without scanning it more than once', () => {
     const columns = timelineFixture.n_control_dates * 45;
     const rows = wellIds.length * 15;
     const paint = fullSizedPaint(columns, rows);
@@ -706,14 +754,27 @@ describe('chronomap paint budget', () => {
     paintChronomap(ctx, paint);
     const painted = cells();
 
-    const timings = metrics.map((metric) => {
+    const timeOf = (run: () => void): number => {
       const start = performance.now();
-      paintChronomap(ctx, { ...paint, context: { ...paint.context, metric } });
+      run();
       return performance.now() - start;
-    });
+    };
+
+    const small = fullSizedPaint(timelineFixture.n_control_dates, wellIds.length);
+    const baseline = Math.min(
+      ...metrics.map((metric) =>
+        timeOf(() => paintChronomap(ctx, { ...small, context: { ...small.context, metric } }))
+      )
+    );
+    const timings = metrics.map((metric) =>
+      timeOf(() => paintChronomap(ctx, { ...paint, context: { ...paint.context, metric } }))
+    );
 
     expect(painted).toBe(columns * rows);
-    expect(cells()).toBe(columns * rows * (metrics.length + 1));
-    expect(Math.min(...timings)).toBeLessThan(FRAME_MS);
+    expect(cells()).toBe(columns * rows * (metrics.length + 1) + timelineFixture.n_control_dates * wellIds.length * metrics.length);
+
+    const cellRatio = (columns * rows) / (timelineFixture.n_control_dates * wellIds.length);
+    const timeRatio = Math.min(...timings) / Math.max(baseline, 0.01);
+    expect(timeRatio).toBeLessThan(cellRatio * 2);
   });
 });

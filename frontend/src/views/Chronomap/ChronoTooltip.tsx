@@ -1,7 +1,8 @@
 import type { TimelineStep, TimelineWellRow } from '../../api/types';
 import { useI18n } from '../../i18n/I18nContext';
-import { DASH, formatNumber, formatPercent, formatStepDate } from '../../ui/format';
-import { modeOf, type ChronoMetric } from './cells';
+import { DASH, formatStepDate } from '../../ui/format';
+import type { ChronoMetric } from './cells';
+import { readingText } from './readings';
 
 export interface HoverTarget {
   well: string;
@@ -27,22 +28,7 @@ export const ChronoTooltip = ({
 }: ChronoTooltipProps) => {
   const { t, lang } = useI18n();
 
-  const valueText = (): string => {
-    if (metric === 'npv') {
-      return npv === undefined ? t('chrono.value.unknown') : formatNumber(lang, npv);
-    }
-    if (row === undefined) {
-      return t('chrono.value.unknown');
-    }
-    if (metric === 'mode') {
-      return t(`chrono.mode.${modeOf(row)}`);
-    }
-    const raw = metric === 'watercut' ? row.watercut : row.fact_to_target;
-    if (raw === null || Number.isNaN(raw)) {
-      return t('chrono.value.unknown');
-    }
-    return formatPercent(lang, raw);
-  };
+  const valueText = (): string => readingText({ lang, t, metric, row, npv });
 
   return (
     <div

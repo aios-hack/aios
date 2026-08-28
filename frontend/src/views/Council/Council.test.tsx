@@ -218,6 +218,20 @@ describe('Council numbers follow the step', () => {
     expect(screen.getByTestId('council-well-1').textContent).not.toBe(wellFirst);
   });
 
+  it('reports an unmeasurable share instead of calling it zero per cent', () => {
+    const order = groupOrder(hierarchyFixture);
+    const step = stepAt(hierarchyFixture, 0);
+    const starved = {
+      ...step,
+      field: { ...step.field, injection_limit_m3_per_day: 0 }
+    };
+    const segments = fieldSegments(starved, order);
+    expect(segments).toHaveLength(2);
+    for (const segment of segments) {
+      expect(segment.share).toBeNull();
+    }
+  });
+
   it('derives field segment shares from the data without recomputing totals', () => {
     const order = groupOrder(hierarchyFixture);
     const step = stepAt(hierarchyFixture, 0);
@@ -316,6 +330,45 @@ describe('Council selection path', () => {
     expect(groups).not.toMatch(/\.council-card\[data-open='true'\]/);
   });
 
+  it('keeps an idle share legible, since a bare cap drops the coloured backing', () => {
+    const css = readFileSync(
+      join(process.cwd(), 'src', 'views', 'Council', 'CouncilField.css'),
+      'utf-8'
+    );
+    const block = css.match(
+      /\.council-column\[data-empty='true'\] \.council-cap-share\s*\{[^}]*\}/
+    )?.[0];
+    expect(block).toBeDefined();
+    expect(block).not.toContain('--color-on-fill');
+  });
+
+  it('paints cap text for a fill, not for a surface, on the groups that carry one', () => {
+    const css = readFileSync(
+      join(process.cwd(), 'src', 'views', 'Council', 'CouncilField.css'),
+      'utf-8'
+    );
+    expect(css).not.toContain('--color-fill-scrim');
+    expect(css).toMatch(/\.council-cap-name\s*\{[^}]*color:\s*var\(--color-on-fill\)/);
+  });
+
+  it('gives the dense well links a hit area larger than their glyphs', () => {
+    const css = readFileSync(
+      join(process.cwd(), 'src', 'views', 'Council', 'CouncilGroups.css'),
+      'utf-8'
+    );
+    const pad = css.match(/\.council-alloc-well::after\s*\{[^}]*\}/)?.[0];
+    expect(pad).toBeDefined();
+    expect(pad).toContain('var(--size-tap-min)');
+    expect(pad).not.toMatch(/\d+px/);
+
+    const tokens = readFileSync(
+      join(process.cwd(), 'src', 'theme', 'tokens.light.css'),
+      'utf-8'
+    );
+    const size = Number(tokens.match(/--size-tap-min:\s*(\d+)px/)?.[1]);
+    expect(size).toBeGreaterThanOrEqual(44);
+  });
+
   it('dims the columns off the path, not a class that no longer renders', async () => {
     const css = readFileSync(
       join(process.cwd(), 'src', 'views', 'Council', 'Council.css'),
@@ -381,7 +434,7 @@ describe('Council selection path', () => {
   it('splits each input into its own cell instead of one run-on column', async () => {
     const { container } = await renderCouncil(0, null);
     const first = container.querySelector('.council-table tbody tr') as HTMLElement;
-    expect(first.children).toHaveLength(9);
+    expect(first.children).toHaveLength(8);
     expect(container.querySelector('.council-inputs')).toBeNull();
     expect(first.querySelectorAll('.council-cell-num')).toHaveLength(4);
   });
@@ -412,14 +465,17 @@ describe('Council selection path', () => {
     );
   });
 
-  it('clears the time axis so the last rows are reachable', () => {
+  it('leaves the time-axis reserve to the scene spacer instead of doubling it', () => {
     const css = readFileSync(
       join(process.cwd(), 'src', 'views', 'Council', 'Council.css'),
       'utf-8'
     );
     const block = css.match(/\.council\s*\{[^}]*\}/)?.[0] ?? '';
-    expect(block).toMatch(/padding-bottom:\s*var\(--h-axis-space/);
-    expect(block).not.toMatch(/padding-bottom:\s*\d+px/);
+    expect(block).not.toMatch(/padding-bottom/);
+
+    const shell = readFileSync(join(process.cwd(), 'src', 'app', 'console.css'), 'utf-8');
+    const spacer = shell.match(/\.console-area-scene::after\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(spacer).toMatch(/height:\s*var\(--h-axis-space/);
   });
 
   it('keeps the eight columns legible by scrolling instead of crushing them', () => {
@@ -513,5 +569,35 @@ describe('hierarchy validator', () => {
         ]
       })
     ).toBe(false);
+  });
+});
+
+describe('the council table reveals its rows like the other console tables', () => {
+  const css = readFileSync(
+    join(process.cwd(), 'src', 'views', 'Council', 'CouncilWells.css'),
+    'utf-8'
+  );
+
+  it('staggers the rows instead of dropping them in at once', () => {
+    const block = css.match(/\.council-table tbody tr \{[^}]*\}/)?.[0] ?? '';
+    expect(block).toContain('animation:');
+    expect(block).toContain('--council-row-index');
+  });
+
+  it('sets the delay after the shorthand that would otherwise reset it', () => {
+    const block = css.match(/\.council-table tbody tr \{[^}]*\}/)?.[0] ?? '';
+    expect(block.indexOf('animation:')).toBeLessThan(block.indexOf('animation-delay'));
+  });
+
+  it('holds the rows still when the reader asks for less motion', () => {
+    const reduced = css.match(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?\n\}/)?.[0] ?? '';
+    expect(reduced).toContain('animation: none');
+  });
+
+  it('gives the sort control and the well link a real target height', () => {
+    for (const name of ['council-sort-button', 'council-well-button']) {
+      const block = css.match(new RegExp(`\\.${name}\\s*\\{[^}]*\\}`))?.[0] ?? '';
+      expect(block, name).toContain('min-height');
+    }
   });
 });

@@ -19,7 +19,7 @@ export interface CouncilPath {
 export interface FieldSegment {
   group: string;
   limit: number;
-  share: number;
+  share: number | null;
   color: string;
 }
 
@@ -55,7 +55,7 @@ export const fieldSegments = (
   return step.field.allocations.map((allocation) => ({
     group: allocation.group,
     limit: allocation.limit_m3_per_day,
-    share: total > 0 ? allocation.limit_m3_per_day / total : 0,
+    share: total > 0 ? allocation.limit_m3_per_day / total : null,
     color: colorOf(order, allocation.group) ?? ''
   }));
 };

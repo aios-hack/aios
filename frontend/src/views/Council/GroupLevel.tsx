@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { HierarchyGroupAllocation, HierarchyStep } from '../../api/types';
 import { useI18n } from '../../i18n/I18nContext';
-import { formatNumber, formatPercent } from '../../ui/format';
+import { DASH, formatNumber, formatPercent } from '../../ui/format';
 import { dimState, type CouncilPath, type FieldSegment, type GroupCard } from './levels';
 
 const INLINE_SHARE = 0.08;
@@ -67,22 +67,23 @@ export const GroupLevel = ({
         <h3 className="council-level-title">{t('council.groups.title')}</h3>
       </header>
       <div className="council-groups" role="list" aria-label={t('council.field.barLabel')}>
-        {cards.map((card) => {
+        {cards.map((card, index) => {
           const segment = segments.find((item) => item.group === card.group) ?? null;
-          const share = segment?.share ?? 0;
-          const idle = share === 0;
+          const share = segment?.share ?? null;
+          const weight = share ?? 0;
+          const idle = weight === 0;
           return (
             <div
               key={card.group}
               role="listitem"
-              className="council-column"
+              className="council-column tile-enter"
               data-testid={`council-segment-${card.group}`}
-              style={{ flexGrow: Math.max(share, 0) }}
+              style={{ flexGrow: Math.max(weight, 0), '--tile-index': index } as CSSProperties}
               data-empty={idle ? 'true' : undefined}
-              data-inline={share >= INLINE_SHARE}
+              data-inline={weight >= INLINE_SHARE}
               data-state={dimState(path, path?.group === card.group)}
               data-open={activeGroup === card.group}
-              title={`${card.group} · ${formatNumber(lang, segment?.limit ?? 0, 1)}`}
+              title={`${card.group} · ${segment === null ? DASH : formatNumber(lang, segment.limit, 1)}`}
             >
               <button
                 type="button"
@@ -94,7 +95,7 @@ export const GroupLevel = ({
               <span className="council-cap" style={{ background: segment?.color }}>
                 <span className="council-cap-name">{card.group}</span>
                 <span className="council-cap-share council-number">
-                  {formatPercent(lang, share)}
+                  {share === null ? DASH : formatPercent(lang, share)}
                 </span>
               </span>
               <div

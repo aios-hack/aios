@@ -14,15 +14,20 @@
   min-width: var(--size-console-min);
   padding: 0;
   overflow: hidden;
+  --size-plot-viewport: calc(
+    100vh - var(--h-header) - var(--h-axis-space, var(--h-timeaxis)) - var(--space-7)
+  );
 }
 
 .app.console[data-axis='collapsed'] {
   --h-axis-space: 46px;
 }
 
-.app.console[data-inspector='open'] {
-  grid-template-columns: var(--size-nav) minmax(0, 1fr) var(--size-card-max);
+:root:has(.app.console[data-axis='collapsed']) {
+  --h-player-opaque: 16px;
 }
+
+
 
 .console-area-header {
   grid-area: header;
@@ -37,14 +42,68 @@
 
 .console-area-scene {
   grid-area: scene;
-  padding-bottom: var(--h-axis-space, var(--h-timeaxis));
-  transition: padding-bottom var(--duration-drawer) var(--ease-emphasis);
+}
+
+.console-area-scene::after {
+  content: '';
+  display: block;
+  flex: none;
+  height: var(--h-axis-space, var(--h-timeaxis));
+  transition: height var(--duration-drawer) var(--ease-emphasis);
 }
 
 .console-area-inspector {
-  grid-area: inspector;
+  position: fixed;
+  top: var(--h-header);
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-drawer);
+  display: flex;
+  width: min(var(--size-card-max), 100vw);
   min-width: 0;
-  overflow: hidden;
+  padding: var(--space-5) var(--space-5) calc(var(--h-player-opaque) + var(--space-5));
+  pointer-events: none;
+}
+
+.console-area-inspector > * {
+  pointer-events: auto;
+}
+
+.console-scrim {
+  position: fixed;
+  inset: var(--h-header) 0 var(--h-player-opaque) 0;
+  z-index: var(--z-sticky);
+  background: var(--color-backdrop);
+  animation: console-scrim-in var(--duration-drawer) var(--ease-out) both;
+}
+
+.console-scrim[data-closing='true'] {
+  animation: console-scrim-out var(--duration-state) var(--ease-out) both;
+}
+
+@keyframes console-scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes console-scrim-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .console-scrim,
+  .console-scrim[data-closing='true'] {
+    animation: none;
+  }
 }
 
 .console-area-timeaxis {

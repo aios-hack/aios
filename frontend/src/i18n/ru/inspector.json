@@ -1,8 +1,3 @@
 {
-  "close": "Закрыть инспектор",
-  "scenario.title": "Сценарий {id}",
-  "scenario.runId": "Прогон",
-  "scenario.validation": "Валидация",
-  "scenario.validationClean": "Без нарушений",
-  "scenario.validationDirty": "Есть нарушения"
+  "close": "Закрыть инспектор"
 }

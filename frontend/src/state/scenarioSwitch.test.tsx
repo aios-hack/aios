@@ -174,7 +174,7 @@ describe('switching scenario', () => {
         <>
           <ScenarioLibrary />
           <StepsTestView />
-          <ConsoleInspector scenarioContext={null} onCloseScenario={() => undefined} />
+          <ConsoleInspector />
         </>
       )
     );

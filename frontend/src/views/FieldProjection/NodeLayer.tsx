@@ -12,6 +12,7 @@ const STROKE_WIDTH = 0.18;
 const HOLLOW_STROKE_WIDTH = 0.28;
 
 const DIMMED_OPACITY = 0.25;
+const HIT_RADIUS_PX = 12;
 
 interface NodeLayerProps {
   placed: PlacedNode[];
@@ -78,6 +79,14 @@ const NodeLayerView = ({
             }
           }}
         >
+          <circle
+            className="field-projection-hit"
+            cx={node.x}
+            cy={node.y}
+            r={Math.max(radius, HIT_RADIUS_PX / scale)}
+            fill="transparent"
+            stroke="none"
+          />
           {mark !== 'plain' && (
             <SelectionRings
               x={node.x}

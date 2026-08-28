@@ -110,34 +110,39 @@ export const ConstraintsEditor = ({ nIntervals }: ConstraintsEditorProps) => {
         </p>
       )}
 
-      {YEAR_SECTIONS.map((section) => (
-        <YearSectionTable
-          key={section}
-          section={section}
-          rows={editor.state.sections[section]}
+      <div className="scenarios-grid">
+        {YEAR_SECTIONS.map((section, index) => (
+          <YearSectionTable
+            key={section}
+            section={section}
+            index={index}
+            rows={editor.state.sections[section]}
+            errors={editor.errors}
+            onChange={(key, field, value) => editor.changeYear(section, key, field, value)}
+            onAdd={() => editor.addYear(section)}
+            onRemove={(key) => editor.removeYear(section, key)}
+          />
+        ))}
+
+        <OutageTable
+          rows={editor.state.outages}
+          index={YEAR_SECTIONS.length}
           errors={editor.errors}
-          onChange={(key, field, value) => editor.changeYear(section, key, field, value)}
-          onAdd={() => editor.addYear(section)}
-          onRemove={(key) => editor.removeYear(section, key)}
+          nIntervals={nIntervals}
+          onChange={editor.changeOutage}
+          onAdd={editor.addOutage}
+          onRemove={editor.removeOutage}
         />
-      ))}
 
-      <OutageTable
-        rows={editor.state.outages}
-        errors={editor.errors}
-        nIntervals={nIntervals}
-        onChange={editor.changeOutage}
-        onAdd={editor.addOutage}
-        onRemove={editor.removeOutage}
-      />
-
-      <InfrastructureTable
-        rows={editor.state.infrastructure}
-        errors={editor.errors}
-        onChange={editor.changePair}
-        onAdd={editor.addPair}
-        onRemove={editor.removePair}
-      />
+        <InfrastructureTable
+          rows={editor.state.infrastructure}
+          index={YEAR_SECTIONS.length + 1}
+          errors={editor.errors}
+          onChange={editor.changePair}
+          onAdd={editor.addPair}
+          onRemove={editor.removePair}
+        />
+      </div>
 
       <details className="scenarios-preview">
         <summary className="scenarios-preview-summary">{t('scenarios.preview.title')}</summary>

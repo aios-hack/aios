@@ -12,8 +12,8 @@ export interface WorkspaceRoute {
   view: WorkspaceView;
 }
 
-export const parseRoute = (hash: string): WorkspaceRoute | null => {
-  const raw = hash.replace(/^#\/?/, '');
+export const parseRoute = (path: string): WorkspaceRoute | null => {
+  const raw = path.replace(/^#?\/*/, '').replace(/\/+$/, '');
   if (raw.length === 0) {
     return null;
   }
@@ -31,42 +31,44 @@ export const parseRoute = (hash: string): WorkspaceRoute | null => {
 };
 
 export const formatRoute = (route: WorkspaceRoute): string =>
-  `#/${route.workspace}/${route.view}`;
+  `/${route.workspace}/${route.view}`;
 
 interface RoutingOptions {
   workspace: Workspace;
   view: WorkspaceView;
-  setWorkspace: (workspace: Workspace) => void;
-  setView: (view: WorkspaceView) => void;
+  setRoute: (workspace: Workspace, view: WorkspaceView) => void;
 }
 
-export const useWorkspaceRouting = ({
-  workspace,
-  view,
-  setWorkspace,
-  setView
-}: RoutingOptions): void => {
-  const apply = useRef({ setWorkspace, setView });
-  apply.current = { setWorkspace, setView };
+export const useWorkspaceRouting = ({ workspace, view, setRoute }: RoutingOptions): void => {
+  const apply = useRef({ setRoute });
+  apply.current = { setRoute };
+  const pending = useRef<WorkspaceRoute | null>(parseRoute(window.location.pathname));
 
   useEffect(() => {
-    const fromHash = () => {
-      const route = parseRoute(window.location.hash);
+    const fromPath = () => {
+      const route = parseRoute(window.location.pathname);
       if (route === null) {
         return;
       }
-      apply.current.setWorkspace(route.workspace);
-      apply.current.setView(route.view);
+      pending.current = route;
+      apply.current.setRoute(route.workspace, route.view);
     };
-    fromHash();
-    window.addEventListener('hashchange', fromHash);
-    return () => window.removeEventListener('hashchange', fromHash);
+    fromPath();
+    window.addEventListener('popstate', fromPath);
+    return () => window.removeEventListener('popstate', fromPath);
   }, []);
 
   useEffect(() => {
+    const wanted = pending.current;
+    if (wanted !== null) {
+      if (wanted.workspace !== workspace || wanted.view !== view) {
+        return;
+      }
+      pending.current = null;
+    }
     const next = formatRoute({ workspace, view });
-    if (window.location.hash !== next) {
-      window.history.replaceState(null, '', next);
+    if (window.location.pathname !== next) {
+      window.history.pushState(null, '', next);
     }
   }, [workspace, view]);
 
@@ -83,7 +85,8 @@ export const useWorkspaceRouting = ({
         return;
       }
       event.preventDefault();
-      apply.current.setWorkspace(WORKSPACES[position - 1]);
+      const target = WORKSPACES[position - 1];
+      apply.current.setRoute(target, WORKSPACE_VIEWS[target][0]);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);

@@ -47,13 +47,22 @@ const dateFormat = (lang: Lang): Intl.DateTimeFormat => {
 };
 
 export const formatNumber = (lang: Lang, value: number, digits = 0): string => {
+  if (!Number.isFinite(value)) {
+    return DASH;
+  }
   const format = numberFormat(lang, digits);
   const text = format.format(value);
   return text === format.format(-0) ? format.format(0) : text;
 };
 
-export const formatPercent = (lang: Lang, value: number): string =>
-  percentFormat(lang).format(value);
+export const formatPercent = (lang: Lang, value: number): string => {
+  if (!Number.isFinite(value)) {
+    return DASH;
+  }
+  const format = percentFormat(lang);
+  const text = format.format(value);
+  return text === format.format(-0) ? format.format(0) : text;
+};
 
 export const formatStepDate = (lang: Lang, iso: string): string => {
   const date = new Date(iso);

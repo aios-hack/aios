@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import type {
   GraphFile,
-  ScenariosFile,
   TimelineFile,
   TimelineStep,
   TimelineWellRow,
@@ -14,10 +13,8 @@ import { dictionaries } from '../../i18n/dictionaries';
 import { useT } from '../../i18n/I18nContext';
 import { I18nProvider } from '../../i18n/I18nContext';
 import { PlaybackProvider, usePlayback } from '../../state/PlaybackContext';
-import { ScenarioProvider } from '../../state/ScenarioContext';
 import { TimelineProvider, useTimeline } from '../../state/TimelineContext';
 import { ConsoleInspector } from '../../ui/Inspector';
-import type { InspectorContext } from '../../ui/Inspector';
 import { ViewStatus } from '../../ui/ViewStatus';
 import { FieldProjection } from '../FieldProjection';
 import { StepControls } from '../Timeline/StepControls';
@@ -190,42 +187,7 @@ const withProviders = (node: ReactNode) => (
   </I18nProvider>
 );
 
-const withScenarioProviders = (node: ReactNode) => (
-  <I18nProvider>
-    <ScenarioProvider>
-      <TimelineProvider>
-        <PlaybackProvider>{node}</PlaybackProvider>
-      </TimelineProvider>
-    </ScenarioProvider>
-  </I18nProvider>
-);
 
-const scenariosFixture: ScenariosFile = {
-  submitted: 'final',
-  scenarios: [
-    {
-      id: 'final',
-      config_hash: 'a'.repeat(64),
-      converged: true,
-      self_consistent: true,
-      is_submitted: true,
-      npv_methodology: 123456789,
-      constraints: {
-        injection_limits: 0,
-        liquid_limits: 0,
-        production_floors: 0,
-        watercut_limits: 0,
-        well_outages: 0,
-        infrastructure: 0,
-        years: [],
-        outage_wells: [],
-        empty: true
-      },
-      final_npv: { npv_rub: 123456789, run_id: 'run-42' },
-      run_validation_clean: true
-    }
-  ]
-};
 
 const mockFetch = (payloads: Record<string, unknown>) => {
   vi.stubGlobal(
@@ -248,14 +210,13 @@ const rowFor = (container: HTMLElement, well: string): HTMLElement => {
   return row as HTMLElement;
 };
 
-const noopInspector = { scenarioContext: null, onCloseScenario: () => undefined };
 
 const openFromTable = async (well: string) => {
   const view = render(
     withProviders(
       <>
         <StepsTestView />
-        <ConsoleInspector {...noopInspector} />
+        <ConsoleInspector />
       </>
     )
   );
@@ -349,7 +310,7 @@ describe('WellCard', () => {
       withProviders(
         <>
           <FieldProjection />
-          <ConsoleInspector {...noopInspector} />
+          <ConsoleInspector />
         </>
       )
     );
@@ -455,18 +416,4 @@ describe('WellCard', () => {
     await screen.findByText(ru['wellcard.neighbours.absent']);
   });
 
-  it('renders scenario details when the inspector context is a scenario', async () => {
-    mockFetch({ '/data/scenarios.json': scenariosFixture });
-    const context: InspectorContext = { kind: 'scenario', scenarioId: 'final' };
-    render(
-      withScenarioProviders(
-        <ConsoleInspector scenarioContext={context} onCloseScenario={() => undefined} />
-      )
-    );
-    const inspector = await screen.findByTestId('inspector');
-    expect(inspector.getAttribute('aria-modal')).toBeNull();
-    await screen.findByTestId('scenario-inspector');
-    expect(screen.getByText('run-42')).toBeTruthy();
-    expect(screen.getByText(ru['inspector.scenario.validationClean'])).toBeTruthy();
-  });
 });

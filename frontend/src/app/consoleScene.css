@@ -14,7 +14,7 @@
   flex-direction: column;
   gap: var(--space-5);
   min-width: 0;
-  min-height: 0;
+  min-height: min-content;
   flex: 1 1 auto;
 }
 
@@ -66,6 +66,10 @@
   flex: 1 1 auto;
 }
 
+.console-scene-body > * {
+  min-height: 0;
+}
+
 .console-scene-body .segmented,
 .console-scene-body .slider-label {
   font-size: var(--font-size-sm);
@@ -92,22 +96,7 @@
   width: 100%;
 }
 
-@media (max-width: 1200px) {
-  .app.console,
-  .app.console[data-inspector='open'] {
-    grid-template-columns: var(--size-nav) minmax(0, 1fr) 0;
-  }
 
-  .app.console[data-inspector='open'] .console-area-inspector {
-    position: absolute;
-    top: var(--h-header);
-    right: 0;
-    bottom: var(--h-timeaxis);
-    width: var(--size-card-max);
-    max-width: 100%;
-    z-index: var(--z-drawer);
-  }
-}
 
 @media (max-height: 640px) {
   .app.console {

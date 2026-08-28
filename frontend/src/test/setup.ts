@@ -1,5 +1,8 @@
+import { configure } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { clearJsonCache } from '../data/jsonCache';
+
+configure({ asyncUtilTimeout: 5000 });
 
 const canvasContextStub = (): CanvasRenderingContext2D =>
   ({

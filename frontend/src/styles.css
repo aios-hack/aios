@@ -28,6 +28,12 @@ output {
   border-radius: var(--radius-sm);
 }
 
+.transport-button--play:focus-visible,
+.council-column-pick:focus-visible {
+  outline-color: var(--color-accent-contrast);
+  outline-offset: calc(var(--focus-ring-offset) * -2);
+}
+
 .app {
   display: flex;
   flex-direction: column;
@@ -116,6 +122,22 @@ output {
   animation-delay: calc(var(--stagger-step) * 3);
 }
 
+.tile-enter {
+  animation: tile-rise var(--duration-drawer) var(--ease-emphasis) both;
+  animation-delay: calc(var(--tile-index, 0) * var(--stagger-step));
+}
+
+@keyframes tile-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @keyframes view-rise {
   from {
     opacity: 0;
@@ -142,6 +164,37 @@ output {
   }
 }
 
+
+.skip-link {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: var(--z-skip-link);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-accent);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  border: 1px solid var(--color-border-strong);
+  font-family: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transform: translateY(-200%);
+  transition: transform var(--duration-state) var(--ease-out);
+}
+
+.skip-link:focus-visible {
+  transform: none;
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skip-link {
+    transition: none;
+  }
+}
 
 .visually-hidden {
   position: absolute;

@@ -16,7 +16,7 @@
 }
 
 .council-column:hover .council-card {
-  background: var(--color-bg-subtle);
+  background: var(--color-row-hover);
 }
 
 .council-column[data-empty='true'] .council-card {
@@ -133,6 +133,7 @@
 }
 
 .council-alloc-well {
+  position: relative;
   pointer-events: auto;
   padding: 0;
   border: 0;
@@ -141,10 +142,26 @@
   cursor: pointer;
   font-family: var(--font-family-mono);
   font-size: var(--font-size-mono);
+  transition: color var(--duration-state) var(--ease-out);
+}
+
+.council-alloc-well::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, var(--size-tap-min));
+  height: var(--size-tap-min);
+  transform: translate(-50%, -50%);
+}
+
+.council-alloc-well:hover {
+  color: var(--color-accent-hover);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .council-card {
+  .council-card,
+  .council-alloc-well {
     transition: none;
   }
 }

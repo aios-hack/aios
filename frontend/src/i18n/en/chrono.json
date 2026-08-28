@@ -18,7 +18,6 @@
   "mode.injection": "injection",
   "mode.production": "production",
   "mode.shut": "shut",
-  "notMeasured": "not measured",
   "npvNote": "NPV contribution is static across steps: the row keeps one colour in every column",
   "size": "{wells} wells × {steps} steps",
   "terminalNote": "state without an interval",

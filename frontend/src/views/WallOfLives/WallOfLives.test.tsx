@@ -376,6 +376,25 @@ describe('wall cursor', () => {
 });
 
 describe('WallOfLives', () => {
+  it('hangs the stage inside a frame that measures the row, not inside a bare body', async () => {
+    const { container } = await renderWall();
+    const frame = container.querySelector<HTMLElement>('.wall-frame');
+    const stage = container.querySelector<HTMLElement>('.wall-stage');
+    expect(frame).not.toBeNull();
+    expect(stage).not.toBeNull();
+    expect(frame!.contains(stage!)).toBe(true);
+    expect(frame!.parentElement?.classList.contains('wall-body')).toBe(true);
+    expect(stage!.querySelector('.wall-canvas')).not.toBeNull();
+  });
+
+  it('sizes the stage from the layout so the tiles are not clipped by the frame', async () => {
+    const { container } = await renderWall();
+    const stage = container.querySelector<HTMLElement>('.wall-stage');
+    const layout = layoutOf(WELL_COUNT, wallCanvas().clientWidth);
+    expect(stage!.style.width).toBe(`${layout.width}px`);
+    expect(stage!.style.height).toBe(`${layout.height}px`);
+  });
+
   it('draws one thumbnail per well in the data', async () => {
     await renderWall();
     expect(wallCanvas().dataset.tiles).toBe(String(timelineFixture.wells.length));

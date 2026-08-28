@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { useI18n } from '../../i18n/I18nContext';
 import { DASH, formatNumber } from '../../ui/format';
 import { dimState, type CouncilPath, type WellRow } from './levels';
@@ -94,12 +94,13 @@ export const WellLevel = ({ rows, groupLabel, path, onSelectWell }: WellLevelPro
               </tr>
             </thead>
             <tbody>
-              {sorted.map((row) => (
+              {sorted.map((row, index) => (
                 <tr
                   key={row.well}
                   data-testid={`council-well-${row.well}`}
                   data-state={dimState(path, path?.well === row.well)}
                   data-selected={path?.well === row.well}
+                  style={{ '--council-row-index': index } as CSSProperties}
                   onClick={() => onSelectWell(row.well)}
                 >
                   <th scope="row">

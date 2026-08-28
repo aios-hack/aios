@@ -69,6 +69,21 @@ const isUsed = (fullKey: string): boolean => {
 };
 
 describe('i18n usage', () => {
+  it('resolves every literal key a source file asks for', () => {
+    const defined = new Set<string>();
+    for (const [namespace, entries] of Object.entries(ru)) {
+      for (const key of Object.keys(entries)) {
+        defined.add(namespace === 'common' ? key : `${namespace}.${key}`);
+      }
+    }
+    const asked = new Set<string>();
+    for (const match of code.matchAll(/\bt\(\s*['"]([a-z][a-zA-Z0-9_.]*)['"]/g)) {
+      asked.add(match[1]);
+    }
+    expect(asked.size).toBeGreaterThan(50);
+    expect([...asked].filter((key) => !defined.has(key)).sort()).toEqual([]);
+  });
+
   it('has no key that no source file references', () => {
     const unused: string[] = [];
     for (const [namespace, entries] of Object.entries(ru)) {

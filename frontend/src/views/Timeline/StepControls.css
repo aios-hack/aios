@@ -70,7 +70,8 @@
 
 .transport-button:disabled {
   color: var(--color-text-subtle);
-  cursor: default;
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .transport-button--play {

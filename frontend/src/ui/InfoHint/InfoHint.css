@@ -4,6 +4,7 @@
 }
 
 .info-hint-trigger {
+  position: relative;
   display: grid;
   place-items: center;
   width: 20px;
@@ -16,6 +17,16 @@
   cursor: help;
   transition: color var(--duration-state) var(--ease-out),
     background var(--duration-state) var(--ease-out);
+}
+
+.info-hint-trigger::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--size-tap-min);
+  height: var(--size-tap-min);
+  transform: translate(-50%, -50%);
 }
 
 .info-hint-trigger:hover,

@@ -66,3 +66,21 @@ describe('formatPercent', () => {
     expect(formatPercent('en', 0.5)).toBe('50%');
   });
 });
+
+describe('numbers that are not there', () => {
+  it('refuses to print a value it does not have as if it were zero', () => {
+    expect(formatNumber('ru', null as unknown as number)).toBe(DASH);
+    expect(formatNumber('ru', undefined as unknown as number)).toBe(DASH);
+    expect(formatNumber('ru', NaN)).toBe(DASH);
+    expect(formatNumber('ru', Infinity)).toBe(DASH);
+    expect(formatPercent('ru', NaN)).toBe(DASH);
+    expect(formatNumber('ru', 0)).not.toBe(DASH);
+  });
+
+  it('collapses a negative zero the same way in both formatters', () => {
+    expect(formatNumber('ru', -0)).toBe(formatNumber('ru', 0));
+    expect(formatPercent('ru', -0)).toBe(formatPercent('ru', 0));
+    expect(formatPercent('ru', -0.0000001)).toBe(formatPercent('ru', 0));
+  });
+
+});

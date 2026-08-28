@@ -86,16 +86,59 @@ export const ScenarioLibrary = () => {
                     )}
                   </span>
                 )}
-                {entry.npv_methodology !== null && (
-                  <span className="scenarios-item-npv">
+                <span className="scenarios-item-npv">
+                  <span className="scenarios-item-npv-label">
+                    <span>{t('scenarios.library.npvLabel')}</span>
+                    <span className="scenarios-item-basis">
+                      {entry.npv_methodology === null
+                        ? t('scenarios.library.npvMissingHint')
+                        : t('scenarios.library.npvBasis')}
+                    </span>
+                  </span>
+                  {entry.npv_methodology === null ? (
+                    <span className="scenarios-item-missing">
+                      {t('scenarios.library.npvMissing')}
+                    </span>
+                  ) : (
+                    <span className="scenarios-item-metric">
+                      {formatNumber(lang, entry.npv_methodology)}
+                    </span>
+                  )}
+                </span>
+                {typeof entry.ood_score === 'number' &&
+                  typeof entry.ood_threshold === 'number' && (
+                    <span className="scenarios-item-summary">
+                      <span className="scenarios-item-npv-label">
+                        <span>{t('scenarios.library.oodLabel')}</span>
+                        <span className="scenarios-item-basis">
+                          {t(
+                            entry.ood_score > entry.ood_threshold
+                              ? 'scenarios.library.oodOver'
+                              : 'scenarios.library.oodOk',
+                            { threshold: formatNumber(lang, entry.ood_threshold, 2) }
+                          )}
+                        </span>
+                      </span>
+                      <span
+                        className="scenarios-item-metric"
+                        data-alert={entry.ood_score > entry.ood_threshold}
+                      >
+                        {formatNumber(lang, entry.ood_score, 2)}
+                      </span>
+                    </span>
+                  )}
+                {entry.worst_regret != null && (
+                  <span className="scenarios-item-summary">
                     <span className="scenarios-item-npv-label">
-                      <span>{t('scenarios.library.npvLabel')}</span>
+                      <span>{t('scenarios.library.regretLabel')}</span>
                       <span className="scenarios-item-basis">
-                        {t('scenarios.library.npvBasis')}
+                        {t('scenarios.library.regretOn', {
+                          scenario: entry.worst_regret.scenario_id
+                        })}
                       </span>
                     </span>
                     <span className="scenarios-item-metric">
-                      {formatNumber(lang, entry.npv_methodology)}
+                      {formatNumber(lang, entry.worst_regret.value_rub)}
                     </span>
                   </span>
                 )}

@@ -26,6 +26,8 @@
   "app.brandAlt": "Blue Sky Research",
   "app.documentTitle": "AIOS",
   "app.viewLoading": "Загрузка раздела…",
+  "app.viewError": "Не удалось загрузить раздел",
+  "app.skipToTime": "Перейти к шкале времени",
   "toolbar.legend": "Легенда",
   "toolbar.settings": "Настройка вида",
   "workspace.overview.lead": "Что происходило с фондом за весь горизонт управления",

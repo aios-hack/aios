@@ -5,7 +5,6 @@ import type { RowIndex } from '../shared/wellFacts';
 import { cellRgb, type CellContext } from './cells';
 import {
   CELL_HEIGHT,
-  CELL_WIDTH,
   ROW_GAP,
   GUTTER_LEFT,
   GUTTER_TOP,
@@ -41,12 +40,12 @@ export const paintChronomap = (
   for (let column = 0; column < geometry.columns; column += 1) {
     const step = steps[column];
     const stepRows = index[column];
-    const x = columnX(column);
+    const x = columnX(column, geometry.cellWidth);
     ctx.globalAlpha = step !== undefined && step.terminal ? TERMINAL_ALPHA : 1;
     for (let row = 0; row < rows.length; row += 1) {
       const entry = rows[row];
       ctx.fillStyle = toCanvasColor(cellRgb(stepRows?.get(entry.well), context));
-      ctx.fillRect(x, rowY(row), CELL_WIDTH, CELL_HEIGHT - ROW_GAP);
+      ctx.fillRect(x, rowY(row), geometry.cellWidth, CELL_HEIGHT - ROW_GAP);
     }
   }
   ctx.globalAlpha = 1;
@@ -56,8 +55,8 @@ export const paintChronomap = (
   ctx.textBaseline = 'top';
   ctx.textAlign = 'left';
   for (const tick of yearTicks(steps.map((step) => step.date))) {
-    ctx.fillRect(columnX(tick.column), GUTTER_TOP - 3, 1, 3);
-    ctx.fillText(tick.year, columnX(tick.column) + 2, 1);
+    ctx.fillRect(columnX(tick.column, geometry.cellWidth), GUTTER_TOP - 3, 1, 3);
+    ctx.fillText(tick.year, columnX(tick.column, geometry.cellWidth) + 2, 1);
   }
 
   ctx.textAlign = 'right';
@@ -117,7 +116,7 @@ export const paintCursor = (
     return;
   }
   ctx.fillStyle = color;
-  ctx.fillRect(columnX(column), GUTTER_TOP, CELL_WIDTH, geometry.plotHeight);
+  ctx.fillRect(columnX(column, geometry.cellWidth), GUTTER_TOP, geometry.cellWidth, geometry.plotHeight);
 };
 
 export const useCursorCanvas = (

@@ -6,6 +6,8 @@ import { isNumericKey, SORT_KEYS, sortWells, type SortDir, type SortKey } from '
 import { WellRow } from './WellRow';
 import './WellsTable.css';
 
+const STAGGER_CAP = 12;
+
 interface WellsTableProps {
   wells: TimelineWellRow[];
   selectedWell: string | null;
@@ -34,6 +36,7 @@ const WellsTableView = ({ wells, selectedWell, onSelectWell }: WellsTableProps) 
   return (
     <div className="timeline-table-wrap">
       <table className="timeline-table">
+        <caption className="timeline-caption">{t('steps.table.caption')}</caption>
         <thead>
           <tr>
             {SORT_KEYS.map((key) => (
@@ -50,10 +53,11 @@ const WellsTableView = ({ wells, selectedWell, onSelectWell }: WellsTableProps) 
           </tr>
         </thead>
         <tbody>
-          {sorted.map((row) => (
+          {sorted.map((row, index) => (
             <WellRow
               key={row.well}
               row={row}
+              ordinal={Math.min(index, STAGGER_CAP)}
               selected={row.well === selectedWell}
               lang={lang}
               t={t}

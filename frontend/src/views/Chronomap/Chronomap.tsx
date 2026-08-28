@@ -1,8 +1,17 @@
-import { useCallback, useMemo, useState, type MouseEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent
+} from 'react';
 import type { TimelineFile } from '../../api/types';
 import { useHistoryView } from '../../app/HistoryViewContext';
 import { dataOf, useDataset } from '../../data';
-import { useT } from '../../i18n/I18nContext';
+import { formatStepDate } from '../../ui/format';
+import { readingText } from './readings';
+import { useI18n, useT } from '../../i18n/I18nContext';
 import { useTimeline } from '../../state/TimelineContext';
 import { ratioColor, watercutColor } from '../../theme/scales';
 import { useTheme } from '../../theme/ThemeContext';
@@ -15,21 +24,51 @@ import { indexSteps, lastWatercutByWell, npvByWell, npvCeilingOf } from '../shar
 import { ChronoControls } from './ChronoControls';
 import { ChronoTooltip, type HoverTarget } from './ChronoTooltip';
 import { useChronoPalette } from './cells';
-import { geometryOf, hitTest } from './geometry';
+import { cellWidthFor, geometryOf, hitTest } from './geometry';
 import { buildRows, groupByWell, sortRows, ungroupedCount } from './sortRows';
 import { useChronomapCanvas, useCursorCanvas } from './useChronomapCanvas';
 import './Chronomap.css';
 
 const CHRONO_MODES = ['production', 'injection', 'shut', 'idle'] as const;
 
+const useStageWidth = (): [(node: HTMLDivElement | null) => void, number] => {
+  const [width, setWidth] = useState(0);
+  const observer = useRef<ResizeObserver | null>(null);
+
+  useEffect(() => () => observer.current?.disconnect(), []);
+
+  const attach = useCallback((node: HTMLDivElement | null) => {
+    observer.current?.disconnect();
+    observer.current = null;
+    if (node === null) {
+      return;
+    }
+    setWidth(node.clientWidth);
+    if (typeof ResizeObserver !== 'function') {
+      return;
+    }
+    const next = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry !== undefined) {
+        setWidth(entry.contentRect.width);
+      }
+    });
+    next.observe(node);
+    observer.current = next;
+  }, []);
+
+  return [attach, width];
+};
+
 const ChronomapReady = ({ data }: { data: TimelineFile }) => {
-  const t = useT();
+  const { t, lang } = useI18n();
   const { theme } = useTheme();
   const { stepIndex, setStepIndex, selectWell } = useTimeline();
   const npvState = useDataset('npv');
   const graphState = useDataset('graph');
   const { metric, setMetric, sort, setSort } = useHistoryView();
   const [hover, setHover] = useState<HoverTarget | null>(null);
+  const [frame, frameWidth] = useStageWidth();
 
   const npv = useMemo(() => npvByWell(dataOf(npvState)), [npvState]);
   const npvCeiling = useMemo(() => npvCeilingOf(npv), [npv]);
@@ -41,8 +80,8 @@ const ChronomapReady = ({ data }: { data: TimelineFile }) => {
   );
   const index = useMemo(() => indexSteps(data), [data]);
   const geometry = useMemo(
-    () => geometryOf(data.steps.length, rows.length),
-    [data.steps.length, rows.length]
+    () => geometryOf(data.steps.length, rows.length, cellWidthFor(data.steps.length, frameWidth)),
+    [data.steps.length, rows.length, frameWidth]
   );
 
   const palette = useChronoPalette(theme);
@@ -162,57 +201,50 @@ const ChronomapReady = ({ data }: { data: TimelineFile }) => {
         legendNotes={legendNotes}
       />
       <div className="chronomap-body">
-        <div
-          className="chronomap-stage"
-          style={{ width: `${geometry.width}px`, height: `${geometry.height}px` }}
-          onMouseLeave={() => setHover(null)}
-        >
-          <canvas
-            ref={canvasRef}
-            className="chronomap-canvas"
-            data-columns={geometry.columns}
-            data-rows={geometry.rows}
-            aria-label={t('chrono.ariaLabel')}
-            role="img"
-            tabIndex={0}
-            data-cursor-row={cursor.row}
-            data-cursor-column={cursor.column}
-            onMouseMove={onMove}
-            onClick={onClick}
-            onKeyDown={onKeyDown}
-          />
-          <canvas
-            ref={cursorRef}
-            className="chronomap-cursor"
-            data-step={stepIndex}
-            aria-hidden="true"
-          />
-          {hover !== null && (
-            <ChronoTooltip
-              target={hover}
-              step={data.steps[hover.column]}
-              row={index[hover.column]?.get(hover.well)}
-              metric={metric}
-              npv={npv.get(hover.well)}
+        <div className="chronomap-frame" ref={frame}>
+          <div
+            className="chronomap-stage"
+            style={{ width: `${geometry.width}px`, height: `${geometry.height}px` }}
+            onMouseLeave={() => setHover(null)}
+          >
+            <canvas
+              ref={canvasRef}
+              className="chronomap-canvas"
+              data-columns={geometry.columns}
+              data-rows={geometry.rows}
+              aria-label={t('chrono.ariaLabel')}
+              role="img"
+              tabIndex={0}
+              data-cursor-row={cursor.row}
+              data-cursor-column={cursor.column}
+              onMouseMove={onMove}
+              onClick={onClick}
+              onKeyDown={onKeyDown}
             />
-          )}
+            <canvas
+              ref={cursorRef}
+              className="chronomap-cursor"
+              data-step={stepIndex}
+              aria-hidden="true"
+            />
+            {hover !== null && (
+              <ChronoTooltip
+                target={hover}
+                step={data.steps[hover.column]}
+                row={index[hover.column]?.get(hover.well)}
+                metric={metric}
+                npv={npv.get(hover.well)}
+              />
+            )}
+          </div>
         </div>
         <p className="chronomap-announce" aria-live="polite" data-testid="chronomap-announce">
           {cursorWell === null || cursorStep === undefined
             ? ''
             : t('chrono.cellAnnounce', {
                 well: cursorWell,
-                date: cursorStep.date,
-                value:
-                  cursorRow === undefined
-                    ? t('chrono.notMeasured')
-                    : String(
-                        metric === 'watercut'
-                          ? cursorRow.watercut
-                          : metric === 'ratio'
-                            ? cursorRow.fact_to_target
-                            : cursorRow.operating_status
-                      )
+                date: formatStepDate(lang, cursorStep.date),
+                value: readingText({ lang, t, metric, row: cursorRow })
               })}
         </p>
       </div>

@@ -19,7 +19,7 @@ const STROKE: Record<FieldMetricKey, string> = {
   injection: 'var(--color-injection)',
   compensation: 'var(--color-water)',
   npv: 'var(--color-accent)',
-  activeWells: 'var(--color-text-muted)'
+  activeWells: 'var(--color-ok)'
 };
 
 const LABEL: Record<FieldMetricKey, string> = {

@@ -1,14 +1,13 @@
 import { useDataset } from '../../data';
 import { useT } from '../../i18n/I18nContext';
 import { DEFAULT_SCENARIO_ID, useOptionalScenario } from '../../state/ScenarioContext';
-import { InfoHint } from '../InfoHint';
 import './ScenarioBadge.css';
 
 interface ScenarioBadgeProps {
-  onOpenDetails?: (scenarioId: string) => void;
+  onOpenLibrary?: () => void;
 }
 
-export const ScenarioBadge = ({ onOpenDetails }: ScenarioBadgeProps = {}) => {
+export const ScenarioBadge = ({ onOpenLibrary }: ScenarioBadgeProps = {}) => {
   const t = useT();
   const { activeId } = useOptionalScenario();
   const index = useDataset('scenarios');
@@ -26,36 +25,29 @@ export const ScenarioBadge = ({ onOpenDetails }: ScenarioBadgeProps = {}) => {
     return null;
   }
 
+  const kind = t(
+    active.is_submitted ? 'scenarios.badge.submitted' : 'scenarios.badge.whatIf'
+  );
+  const label = t('scenarios.badge.open', { id: active.id, kind });
+
+  if (!onOpenLibrary) {
+    return (
+      <p className="scenario-badge" data-submitted={active.is_submitted} title={label}>
+        <span className="scenario-badge-id">{active.id}</span>
+      </p>
+    );
+  }
+
   return (
-    <p className="scenario-badge-bar" data-submitted={active.is_submitted}>
-      <span className="scenario-badge-label">{t('scenarios.badge.viewing')}</span>
-      {onOpenDetails ? (
-        <button
-          type="button"
-          className="scenario-badge-details"
-          onClick={() => onOpenDetails(active.id)}
-        >
-          <span className="scenario-badge-id">{active.id}</span>
-          <span className="scenario-badge-kind">
-            {t(active.is_submitted ? 'scenarios.badge.submitted' : 'scenarios.badge.whatIf')}
-          </span>
-        </button>
-      ) : (
-        <>
-          <span className="scenario-badge-id">{active.id}</span>
-          <span className="scenario-badge-kind">
-            {t(active.is_submitted ? 'scenarios.badge.submitted' : 'scenarios.badge.whatIf')}
-          </span>
-        </>
-      )}
-      <InfoHint
-        label={t('scenarios.badge.hintLabel')}
-        text={t(
-          active.is_submitted
-            ? 'scenarios.badge.submittedHint'
-            : 'scenarios.badge.whatIfHint'
-        )}
-      />
-    </p>
+    <button
+      type="button"
+      className="scenario-badge"
+      data-submitted={active.is_submitted}
+      title={label}
+      aria-label={label}
+      onClick={onOpenLibrary}
+    >
+      <span className="scenario-badge-id">{active.id}</span>
+    </button>
   );
 };

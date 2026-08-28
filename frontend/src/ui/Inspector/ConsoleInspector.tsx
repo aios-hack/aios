@@ -1,29 +1,37 @@
 import { useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useI18n } from '../../i18n/I18nContext';
 import { useTimeline } from '../../state/TimelineContext';
 import { WellCard } from '../../views/WellCard';
 import { Inspector } from './Inspector';
 import type { InspectorContext } from './InspectorContext';
-import { ScenarioInspector } from './ScenarioInspector';
 import { useDeferredClose } from './useDeferredClose';
 
+const VIEWS_WITH_WELLS = new Set<string>([
+  'fund',
+  'projection',
+  'matrix',
+  'wall',
+  'table',
+  'council',
+  'rank'
+]);
+
 interface ConsoleInspectorProps {
-  scenarioContext: InspectorContext | null;
-  onCloseScenario: () => void;
+  view?: string;
 }
 
-export const ConsoleInspector = ({
-  scenarioContext,
-  onCloseScenario
-}: ConsoleInspectorProps) => {
+export const ConsoleInspector = ({ view }: ConsoleInspectorProps) => {
   const { t } = useI18n();
   const { selectedWell, selectWell } = useTimeline();
 
-  const wellContext = useMemo<InspectorContext | null>(
-    () => (selectedWell !== null ? { kind: 'well', well: selectedWell } : null),
-    [selectedWell]
+  const context = useMemo<InspectorContext | null>(
+    () =>
+      selectedWell !== null && (view === undefined || VIEWS_WITH_WELLS.has(view))
+        ? { kind: 'well', well: selectedWell }
+        : null,
+    [selectedWell, view]
   );
-  const context = wellContext ?? scenarioContext;
 
   const { visible, closing } = useDeferredClose(context);
 
@@ -31,19 +39,28 @@ export const ConsoleInspector = ({
     return null;
   }
 
-  const close = () => (visible.kind === 'well' ? selectWell(null) : onCloseScenario());
-  const title =
-    visible.kind === 'well'
-      ? t('wellcard.title', { well: visible.well })
-      : t('inspector.scenario.title', { id: visible.scenarioId });
+  const close = () => selectWell(null);
 
   return (
-    <Inspector context={visible} title={title} onClose={close} closing={closing}>
-      {visible.kind === 'well' ? (
-        <WellCard well={visible.well} />
-      ) : (
-        <ScenarioInspector scenarioId={visible.scenarioId} />
+    <>
+      {createPortal(
+        <div
+          className="console-scrim"
+          data-closing={closing}
+          data-testid="console-scrim"
+          onClick={close}
+          aria-hidden="true"
+        />,
+        document.body
       )}
-    </Inspector>
+      <Inspector
+        context={visible}
+        title={t('wellcard.title', { well: visible.well })}
+        onClose={close}
+        closing={closing}
+      >
+        <WellCard well={visible.well} />
+      </Inspector>
+    </>
   );
 };

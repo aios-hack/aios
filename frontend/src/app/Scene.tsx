@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo } from 'react';
+import { lazy, Suspense, useEffect, useMemo } from 'react';
 import { useT } from '../i18n/I18nContext';
 import { useConsole, type WorkspaceView } from '../state/ConsoleContext';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
@@ -18,6 +18,14 @@ export const Scene = () => {
   const t = useT();
   const { workspace, view, setView, viewsFor } = useConsole();
   const dataStatus = useWorkspaceData(workspace);
+
+  useEffect(() => {
+    const main = document.querySelector('.console-main');
+    if (main !== null) {
+      main.scrollTop = 0;
+    }
+  }, [workspace, view]);
+
 
   const views = viewsFor(workspace);
   const options = useMemo(
@@ -44,7 +52,8 @@ export const Scene = () => {
         )}
       </div>
       <div
-        className="console-scene-body"
+        key={`${workspace}/${view}`}
+        className="console-scene-body app-view-enter"
         data-testid="console-scene"
         data-data-status={dataStatus}
       >

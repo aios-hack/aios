@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Scene } from './app/Scene';
 import { TimeScale } from './app/TimeScale';
 import { useDocumentTitle } from './app/useDocumentTitle';
@@ -12,7 +11,6 @@ import { HeaderControls } from './ui/HeaderControls';
 import { CommandPalette } from './ui/CommandPalette';
 import { useWorkspaceRouting } from './app/useWorkspaceRouting';
 import { ConsoleInspector } from './ui/Inspector';
-import type { InspectorContext } from './ui/Inspector';
 import { ScenarioBadge } from './ui/ScenarioBadge';
 import { StatusChip } from './ui/TrustBoard';
 import { WorkspaceNav } from './ui/WorkspaceNav';
@@ -21,13 +19,12 @@ import './app/console.css';
 const ConsoleShell = () => {
   const { t, lang } = useI18n();
   const { selectedWell } = useTimeline();
-  const { workspace, view, setWorkspace, setView } = useConsole();
+  const { workspace, view, setRoute } = useConsole();
   const { axisCollapsed } = usePlayback();
-  const [scenarioContext, setScenarioContext] = useState<InspectorContext | null>(null);
-  useWorkspaceRouting({ workspace, view, setWorkspace, setView });
+  useWorkspaceRouting({ workspace, view, setRoute });
   useDocumentTitle(t(`workspace.${workspace}`), t('app.documentTitle'), lang);
 
-  const inspectorOpen = selectedWell !== null || scenarioContext !== null;
+  const inspectorOpen = selectedWell !== null;
 
   return (
     <div
@@ -35,6 +32,15 @@ const ConsoleShell = () => {
       data-inspector={inspectorOpen ? 'open' : 'closed'}
       data-axis={axisCollapsed ? 'collapsed' : undefined}
     >
+      <button
+        type="button"
+        className="skip-link"
+        onClick={() => {
+          document.getElementById('console-timeaxis')?.focus();
+        }}
+      >
+        {t('app.skipToTime')}
+      </button>
       <header className="console-area-header app-header">
         <BrandLogo />
         <div className="app-identity">
@@ -48,9 +54,7 @@ const ConsoleShell = () => {
           <StatusChip />
         </ErrorBoundary>
         <ErrorBoundary>
-          <ScenarioBadge
-            onOpenDetails={(scenarioId) => setScenarioContext({ kind: 'scenario', scenarioId })}
-          />
+          <ScenarioBadge onOpenLibrary={() => setRoute('money', 'comparison')} />
         </ErrorBoundary>
         <HeaderControls />
       </header>
@@ -62,13 +66,10 @@ const ConsoleShell = () => {
       </main>
       <div className="console-area-inspector">
         <ErrorBoundary>
-          <ConsoleInspector
-            scenarioContext={scenarioContext}
-            onCloseScenario={() => setScenarioContext(null)}
-          />
+          <ConsoleInspector view={view} />
         </ErrorBoundary>
       </div>
-      <div className="console-area-timeaxis">
+      <div className="console-area-timeaxis" id="console-timeaxis" tabIndex={-1}>
         <ErrorBoundary>
           <TimeScale />
         </ErrorBoundary>

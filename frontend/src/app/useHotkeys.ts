@@ -7,7 +7,21 @@ export const isEditableTarget = (target: EventTarget | null): boolean => {
   if (target === null || !(target instanceof HTMLElement)) {
     return false;
   }
-  return EDITABLE.has(target.tagName) || target.isContentEditable;
+  return EDITABLE.has(target.tagName) || target.isContentEditable === true;
+};
+
+export const isInsideScroller = (target: EventTarget | null): boolean => {
+  let node = target instanceof HTMLElement ? target : null;
+  while (node !== null) {
+    if (node.scrollHeight > node.clientHeight + 1) {
+      const overflow = getComputedStyle(node).overflowY;
+      if (overflow === 'auto' || overflow === 'scroll') {
+        return true;
+      }
+    }
+    node = node.parentElement;
+  }
+  return false;
 };
 
 const yearOf = (step: TimelineStep): number => Number(step.date.slice(0, 4));
@@ -103,14 +117,12 @@ export const useHotkeys = ({
         state.onStep(1);
         return;
       }
-      if (event.key === 'Home') {
+      if (event.key === 'Home' || event.key === 'End') {
+        if (isInsideScroller(event.target)) {
+          return;
+        }
         event.preventDefault();
-        state.onSelect(0);
-        return;
-      }
-      if (event.key === 'End') {
-        event.preventDefault();
-        state.onSelect(Math.max(state.steps.length - 1, 0));
+        state.onSelect(event.key === 'Home' ? 0 : Math.max(state.steps.length - 1, 0));
         return;
       }
       if (event.key === '[' || event.key === ']') {

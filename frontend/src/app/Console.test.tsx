@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App';
@@ -192,17 +194,91 @@ const seekTo = (container: HTMLElement, index: number): void => {
 
 beforeEach(() => {
   localStorage.clear();
-  window.history.replaceState(null, '', window.location.pathname);
+  window.history.replaceState(null, '', '/');
   mockFetch();
 });
 
 afterEach(() => {
   cleanup();
-  window.history.replaceState(null, '', window.location.pathname);
+  window.history.replaceState(null, '', '/');
   vi.unstubAllGlobals();
 });
 
 describe('console layout', () => {
+  it('opens the workspace the address names instead of resetting to the default', async () => {
+    window.history.replaceState(null, '', '/money/rank');
+    renderConsole();
+    await waitFor(() =>
+      expect(navButton(ru['workspace.money']).getAttribute('aria-selected')).toBe('true')
+    );
+    expect(window.location.pathname).toBe('/money/rank');
+  });
+
+  it('still follows the navigation after arriving through a deep link', async () => {
+    window.history.replaceState(null, '', '/money/rank');
+    renderConsole();
+    await waitFor(() =>
+      expect(navButton(ru['workspace.money']).getAttribute('aria-selected')).toBe('true')
+    );
+
+    fireEvent.click(navButton(ru['workspace.overview']));
+    await screen.findByTestId('overview');
+    expect(window.location.pathname).toBe('/overview/fund');
+  });
+
+  it('starts a new view at its top rather than mid-scroll from the last one', async () => {
+    const { container } = renderConsole();
+    await screen.findByTestId('overview');
+    const main = container.querySelector('.console-main') as HTMLElement;
+    main.scrollTop = 900;
+    fireEvent.click(navButton(ru['workspace.money']));
+    await screen.findByTestId('npv-total');
+    expect(main.scrollTop).toBe(0);
+  });
+
+  it('offers a first stop that jumps the long tables straight to the time scale', async () => {
+    const { container } = renderConsole();
+    await screen.findByTestId('overview');
+
+    const skip = container.querySelector('.skip-link') as HTMLButtonElement | null;
+    expect(skip).not.toBeNull();
+    expect(skip?.textContent).toBe(ru['app.skipToTime']);
+
+    const stops = [...container.querySelectorAll('a[href], button, input, [tabindex]')].filter(
+      (node) => (node as HTMLElement).tabIndex >= 0
+    );
+    expect(stops[0]).toBe(skip);
+
+    const axis = container.querySelector('#console-timeaxis') as HTMLElement | null;
+    expect(axis).not.toBeNull();
+    expect(axis?.tabIndex).toBe(-1);
+
+    const before = window.location.pathname;
+    fireEvent.click(skip as HTMLButtonElement);
+    expect(document.activeElement).toBe(axis);
+    expect(window.location.pathname).toBe(before);
+  });
+
+  it('stacks that first stop above the header it has to appear over', () => {
+    const base = readFileSync(join(process.cwd(), 'src', 'styles.css'), 'utf-8');
+    const consoleCss = readFileSync(join(process.cwd(), 'src', 'app', 'console.css'), 'utf-8');
+    const tokens = readFileSync(
+      join(process.cwd(), 'src', 'theme', 'tokens.light.css'),
+      'utf-8'
+    );
+
+    const skipLayer = base.match(/\.skip-link\s*\{[^}]*z-index:\s*var\((--[\w-]+)\)/)?.[1];
+    const headerLayer = consoleCss.match(
+      /\.console-area-header\s*\{[^}]*z-index:\s*var\((--[\w-]+)\)/
+    )?.[1];
+    expect(skipLayer).toBeDefined();
+    expect(headerLayer).toBeDefined();
+
+    const valueOf = (name: string): number =>
+      Number(tokens.match(new RegExp(`${name}:\\s*(\\d+)`))?.[1]);
+    expect(valueOf(skipLayer as string)).toBeGreaterThan(valueOf(headerLayer as string));
+  });
+
   it('keeps the time scale in the document in every workspace', async () => {
     renderConsole();
     await screen.findByTestId('time-scale');

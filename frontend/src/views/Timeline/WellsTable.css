@@ -1,9 +1,22 @@
 .timeline-table-wrap {
+  width: 100%;
   min-width: 0;
   overflow-x: auto;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
+  animation: timeline-table-in var(--duration-drawer) var(--ease-out) both;
+}
+
+@keyframes timeline-table-in {
+  from {
+    opacity: 0;
+    transform: scale(0.995) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .timeline-table {
@@ -15,12 +28,16 @@
 
 .timeline-table th,
 .timeline-table td {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--color-border);
   text-align: left;
 }
 
 .timeline-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-surface);
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
@@ -54,7 +71,7 @@
 }
 
 .timeline-table tbody tr[data-clickable='true']:hover {
-  background: var(--color-bg);
+  background: var(--color-row-hover);
 }
 
 .timeline-table tbody tr[data-selected='true'],
@@ -63,25 +80,56 @@
 }
 
 .timeline-well-button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: var(--size-control-height);
   padding: 0;
   border: none;
+  border-radius: var(--radius-sm);
   background: none;
   color: var(--color-accent);
   font-family: var(--font-family-base);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
+  transition: color var(--duration-state) var(--ease-out);
+}
+
+.timeline-well-button:hover {
+  color: var(--color-accent-deep);
 }
 
 .timeline-table tbody tr {
   transition: background var(--duration-fast) var(--ease-out-drawer);
+  animation: timeline-row-in var(--duration-state) var(--ease-out) both;
+  animation-delay: calc(var(--stagger-step) * var(--timeline-row-index, 0) / 4);
+}
+
+@keyframes timeline-row-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.timeline-caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .timeline-sort-button {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  padding: 0;
+  padding: var(--space-2) 0;
+  min-height: var(--size-control-height);
   border: none;
   background: none;
   color: var(--color-text-muted);
@@ -109,9 +157,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .timeline-table-wrap,
   .timeline-sort-button,
   .timeline-sort-arrow,
+  .timeline-well-button,
   .timeline-table tbody tr {
+    animation: none;
     transition: none;
   }
 }

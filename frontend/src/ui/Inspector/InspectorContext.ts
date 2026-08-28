@@ -3,9 +3,4 @@ export interface WellInspectorContext {
   well: string;
 }
 
-export interface ScenarioInspectorContext {
-  kind: 'scenario';
-  scenarioId: string;
-}
-
-export type InspectorContext = WellInspectorContext | ScenarioInspectorContext;
+export type InspectorContext = WellInspectorContext;

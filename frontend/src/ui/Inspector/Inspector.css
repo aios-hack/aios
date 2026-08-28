@@ -8,22 +8,35 @@
   min-height: 0;
   max-height: 100%;
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-xl);
   background: var(--color-surface-solid);
   overflow: hidden;
-  animation: inspector-in var(--duration-drawer) var(--ease-out) both;
+  animation: inspector-in var(--duration-drawer) var(--ease-emphasis) both;
 }
 
 .inspector[data-closing='true'] {
-  animation: inspector-in var(--duration-state) var(--ease-out) reverse both;
+  animation: inspector-out var(--duration-state) var(--ease-out) both;
 }
 
 @keyframes inspector-in {
   from {
     opacity: 0;
+    transform: translateX(24px);
   }
   to {
     opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes inspector-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(24px);
   }
 }
 
@@ -35,12 +48,16 @@
 }
 
 .inspector-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-4);
+  padding: var(--space-5);
   border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-solid);
 }
 
 .inspector-title {
@@ -50,24 +67,37 @@
 }
 
 .inspector-close {
+  position: relative;
   flex: none;
   width: var(--size-control-height);
   height: var(--size-control-height);
   display: grid;
   place-items: center;
+  padding: 0;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--color-surface-solid);
-  color: var(--color-text);
+  color: var(--color-text-muted);
   cursor: pointer;
   transition:
     background var(--duration-fast) var(--ease-out),
     border-color var(--duration-fast) var(--ease-out);
 }
 
+.inspector-close::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--size-tap-min);
+  height: var(--size-tap-min);
+  transform: translate(-50%, -50%);
+}
+
 .inspector-close:hover {
-  border-color: var(--color-border-strong);
+  border-color: var(--color-accent);
   background: var(--color-accent-dim);
+  color: var(--color-accent);
 }
 
 .inspector-close:active {
@@ -77,7 +107,8 @@
 .inspector-body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
-  padding: var(--space-4);
+  gap: var(--space-6);
+  padding: var(--space-5);
   overflow-y: auto;
+  overscroll-behavior: contain;
 }

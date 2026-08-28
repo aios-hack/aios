@@ -137,9 +137,19 @@
   font-size: var(--font-size-mono);
 }
 
+.scenarios-item-missing {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-style: italic;
+}
+
+.scenarios-item-metric[data-alert='true'] {
+  color: var(--color-danger);
+}
+
 
 .scenarios-item {
-  transition: border-color var(--duration-drawer) var(--ease-out-drawer);
+  transition: border-color var(--duration-state) var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {

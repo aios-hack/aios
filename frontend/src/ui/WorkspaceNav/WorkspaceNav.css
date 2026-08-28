@@ -26,7 +26,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .workspace-nav-thumb {
+  .workspace-nav-thumb,
+  .workspace-nav-item {
     transition: none;
   }
 }
@@ -45,6 +46,7 @@
   text-align: left;
   cursor: pointer;
   border-radius: var(--radius-lg);
+  transition: color var(--duration-state) var(--ease-out);
 }
 
 .workspace-nav-item:hover {

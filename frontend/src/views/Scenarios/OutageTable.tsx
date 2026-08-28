@@ -1,8 +1,10 @@
+import type { CSSProperties } from 'react';
 import { useT } from '../../i18n/I18nContext';
 import type { FieldError, OutageRow } from './constraints';
 
 interface OutageTableProps {
   rows: OutageRow[];
+  index: number;
   errors: FieldError[];
   nIntervals: number;
   onChange: (key: string, field: 'well' | 'from' | 'to', value: string) => void;
@@ -14,6 +16,7 @@ const FIELDS: ('well' | 'from' | 'to')[] = ['well', 'from', 'to'];
 
 export const OutageTable = ({
   rows,
+  index,
   errors,
   nIntervals,
   onChange,
@@ -27,6 +30,7 @@ export const OutageTable = ({
       className="scenarios-section"
       data-section="well_outages"
       data-empty={rows.length === 0}
+      style={{ '--scenarios-section-index': index } as CSSProperties}
     >
       <header className="scenarios-section-head">
         <h4 className="scenarios-section-title">{t('scenarios.section.well_outages')}</h4>

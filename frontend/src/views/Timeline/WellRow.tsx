@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, type CSSProperties } from 'react';
 import type { TimelineWellRow } from '../../api/types';
 import { actualRate } from '../../data';
 import type { Lang, Translate } from '../../i18n/I18nContext';
@@ -7,12 +7,13 @@ import { DASH, formatNumber, formatPercent } from '../../ui/format';
 interface WellRowProps {
   row: TimelineWellRow;
   selected: boolean;
+  ordinal: number;
   lang: Lang;
   t: Translate;
   onSelectWell: (well: string) => void;
 }
 
-const WellRowView = ({ row, selected, lang, t, onSelectWell }: WellRowProps) => {
+const WellRowView = ({ row, selected, ordinal, lang, t, onSelectWell }: WellRowProps) => {
   const notCommissioned = row.availability === 'NOT_COMMISSIONED';
 
   return (
@@ -21,6 +22,8 @@ const WellRowView = ({ row, selected, lang, t, onSelectWell }: WellRowProps) => 
       data-not-commissioned={notCommissioned}
       data-selected={selected}
       data-clickable="true"
+      data-ordinal={ordinal}
+      style={{ '--timeline-row-index': ordinal } as CSSProperties}
       onClick={() => onSelectWell(row.well)}
     >
       <th scope="row">

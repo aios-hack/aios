@@ -43,7 +43,11 @@ export const buildWellSeries = (
   let roleSteps = 0;
 
   for (const step of timeline.steps) {
-    const row = step.wells[column];
+    const positional = step.wells[column];
+    const row =
+      positional !== undefined && positional.well === well
+        ? positional
+        : step.wells.find((candidate) => candidate.well === well);
     if (row === undefined) {
       rate.push(null);
       watercut.push(null);

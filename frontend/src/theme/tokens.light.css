@@ -1,30 +1,31 @@
 :root {
-  --brand-accent-h: 236;
-  --brand-accent-s: 71%;
+  --brand-accent-h: 250;
+  --brand-accent-s: 70%;
 
-  --color-accent: #232dcd;
-  --color-accent-hover: #3d47da;
-  --color-accent-soft: #5d68e4;
-  --color-accent-softer: #8891ee;
-  --color-accent-deep: #1a2299;
+  --color-accent: #3d22c3;
+  --color-accent-hover: #5238d8;
+  --color-accent-soft: #7a63e6;
+  --color-accent-softer: #a493ef;
+  --color-accent-deep: #2d1794;
   --color-accent-contrast: #ffffff;
-  --color-accent-dim: rgba(35, 45, 205, 0.1);
-  --color-accent-dim-2: rgba(35, 45, 205, 0.18);
+  --color-accent-dim: rgba(61, 34, 195, 0.1);
+  --color-accent-dim-2: rgba(61, 34, 195, 0.18);
 
-  --color-bg: #f4f6f8;
-  --color-bg-subtle: #eceff3;
+  --color-bg: #f5f7fa;
+  --color-bg-subtle: #eef1f6;
   --color-surface: #ffffff;
   --color-surface-solid: #ffffff;
-  --color-surface-sunken: #e7ebef;
-  --color-rail: rgba(35, 45, 205, 0.16);
-  --color-rail-fill: #5d68e4;
-  --color-tick: rgba(35, 45, 205, 0.32);
-  --color-tick-on-fill: rgba(255, 255, 255, 0.45);
+  --color-surface-sunken: #e9edf2;
+  --color-row-hover: #e4e9f1;
+  --color-rail: rgba(61, 34, 195, 0.16);
+  --color-rail-fill: #7a63e6;
+  --color-tick: rgba(61, 34, 195, 0.32);
+  --color-tick-on-fill: rgba(17, 21, 28, 0.4);
 
-  --shadow-transport: 0 2px 8px rgba(35, 45, 205, 0.06), 0 1px 2px rgba(11, 12, 20, 0.04);
+  --shadow-transport: 0 2px 8px rgba(61, 34, 195, 0.06), 0 1px 2px rgba(11, 12, 20, 0.04);
   --shadow-backdrop: 0 -10px 28px rgba(11, 12, 20, 0.1);
-  --shadow-accent: 0 6px 24px rgba(35, 45, 205, 0.28);
-  --shadow-accent-hover: 0 10px 36px rgba(35, 45, 205, 0.36);
+  --shadow-accent: 0 6px 24px rgba(61, 34, 195, 0.28);
+  --shadow-accent-hover: 0 10px 36px rgba(61, 34, 195, 0.36);
 
   --color-text: #1a2028;
   --color-text-muted: rgba(26, 32, 40, 0.68);
@@ -32,67 +33,67 @@
   --color-text-faint: rgba(26, 32, 40, 0.64);
   --color-text-disabled: rgba(26, 32, 40, 0.38);
 
-  --color-border: rgba(35, 45, 205, 0.14);
-  --color-border-strong: rgba(35, 45, 205, 0.26);
+  --color-border: rgba(61, 34, 195, 0.14);
+  --color-border-strong: rgba(61, 34, 195, 0.26);
   --color-border-subtle: rgba(11, 12, 20, 0.08);
-  --color-on-fill: #ffffff;
-  --color-on-fill-muted: rgba(255, 255, 255, 0.94);
+  --color-on-fill: #11151c;
+  --color-on-fill-muted: rgba(17, 21, 28, 0.9);
   --color-fill-scrim: rgba(0, 0, 0, 0.34);
   --color-fill-scrim-mid: rgba(0, 0, 0, 0.3);
-  --color-scroll-thumb: rgba(35, 45, 205, 0.26);
-  --color-scroll-thumb-hover: rgba(35, 45, 205, 0.44);
-  --color-scroll-thumb-active: rgba(35, 45, 205, 0.6);
+  --color-scroll-thumb: rgba(61, 34, 195, 0.26);
+  --color-scroll-thumb-hover: rgba(61, 34, 195, 0.44);
+  --color-scroll-thumb-active: rgba(61, 34, 195, 0.6);
   --color-scroll-track: transparent;
 
-  --color-error: #b3261e;
-  --color-danger: #b3261e;
-  --color-ok: #17794b;
-  --color-focus: #232dcd;
-  --color-selected-bg: rgba(35, 45, 205, 0.1);
+  --color-error: #c82f1e;
+  --color-danger: #c82f1e;
+  --color-ok: #137645;
+  --color-focus: #3d22c3;
+  --color-selected-bg: rgba(61, 34, 195, 0.1);
 
-  --color-oil: #b06f1a;
-  --color-oil-strong: #8c5610;
-  --color-water: #1c7d94;
-  --color-water-pale: #9fc4cd;
-  --color-injection: #2f6ecc;
+  --color-oil: #975911;
+  --color-oil-strong: #7a4709;
+  --color-water: #167188;
+  --color-water-pale: #8fbac6;
+  --color-injection: #1e6bb8;
   --color-unknown: rgba(26, 32, 40, 0.3);
 
-  --scale-watercut-0: #b06f1a;
-  --scale-watercut-1: #1c7d94;
-  --scale-ratio-low: #b3261e;
-  --scale-ratio-mid: #a8792c;
-  --scale-ratio-high: #17794b;
+  --scale-watercut-0: #8a510f;
+  --scale-watercut-1: #5cc6e0;
+  --scale-ratio-low: #c82f1e;
+  --scale-ratio-mid: #c37113;
+  --scale-ratio-high: #1b9859;
 
-  --color-layer-1: #b06f1a;
-  --color-layer-2: #1c7d94;
+  --color-layer-1: #c37113;
+  --color-layer-2: #1b93b1;
   --color-layer-both: #5b5f77;
   --color-well-dim: rgba(26, 32, 40, 0.2);
   --color-well-idle: rgba(26, 32, 40, 0.34);
-  --color-graph-injector: #2f6ecc;
-  --color-graph-producer: #b06f1a;
+  --color-graph-injector: #1c80e3;
+  --color-graph-producer: #c37113;
   --color-graph-edge: rgba(26, 32, 40, 0.34);
-  --color-graph-window: #8c5610;
-  --color-graph-window-bg: #f3ead9;
-  --color-group-1: #2f6ecc;
-  --color-group-2: #a21c10;
-  --color-group-3: #3d8e53;
-  --color-group-4: #8e3394;
-  --color-group-5: #9f7100;
-  --color-group-6: #a85e89;
-  --color-submitted: #17794b;
-  --color-submitted-bg: rgba(23, 121, 75, 0.1);
-  --color-whatif: rgba(26, 32, 40, 0.5);
+  --color-graph-window: #7a4709;
+  --color-graph-window-bg: #f5ecd9;
+  --color-group-1: #5fa3e7;
+  --color-group-2: #e77a5f;
+  --color-group-3: #5fe7a3;
+  --color-group-4: #ba5fe7;
+  --color-group-5: #e7cc5f;
+  --color-group-6: #e75fba;
+  --color-submitted: #0d5230;
+  --color-submitted-bg: rgba(19, 118, 69, 0.1);
+  --color-whatif: rgba(26, 32, 40, 0.72);
   --color-whatif-bg: rgba(26, 32, 40, 0.05);
-  --color-error-bg: rgba(179, 38, 30, 0.08);
-  --color-ok-bg: rgba(23, 121, 75, 0.1);
-  --color-synthetic: #8a5a00;
-  --color-synthetic-bg: #f6eeda;
-  --color-synthetic-border: rgba(176, 111, 26, 0.42);
+  --color-error-bg: rgba(200, 47, 30, 0.08);
+  --color-ok-bg: rgba(19, 118, 69, 0.1);
+  --color-synthetic: #8e6010;
+  --color-synthetic-bg: #f7efdc;
+  --color-synthetic-border: rgba(195, 113, 19, 0.42);
 
   --color-backdrop: rgba(26, 32, 40, 0.2);
   --color-plot-bg: #eceff3;
-  --color-edge-positive: #b06f1a;
-  --color-edge-negative: #2f6ecc;
+  --color-edge-positive: #c37113;
+  --color-edge-negative: #1c80e3;
   --color-axis: rgba(26, 32, 40, 0.44);
   --color-axis-tick: rgba(26, 32, 40, 0.66);
   --line-grid: rgba(26, 32, 40, 0.07);
@@ -139,9 +140,10 @@
   --space-panel-y: 10px;
   --space-panel-x: 12px;
 
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
   --radius-pill: 999px;
 
   --duration-fast: 120ms;
@@ -160,6 +162,7 @@
   --z-sticky: 10;
   --z-drawer: 20;
   --z-popover: 30;
+  --z-skip-link: 40;
 
   --focus-ring-width: 2px;
   --focus-ring-offset: 1px;
@@ -168,6 +171,7 @@
   --size-scrollbar: 10px;
   --size-scrollbar-thumb-min: 32px;
   --size-control-height: 26px;
+  --size-tap-min: 44px;
   --size-hit-min: 24px;
   --size-icon-button: 34px;
   --size-transport-half: 100px;
@@ -187,5 +191,6 @@
   --size-nav: 140px;
   --size-console-min: 900px;
   --h-header: 96px;
-  --h-timeaxis: 184px;
+  --h-timeaxis: 172px;
+  --h-player-opaque: 118px;
 }

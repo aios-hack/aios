@@ -1,8 +1,3 @@
 {
-  "close": "Close inspector",
-  "scenario.title": "Scenario {id}",
-  "scenario.runId": "Run",
-  "scenario.validation": "Validation",
-  "scenario.validationClean": "No violations",
-  "scenario.validationDirty": "Has violations"
+  "close": "Close inspector"
 }

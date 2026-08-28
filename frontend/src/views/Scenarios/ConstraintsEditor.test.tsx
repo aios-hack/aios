@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dictionaries } from '../../i18n/dictionaries';
+import { YEAR_SECTIONS } from './constraints';
 import { ConstraintsEditor } from './ConstraintsEditor';
 import { flushProviders, mockFetch, withProviders } from './testFixtures';
 
@@ -121,6 +122,42 @@ describe('ConstraintsEditor', () => {
       within(block).getByRole('button', { name: ru['scenarios.action.removeRow'] })
     );
     expect(previewDoc()).toMatchObject({ injection_limits: {} });
+  });
+});
+
+describe('ConstraintsEditor section layout', () => {
+  it('lays every constraint section out in one shared grid so they wrap side by side', async () => {
+    render(withProviders(<ConstraintsEditor nIntervals={224} />));
+    await flushProviders();
+
+    const grid = document.querySelector('.scenarios-grid');
+    expect(grid).not.toBeNull();
+
+    const sections = [...document.querySelectorAll('.scenarios-section')];
+    expect(sections.length).toBe(YEAR_SECTIONS.length + 2);
+    for (const section of sections) {
+      expect(section.parentElement).toBe(grid);
+    }
+  });
+
+  it('gives each section a distinct stagger index so the reveal is ordered, not simultaneous', async () => {
+    render(withProviders(<ConstraintsEditor nIntervals={224} />));
+    await flushProviders();
+
+    const indices = [...document.querySelectorAll('.scenarios-section')].map((section) =>
+      (section as HTMLElement).style.getPropertyValue('--scenarios-section-index')
+    );
+
+    expect(indices.every((value) => value !== '')).toBe(true);
+    expect(indices).toEqual([...indices].sort((a, b) => Number(a) - Number(b)));
+    expect(new Set(indices).size).toBe(indices.length);
+  });
+
+  it('keeps editing working through the grid wrapper', async () => {
+    render(withProviders(<ConstraintsEditor nIntervals={224} />));
+    await flushProviders();
+    fillRow(addRow('liquid_limits'), ['2009', '7000']);
+    expect(previewDoc()).toMatchObject({ liquid_limits: { '2009': 7000 } });
   });
 });
 

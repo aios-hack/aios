@@ -40,7 +40,7 @@ export const HistoryBlock = ({ timeline, well, stepIndex }: HistoryBlockProps) =
             ? DASH
             : row.key === 'watercut'
               ? formatPercent(lang, current)
-              : formatNumber(lang, current);
+              : formatNumber(lang, current, 1);
         return (
           <div className="wellcard-history-row" key={row.key} data-series={row.key}>
             <span className="wellcard-history-label">{label}</span>

@@ -7,6 +7,8 @@ import { NpvRow } from './NpvRow';
 import { sortNpvRows, valueOf } from './sorting';
 import type { NpvSortKey, SortDir, TaxMode } from './types';
 
+const STAGGER_ROW_CAP = 12;
+
 interface NpvTableProps {
   data: NpvFile;
   mode: TaxMode;
@@ -79,13 +81,14 @@ const NpvTableView = ({
             </tr>
           </thead>
           <tbody>
-            {sorted.map((row) => {
+            {sorted.map((row, index) => {
               const value = valueOf(row, mode);
               return (
                 <NpvRow
                   key={row.well}
                   well={row.well}
                   value={value}
+                  index={Math.min(index, STAGGER_ROW_CAP)}
                   ratio={maxAbs > 0 ? Math.abs(value) / maxAbs : 0}
                   selected={row.well === selectedWell}
                   lang={lang}

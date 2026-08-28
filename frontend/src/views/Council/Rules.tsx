@@ -20,5 +20,5 @@ export const Rules = () => {
     );
   }
 
-  return <AblationTable data={ablation.data} />;
+  return <AblationTable data={ablation.data} standalone />;
 };

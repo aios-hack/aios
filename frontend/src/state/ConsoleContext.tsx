@@ -33,6 +33,7 @@ interface ConsoleContextValue {
   setWorkspace: (workspace: Workspace) => void;
   view: WorkspaceView;
   setView: (view: WorkspaceView) => void;
+  setRoute: (workspace: Workspace, view: WorkspaceView) => void;
   viewsFor: (workspace: Workspace) => readonly WorkspaceView[];
   morphRequest: MorphRequest | null;
   requestMorph: (value: number) => void;
@@ -50,6 +51,11 @@ export const ConsoleProvider = ({ children }: { children: ReactNode }) => {
   const setWorkspace = useCallback((next: Workspace) => {
     setWorkspaceState(next);
     setView(defaultViewOf(next));
+  }, []);
+
+  const setRoute = useCallback((next: Workspace, nextView: WorkspaceView) => {
+    setWorkspaceState(next);
+    setView(nextView);
   }, []);
 
   const viewsFor = useCallback(
@@ -73,11 +79,12 @@ export const ConsoleProvider = ({ children }: { children: ReactNode }) => {
       setWorkspace,
       view,
       setView,
+      setRoute,
       viewsFor,
       morphRequest,
       requestMorph
     }),
-    [workspace, setWorkspace, view, viewsFor, morphRequest, requestMorph]
+    [workspace, setWorkspace, view, setRoute, viewsFor, morphRequest, requestMorph]
   );
 
   return <ConsoleContext.Provider value={value}>{children}</ConsoleContext.Provider>;

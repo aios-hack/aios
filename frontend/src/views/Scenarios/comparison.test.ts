@@ -73,3 +73,23 @@ describe('сравнение сценариев', () => {
     expect(submittedOf([entry('a', false)])).toBeNull();
   });
 });
+
+describe('знак разницы задаёт акцент на плашке', () => {
+  it('считает гипотезу лучше только при строго положительной разнице', () => {
+    const better = compareScenarios('base', 'whatif', npvFile(1000, 700), npvFile(1250, 780));
+    expect(valueFor(better.delta, 'preTax') > 0).toBe(true);
+    expect(valueFor(better.delta, 'withTax') > 0).toBe(true);
+  });
+
+  it('не считает равный результат улучшением', () => {
+    const same = compareScenarios('base', 'whatif', npvFile(1000, 700), npvFile(1000, 700));
+    expect(valueFor(same.delta, 'preTax')).toBe(0);
+    expect(valueFor(same.delta, 'preTax') > 0).toBe(false);
+  });
+
+  it('меняет знак вместе с налоговым режимом, когда режимы расходятся', () => {
+    const mixed = compareScenarios('base', 'whatif', npvFile(1000, 700), npvFile(1100, 650));
+    expect(valueFor(mixed.delta, 'preTax') > 0).toBe(true);
+    expect(valueFor(mixed.delta, 'withTax') > 0).toBe(false);
+  });
+});

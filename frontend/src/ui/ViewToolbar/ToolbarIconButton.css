@@ -9,6 +9,7 @@
   background: var(--color-surface);
   color: var(--color-text-muted);
   cursor: pointer;
+  transition: color var(--duration-state) var(--ease-out), background var(--duration-state) var(--ease-out);
 }
 
 .toolbar-icon-button[aria-expanded='true'] {
@@ -19,4 +20,10 @@
 .toolbar-icon-button:focus-visible {
   outline: var(--focus-ring-width) solid var(--color-focus);
   outline-offset: var(--focus-ring-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toolbar-icon-button {
+    transition: none;
+  }
 }

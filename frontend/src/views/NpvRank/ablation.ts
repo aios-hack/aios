@@ -58,3 +58,11 @@ export const coverageOf = (entries: readonly AblationEntry[]): AblationCoverage 
   }
   return { measured, unmeasured, accountedShare };
 };
+
+export const leadRatio = (entry: AblationEntry, entries: readonly AblationEntry[]): number => {
+  const top = entries.reduce((acc, item) => Math.max(acc, item.delta ?? 0), 0);
+  if (top <= 0 || entry.delta === null || entry.delta <= 0) {
+    return 0;
+  }
+  return entry.delta / top;
+};

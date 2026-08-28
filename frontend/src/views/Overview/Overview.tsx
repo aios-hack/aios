@@ -59,9 +59,10 @@ export const Overview = () => {
     <section className="overview" data-testid="overview">
       <p className="overview-lead">{t('overview.lead', { count: steps.length })}</p>
       <div className="overview-grid">
-        {metrics.map((metric) => (
+        {metrics.map((metric, index) => (
           <OverviewCard
             key={metric.key}
+            ordinal={index}
             metric={metric}
             steps={steps}
             stepIndex={current}

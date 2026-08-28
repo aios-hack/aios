@@ -6,6 +6,7 @@ interface NpvRowProps {
   well: string;
   value: number;
   ratio: number;
+  index: number;
   selected: boolean;
   lang: Lang;
   t: Translate;
@@ -16,6 +17,7 @@ const NpvRowView = ({
   well,
   value,
   ratio,
+  index,
   selected,
   lang,
   t,
@@ -28,6 +30,7 @@ const NpvRowView = ({
       data-well-id={well}
       data-selected={selected}
       data-clickable="true"
+      style={{ '--npv-row-index': index } as CSSProperties}
       onClick={() => onSelectWell(well)}
     >
       <th scope="row">

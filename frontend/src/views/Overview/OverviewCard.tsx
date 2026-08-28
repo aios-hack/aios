@@ -1,4 +1,4 @@
-import { useId, useMemo } from 'react';
+import { useId, useMemo, type CSSProperties } from 'react';
 import type { TimelineStep } from '../../api/types';
 import { useI18n } from '../../i18n/I18nContext';
 import { bandGeometry, buildSparkline } from '../../ui/Sparkline/series';
@@ -13,6 +13,7 @@ interface OverviewCardProps {
   stroke: string;
   format: (value: number | null) => string;
   featured: boolean;
+  ordinal: number;
 }
 
 const VIEW_WIDTH = 100;
@@ -38,7 +39,8 @@ export const OverviewCard = ({
   stepIndex,
   stroke,
   format,
-  featured
+  featured,
+  ordinal
 }: OverviewCardProps) => {
   const { t } = useI18n();
   const titleId = useId();
@@ -83,6 +85,8 @@ export const OverviewCard = ({
       data-metric={metric.key}
       data-featured={featured ? 'true' : undefined}
       data-band={bandKey === null ? undefined : bandKey.split('.').pop()}
+      data-ordinal={ordinal}
+      style={{ '--overview-card-index': ordinal } as CSSProperties}
     >
       <header className="overview-card-head">
         <h3 className="overview-card-title">{label}</h3>

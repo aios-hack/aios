@@ -1,7 +1,7 @@
 .council-table-wrap {
   overflow-x: auto;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--color-surface-sunken);
 }
 
@@ -75,10 +75,12 @@
 .council-table tbody tr {
   cursor: pointer;
   transition: background var(--duration-state) var(--ease-out);
+  animation: council-row-in var(--duration-state) var(--ease-out) both;
+  animation-delay: calc(var(--stagger-step) * var(--council-row-index, 0) / 4);
 }
 
 .council-table tbody tr:hover {
-  background: var(--color-bg-subtle);
+  background: var(--color-row-hover);
 }
 
 .council-table tr[data-state='path'],
@@ -91,7 +93,8 @@
   align-items: center;
   gap: var(--space-1);
   max-width: 100%;
-  padding: 0;
+  padding: var(--space-2) 0;
+  min-height: var(--size-control-height);
   border: none;
   background: none;
   color: inherit;
@@ -115,7 +118,8 @@
 
 .council-sort-arrow {
   flex: none;
-  width: 1ch;
+  width: 1.2em;
+  text-align: center;
   color: var(--color-accent);
   opacity: 0;
   transition: opacity var(--duration-state) var(--ease-out);
@@ -127,14 +131,17 @@
 }
 
 .council-well-button {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: var(--space-2);
+  width: 100%;
+  min-height: var(--size-control-height);
   padding: 0;
   border: 0;
   background: none;
   color: var(--color-accent);
   cursor: pointer;
+  transition: color var(--duration-state) var(--ease-out);
 }
 
 .council-verb {
@@ -158,10 +165,26 @@
   font-size: var(--font-size-xs);
 }
 
+@keyframes council-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .council-table tbody tr {
+    animation: none;
+  }
+
   .council-table tbody tr,
   .council-sort-button,
-  .council-sort-arrow {
+  .council-sort-arrow,
+  .council-well-button {
     transition: none;
   }
 }

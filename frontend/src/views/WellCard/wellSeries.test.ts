@@ -39,6 +39,31 @@ const timelineOf = (rows: TimelineWellRow[][], wells: string[]): TimelineFile =>
 });
 
 describe('buildWellSeries', () => {
+  it('reads the row that belongs to the well, not the one sitting in its column', () => {
+    const timeline = timelineOf(
+      [
+        [row({ well: 'W1', liquid_rate: 10 }), row({ well: 'W2', liquid_rate: 98 })],
+        [row({ well: 'W2', liquid_rate: 99 }), row({ well: 'W1', liquid_rate: 11 })]
+      ],
+      ['W1', 'W2']
+    );
+    const [rate] = buildWellSeries(timeline, 'W1');
+    expect(rate.values).toEqual([10, 11]);
+  });
+
+  it('reports a missing row rather than borrowing a neighbour value', () => {
+    const timeline = timelineOf(
+      [
+        [row({ well: 'W1', liquid_rate: 10 }), row({ well: 'W2', liquid_rate: 98 })],
+        [row({ well: 'W2', liquid_rate: 99 })]
+      ],
+      ['W1', 'W2']
+    );
+    const [rate] = buildWellSeries(timeline, 'W1');
+    expect(rate.values).toEqual([10, null]);
+  });
+
+
   it('returns one value per step for each of the three quantities', () => {
     const timeline = timelineOf(
       [[row({ liquid_rate: 10 })], [row({ liquid_rate: 20 })], [row({ liquid_rate: 30 })]],

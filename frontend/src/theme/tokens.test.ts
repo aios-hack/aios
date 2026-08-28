@@ -82,12 +82,17 @@ describe('industrial console tokens', () => {
     expect(new Set(shadows)).toEqual(new Set(['transport', 'backdrop', 'accent', 'accent-hover']));
   });
 
-  it('keeps every corner radius at eight pixels or less (pills excepted)', () => {
-    const radii = [...css.matchAll(/--radius-(?!pill)[\w-]*:\s*(\d+)px/g)].map((m) => Number(m[1]));
-    expect(radii.length).toBeGreaterThan(0);
-    for (const radius of radii) {
-      expect(radius).toBeLessThanOrEqual(8);
+  it('scales the corner radii monotonically so a card reads rounder than a control', () => {
+    const radii = Object.fromEntries(
+      [...css.matchAll(/--radius-(?!pill)([\w-]*):\s*(\d+)px/g)].map((m) => [m[1], Number(m[2])])
+    );
+    for (const name of ['sm', 'md', 'lg', 'xl']) {
+      expect(radii, name).toHaveProperty(name);
     }
+    expect(radii.sm).toBeLessThan(radii.md);
+    expect(radii.md).toBeLessThan(radii.lg);
+    expect(radii.lg).toBeLessThan(radii.xl);
+    expect(radii.xl).toBeLessThanOrEqual(18);
     expect(css).toContain('--radius-pill: 999px');
   });
 
@@ -206,6 +211,17 @@ const contrast = (a: number[], b: number[]): number => {
 
 const flatten = (fg: number[], bg: number[], alpha: number): number[] =>
   fg.map((c, i) => c * alpha + bg[i] * (1 - alpha));
+
+const hueOf = ([r, g, b]: number[]): number => {
+  const [mx, mn] = [Math.max(r, g, b), Math.min(r, g, b)];
+  const d = mx - mn;
+  if (d === 0) {
+    return 0;
+  }
+  const raw =
+    mx === r ? 60 * (((g - b) / d) % 6) : mx === g ? 60 * ((b - r) / d + 2) : 60 * ((r - g) / d + 4);
+  return raw < 0 ? raw + 360 : raw;
+};
 
 const hexToRgb = (hex: string): number[] => {
   const clean = hex.replace('#', '');
@@ -352,6 +368,17 @@ describe('the console scrolls instead of crushing its content', () => {
   });
 });
 
+describe('a colour ramp reads without relying on hue alone', () => {
+  for (const name of ['tokens.light.css', 'tokens.dark.css']) {
+    it(`${name}: the watercut ends differ in lightness, not just in hue`, () => {
+      const css = themeFile(name);
+      const dry = resolve(css, '--scale-watercut-0', [255, 255, 255]);
+      const wet = resolve(css, '--scale-watercut-1', [255, 255, 255]);
+      expect(contrast(dry, wet)).toBeGreaterThanOrEqual(2);
+    });
+  }
+});
+
 describe('text on a group fill stays readable in every group and theme', () => {
   const themes = [
     { name: 'light', css: themeFile('tokens.light.css') },
@@ -359,19 +386,46 @@ describe('text on a group fill stays readable in every group and theme', () => {
   ];
 
   for (const theme of themes) {
-    it(`${theme.name}: white and muted cap text clear 4.5:1 over the scrim`, () => {
-      const scrim = resolve(theme.css, '--color-fill-scrim-mid', [0, 0, 0]);
-      const alpha = Number(readToken(theme.css, '--color-fill-scrim-mid').match(/[\d.]+(?=\s*\)$)/)?.[0]);
-      expect(alpha).toBeGreaterThan(0);
-      const fills = [1, 2, 3, 4, 5, 6].map((n) => resolve(theme.css, `--color-group-${n}`, [255, 255, 255]));
+    it(`${theme.name}: cap text clears 4.5:1 on every group fill without a scrim`, () => {
+      const ink = resolve(theme.css, '--color-on-fill', [255, 255, 255]);
+      const fills = [1, 2, 3, 4, 5, 6].map((n) =>
+        resolve(theme.css, `--color-group-${n}`, [255, 255, 255])
+      );
       expect(fills).toHaveLength(6);
-      const white = resolve(theme.css, '--color-on-fill', [0, 0, 0]);
       for (const fill of fills) {
-        const bg = flatten([0, 0, 0], fill, alpha);
-        expect(contrast(white, bg)).toBeGreaterThanOrEqual(4.5);
-        expect(contrast(flatten(white, bg, 0.94), bg)).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(ink, fill)).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(flatten(ink, fill, 0.9), fill)).toBeGreaterThanOrEqual(4.5);
       }
-      expect(scrim).toBeDefined();
     });
   }
+
+  it('paints a group the same colour in both themes so a site never changes identity', () => {
+    const light = themeFile('tokens.light.css');
+    const dark = themeFile('tokens.dark.css');
+    for (const n of [1, 2, 3, 4, 5, 6]) {
+      expect(readToken(dark, `--color-group-${n}`), `group ${n}`).toBe(
+        readToken(light, `--color-group-${n}`)
+      );
+    }
+  });
+
+  it('spreads the six group hues apart so neighbours stay distinguishable', () => {
+    const css = themeFile('tokens.light.css');
+    const hues = [1, 2, 3, 4, 5, 6].map((n) => hueOf(resolve(css, `--color-group-${n}`, [255, 255, 255])));
+    const sorted = [...hues].sort((a, b) => a - b);
+    for (let i = 0; i < sorted.length; i += 1) {
+      const next = i === sorted.length - 1 ? sorted[0] + 360 : sorted[i + 1];
+      expect(next - sorted[i], `gap after hue ${sorted[i]}`).toBeGreaterThanOrEqual(30);
+    }
+  });
+
+  it('keeps the accent clear of the injection blue so they never read as one colour', () => {
+    for (const name of ['tokens.light.css', 'tokens.dark.css']) {
+      const css = themeFile(name);
+      const accent = hueOf(resolve(css, '--color-accent', [255, 255, 255]));
+      const injection = hueOf(resolve(css, '--color-injection', [255, 255, 255]));
+      const gap = Math.abs(accent - injection);
+      expect(Math.min(gap, 360 - gap), name).toBeGreaterThanOrEqual(30);
+    }
+  });
 });

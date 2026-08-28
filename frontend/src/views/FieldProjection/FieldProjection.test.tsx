@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -545,5 +547,27 @@ describe('FieldProjection view', () => {
     expect(
       container.querySelector('[data-well-id="W3"]')?.getAttribute('data-highlight')
     ).toBe('neighbour');
+  });
+});
+
+describe('the map fits the screen instead of forcing a scroll', () => {
+  const css = readFileSync(join(process.cwd(), 'src', 'views', 'FieldProjection', 'FieldProjection.css'), 'utf-8');
+  const consoleCss = readFileSync(join(process.cwd(), 'src', 'app', 'console.css'), 'utf-8');
+
+  it('caps the square plot against the visible height, not just its width', () => {
+    const block = css.match(/\.field-projection-canvas\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(block).toContain('max-height: var(--size-plot-viewport)');
+  });
+
+  it('measures that ceiling from the chrome it actually sits under', () => {
+    const value = consoleCss.match(/--size-plot-viewport:\s*([^;]+);/)?.[1] ?? '';
+    expect(value).toContain('100vh');
+    expect(value).toContain('var(--h-header)');
+    expect(value).toContain('var(--h-axis-space, var(--h-timeaxis))');
+  });
+
+  it('spends no literal pixel heights on that ceiling', () => {
+    const value = consoleCss.match(/--size-plot-viewport:\s*([^;]+);/)?.[1] ?? '';
+    expect(value).not.toMatch(/\d+px/);
   });
 });

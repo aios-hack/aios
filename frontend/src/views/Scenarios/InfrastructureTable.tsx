@@ -1,8 +1,10 @@
+import type { CSSProperties } from 'react';
 import { useT } from '../../i18n/I18nContext';
 import type { FieldError, PairRow } from './constraints';
 
 interface InfrastructureTableProps {
   rows: PairRow[];
+  index: number;
   errors: FieldError[];
   onChange: (key: string, field: 'name' | 'value', value: string) => void;
   onAdd: () => void;
@@ -11,6 +13,7 @@ interface InfrastructureTableProps {
 
 export const InfrastructureTable = ({
   rows,
+  index,
   errors,
   onChange,
   onAdd,
@@ -23,6 +26,7 @@ export const InfrastructureTable = ({
       className="scenarios-section"
       data-section="infrastructure"
       data-empty={rows.length === 0}
+      style={{ '--scenarios-section-index': index } as CSSProperties}
     >
       <header className="scenarios-section-head">
         <h4 className="scenarios-section-title">{t('scenarios.section.infrastructure')}</h4>

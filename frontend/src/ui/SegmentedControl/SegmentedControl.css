@@ -15,7 +15,7 @@
   top: var(--space-1);
   left: 0;
   height: 30px;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--color-accent);
   transition: transform var(--duration-state) var(--ease-emphasis),
     width var(--duration-state) var(--ease-emphasis),
@@ -37,7 +37,7 @@
   padding: 0 var(--space-4);
   white-space: nowrap;
   border: none;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-muted);
   font-family: var(--font-family-base);

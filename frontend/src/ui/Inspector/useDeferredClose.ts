@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-const CLOSE_MS = 220;
+const CLOSE_MS = 180;
 
 export const useDeferredClose = <T>(
   active: T | null

@@ -31,6 +31,13 @@ export const scenariosFixture: ScenariosFile = {
       self_consistent: true,
       is_submitted: true,
       npv_methodology: 123456789,
+      ood_score: 0.18,
+      ood_threshold: 0.5,
+      worst_regret: {
+        part: 'holdout',
+        scenario_id: 'holdout-outage',
+        value_rub: 201000000
+      },
       constraints: summary()
     },
     {

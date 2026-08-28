@@ -1,8 +1,10 @@
+import type { CSSProperties } from 'react';
 import { useT } from '../../i18n/I18nContext';
 import type { FieldError, YearRow, YearSection } from './constraints';
 
 interface YearSectionTableProps {
   section: YearSection;
+  index: number;
   rows: YearRow[];
   errors: FieldError[];
   onChange: (key: string, field: 'year' | 'value', value: string) => void;
@@ -18,6 +20,7 @@ const errorFor = (
 
 export const YearSectionTable = ({
   section,
+  index,
   rows,
   errors,
   onChange,
@@ -31,6 +34,7 @@ export const YearSectionTable = ({
       className="scenarios-section"
       data-section={section}
       data-empty={rows.length === 0}
+      style={{ '--scenarios-section-index': index } as CSSProperties}
     >
       <header className="scenarios-section-head">
         <h4 className="scenarios-section-title">{t(`scenarios.section.${section}`)}</h4>

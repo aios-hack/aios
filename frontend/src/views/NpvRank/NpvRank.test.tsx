@@ -154,11 +154,73 @@ describe('NpvRank', () => {
     const { container } = await renderView(
       <>
         <NpvRank />
-        <ConsoleInspector scenarioContext={null} onCloseScenario={() => undefined} />
+        <ConsoleInspector />
       </>
     );
     fireEvent.click(rowFor(container, '12'));
     await screen.findByText(ru['wellcard.title'].replace('{well}', '12'));
     expect(screen.getByText(ru['wellcard.params.title'])).toBeTruthy();
+  });
+});
+
+describe('NpvRank row reveal', () => {
+  it('numbers rows in render order so the stagger follows the sort', async () => {
+    const { container } = await renderView(<NpvRank />);
+    const indices = [...container.querySelectorAll('tbody tr')].map((row) =>
+      (row as HTMLElement).style.getPropertyValue('--npv-row-index')
+    );
+    expect(indices).toEqual(['0', '1', '2']);
+  });
+
+  it('renumbers rows after a re-sort so the reveal never runs backwards', async () => {
+    const { container } = await renderView(<NpvRank />);
+    const valueHeader = () =>
+      container.querySelectorAll('.npv-sort-button')[1] as HTMLElement;
+    fireEvent.click(valueHeader());
+
+    const rows = [...container.querySelectorAll('tbody tr')];
+    expect(rows.map((row) => row.getAttribute('data-well-id'))).toEqual([
+      '12',
+      '10',
+      '11'
+    ]);
+    expect(
+      rows.map((row) => (row as HTMLElement).style.getPropertyValue('--npv-row-index'))
+    ).toEqual(['0', '1', '2']);
+  });
+
+  it('caps the stagger index so a long table does not delay its last rows', async () => {
+    const many: NpvFile = {
+      wells: Array.from({ length: 40 }, (_, index) => ({
+        well: String(index),
+        pre_tax: 100 - index,
+        with_allocated_tax: 90 - index
+      })),
+      total: { pre_tax: 1000, with_allocated_tax: 900 },
+      npv_methodology: 900
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve(url.includes('timeline') ? timelineFixture : many)
+        })
+      )
+    );
+
+    const view = render(withProviders(<NpvRank />));
+    await waitFor(() =>
+      expect(view.container.querySelectorAll('tbody tr')).toHaveLength(40)
+    );
+
+    const indices = [...view.container.querySelectorAll('tbody tr')].map((row) =>
+      Number((row as HTMLElement).style.getPropertyValue('--npv-row-index'))
+    );
+    const max = Math.max(...indices);
+    expect(max).toBeLessThanOrEqual(16);
+    expect(indices.filter((value) => value === max).length).toBeGreaterThan(1);
+    expect(indices[indices.length - 1]).toBe(max);
   });
 });
