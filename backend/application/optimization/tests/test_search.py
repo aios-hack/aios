@@ -110,6 +110,15 @@ def test_optimizer_drives_the_task_37_objective_and_improves_it() -> None:
         assert abs(report.best.theta.values[name] - target) < 1e-3, name
 
 
+def test_first_population_spends_one_slot_on_the_declared_start() -> None:
+    counting = _Counting(lambda theta: _feasible_result(_quadratic(theta)))
+    start = _theta()
+
+    optimize(counting, start, seed=42, max_evaluations=20)
+
+    assert counting.seen[0] == start
+
+
 def test_returned_best_carries_the_full_optimizer_result() -> None:
     """Наружу отдаётся не скаляр: `feasible`, `violations_by_scenario` и
     `provenance` доезжают до вызывающей стороны нетронутыми."""

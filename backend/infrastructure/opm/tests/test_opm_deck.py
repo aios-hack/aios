@@ -56,23 +56,49 @@ def test_emits_complete_model_z_without_changing_fixed_layer(tmp_path: Path) -> 
 
     assert len(emitter.source_wells) == 103
     assert _keyword_block(emitted, b"WELSPECS") == _keyword_block(source, b"WELSPECS")
-    assert emitted_parsed.fixed_deck_events == source_parsed.fixed_deck_events
+    source_noncompletion = tuple(
+        event
+        for event in source_parsed.fixed_deck_events
+        if event.operator not in ("COMPDAT", "COMPDATMD")
+    )
+    emitted_noncompletion = tuple(
+        event
+        for event in emitted_parsed.fixed_deck_events
+        if event.operator not in ("COMPDAT", "COMPDATMD")
+    )
+    assert emitted_noncompletion == source_noncompletion
     assert [
         block.raw for block in emitted_parsed.fixed_blocks if block.keyword == "WPIMULT"
     ] == [block.raw for block in source_parsed.fixed_blocks if block.keyword == "WPIMULT"]
 
-    source_compdat = [
+    source_completions = [
         (block.event_date, block.raw)
         for block in source_parsed.fixed_blocks
-        if block.keyword == "COMPDAT"
+        if block.keyword in ("COMPDAT", "COMPDATMD")
     ]
-    emitted_compdat = [
+    emitted_completions = [
         (block.event_date, block.raw)
         for block in emitted_parsed.fixed_blocks
-        if block.keyword == "COMPDAT"
+        if block.keyword in ("COMPDAT", "COMPDATMD")
     ]
-    assert len(source_compdat) == 25
-    assert emitted_compdat == source_compdat
+    assert source_completions
+    if any(block.keyword == "COMPDATMD" for block in source_parsed.blocks):
+        assert emitter.opm_schedule_source is not None
+        assert all(block.keyword != "COMPDATMD" for block in emitted_parsed.blocks)
+        assert b"\nWELLTRACK " not in emitted
+        assert {
+            (block.event_date, event.control_step, event.well)
+            for block in source_parsed.fixed_blocks
+            for event in block.fixed_deck_events
+            if event.operator in ("COMPDAT", "COMPDATMD")
+        } == {
+            (block.event_date, event.control_step, event.well)
+            for block in emitted_parsed.fixed_blocks
+            for event in block.fixed_deck_events
+            if event.operator in ("COMPDAT", "COMPDATMD")
+        }
+    else:
+        assert emitted_completions == source_completions
     assert {event.control_step for event in emitted_parsed.control_events} == set(range(224))
     assert len(artifact.content_hash_opm) == 64
     assert artifact.data_file.is_file()
@@ -80,6 +106,20 @@ def test_emits_complete_model_z_without_changing_fixed_layer(tmp_path: Path) -> 
     assert artifact.summary_plan.wells == emitter.source_wells
     assert len(artifact.summary_plan.connections) == 1368
     assert all(path.is_file() for path in artifact.input_files)
+    for source_file in MODEL_Z.iterdir():
+        if source_file.suffix.lower() not in {".data", ".inc"}:
+            continue
+        if source_file.read_bytes().startswith(b"\xef\xbb\xbf"):
+            assert not (artifact.data_file.parent / source_file.name).read_bytes().startswith(
+                b"\xef\xbb\xbf"
+            )
+    source_grid = (MODEL_Z / "Model_Z_grid.inc").read_bytes()
+    emitted_grid = (artifact.data_file.parent / "Model_Z_grid.inc").read_bytes()
+    for keyword in (b"ARRZONE", b"ARRZONE_4"):
+        marker = b"\n" + keyword + b"\n"
+        if marker in source_grid:
+            assert marker not in emitted_grid
+            assert b"removed tNavigator-only " + keyword in emitted_grid
 
     summary = artifact.summary_file.read_bytes()
     for keyword in (*OPM_WELL_SUMMARY_KEYS, *OPM_CONNECTION_SUMMARY_KEYS):

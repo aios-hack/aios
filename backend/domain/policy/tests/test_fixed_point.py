@@ -92,6 +92,23 @@ def test_a_stationary_policy_converges_on_the_first_comparison() -> None:
     assert recorder.calls == 1
 
 
+def test_ood_score_survives_the_fixed_point_boundary() -> None:
+    recorder = Recorder()
+
+    def npv_of(schedule: Schedule) -> Evaluation:
+        return Evaluation(npv=100.0, state=10.0, ood_score=0.125)
+
+    result = resolve(
+        policy=constant_policy(10.0),
+        evaluator=npv_evaluator(recorder, npv_of),
+        initial_state=10.0,
+        iteration_cap=2,
+    )
+
+    assert result.ood_score == pytest.approx(0.125)
+    assert result.visited[0].ood_score == pytest.approx(0.125)
+
+
 def test_convergence_is_decided_by_the_hash_not_by_the_iteration_count() -> None:
     recorder = Recorder()
     seen: list[str] = []
@@ -150,8 +167,9 @@ def test_an_oscillating_input_does_not_loop_forever() -> None:
         iteration_cap=6,
     )
     assert result.converged is False
-    assert result.iterations == 6
-    assert len(result.visited) == 6
+    assert result.iterations == 2
+    assert len(result.visited) == 2
+    assert recorder.calls == 3  # two cycle nodes plus one honest reevaluation
 
 
 def test_hitting_the_cap_reports_not_converged() -> None:
@@ -189,7 +207,7 @@ def test_at_the_cap_the_best_by_npv_is_reevaluated_once_more() -> None:
     )
     assert result.converged is False
     assert result.schedule_hash == hash_schedule(schedule_with(2.0))
-    assert recorder.calls == 5
+    assert recorder.calls == 3
 
 
 def test_the_reported_npv_comes_from_the_final_reevaluation() -> None:

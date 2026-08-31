@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -45,6 +46,8 @@ class ScenarioRobustness:
     worst_regret: WorstRegret | None = None
     final_npv_rub: float | None = None
     final_npv_run_id: str | None = None
+    predicted_npv_rub: float | None = None
+    run_validation_clean: bool | None = None
 
     def __post_init__(self) -> None:
         if (self.final_npv_rub is None) != (self.final_npv_run_id is None):
@@ -56,6 +59,14 @@ class ScenarioRobustness:
             raise ValueError(
                 "ood_score без ood_threshold нечитаем: порог задаёт, что значит «вне области»"
             )
+        if self.predicted_npv_rub is not None and not math.isfinite(
+            self.predicted_npv_rub
+        ):
+            raise ValueError("predicted_npv_rub должен быть конечным числом")
+        if self.run_validation_clean is not None and not isinstance(
+            self.run_validation_clean, bool
+        ):
+            raise ValueError("run_validation_clean должен быть bool или null")
 
 
 def _robustness_json(robustness: ScenarioRobustness) -> dict[str, Any]:
@@ -81,6 +92,8 @@ def _robustness_json(robustness: ScenarioRobustness) -> dict[str, Any]:
             }
         ),
         "final_npv": final_npv,
+        "predicted_npv_rub": robustness.predicted_npv_rub,
+        "run_validation_clean": robustness.run_validation_clean,
     }
 
 

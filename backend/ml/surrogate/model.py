@@ -17,6 +17,9 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import sys
+import types
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Mapping, MutableMapping, Sequence
@@ -60,9 +63,10 @@ WATERCUT_TARGET_NAMES: tuple[str, ...] = (
     "injection_rate",
     "bhp",
 )
-# Обводнённость выше единицы означает переток (отрицательная нефть); потолок
-# держит декодирование в пределах, где `_BACKFLOW_FLOOR` ещё осмыслен.
-_WATERCUT_CEILING = 1.5
+# A trajectory used by the optimizer must not manufacture negative oil via a
+# watercut above one.  Older training targets contained such export artefacts,
+# but the production checkpoints were decoded with the physical ceiling.
+_WATERCUT_CEILING = 1.0
 
 _SCENARIO_CONTEXTS: tuple[object, ...] = (False, True, "mean", "rich")
 _LOSSES: tuple[str, ...] = ("smooth_l1", "mse", "huber")
@@ -97,6 +101,7 @@ _SELECTION_CRITERIA: tuple[str, ...] = ("loss", "money", "rank")
 # сразу, а если доля таких интервалов превысит `_BACKFLOW_SHARE_LIMIT`, падает
 # на сборке тензоров — замеренная доля 0.0031%, порог в 320 раз выше неё.
 _ROUNDOFF_TOLERANCE = 1e-3
+_INFERENCE_BATCH_SIZE = 65_536
 _BACKFLOW_FIELDS = frozenset({"oil_mass_delta"})
 _BACKFLOW_FLOOR = -1e3  # т за месяц; крупнее — это не переток, а баг
 _BACKFLOW_SHARE_LIMIT = 0.01
@@ -115,6 +120,37 @@ _NUMERIC_NAMES: tuple[str, ...] = (
 
 class SurrogateModelError(ValueError):
     """Training data, checkpoint, or candidate axes are inconsistent."""
+
+
+@contextmanager
+def _legacy_checkpoint_modules():
+    """Map pre-refactor pickle names to the current package during loading.
+
+    Production checkpoints persist :class:`TrainingDomain` as
+    ``surrogate.ood.TrainingDomain``.  Importing that old package in the new
+    backend can accidentally execute an unrelated editable checkout.  The
+    mapping is deliberately narrow and restored immediately after
+    ``torch.load``.
+    """
+
+    from backend.ml.surrogate import ood as current_ood
+
+    names = ("surrogate", "surrogate.ood")
+    previous = {name: sys.modules.get(name) for name in names}
+    legacy_package = types.ModuleType("surrogate")
+    legacy_package.__path__ = []  # type: ignore[attr-defined]
+    legacy_package.ood = current_ood  # type: ignore[attr-defined]
+    sys.modules["surrogate"] = legacy_package
+    sys.modules["surrogate.ood"] = current_ood
+    try:
+        yield
+    finally:
+        for name in names:
+            old = previous[name]
+            if old is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = old
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,6 +185,13 @@ class ModelConfig:
     huber_delta: float = 0.1
     residual: bool = False
     scenario_context: object = False
+    # Training-only ranking settings are persisted in production checkpoints.
+    # Runtime inference does not use them, but keeping them in the contract is
+    # required to reconstruct and fingerprint those checkpoints exactly.
+    ranking_loss_weight: float = 0.0
+    ranking_top_weighted: bool = False
+    ranking_scenarios_per_batch: int = 48
+    ranking_nodes_per_scenario: int = 4096
 
     def __post_init__(self) -> None:
         if self.hidden_width < 1 or self.hidden_layers < 1:
@@ -186,6 +229,16 @@ class ModelConfig:
             raise SurrogateModelError(f"loss: {', '.join(_LOSSES)}")
         if self.scenario_context not in _SCENARIO_CONTEXTS:
             raise SurrogateModelError("scenario_context: False, True, 'mean' или 'rich'")
+        if self.ranking_loss_weight < 0.0:
+            raise SurrogateModelError("ranking_loss_weight не может быть отрицательным")
+        if self.ranking_scenarios_per_batch < 2:
+            raise SurrogateModelError(
+                "ranking_scenarios_per_batch должен быть не меньше двух"
+            )
+        if self.ranking_nodes_per_scenario < 1:
+            raise SurrogateModelError(
+                "ranking_nodes_per_scenario должен быть положительным"
+            )
         if not self.huber_delta > 0.0:
             raise SurrogateModelError("huber_delta должна быть положительной")
 
@@ -1124,17 +1177,37 @@ class TrajectorySurrogate:
         )
 
     def predict(self, candidate: SurrogateInput) -> ScoredPrediction:
+        return predict_with_score(self._predict_output(candidate), candidate, self.domain)
+
+    def _predict_output(self, candidate: SurrogateInput) -> RawModelOutput:
+        """Physical prediction without OOD scoring for ensemble orchestration."""
+
         if candidate.static_feature_names != self.static_feature_names:
             raise SurrogateModelError("статика кандидата не совпадает с checkpoint")
         x, well_index = _features(
             candidate, self.wells, scenario_context=self.config.scenario_context
         )
+        return self._predict_output_from_features(candidate, x, well_index)
+
+    def _predict_output_from_features(
+        self, candidate: SurrogateInput, x: Tensor, well_index: Tensor
+    ) -> RawModelOutput:
+        """Decode an already featureized candidate (shared by an ensemble)."""
+
+        if candidate.static_feature_names != self.static_feature_names:
+            raise SurrogateModelError("статика кандидата не совпадает с checkpoint")
         x = self.input_scaler.transform(x)
         self.network.eval()
         chunks: list[Tensor] = []
         with torch.no_grad():
-            for start in range(0, len(x), self.config.batch_size):
-                stop = start + self.config.batch_size
+            # Training batch size is an optimization hyperparameter, not an
+            # inference contract. A complete Model Z scenario has about 23k
+            # rows; replaying it in tiny training batches made every
+            # fixed-point evaluation needlessly expensive. The network uses
+            # row-local LayerNorm, so larger inference batches are equivalent.
+            batch_size = max(self.config.batch_size, _INFERENCE_BATCH_SIZE)
+            for start in range(0, len(x), batch_size):
+                stop = start + batch_size
                 chunks.append(self.network(x[start:stop], well_index[start:stop]))
         standardized = torch.cat(chunks)
         decoded = torch.expm1(self.target_scaler.inverse(standardized)).clamp_min(0.0)
@@ -1146,7 +1219,7 @@ class TrajectorySurrogate:
                 # Нефть выводится тождеством контракта, а не предсказывается:
                 # это гарантирует согласованность с жидкостью по построению.
                 liquid, watercut, injection, liquid_rate, injection_rate, bhp = values
-                watercut = min(watercut, _WATERCUT_CEILING)
+                watercut = min(max(watercut, 0.0), _WATERCUT_CEILING)
                 oil = liquid * (1.0 - watercut) * self.config.oil_density_t_per_m3
             else:
                 oil, liquid, injection, liquid_rate, injection_rate, bhp = values
@@ -1172,12 +1245,11 @@ class TrajectorySurrogate:
                     bhp=bhp,
                 )
             )
-        output = RawModelOutput(
+        return RawModelOutput(
             canonical_schedule_hash=candidate.canonical_schedule_hash,
             wells=candidate.wells,
             nodes=tuple(nodes),
         )
-        return predict_with_score(output, candidate, self.domain)
 
     def _fingerprint(self, config: dict | None = None) -> str:
         """Отпечаток весов и метаданных checkpoint.
@@ -1227,7 +1299,8 @@ class TrajectorySurrogate:
 
     @classmethod
     def load(cls, path: Path | str) -> "TrajectorySurrogate":
-        payload = torch.load(Path(path), map_location="cpu", weights_only=False)
+        with _legacy_checkpoint_modules():
+            payload = torch.load(Path(path), map_location="cpu", weights_only=False)
         if payload.get("format") != cls.CHECKPOINT_FORMAT:
             raise SurrogateModelError(f"неизвестный формат checkpoint: {payload.get('format')!r}")
         config = ModelConfig(**payload["config"])

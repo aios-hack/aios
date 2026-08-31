@@ -71,7 +71,7 @@ def _block_stats(
         n_dates=n_dates,
         n_wconprod_blocks=counts.get("WCONPROD", 0),
         n_wconinje_blocks=counts.get("WCONINJE", 0),
-        n_compdat_blocks=counts.get("COMPDAT", 0),
+        n_compdat_blocks=counts.get("COMPDAT", 0) + counts.get("COMPDATMD", 0),
         n_wpimult_blocks=counts.get("WPIMULT", 0),
         dropped_control_blocks=dropped,
     )

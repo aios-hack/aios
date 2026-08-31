@@ -30,6 +30,7 @@ from conftest import base_run_dir, base_run_output_dir, missing_reason
 from backend.domain.schedule.validate_dynamic import (
     ACHIEVEMENT_THRESHOLD,
     DYNAMIC_VIOLATION_KINDS,
+    BLOCKING_DYNAMIC_VIOLATION_KINDS,
     DynamicValidationError,
     FIRST_CONTROL_DECK_DATE_INDEX,
     INJECTOR_MAX_BHP_BAR,
@@ -162,6 +163,13 @@ def test_dynamic_kinds_live_in_the_static_enum() -> None:
     for kind in DYNAMIC_VIOLATION_KINDS:
         assert isinstance(kind, ViolationKind)
         assert getattr(ViolationKind, kind.name) is kind
+
+
+def test_blocking_kinds_are_a_physical_subset_of_all_diagnostics() -> None:
+    assert BLOCKING_DYNAMIC_VIOLATION_KINDS < DYNAMIC_VIOLATION_KINDS
+    assert ViolationKind.WATER_SUPPLY_LIMIT_EXCEEDED in BLOCKING_DYNAMIC_VIOLATION_KINDS
+    assert ViolationKind.OPEN_WITHOUT_FLOW not in BLOCKING_DYNAMIC_VIOLATION_KINDS
+    assert ViolationKind.NEGATIVE_INTERVAL_DELTA not in BLOCKING_DYNAMIC_VIOLATION_KINDS
 
 
 def test_target_ratio_only_for_active_wells_with_positive_setpoint() -> None:
@@ -406,6 +414,60 @@ def test_watercut_limit_needs_density_and_is_reported() -> None:
         schedule, states, responses, constraints, oil_density_t_per_m3=0.9
     )
     assert report.counts()[ViolationKind.WATERCUT_LIMIT_EXCEEDED] == 1
+
+
+def test_injection_cannot_exceed_produced_water_without_external_source() -> None:
+    schedule = make_schedule(
+        {"P1": producer(50.0), "I1": injector(80.0)}, n_intervals=1
+    )
+    states = (
+        state(0, "P1", liquid_rate=50.0),
+        state(0, "I1", injection_rate=80.0),
+    )
+    responses = (
+        interval(0, "P1", oil=45.0, liquid=100.0),
+        interval(0, "I1", injection=60.0),
+    )
+    constraints = Constraints(
+        infrastructure={"water_reinjection_fraction": 1.0}
+    )
+
+    report = validate_dynamic(
+        schedule, states, responses, constraints, oil_density_t_per_m3=0.9
+    )
+
+    assert report.counts()[ViolationKind.WATER_SUPPLY_LIMIT_EXCEEDED] == 1
+
+
+def test_external_water_and_lag_are_accounted_in_volume_balance() -> None:
+    schedule = make_schedule(
+        {"P1": producer(50.0), "I1": injector(80.0)}, n_intervals=2
+    )
+    states = (
+        state(0, "P1", liquid_rate=50.0),
+        state(0, "I1", injection_rate=80.0),
+        state(1, "P1", liquid_rate=50.0),
+        state(1, "I1", injection_rate=80.0),
+    )
+    responses = (
+        interval(0, "P1", oil=0.0, liquid=100.0),
+        interval(0, "I1", injection=31.0),
+        interval(1, "P1", oil=0.0, liquid=100.0),
+        interval(1, "I1", injection=128.0),
+    )
+    constraints = Constraints(
+        infrastructure={
+            "water_reinjection_fraction": 1.0,
+            "water_reinjection_lag_steps": 1,
+            "external_water_m3_per_day": 1.0,
+        }
+    )
+
+    report = validate_dynamic(
+        schedule, states, responses, constraints, oil_density_t_per_m3=0.9
+    )
+
+    assert ViolationKind.WATER_SUPPLY_LIMIT_EXCEEDED not in report.counts()
 
 
 def test_clean_response_has_no_violations_and_raises_nothing() -> None:

@@ -59,6 +59,7 @@ from .replay import (
 from .validate_dynamic import (
     ACHIEVEMENT_THRESHOLD,
     DYNAMIC_VIOLATION_KINDS,
+    BLOCKING_DYNAMIC_VIOLATION_KINDS,
     DynamicReport,
     DynamicValidationError,
     INJECTOR_MAX_BHP_BAR,
@@ -97,6 +98,7 @@ from .validate import (
 __all__ = [
     "ACHIEVEMENT_THRESHOLD",
     "DYNAMIC_VIOLATION_KINDS",
+    "BLOCKING_DYNAMIC_VIOLATION_KINDS",
     "DynamicReport",
     "DynamicValidationError",
     "INJECTOR_MAX_BHP_BAR",

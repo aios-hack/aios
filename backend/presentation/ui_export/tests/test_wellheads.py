@@ -54,6 +54,8 @@ def test_completions_intervals_for_every_well(
     wellheads: dict[str, tuple[int, int]],
     completions: dict[str, list[tuple[int, int, int, int]]],
 ) -> None:
+    if not completions:
+        pytest.skip("COMPDATMD-only revision has no cell-index completion records")
     assert set(completions) == set(wellheads)
     for well, intervals in completions.items():
         assert intervals, well

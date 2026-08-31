@@ -24,6 +24,8 @@ ROBUSTNESS_FIELDS: tuple[str, ...] = (
     "ood_threshold",
     "worst_regret",
     "final_npv",
+    "predicted_npv_rub",
+    "run_validation_clean",
 )
 
 
@@ -272,6 +274,8 @@ def test_measured_robustness_lands_in_the_entry(tmp_path: Path) -> None:
                     value_rub=201_000_000.0,
                     part="holdout",
                 ),
+                predicted_npv_rub=12_345_678_900.0,
+                run_validation_clean=True,
             )
         },
     )["scenarios"][0]
@@ -283,6 +287,8 @@ def test_measured_robustness_lands_in_the_entry(tmp_path: Path) -> None:
         "part": "holdout",
     }
     assert entry["final_npv"] is None
+    assert entry["predicted_npv_rub"] == 12_345_678_900.0
+    assert entry["run_validation_clean"] is True
 
 
 def test_final_npv_is_a_number_together_with_its_run(tmp_path: Path) -> None:

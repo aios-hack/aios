@@ -100,6 +100,17 @@ const regretIndicator = (scenario: ScenarioEntry): TrustIndicator => {
 const numberIndicator = (scenario: ScenarioEntry): TrustIndicator => {
   const final = scenario.final_npv;
   if (!final || !isMeasured(final.npv_rub)) {
+    if (isMeasured(scenario.predicted_npv_rub)) {
+      return {
+        id: 'number',
+        status: 'unmeasured',
+        labelKey: 'trust.label.number',
+        valueKey: 'trust.number.forecastValue',
+        valueParams: { value: scenario.predicted_npv_rub },
+        briefKey: 'trust.number.forecast',
+        spoken: true
+      };
+    }
     return {
       id: 'number',
       status: 'unmeasured',
@@ -115,8 +126,12 @@ const numberIndicator = (scenario: ScenarioEntry): TrustIndicator => {
     valueKey: 'trust.number.confirmed',
     valueParams: { run: final.run_id },
     briefKey: 'trust.brief.confirmed',
-    detailKey: 'trust.number.confirmedValue',
-    detailParams: { value: final.npv_rub }
+    detailKey: isMeasured(scenario.predicted_npv_rub)
+      ? 'trust.number.confirmedComparison'
+      : 'trust.number.confirmedValue',
+    detailParams: isMeasured(scenario.predicted_npv_rub)
+      ? { value: final.npv_rub, predicted: scenario.predicted_npv_rub }
+      : { value: final.npv_rub }
   };
 };
 

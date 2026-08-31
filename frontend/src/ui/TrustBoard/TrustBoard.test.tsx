@@ -114,6 +114,17 @@ describe('TrustBoard number indicator', () => {
     expect(item(board, 'number').textContent).toContain(ru['trust.number.forecast']);
   });
 
+  it('shows the surrogate NPV while keeping it explicitly unconfirmed', async () => {
+    const board = await renderBoard([
+      scenario({ predicted_npv_rub: 12_345_678_900, final_npv: null })
+    ]);
+    const number = item(board, 'number');
+
+    expect(number.getAttribute('title')).toContain('12');
+    expect(number.getAttribute('title')).toContain('OPM');
+    expect(number.getAttribute('data-status')).toBe('unmeasured');
+  });
+
   it('reports a confirmed computation with its run identifier when final_npv is filled', async () => {
     const board = await renderBoard([
       scenario({ final_npv: { npv_rub: 10786000000, run_id: 'run-7f3a' } })
@@ -126,6 +137,22 @@ describe('TrustBoard number indicator', () => {
     );
     expect(number.getAttribute('data-status')).toBe('neutral');
     expect(number.textContent).not.toContain(ru['trust.number.forecast']);
+  });
+
+  it('compares a confirmed OPM number with the retained raw surrogate forecast', async () => {
+    const board = await renderBoard([
+      scenario({
+        predicted_npv_rub: 10_535_339_439,
+        final_npv: { npv_rub: 7_714_360_867, run_id: 'run-opm' }
+      })
+    ]);
+    const title = item(board, 'number').getAttribute('title') ?? '';
+
+    expect(title).toContain('OPM');
+    expect(title).toContain('raw-суррогат');
+    expect(title).toContain('OOD');
+    expect(title).toContain('10');
+    expect(title).toContain('7');
   });
 });
 

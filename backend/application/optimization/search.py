@@ -319,12 +319,19 @@ def optimize(
         deviations = [math.sqrt(value) for value in eigenvalues]
 
         offspring: list[tuple[tuple[float, ...], tuple[float, ...], Evaluation]] = []
-        for _ in range(population):
-            normal = [rng.gauss(0.0, 1.0) for _ in range(size)]
-            scaled = [deviations[i] * normal[i] for i in range(size)]
-            step = matrix_vector(basis, scaled)
-            raw = [mean[i] + sigma * step[i] for i in range(size)]
-            unit = tuple(_reflect(value) for value in raw)
+        for member_index in range(population):
+            if generation == 1 and member_index == 0:
+                # The declared start is prior knowledge, not merely the centre
+                # of a random cloud.  Spending one existing population slot on
+                # it guarantees a known-safe reference without exceeding the
+                # evaluation budget.
+                unit = tuple(mean)
+            else:
+                normal = [rng.gauss(0.0, 1.0) for _ in range(size)]
+                scaled = [deviations[i] * normal[i] for i in range(size)]
+                step = matrix_vector(basis, scaled)
+                raw = [mean[i] + sigma * step[i] for i in range(size)]
+                unit = tuple(_reflect(value) for value in raw)
 
             theta = space.to_theta(unit, start)
             evaluation = Evaluation(theta=theta, result=objective(theta))

@@ -14,6 +14,7 @@ class Evaluator(Protocol):
 class Evaluation:
     npv: float
     state: object
+    ood_score: float | None = None
 
 
 Policy = Callable[[object], Schedule]
@@ -25,6 +26,7 @@ class Visited:
     schedule: Schedule
     schedule_hash: str
     npv: float
+    ood_score: float | None = None
 
     def __post_init__(self) -> None:
         if self.iteration < 0:
@@ -40,6 +42,7 @@ class FixedPointResult:
     self_consistent: bool
     iterations: int
     visited: tuple[Visited, ...]
+    ood_score: float | None = None
 
     def __post_init__(self) -> None:
         if self.iterations < 0:
@@ -75,6 +78,7 @@ def resolve(
     schedule = policy(initial_state)
     current_hash = hash_schedule(schedule)
     visited: list[Visited] = []
+    seen_hashes = {current_hash}
     for iteration in range(iteration_cap):
         evaluation = evaluator(schedule)
         visited.append(
@@ -83,6 +87,7 @@ def resolve(
                 schedule=schedule,
                 schedule_hash=current_hash,
                 npv=evaluation.npv,
+                ood_score=evaluation.ood_score,
             )
         )
         proposed = policy(evaluation.state)
@@ -96,9 +101,19 @@ def resolve(
                 self_consistent=True,
                 iterations=iteration + 1,
                 visited=tuple(visited),
+                ood_score=evaluation.ood_score,
+            )
+        if proposed_hash in seen_hashes:
+            # Deterministic policy/evaluator pair has entered a strict cycle.
+            # More iterations can only replay the same schedules and cannot
+            # produce a fixed point, so reevaluate the best visited candidate
+            # once and stop wasting expensive surrogate/OPM calls.
+            return _reevaluated_best(
+                policy, evaluator, tuple(visited), iteration + 1
             )
         schedule = proposed
         current_hash = proposed_hash
+        seen_hashes.add(current_hash)
     return _reevaluated_best(policy, evaluator, tuple(visited), iteration_cap)
 
 
@@ -119,4 +134,5 @@ def _reevaluated_best(
         self_consistent=reaction_hash == best.schedule_hash,
         iterations=iterations,
         visited=visited,
+        ood_score=final.ood_score,
     )

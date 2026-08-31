@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import math
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -51,6 +53,23 @@ def test_order_is_canonical_not_by_contribution() -> None:
     artifact = make_synthetic_artifact()
     wells = [row["well"] for row in build_npv_by_well(artifact)["wells"]]
     assert wells == sorted(artifact.npv_table.by_well)
+
+
+def test_horizon_well_rows_with_nan_df_export_finite_exact_totals() -> None:
+    artifact = make_synthetic_artifact()
+    table = artifact.npv_table
+    by_well = {
+        well: replace(items, df=float("nan")) for well, items in table.by_well.items()
+    }
+    artifact = replace(artifact, npv_table=replace(table, by_well=by_well))
+
+    data = build_npv_by_well(artifact)
+
+    assert all(math.isfinite(row["pre_tax"]) for row in data["wells"])
+    expected_pre_tax = sum(
+        items.discounted_fcf for items in table.by_well.values()
+    ) + sum(items.income_tax * items.df for items in table.by_year.values())
+    assert data["total"]["pre_tax"] == pytest.approx(expected_pre_tax)
 
 
 def test_export_round_trip(tmp_path: Path) -> None:

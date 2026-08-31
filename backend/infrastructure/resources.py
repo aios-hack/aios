@@ -10,10 +10,16 @@ from backend.core.paths import project_root
 DOCS_ROOT_ENV_VAR = "AIOS_DOCS_ROOT"
 
 
-def find_docs_root() -> Path | None:
+def _candidate_docs_roots() -> tuple[Path, ...]:
     configured = os.environ.get(DOCS_ROOT_ENV_VAR)
-    candidates = (Path(configured),) if configured else (project_root().parent / "docs",)
-    for candidate in candidates:
+    if configured:
+        return (Path(configured),)
+    workspace = project_root().parent
+    return (workspace / "docs", workspace / "docs-src")
+
+
+def find_docs_root() -> Path | None:
+    for candidate in _candidate_docs_roots():
         if (candidate / "models").is_dir():
             return candidate
     return None
@@ -33,7 +39,13 @@ def model_z_dir() -> Path:
 
 
 def chdd_python_dir() -> Path:
-    return docs_root() / "models" / "CHDD_PYTHON"
+    for root in _candidate_docs_roots():
+        candidate = root / "models" / "CHDD_PYTHON"
+        if (candidate / "chdd_model.py").is_file():
+            return candidate
+    raise FileNotFoundError(
+        f"Organizer CHDD_PYTHON not found. Set {DOCS_ROOT_ENV_VAR} to its docs directory."
+    )
 
 
 def normatives_xlsx() -> Path:

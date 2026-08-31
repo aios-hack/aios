@@ -21,7 +21,14 @@ from .config import (
     QuantizationPolicy,
 )
 from .connectivity import Groups, Lambda
-from .constraints import Constraints, WellOutage
+from .constraints import (
+    CompensationPolicy,
+    Constraints,
+    WaterSupplyPolicy,
+    WellOutage,
+    compensation_policy,
+    water_supply_policy,
+)
 from .economics import LineItems, NpvTable
 from .hashing import canonical_bytes, canonical_schedule_hash, content_hash, hash_schedule
 from .policy import OptimizerResult, Rule, ScenarioViolation, Theta, TraceEntry
@@ -72,6 +79,7 @@ __all__ = [
     "canonical_schedule_hash",
     "ChargeInitialEsp",
     "Config",
+    "CompensationPolicy",
     "Constraints",
     "content_hash",
     "ControlEvent",
@@ -117,6 +125,9 @@ __all__ = [
     "Theta",
     "TraceEntry",
     "watercut",
+    "compensation_policy",
+    "water_supply_policy",
+    "WaterSupplyPolicy",
     "WellOutage",
     "WellState",
 ]

@@ -30,6 +30,40 @@ DEFAULT_DECK_PATH: Path = default_deck_path()
 DEFAULT_OUT_PATH: Path = project_root() / "frontend" / "public" / "data" / "wells.json"
 
 
+def _packaged_geometry(heads: dict[str, tuple[int, int]]) -> dict[str, Any] | None:
+    """Use the audited cell-index geometry for a COMPDATMD-only deck.
+
+    COMPDATMD contains measured depth, not I/J/K cells; converting it requires
+    a trajectory/grid intersection engine and must not be approximated in the
+    UI exporter.  The repository ships geometry generated from the equivalent
+    cell-index Model Z revision.  It is accepted only when every wellhead id
+    and I/J coordinate matches the current deck.
+    """
+
+    path = DEFAULT_OUT_PATH
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    wells = data.get("wells")
+    if not isinstance(wells, list):
+        return None
+    packaged_heads = {
+        str(item.get("id")): (item.get("i"), item.get("j"))
+        for item in wells
+        if isinstance(item, dict)
+    }
+    if packaged_heads != heads:
+        return None
+    return {
+        "grid": data["grid"],
+        "layers": data["layers"],
+        "wells": wells,
+    }
+
+
 def occupied_k_values(completions: dict[str, list[tuple[int, int, int, int]]]) -> list[int]:
     occupied: set[int] = set()
     for intervals in completions.values():
@@ -56,6 +90,15 @@ def split_layers(occupied: list[int]) -> tuple[int, int]:
 def build_wells_data(deck_path: str | Path = DEFAULT_DECK_PATH) -> dict[str, Any]:
     heads = load_wellheads(deck_path)
     completions = load_completions(deck_path)
+    if not completions:
+        packaged = _packaged_geometry(heads)
+        if packaged is not None:
+            return packaged
+        raise ValueError(
+            "deck has no cell-index COMPDAT records and no matching audited "
+            "packaged geometry; COMPDATMD cannot be converted to K cells without "
+            "trajectory/grid intersection"
+        )
     occupied = occupied_k_values(completions)
     layer1_max, layer2_min = split_layers(occupied)
     wells: list[dict[str, Any]] = []

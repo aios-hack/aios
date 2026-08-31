@@ -1,0 +1,15 @@
+{
+  "canonical_schedule_hash": "411bb7207e1689c53d7e38c0c18f6e3b6db8e60857682670f5b4359e0f433ba9",
+  "observation_dir": "data/opm-observations/411bb7207e1689c53d7e38c0c18f6e3b6db8e60857682670f5b4359e0f433ba9",
+  "opm_npv_rub": 7714360866.503498,
+  "raw_surrogate_npv_rub": 10535339439.046623,
+  "economic_ood_score": 2.0506229024394127,
+  "economic_ood_threshold": 0.0,
+  "sound": true,
+  "water": {
+    "integral_injection_to_produced_water": 0.861781,
+    "p90_injection_to_produced_water": 0.867379,
+    "maximum_injection_to_produced_water": 0.969160,
+    "blocking_violations": 0
+  }
+}

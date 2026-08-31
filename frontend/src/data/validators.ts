@@ -125,6 +125,7 @@ const isScenarioEntry = (data: unknown): boolean =>
   isRecord(data.constraints) &&
   isOptionalNum(data.ood_score) &&
   isOptionalNum(data.ood_threshold) &&
+  isOptionalNum(data.predicted_npv_rub) &&
   isWorstRegret(data.worst_regret) &&
   isFinalNpv(data.final_npv);
 
@@ -221,5 +222,4 @@ export const isHierarchyFile = (data: unknown): data is HierarchyFile =>
   data.ungrouped.every(isStr) &&
   isFilledArray(data.steps) &&
   data.steps.every(isHierarchyStep);
-
 

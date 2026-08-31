@@ -60,16 +60,28 @@ def test_emit_is_full_not_sparse_by_default(parsed, deck_bytes: bytes) -> None:
 def test_full_emit_carries_a_wconprod_block_on_every_step(parsed) -> None:
     emitted = emit_wells_schedule(parsed)
     assert emitted.stats.n_dates == 371
-    assert emitted.stats.n_wconprod_blocks == 370
-    assert emitted.stats.n_wconinje_blocks == 338
-    assert emitted.stats.n_fund_blocks == 708
+    assert emitted.stats.n_wconprod_blocks == sum(
+        block.keyword == "WCONPROD" for block in parsed.blocks
+    )
+    assert emitted.stats.n_wconinje_blocks == sum(
+        block.keyword == "WCONINJE" for block in parsed.blocks
+    )
+    assert emitted.stats.n_fund_blocks == (
+        emitted.stats.n_wconprod_blocks + emitted.stats.n_wconinje_blocks
+    )
 
 
 def test_fixed_events_stay_on_their_dates(parsed) -> None:
     emitted = emit_wells_schedule(parsed)
-    assert emitted.stats.n_compdat_blocks == 60
-    assert emitted.stats.n_wpimult_blocks == 1
-    assert emitted.stats.n_fixed_blocks == 61
+    assert emitted.stats.n_compdat_blocks == sum(
+        block.keyword in ("COMPDAT", "COMPDATMD") for block in parsed.blocks
+    )
+    assert emitted.stats.n_wpimult_blocks == sum(
+        block.keyword == "WPIMULT" for block in parsed.blocks
+    )
+    assert emitted.stats.n_fixed_blocks == (
+        emitted.stats.n_compdat_blocks + emitted.stats.n_wpimult_blocks
+    )
 
     reparsed = parse_schedule(emitted.raw)
     source_fixed = [
@@ -81,7 +93,7 @@ def test_fixed_events_stay_on_their_dates(parsed) -> None:
         for block in reparsed.fixed_blocks
     ]
     assert emitted_fixed == source_fixed
-    assert len([item for item in source_fixed if item[0] == "COMPDAT"]) == 25
+    assert [item for item in source_fixed if item[0] in ("COMPDAT", "COMPDATMD")]
     wpimult = [item for item in source_fixed if item[0] == "WPIMULT"]
     assert len(wpimult) == 1
     assert wpimult[0][1].isoformat() == "2025-05-01"

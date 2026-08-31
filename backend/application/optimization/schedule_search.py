@@ -63,6 +63,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
@@ -84,7 +85,9 @@ from backend.core.contracts import (
     Schedule,
     Theta,
     canonical_bytes,
+    compensation_policy,
     hash_schedule,
+    water_supply_policy,
 )
 from backend.domain.connectivity.groups import GroupingParams, group_hash, lambda_hash
 from backend.domain.economics import analyze_base_case, load_normatives, load_response_artifact
@@ -98,9 +101,11 @@ from backend.domain.policy.trace import RunTrace
 from backend.domain.schedule import build_schedule, parse_schedule
 from backend.domain.schedule.canonical import canonicalize
 from backend.ml.surrogate.adapter import ResponseAdapter
+from backend.ml.surrogate.ensemble import TrajectoryEnsemble
 from backend.ml.surrogate.features import ScheduleFeatureizer
 from backend.ml.surrogate.model import TrajectorySurrogate
 from backend.ml.surrogate.model_z_context import ModelZFeatureArtifact
+from backend.ml.surrogate.npv_head import ScenarioNpvHead
 
 _UNCONSTRAINED_FIELD_LIMIT_M3_PER_DAY = 1.0e7
 
@@ -111,12 +116,33 @@ _UNCONSTRAINED_FIELD_LIMIT_M3_PER_DAY = 1.0e7
 #: проигнорирует (прогон G7 20.08: 22 скважины остались закрытыми, 1553
 #: нарушения MODE_CONTRADICTS_SCHEDULE).
 PHYSICAL_HEADROOM = 1.2
+SETPOINT_STEP_M3_PER_DAY = 1.0
+WATER_COMMAND_SAFETY_FACTOR = 0.95
 _HISTORY_DECK_OFFSET = 146  # README.md §5: deck_date_index шага = 146 + control_step
 _SCHEDULE_INCLUDE = "Model_Z_sch.inc"
 
 
 class ScheduleSearchError(ValueError):
     pass
+
+
+def _validate_npv_head_compatibility(
+    npv_head: ScenarioNpvHead,
+    model: TrajectorySurrogate | TrajectoryEnsemble,
+    feature_context_path: Path | str,
+) -> None:
+    if npv_head.feature_context_sha256:
+        actual = hashlib.sha256(Path(feature_context_path).read_bytes()).hexdigest()
+        if npv_head.feature_context_sha256 != actual:
+            raise ScheduleSearchError("NPV head обучен на другом feature context")
+    elif npv_head.dataset_hash != model.dataset_hash:
+        raise ScheduleSearchError(
+            "NPV head и trajectory model обучены на разных данных"
+        )
+    if npv_head.wells != model.wells:
+        raise ScheduleSearchError("NPV head и trajectory model имеют разный фонд")
+    if npv_head.static_feature_names != model.static_feature_names:
+        raise ScheduleSearchError("NPV head и trajectory model имеют разную статику")
 
 
 def _trivial_connectivity(schedule: Schedule) -> tuple[Lambda, Groups]:
@@ -159,13 +185,24 @@ class SearchEnvironment:
     policies: Policies
     oil_density_t_per_m3: float
     feature_context: ModelZFeatureArtifact
-    model: TrajectorySurrogate
+    model: TrajectorySurrogate | TrajectoryEnsemble
     control_dates: tuple[date, ...]
     deck_dates: tuple[date, ...]
     t0_deck_date_index: int
     groups: Groups
     lambda_: Lambda
+    constraints: Constraints
     flags: RuleFlags
+    npv_head: ScenarioNpvHead | None = None
+    ood_threshold: float = 0.0
+
+
+@dataclass(frozen=True, slots=True)
+class PolicyFeedback:
+    """A response paired with the exact schedule that produced it."""
+
+    response: ResponseArtifact
+    schedule: Schedule
 
 
 def load_environment(
@@ -177,6 +214,9 @@ def load_environment(
     feature_context_path: Path,
     oil_density_t_per_m3: float = 0.9131,
     lambda_path: Path | None = None,
+    npv_head_path: Path | None = None,
+    constraints: Constraints | None = None,
+    ood_threshold: float = 0.0,
 ) -> SearchEnvironment:
     """Окружение поиска. `lambda_path` — измеренная λ, если она уже есть.
 
@@ -189,6 +229,11 @@ def load_environment(
     молчаливый откат к заглушке.
     """
 
+    case_constraints = Constraints() if constraints is None else constraints
+    water_supply_policy(case_constraints)
+    compensation_policy(case_constraints)
+    if ood_threshold < 0.0:
+        raise ScheduleSearchError("OOD threshold не может быть отрицательным")
     raw = (Path(model_dir) / _SCHEDULE_INCLUDE).read_bytes()
     parsed = parse_schedule(raw)
     base_schedule = build_schedule(parsed, raw, provenance="policy-search-base")
@@ -196,7 +241,18 @@ def load_environment(
     normatives = load_normatives(normatives_path)
     policies = default_policies()
     feature_context = ModelZFeatureArtifact.load(feature_context_path)
-    model = TrajectorySurrogate.load(checkpoint_path)
+    model = (
+        TrajectoryEnsemble.load(checkpoint_path)
+        if Path(checkpoint_path).suffix == ".json"
+        else TrajectorySurrogate.load(checkpoint_path)
+    )
+    head_path = npv_head_path
+    if head_path is None:
+        adjacent_head = Path(checkpoint_path).parent / "npv_head.pt"
+        head_path = adjacent_head if adjacent_head.is_file() else None
+    npv_head = ScenarioNpvHead.load(head_path) if head_path is not None else None
+    if npv_head is not None:
+        _validate_npv_head_compatibility(npv_head, model, feature_context_path)
     if lambda_path is None:
         lambda_, groups = _trivial_connectivity(base_schedule)
     else:
@@ -221,7 +277,10 @@ def load_environment(
         t0_deck_date_index=parsed.t0_deck_date_index,
         groups=groups,
         lambda_=lambda_,
+        constraints=case_constraints,
         flags=flags,
+        npv_head=npv_head,
+        ood_threshold=ood_threshold,
     )
 
 
@@ -238,6 +297,44 @@ def _commission_steps(schedule: Schedule) -> dict[str, int]:
         if event.operator in ("WCONPROD", "WCONINJE"):
             steps.setdefault(event.well, event.control_step)
     return steps
+
+
+def _flow_start_steps(
+    schedule: Schedule,
+    initial_rates: Mapping[str, tuple[float, float, float]] | None = None,
+) -> dict[str, int]:
+    """First step at which a formally commissioned well can physically flow."""
+
+    commissioned = _commission_steps(schedule)
+    first_completion: dict[str, int] = {}
+    for event in schedule.fixed_deck_events:
+        if event.operator not in ("COMPDAT", "COMPDATMD"):
+            continue
+        first_completion[event.well] = min(
+            event.control_step,
+            first_completion.get(event.well, event.control_step),
+        )
+    result: dict[str, int] = {}
+    for well, step in commissioned.items():
+        initial = schedule.initial_state.get(well)
+        initial_rate = (initial_rates or {}).get(well, (0.0, 0.0, 0.0))
+        contradictory_open = (
+            initial is not None
+            and initial.role is not Role.NONE
+            and initial.operating_status is OperatingStatus.OPEN
+            and initial.setpoint > 0.0
+            and max(initial_rate[0], initial_rate[2]) <= 0.0
+            and well in first_completion
+        )
+        if (
+            initial is not None
+            and initial.role is not Role.NONE
+            and not contradictory_open
+        ):
+            result[well] = 0
+            continue
+        result[well] = max(step, first_completion.get(well, step))
+    return result
 
 
 def _role_at_commission(schedule: Schedule) -> dict[str, Role]:
@@ -400,6 +497,106 @@ def _physical_caps(schedule: Schedule) -> tuple[dict[str, float], float]:
     return per_well, field_limit
 
 
+def _interval_produced_water_rate_m3_per_day(
+    response: ResponseArtifact,
+    control_step: int,
+    control_dates: Sequence[date],
+    oil_density_t_per_m3: float,
+) -> float:
+    """Average produced-water rate in one control interval.
+
+    The source-water budget must be based on produced volumes, rather than on
+    an instantaneous state that can be noisy close to a shut-in.  Oil mass is
+    converted back to reservoir liquid volume with the same density used by
+    the economics and policy layers.
+    """
+
+    if oil_density_t_per_m3 <= 0.0:
+        raise ScheduleSearchError("плотность нефти должна быть положительной")
+    days = (control_dates[control_step + 1] - control_dates[control_step]).days
+    if days <= 0:
+        raise ScheduleSearchError(
+            f"control_step={control_step}: неположительная длина интервала"
+        )
+    water_volume = 0.0
+    for item in response.interval_response:
+        if item.control_step != control_step:
+            continue
+        oil_volume = max(0.0, item.oil_mass_delta) / oil_density_t_per_m3
+        water_volume += max(0.0, item.liquid_volume_delta - oil_volume)
+    return water_volume / days
+
+
+def _field_limit_for_step(
+    *,
+    physical_limit_m3_per_day: float,
+    constraints: Constraints,
+    year: int,
+    control_step: int,
+    produced_water_by_step: Sequence[float],
+) -> float:
+    """Intersection of physical, scenario and source-water field limits."""
+
+    limits = [physical_limit_m3_per_day]
+    explicit = constraints.injection_limits.get(year)
+    if explicit is not None:
+        limits.append(float(explicit))
+
+    water = water_supply_policy(constraints)
+    if water.enabled:
+        source_step = control_step - water.lag_steps
+        produced = (
+            produced_water_by_step[source_step]
+            if 0 <= source_step < len(produced_water_by_step)
+            else 0.0
+        )
+        water_limit = water.limit(produced)
+        assert water_limit is not None
+        limits.append(water_limit)
+    return max(0.0, min(limits))
+
+
+def _active_outage_wells(
+    constraints: Constraints, control_step: int
+) -> frozenset[str]:
+    return frozenset(
+        outage.well
+        for outage in constraints.well_outages
+        if outage.control_step_from <= control_step <= outage.control_step_to
+    )
+
+
+def _outage_events(
+    state: PolicyState, wells: frozenset[str]
+) -> tuple[ControlEvent, ...]:
+    events: list[ControlEvent] = []
+    for well in sorted(wells):
+        observation = state.wells.get(well)
+        if observation is None:
+            continue
+        target_kind = (
+            EventKind.SET_RATE
+            if observation.role is Role.INJ
+            else EventKind.SET_LRAT
+        )
+        events.extend(
+            (
+                ControlEvent(
+                    control_step=state.control_step,
+                    well=well,
+                    kind=target_kind,
+                    value=0.0,
+                ),
+                ControlEvent(
+                    control_step=state.control_step,
+                    well=well,
+                    kind=EventKind.SHUT,
+                ),
+            )
+        )
+    return tuple(events)
+
+
 def _baseline_injection_by_step(schedule: Schedule) -> tuple[dict[str, float], ...]:
     """Уставка закачки базового расписания на каждом шаге, плотно.
 
@@ -497,7 +694,8 @@ def _emit_dense_layer(
             )
         status_kind = EventKind.OPEN if current_is_open.get(well, False) else EventKind.SHUT
         other = EventKind.SHUT if status_kind is EventKind.OPEN else EventKind.OPEN
-        if (step, well, status_kind) not in pending and (step, well, other) not in pending:
+        pending.pop((step, well, other), None)
+        if (step, well, status_kind) not in pending:
             pending[(step, well, status_kind)] = ControlEvent(
                 control_step=step, well=well, kind=status_kind, value=None
             )
@@ -533,7 +731,101 @@ def _close_producing_side_on_conversion(
             pending[key] = replace(event, value=0.0)
 
 
-def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
+def _scale_step_injection_to_limit(
+    pending: dict[tuple[int, str, EventKind], ControlEvent],
+    step: int,
+    limit_m3_per_day: float,
+    *,
+    current_is_open: dict[str, bool],
+    current_setpoint: dict[str, float],
+) -> float:
+    """Final material-balance guard for the dense command layer."""
+
+    keys = [
+        key
+        for key in pending
+        if key[0] == step and key[2] is EventKind.SET_RATE
+    ]
+    total = sum(float(pending[key].value or 0.0) for key in keys)
+    if total <= limit_m3_per_day + 1.0e-9:
+        return total
+    factor = 0.0 if total <= 0.0 else limit_m3_per_day / total
+    for key in keys:
+        event = pending[key]
+        raw_value = float(event.value or 0.0) * factor
+        value = (
+            math.floor(raw_value / SETPOINT_STEP_M3_PER_DAY)
+            * SETPOINT_STEP_M3_PER_DAY
+        )
+        pending[key] = replace(event, value=value)
+        current_setpoint[event.well] = value
+        if value <= 0.0:
+            current_is_open[event.well] = False
+            pending.pop((step, event.well, EventKind.OPEN), None)
+            pending[(step, event.well, EventKind.SHUT)] = ControlEvent(
+                control_step=step,
+                well=event.well,
+                kind=EventKind.SHUT,
+            )
+    return sum(float(pending[key].value or 0.0) for key in keys)
+
+
+def _relax_rate_layer(previous: Schedule, proposed: Schedule) -> Schedule:
+    """Damp continuous policy feedback while preserving physical water limits.
+
+    Production targets move halfway toward the fresh policy proposal and are
+    quantized down. Injection targets can only decrease from the previously
+    evaluated schedule; because the fresh proposal already obeys available
+    water, their component-wise minimum cannot violate that balance.
+    """
+
+    rate_kinds = (EventKind.SET_LRAT, EventKind.SET_RATE)
+    previous_rates = {
+        (event.control_step, event.well, event.kind): float(event.value or 0.0)
+        for event in previous.control_events
+        if event.kind in rate_kinds
+    }
+    relaxed_rates: dict[tuple[int, str], float] = {}
+    events: list[ControlEvent] = []
+    for event in proposed.control_events:
+        if event.kind not in rate_kinds:
+            events.append(event)
+            continue
+        value = float(event.value or 0.0)
+        prior = previous_rates.get((event.control_step, event.well, event.kind))
+        # A zero proposed by conversion/outage/water shutdown is a hard
+        # discrete boundary, not a continuous target to damp.
+        if prior is not None and value > 0.0:
+            if event.kind is EventKind.SET_RATE:
+                value = min(value, prior)
+            else:
+                value = math.floor(
+                    ((prior + value) * 0.5) / SETPOINT_STEP_M3_PER_DAY
+                ) * SETPOINT_STEP_M3_PER_DAY
+        value = max(0.0, value)
+        events.append(replace(event, value=value))
+        relaxed_rates[(event.control_step, event.well)] = value
+
+    normalized: list[ControlEvent] = []
+    for event in events:
+        if event.kind in (EventKind.OPEN, EventKind.SHUT):
+            value = relaxed_rates.get((event.control_step, event.well))
+            if value is not None:
+                event = replace(
+                    event,
+                    kind=EventKind.OPEN if value > 0.0 else EventKind.SHUT,
+                )
+        normalized.append(event)
+    return canonicalize(replace(proposed, control_events=tuple(normalized)))
+
+
+def make_policy(
+    env: SearchEnvironment,
+    theta: Theta,
+    trace_sink: dict,
+    *,
+    water_reference_response: ResponseArtifact | None = None,
+):
     """Возвращает `Policy` (`object -> Schedule`) для одной θ.
 
     `resolve()` (`policy/fixed_point.py`) не возвращает ничего, кроме
@@ -543,6 +835,10 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
 
     wells = env.base_schedule.meta.wells
     commission_step = _commission_steps(env.base_schedule)
+    flow_start_step = _flow_start_steps(
+        env.base_schedule,
+        _rates_at(env.real_history, _HISTORY_DECK_OFFSET),
+    )
     role_at_commission = _role_at_commission(env.base_schedule)
     well_caps, field_limit = _physical_caps(env.base_schedule)
     baseline_injection = _baseline_injection_by_step(env.base_schedule)
@@ -556,7 +852,13 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
             if event.control_step == commission_step.get(event.well, -1):
                 commissioning_setpoint.setdefault(event.well, event.value)
 
-    def policy(response: ResponseArtifact) -> Schedule:
+    def policy(feedback: ResponseArtifact | PolicyFeedback) -> Schedule:
+        previous_schedule: Schedule | None = None
+        if isinstance(feedback, PolicyFeedback):
+            response = feedback.response
+            previous_schedule = feedback.schedule
+        else:
+            response = feedback
         current_role: dict[str, Role] = dict(role_at_commission)
         current_is_open: dict[str, bool] = {
             well: env.base_schedule.initial_state[well].operating_status.value == "OPEN"
@@ -568,7 +870,7 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
         context = RuleContext(
             normatives=env.normatives,
             oil_density_t_per_m3=env.oil_density_t_per_m3,
-            constraints=Constraints(),
+            constraints=env.constraints,
             influence=env.lambda_,
             groups=env.groups,
             memory=PolicyMemory(),
@@ -582,6 +884,7 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
         # иначе видит это как несовместимые дубликаты и падает.
         pending: dict[tuple[int, str, EventKind], ControlEvent] = {}
         trace_entries = []
+        produced_water_by_step: list[float] = []
         for step in range(N_INTERVALS):
             # Дек вводит скважину в работу — значит на этом шаге она открыта
             # и стоит на своей вводной уставке. Без этого 22 скважины,
@@ -589,7 +892,7 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
             # прогон G7 20.08 дал по ним 1553 нарушения
             # MODE_CONTRADICTS_SCHEDULE — расписание считает их введёнными,
             # отклик держит выключенными.
-            for well, entry in commission_step.items():
+            for well, entry in flow_start_step.items():
                 if entry == step and not current_is_open.get(well, False):
                     current_is_open[well] = True
                     if well in commissioning_setpoint:
@@ -604,8 +907,28 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
                 commission_step=commission_step,
                 oil_density_t_per_m3=env.oil_density_t_per_m3,
             )
+            produced_water_by_step.append(
+                _interval_produced_water_rate_m3_per_day(
+                    water_reference_response or response,
+                    step,
+                    env.control_dates,
+                    env.oil_density_t_per_m3,
+                )
+            )
             if not state.wells:
                 continue
+            step_field_limit = _field_limit_for_step(
+                physical_limit_m3_per_day=field_limit,
+                constraints=env.constraints,
+                year=env.control_dates[step].year,
+                control_step=step,
+                produced_water_by_step=produced_water_by_step,
+            )
+            # The trajectory model predicts achieved injection separately
+            # from the command. Keep a reserve so small response/target
+            # mismatch cannot overdraw the produced-water material balance.
+            if water_supply_policy(env.constraints).enabled:
+                step_field_limit *= WATER_COMMAND_SAFETY_FACTOR
             injection, offtake = _group_injection_offtake(state, env.groups)
             result = run_step(
                 state,
@@ -619,10 +942,21 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
                 ),
                 theta,
                 env.flags,
-                field_limit_m3_per_day=field_limit,
+                field_limit_m3_per_day=step_field_limit,
+                setpoint_step_m3_per_day=SETPOINT_STEP_M3_PER_DAY,
             )
             trace_entries.extend(leveled.entry for leveled in result.trace.entries)
-            for event in result.decisions:
+            outage_wells = _active_outage_wells(env.constraints, step)
+            not_ready_wells = frozenset(
+                well
+                for well, entry in flow_start_step.items()
+                if commission_step.get(well, entry) <= step < entry
+            )
+            blocked_wells = outage_wells | not_ready_wells
+            decisions = tuple(
+                event for event in result.decisions if event.well not in blocked_wells
+            ) + _outage_events(state, blocked_wells)
+            for event in decisions:
                 event = _capped(event, well_caps)
                 pending[(event.control_step, event.well, event.kind)] = event
                 context = replace(
@@ -635,7 +969,7 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
                         memory=context.memory,
                     ),
                 )
-            _close_producing_side_on_conversion(pending, step, result.decisions)
+            _close_producing_side_on_conversion(pending, step, decisions)
             _emit_dense_layer(
                 pending,
                 step,
@@ -645,6 +979,18 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
                 current_setpoint=current_setpoint,
                 caps=well_caps,
             )
+            commanded_injection = _scale_step_injection_to_limit(
+                pending,
+                step,
+                step_field_limit,
+                current_is_open=current_is_open,
+                current_setpoint=current_setpoint,
+            )
+            if commanded_injection > step_field_limit + 1.0e-9:
+                raise ScheduleSearchError(
+                    f"control_step={step}: команда закачки {commanded_injection} "
+                    f"м³/сут превышает доступную воду {step_field_limit} м³/сут"
+                )
             context = replace(
                 context,
                 memory=_advance_memory(state, context, esp_catalog=env.normatives.esp_catalog),
@@ -655,7 +1001,12 @@ def make_policy(env: SearchEnvironment, theta: Theta, trace_sink: dict):
             control_events=tuple(pending.values()),
             meta=replace(env.base_schedule.meta, provenance="policy-search-candidate"),
         )
-        return canonicalize(candidate)
+        candidate = canonicalize(candidate)
+        return (
+            candidate
+            if previous_schedule is None
+            else _relax_rate_layer(previous_schedule, candidate)
+        )
 
     return policy
 
@@ -680,13 +1031,22 @@ def make_evaluator(env: SearchEnvironment):
             state_at_date=states,
             interval_response=intervals,
         )
-        analysis = analyze_base_case(
-            response,
-            env.deck_dates,
-            env.t0_deck_date_index,
-            env.normatives,
-            env.policies,
+        if env.npv_head is not None:
+            npv, economic_ood = env.npv_head.predict_with_domain(model_input)
+            ood_score = max(scored.ood.score, economic_ood)
+        else:
+            npv = analyze_base_case(
+                response,
+                env.deck_dates,
+                env.t0_deck_date_index,
+                env.normatives,
+                env.policies,
+            ).npv_methodology
+            ood_score = scored.ood.score
+        return Evaluation(
+            npv=npv,
+            state=PolicyFeedback(response=response, schedule=schedule),
+            ood_score=ood_score,
         )
-        return Evaluation(npv=analysis.npv_methodology, state=response)
 
     return evaluator

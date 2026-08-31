@@ -13,11 +13,13 @@ import re
 from dataclasses import dataclass
 from datetime import date
 
-from backend.core.contracts import ControlEvent, EventKind, FixedDeckEvent, T0
+from backend.core.contracts import ControlEvent, EventKind, FixedDeckEvent, N_INTERVALS, T0
 
 
-_BLOCK_KEYWORDS = frozenset({"DATES", "COMPDAT", "WPIMULT", "WCONPROD", "WCONINJE"})
-_FIXED_KEYWORDS = frozenset({"COMPDAT", "WPIMULT"})
+_BLOCK_KEYWORDS = frozenset(
+    {"DATES", "COMPDAT", "COMPDATMD", "WPIMULT", "WCONPROD", "WCONINJE"}
+)
+_FIXED_KEYWORDS = frozenset({"COMPDAT", "COMPDATMD", "WPIMULT"})
 _MONTHS = {
     "JAN": 1,
     "FEB": 2,
@@ -251,7 +253,13 @@ def parse_schedule(raw: bytes) -> ParsedSchedule:
                         value = _float(record[4], keyword, well)
                         new_role = "INJ"
 
-                    if control_step is not None and is_first_appearance:
+                    # The last control date is the terminal observation.  Its
+                    # source block remains in the lossless tree, but there is
+                    # no following interval to which a command could apply.
+                    in_control_interval = (
+                        control_step is not None and control_step < N_INTERVALS
+                    )
+                    if in_control_interval and is_first_appearance:
                         block_fixed.append(
                             FixedDeckEvent(
                                 control_step=control_step,
@@ -260,7 +268,7 @@ def parse_schedule(raw: bytes) -> ParsedSchedule:
                                 raw_args=tuple(record[1:]),
                             )
                         )
-                    elif control_step is not None:
+                    elif in_control_interval:
                         if keyword == "WCONPROD":
                             if previous_role == "INJ":
                                 raise ScheduleParseError(

@@ -19,7 +19,11 @@ def _candidate_roots() -> tuple[Path, ...]:
     if from_env:
         return (Path(from_env),)
     here = Path(__file__).resolve()
-    return tuple(parent / "docs" for parent in here.parents[0:3])
+    return tuple(
+        candidate
+        for parent in here.parents[0:3]
+        for candidate in (parent / "docs", parent / "docs-src")
+    )
 
 
 def docs_root() -> Path | None:
@@ -30,11 +34,11 @@ def docs_root() -> Path | None:
 
 
 def docs_path(relative: Path) -> Path | None:
-    root = docs_root()
-    if root is None:
-        return None
-    resolved = root / relative
-    return resolved if resolved.exists() else None
+    for root in _candidate_roots():
+        resolved = root / relative
+        if resolved.exists():
+            return resolved
+    return None
 
 
 def model_z_schedule() -> Path | None:
@@ -46,7 +50,11 @@ def model_z_dir() -> Path | None:
 
 
 def chdd_python_dir() -> Path | None:
-    return docs_path(CHDD_PYTHON_RELATIVE)
+    for root in _candidate_roots():
+        candidate = root / CHDD_PYTHON_RELATIVE
+        if (candidate / "chdd_model.py").is_file():
+            return candidate
+    return None
 
 
 def normatives_xlsx() -> Path | None:
@@ -109,13 +117,17 @@ def docker_unavailable_reason() -> str | None:
     binary = shutil.which("docker")
     if binary is None:
         return "Docker не найден в PATH: приёмка требует настоящего OPM Flow в контейнере"
-    probe = subprocess.run(
-        [binary, "info", "--format", "{{.ServerVersion}}"],
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
+    try:
+        probe = subprocess.run(
+            [binary, "info", "--format", "{{.ServerVersion}}"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=5.0,
+        )
+    except subprocess.TimeoutExpired:
+        return "демон Docker не ответил за 5 секунд"
     if probe.returncode != 0:
         detail = (probe.stderr.strip() or probe.stdout.strip()).splitlines()
         tail = detail[-1] if detail else "нет ответа от демона"

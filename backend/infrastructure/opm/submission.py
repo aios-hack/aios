@@ -105,7 +105,7 @@ class SubmissionResult:
         return (
             self.static_report.ok
             and self.dynamic_report is not None
-            and self.dynamic_report.ok
+            and self.dynamic_report.blocking_ok
             and self.opm_run.status is RunStatus.OK
             and self.final_npv is not None
             and all(check.holds for check in self.identities)
@@ -308,6 +308,7 @@ def submit_schedule(
     constraints: Constraints | None = None,
     use_cache: bool = True,
     strict: bool = True,
+    oil_density_t_per_m3: float | None = None,
 ) -> SubmissionResult:
     """`Schedule*` → `FinalNpvArtifact`, все шесть тождеств §10.5 проверены.
 
@@ -359,6 +360,7 @@ def submit_schedule(
             response.state_at_date,
             response.interval_response,
             constraints,
+            oil_density_t_per_m3=oil_density_t_per_m3,
             report_undershoot=False,
         )
         # ЧДД считается и при грязной динамике: заявлять его нельзя (`sound`

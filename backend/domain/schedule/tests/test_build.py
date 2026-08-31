@@ -94,9 +94,15 @@ def test_layers_are_split_by_operator(schedule) -> None:
     fixed_operators = {event.operator for event in schedule.fixed_deck_events}
     control_kinds = {event.kind for event in schedule.control_events}
 
-    assert "COMPDAT" in fixed_operators
+    assert fixed_operators & {"COMPDAT", "COMPDATMD"}
     assert "WPIMULT" in fixed_operators
-    assert fixed_operators <= {"COMPDAT", "WPIMULT", "WCONPROD", "WCONINJE"}
+    assert fixed_operators <= {
+        "COMPDAT",
+        "COMPDATMD",
+        "WPIMULT",
+        "WCONPROD",
+        "WCONINJE",
+    }
     assert control_kinds <= {
         EventKind.SET_LRAT,
         EventKind.SET_RATE,
@@ -110,14 +116,20 @@ def test_layers_are_split_by_operator(schedule) -> None:
 
 def test_compdat_inside_horizon_is_fixed_not_control(deck_bytes: bytes, schedule) -> None:
     parsed = parse_schedule(deck_bytes)
-    compdat_blocks = [block for block in parsed.blocks if block.keyword == "COMPDAT"]
+    compdat_blocks = [
+        block
+        for block in parsed.blocks
+        if block.keyword in ("COMPDAT", "COMPDATMD")
+    ]
     inside = [block for block in compdat_blocks if block.control_step is not None]
 
     assert inside
     assert all(not block.control_events for block in inside)
 
     fixed_compdat = [
-        event for event in schedule.fixed_deck_events if event.operator == "COMPDAT"
+        event
+        for event in schedule.fixed_deck_events
+        if event.operator in ("COMPDAT", "COMPDATMD")
     ]
     assert len(fixed_compdat) == sum(len(block.fixed_deck_events) for block in inside)
 

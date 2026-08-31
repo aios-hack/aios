@@ -17,6 +17,7 @@ from backend.core.contracts import (
     StateAtDate,
     WellState,
     is_excluded_by_negative_rule,
+    water_supply_policy,
 )
 from backend.core.contracts.response import N_DECK_DATES
 
@@ -43,6 +44,27 @@ DYNAMIC_VIOLATION_KINDS: frozenset[ViolationKind] = frozenset(
         ViolationKind.RESPONSE_AXIS_INCOMPLETE,
         ViolationKind.LIQUID_LIMIT_EXCEEDED,
         ViolationKind.INJECTION_LIMIT_EXCEEDED,
+        ViolationKind.PRODUCTION_FLOOR_MISSED,
+        ViolationKind.WATERCUT_LIMIT_EXCEEDED,
+        ViolationKind.OUTAGE_WELL_PRODUCED,
+        ViolationKind.WATER_SUPPLY_LIMIT_EXCEEDED,
+    }
+)
+
+# Flow may legitimately shut an unreachable open target, and tiny negative
+# export deltas are already excluded by the economics methodology.  Submission
+# is blocked by physical/case contract breaches and response integrity, while
+# the remaining kinds stay visible as diagnostics.
+BLOCKING_DYNAMIC_VIOLATION_KINDS: frozenset[ViolationKind] = frozenset(
+    {
+        ViolationKind.BHP_BELOW_PRODUCER_LIMIT,
+        ViolationKind.BHP_ABOVE_INJECTOR_LIMIT,
+        ViolationKind.ROLE_FACT_MISMATCH,
+        ViolationKind.SHUT_WITH_FLOW,
+        ViolationKind.RESPONSE_AXIS_INCOMPLETE,
+        ViolationKind.LIQUID_LIMIT_EXCEEDED,
+        ViolationKind.INJECTION_LIMIT_EXCEEDED,
+        ViolationKind.WATER_SUPPLY_LIMIT_EXCEEDED,
         ViolationKind.PRODUCTION_FLOOR_MISSED,
         ViolationKind.WATERCUT_LIMIT_EXCEEDED,
         ViolationKind.OUTAGE_WELL_PRODUCED,
@@ -79,6 +101,18 @@ class DynamicReport:
     @property
     def ok(self) -> bool:
         return self.report.ok
+
+    @property
+    def blocking_violations(self) -> tuple[Violation, ...]:
+        return tuple(
+            item
+            for item in self.report.violations
+            if item.kind in BLOCKING_DYNAMIC_VIOLATION_KINDS
+        )
+
+    @property
+    def blocking_ok(self) -> bool:
+        return not self.blocking_violations
 
     @property
     def violations(self) -> tuple[Violation, ...]:
@@ -624,7 +658,77 @@ def check_dynamic_constraints(
             schedule, interval_responses, constraints, oil_density_t_per_m3
         )
     )
+    found.extend(
+        _check_water_supply(
+            schedule, interval_responses, constraints, oil_density_t_per_m3
+        )
+    )
     found.extend(_check_outages(schedule, states, constraints))
+    return tuple(found)
+
+
+def _days_in_step(schedule: Schedule, control_step: int) -> int:
+    from calendar import monthrange
+
+    month_index = schedule.meta.t0.month - 1 + control_step
+    year = schedule.meta.t0.year + month_index // 12
+    month = month_index % 12 + 1
+    return monthrange(year, month)[1]
+
+
+def _check_water_supply(
+    schedule: Schedule,
+    interval_responses: Sequence[IntervalResponse],
+    constraints: Constraints,
+    oil_density_t_per_m3: float | None,
+) -> tuple[Violation, ...]:
+    policy = water_supply_policy(constraints)
+    if not policy.enabled:
+        return ()
+    if oil_density_t_per_m3 is None or oil_density_t_per_m3 <= 0.0:
+        raise ValueError(
+            "water_reinjection_fraction задан, но положительная плотность "
+            "нефти не передана: объём добытой воды не определён"
+        )
+
+    totals: dict[int, tuple[float, float, float]] = {}
+    for item in interval_responses:
+        oil, liquid, injection = totals.get(item.control_step, (0.0, 0.0, 0.0))
+        totals[item.control_step] = (
+            oil + max(0.0, item.oil_mass_delta),
+            liquid + max(0.0, item.liquid_volume_delta),
+            injection + max(0.0, item.injection_volume_delta),
+        )
+    produced_water = {
+        step: max(0.0, liquid - oil / oil_density_t_per_m3)
+        for step, (oil, liquid, _) in totals.items()
+    }
+    found: list[Violation] = []
+    for control_step in range(schedule.meta.n_intervals):
+        injection = totals.get(control_step, (0.0, 0.0, 0.0))[2]
+        source_step = control_step - policy.lag_steps
+        source_water = produced_water.get(source_step, 0.0)
+        available = (
+            policy.external_water_m3_per_day
+            * _days_in_step(schedule, control_step)
+            + float(policy.reinjection_fraction or 0.0) * source_water
+        )
+        if injection <= available + 1.0e-6:
+            continue
+        found.append(
+            Violation(
+                kind=ViolationKind.WATER_SUPPLY_LIMIT_EXCEEDED,
+                control_step=control_step,
+                well=None,
+                value=injection,
+                detail=(
+                    f"закачано {injection:.3f} м³ при доступном материальном "
+                    f"балансе воды {available:.3f} м³; источник: "
+                    f"{policy.reinjection_fraction} × добытая вода шага "
+                    f"{source_step} + {policy.external_water_m3_per_day} м³/сут"
+                ),
+            )
+        )
     return tuple(found)
 
 

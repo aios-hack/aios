@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 import shutil
 from collections import defaultdict
@@ -20,16 +21,29 @@ from backend.core.contracts import (
     Schedule,
     SummarySpec,
 )
-from backend.domain.schedule import LosslessBlock, parse_schedule
+from backend.domain.schedule import LosslessBlock, ParsedSchedule, parse_schedule
 
-from .summary import SummaryPlan, build_summary_plan, render_summary_include
+from .summary import (
+    SummaryPlan,
+    SummaryPlanError,
+    _expand_integers,
+    _keyword_payload,
+    build_summary_plan,
+    render_summary_include,
+)
 
 
 _MODEL_DATA = "Model_Z.data"
 _SCHEDULE_INCLUDE = "Model_Z_sch.inc"
 _SUMMARY_INCLUDE = "Model_Z_summary.inc"
+_REGIONS_INCLUDE = "Model_Z_regs.inc"
 _INPUT_SUFFIXES = frozenset({".data", ".inc"})
 _TOKEN_RE = re.compile(rb"'([^']*)'|([^\s/]+)")
+_UTF8_BOM = b"\xef\xbb\xbf"
+# Both arrays are tNavigator-only region annotations in the organizer's
+# Model_Z_grid.inc.  Flow rejects them before constructing EclipseState; they
+# do not alter pore volume, transmissibility, PVT regions, or schedule data.
+_OPM_UNSUPPORTED_GRID_KEYWORDS = (b"ARRZONE", b"ARRZONE_4")
 
 
 class OpmDeckError(ValueError):
@@ -93,6 +107,148 @@ def _raw_keyword_block(raw: bytes, keyword: bytes) -> bytes:
             f"ожидался один блок {keyword.decode()}, найдено {len(matches)}"
         )
     return matches[0]
+
+
+def _strip_keyword_records(raw: bytes, keywords: tuple[bytes, ...]) -> bytes:
+    """Remove explicitly audited tNavigator-only array keywords for Flow."""
+
+    lines = raw.splitlines(keepends=True)
+    output: list[bytes] = []
+    index = 0
+    while index < len(lines):
+        keyword = lines[index].strip()
+        if keyword not in keywords:
+            output.append(lines[index])
+            index += 1
+            continue
+        start = index
+        index += 1
+        while index < len(lines) and lines[index].strip() != b"/":
+            index += 1
+        if index == len(lines):
+            raise OpmDeckError(f"{keyword.decode()}: блок не закрыт")
+        index += 1
+        output.append(
+            b"-- OPM compatibility: removed tNavigator-only "
+            + keyword
+            + f" block from source lines {start + 1}..{index}.\n".encode("ascii")
+        )
+    return b"".join(output)
+
+
+def _completion_activation_keys(parsed: ParsedSchedule) -> set[tuple[int, str]]:
+    return {
+        (event.control_step, event.well)
+        for event in parsed.fixed_deck_events
+        if event.operator in ("COMPDAT", "COMPDATMD")
+    }
+
+
+def _noncompletion_fixed_events(parsed: ParsedSchedule) -> tuple[FixedDeckEvent, ...]:
+    return tuple(
+        event
+        for event in parsed.fixed_deck_events
+        if event.operator not in ("COMPDAT", "COMPDATMD")
+    )
+
+
+def _resolve_opm_schedule_template(
+    model_dir: Path,
+    source_raw: bytes,
+    source_parsed: ParsedSchedule,
+) -> tuple[ParsedSchedule, Path | None]:
+    """Resolve the organizer's cell-index equivalent for a trajectory deck.
+
+    Flow does not support ``WELLTRACK``/``COMPDATMD``.  The repository carries
+    the organizer's equivalent ``COMPDAT`` revision.  It is accepted only when
+    the complete date axis, WELSPECS, non-completion fixed events, completion
+    activation dates, DIMENS, and the full PVTNUM array match.
+    """
+
+    has_md = any(block.keyword == "COMPDATMD" for block in source_parsed.blocks)
+    has_tracks = re.search(rb"(?m)^WELLTRACK(?:\s|$)", source_raw) is not None
+    if not has_md and not has_tracks:
+        return source_parsed, None
+
+    configured = os.environ.get("AIOS_COMPDAT_MODEL_DIR")
+    candidates: list[Path] = []
+    if configured:
+        candidates.append(Path(configured))
+    workspace = model_dir.parents[2] if len(model_dir.parents) >= 3 else model_dir.parent
+    candidates.extend(
+        (
+            workspace / "docs-src" / "models" / "Model_Z",
+            workspace / "dataset-700" / "base_run" / "deck",
+        )
+    )
+    source_welspecs = _raw_keyword_block(source_raw, b"WELSPECS")
+    source_dimens = _expand_integers(
+        _keyword_payload((model_dir / _MODEL_DATA).read_bytes(), b"DIMENS"),
+        "DIMENS",
+    )
+    source_pvtnum = _expand_integers(
+        _keyword_payload(
+            (model_dir / _REGIONS_INCLUDE).read_bytes().removeprefix(_UTF8_BOM),
+            b"PVTNUM",
+        ),
+        "PVTNUM",
+    )
+    source_activation = _completion_activation_keys(source_parsed)
+    source_other_fixed = _noncompletion_fixed_events(source_parsed)
+
+    for candidate in candidates:
+        candidate = candidate.resolve()
+        schedule_file = candidate / _SCHEDULE_INCLUDE
+        data_file = candidate / _MODEL_DATA
+        regions_file = candidate / _REGIONS_INCLUDE
+        if candidate == model_dir or not all(
+            path.is_file() for path in (schedule_file, data_file, regions_file)
+        ):
+            continue
+        candidate_raw = schedule_file.read_bytes().removeprefix(_UTF8_BOM)
+        candidate_parsed = parse_schedule(candidate_raw)
+        try:
+            compatible = (
+                _raw_keyword_block(candidate_raw, b"WELSPECS") == source_welspecs
+                and _expand_integers(
+                    _keyword_payload(data_file.read_bytes(), b"DIMENS"), "DIMENS"
+                )
+                == source_dimens
+                and _expand_integers(
+                    _keyword_payload(
+                        regions_file.read_bytes().removeprefix(_UTF8_BOM), b"PVTNUM"
+                    ),
+                    "PVTNUM",
+                )
+                == source_pvtnum
+            )
+        except (OpmDeckError, SummaryPlanError):
+            continue
+        candidate_has_compdat = any(
+            block.keyword == "COMPDAT" for block in candidate_parsed.blocks
+        )
+        candidate_has_md = any(
+            block.keyword == "COMPDATMD" for block in candidate_parsed.blocks
+        )
+        candidate_has_tracks = (
+            re.search(rb"(?m)^WELLTRACK(?:\s|$)", candidate_raw) is not None
+        )
+        if (
+            compatible
+            and candidate_has_compdat
+            and not candidate_has_md
+            and not candidate_has_tracks
+            and candidate_parsed.dates == source_parsed.dates
+            and _noncompletion_fixed_events(candidate_parsed) == source_other_fixed
+            and _completion_activation_keys(candidate_parsed) == source_activation
+        ):
+            return candidate_parsed, candidate
+
+    raise OpmDeckError(
+        "WELLTRACK/COMPDATMD не поддерживаются Flow: не найдена проверенная "
+        "эквивалентная COMPDAT-ревизия с совпадающими WELSPECS, датами, "
+        "фиксированными событиями, DIMENS и PVTNUM"
+    )
 
 
 def bundle_hash(files: Iterable[Path], root: Path) -> str:
@@ -225,6 +381,9 @@ class OpmDeckEmitter:
             )
         self._source_schedule_bytes = self._schedule_file.read_bytes()
         self._parsed = parse_schedule(self._source_schedule_bytes)
+        self._opm_parsed, self.opm_schedule_source = _resolve_opm_schedule_template(
+            self.model_dir, self._source_schedule_bytes, self._parsed
+        )
         welspecs = _raw_keyword_block(self._source_schedule_bytes, b"WELSPECS")
         self.source_wells = tuple(sorted(record[0] for record in _block_records(welspecs)))
         if len(self.source_wells) != 103 or len(set(self.source_wells)) != 103:
@@ -281,7 +440,7 @@ class OpmDeckEmitter:
             chunks.append(_render_fixed_wcon(fixed["WCONINJE"], "WCONINJE"))
             chunks.append(_render_controls(controls_by_step[step], step))
 
-        for chunk in self._parsed.chunks:
+        for chunk in self._opm_parsed.chunks:
             if isinstance(chunk, bytes):
                 chunks.append(chunk)
                 continue
@@ -322,7 +481,22 @@ class OpmDeckEmitter:
             )
         )
         for source in source_files:
-            shutil.copy2(source, destination / source.name)
+            target = destination / source.name
+            source_raw = source.read_bytes()
+            # tNavigator accepts a UTF-8 BOM before the first keyword, while
+            # Flow treats it as part of that keyword.  Normalize only a
+            # leading BOM in the temporary executable copy.
+            opm_raw = source_raw.removeprefix(_UTF8_BOM)
+            if source.name == "Model_Z_grid.inc":
+                target.write_bytes(
+                    _strip_keyword_records(
+                        opm_raw, _OPM_UNSUPPORTED_GRID_KEYWORDS
+                    )
+                )
+            elif opm_raw != source_raw:
+                target.write_bytes(opm_raw)
+            else:
+                shutil.copy2(source, target)
 
         emitted_schedule = destination / _SCHEDULE_INCLUDE
         emitted_schedule.write_bytes(self._emit_schedule(schedule))

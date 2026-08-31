@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -110,6 +111,77 @@ def _grid_index(i: int, j: int, k: int, nx: int, ny: int, nz: int) -> int:
     return (k - 1) * nx * ny + (j - 1) * nx + (i - 1)
 
 
+def _compdat_cells(
+    schedule_path: Path, known_wells: set[str]
+) -> set[tuple[str, int, int, int]]:
+    cells: set[tuple[str, int, int, int]] = set()
+    parsed = parse_schedule(schedule_path.read_bytes())
+    for block in parsed.blocks:
+        if block.keyword != "COMPDAT":
+            continue
+        for record in _records(block.raw, "COMPDAT"):
+            if len(record) < 5:
+                raise SummaryPlanError(f"COMPDAT: неполная запись {record!r}")
+            well = record[0]
+            if well not in known_wells:
+                raise SummaryPlanError(f"COMPDAT: неизвестная скважина {well!r}")
+            try:
+                i, j, k1, k2 = map(int, record[1:5])
+            except ValueError as error:
+                raise SummaryPlanError(f"COMPDAT {well!r}: нецелые I/J/K1/K2") from error
+            if k1 > k2:
+                raise SummaryPlanError(f"COMPDAT {well!r}: K1={k1} больше K2={k2}")
+            cells.update((well, i, j, k) for k in range(k1, k2 + 1))
+    return cells
+
+
+def _equivalent_compdat_cells(
+    model_dir: Path,
+    known_wells: set[str],
+    dimens: tuple[int, int, int],
+    pvtnum: tuple[int, ...],
+) -> set[tuple[str, int, int, int]]:
+    """Load exact trajectory/grid intersections from the equivalent cell deck.
+
+    ``COMPDATMD`` only contains measured-depth intervals.  A wellhead plus K
+    intervals is not enough to recover traversed I/J cells, so UI geometry must
+    never be used here.  The organizers supplied an equivalent cell-index deck;
+    accept it only when its grid and complete PVTNUM cube match this model.
+    """
+
+    configured = os.environ.get("AIOS_COMPDAT_MODEL_DIR")
+    candidates = []
+    if configured:
+        candidates.append(Path(configured))
+    workspace = model_dir.parents[2] if len(model_dir.parents) >= 3 else model_dir.parent
+    candidates.extend(
+        (
+            workspace / "docs-src" / "models" / "Model_Z",
+            workspace / "dataset-700" / "base_run" / "deck",
+        )
+    )
+    for candidate in candidates:
+        schedule = candidate / _SCHEDULE_INCLUDE
+        data = candidate / _MODEL_DATA
+        regions = candidate / _REGIONS_INCLUDE
+        if not all(path.is_file() for path in (schedule, data, regions)):
+            continue
+        source_dimens = _expand_integers(_keyword_payload(data.read_bytes(), b"DIMENS"), "DIMENS")
+        source_pvtnum = _expand_integers(
+            _keyword_payload(regions.read_bytes(), b"PVTNUM"), "PVTNUM"
+        )
+        if source_dimens != dimens or source_pvtnum != pvtnum:
+            continue
+        cells = _compdat_cells(schedule, known_wells)
+        if cells and {well for well, _, _, _ in cells} == known_wells:
+            return cells
+    raise SummaryPlanError(
+        "COMPDATMD нельзя преобразовать в I/J/K без trajectory/grid intersection; "
+        "задайте AIOS_COMPDAT_MODEL_DIR на эквивалентную COMPDAT-ревизию с "
+        "совпадающими DIMENS и PVTNUM"
+    )
+
+
 def build_summary_plan(
     model_dir: Path | str,
     wells: Iterable[str],
@@ -141,24 +213,13 @@ def build_summary_plan(
     if len(well_axis) != len(set(well_axis)) or well_axis != tuple(sorted(well_axis)):
         raise SummaryPlanError("ось wells должна быть уникальной и лексикографической")
     known_wells = set(well_axis)
-    cells: set[tuple[str, int, int, int]] = set()
     parsed = parse_schedule(schedule_path.read_bytes())
-    for block in parsed.blocks:
-        if block.keyword != "COMPDAT":
-            continue
-        for record in _records(block.raw, "COMPDAT"):
-            if len(record) < 5:
-                raise SummaryPlanError(f"COMPDAT: неполная запись {record!r}")
-            well = record[0]
-            if well not in known_wells:
-                raise SummaryPlanError(f"COMPDAT: неизвестная скважина {well!r}")
-            try:
-                i, j, k1, k2 = map(int, record[1:5])
-            except ValueError as error:
-                raise SummaryPlanError(f"COMPDAT {well!r}: нецелые I/J/K1/K2") from error
-            if k1 > k2:
-                raise SummaryPlanError(f"COMPDAT {well!r}: K1={k1} больше K2={k2}")
-            cells.update((well, i, j, k) for k in range(k1, k2 + 1))
+    cells = _compdat_cells(schedule_path, known_wells)
+
+    if not cells and any(block.keyword == "COMPDATMD" for block in parsed.blocks):
+        cells = _equivalent_compdat_cells(
+            model_dir, known_wells, (nx, ny, nz), pvtnum
+        )
 
     cell_wells = {well for well, _, _, _ in cells}
     if cell_wells != known_wells:
