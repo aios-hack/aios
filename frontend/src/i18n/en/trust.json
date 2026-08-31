@@ -29,6 +29,7 @@
   "number.confirmed": "Confirmed by a full run · {run}",
   "number.confirmedValue": "Run NPV {value} ₽",
   "number.confirmedComparison": "OPM confirmed {value} ₽; the raw surrogate returned {predicted} ₽ and is marked OOD",
+  "number.confirmedCalibratedComparison": "OPM confirmed {value} ₽; active-learning calibration returned {calibrated} ₽; the raw surrogate returned {predicted} ₽ and is marked OOD",
   "provenance.measured": "Computed on run data",
   "provenance.unknown": "Data provenance not stated",
   "index.loading": "Scenario index is loading",

@@ -29,6 +29,7 @@
   "number.confirmed": "Подтверждено полным расчётом · прогон {run}",
   "number.confirmedValue": "ЧДД прогона {value} ₽",
   "number.confirmedComparison": "OPM подтвердил {value} ₽; raw-суррогат дал {predicted} ₽ и помечен OOD",
+  "number.confirmedCalibratedComparison": "OPM подтвердил {value} ₽; active-learning калибровка дала {calibrated} ₽; raw-суррогат дал {predicted} ₽ и помечен OOD",
   "provenance.measured": "Расчёт на данных прогона",
   "provenance.unknown": "Происхождение данных не указано",
   "index.loading": "Индекс сценариев загружается",

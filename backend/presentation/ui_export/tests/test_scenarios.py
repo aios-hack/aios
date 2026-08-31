@@ -25,6 +25,7 @@ ROBUSTNESS_FIELDS: tuple[str, ...] = (
     "worst_regret",
     "final_npv",
     "predicted_npv_rub",
+    "calibrated_npv_rub",
     "run_validation_clean",
 )
 
@@ -275,6 +276,7 @@ def test_measured_robustness_lands_in_the_entry(tmp_path: Path) -> None:
                     part="holdout",
                 ),
                 predicted_npv_rub=12_345_678_900.0,
+                calibrated_npv_rub=11_900_000_000.0,
                 run_validation_clean=True,
             )
         },
@@ -288,6 +290,7 @@ def test_measured_robustness_lands_in_the_entry(tmp_path: Path) -> None:
     }
     assert entry["final_npv"] is None
     assert entry["predicted_npv_rub"] == 12_345_678_900.0
+    assert entry["calibrated_npv_rub"] == 11_900_000_000.0
     assert entry["run_validation_clean"] is True
 
 

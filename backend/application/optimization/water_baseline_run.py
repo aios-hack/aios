@@ -22,6 +22,7 @@ from backend.domain.schedule import canonicalize, validate_dynamic, validate_sta
 from backend.infrastructure.resources import chdd_python_dir, model_z_dir
 from backend.presentation.ui_export.artifact_io import load_schedule_json
 
+from .opm_active_calibration import WaterFamilyNpvCalibration
 from .runtime_artifacts import resolve_runtime_artifacts, validate_runtime_economic_head
 from .schedule_search import (
     SETPOINT_STEP_M3_PER_DAY,
@@ -40,6 +41,7 @@ from .verification_run import (
 
 WORK_ROOT = Path("data/water-baseline-submission")
 WATER_SAFETY_FACTOR = 0.85
+ACTIVE_CALIBRATION = Path("config/opm-active-npv-calibration.json")
 
 
 def _project_injection_to_reference_water(
@@ -144,6 +146,12 @@ def main() -> int:
         oil_density_t_per_m3=OIL_DENSITY_T_PER_M3,
     )
     validate_runtime_economic_head(runtime, env.npv_head)
+    if env.npv_head is None:
+        raise RuntimeError("water-family calibration requires the economic head")
+    calibration = WaterFamilyNpvCalibration.load(
+        ACTIVE_CALIBRATION,
+        economic_model_version=env.npv_head.version,
+    )
     evaluator = make_evaluator(env)
 
     started = time.monotonic()
@@ -176,6 +184,7 @@ def main() -> int:
         water_safety_factor=args.water_safety_factor,
     )
     prediction = evaluator(schedule)
+    calibrated = calibration.predict(prediction.npv)
     predicted_response = prediction.state.response
     dynamic = validate_dynamic(
         schedule,
@@ -198,13 +207,26 @@ def main() -> int:
         if event.kind is EventKind.SET_LRAT
     ]
     schedule_hash = hash_schedule(schedule)
+    calibrated_label = (
+        f"{calibrated.npv_rub / 1e9:.3f} млрд"
+        if calibrated.npv_rub is not None
+        else f"OUTSIDE ({calibrated.domain_score:.3f})"
+    )
     print(
         f"water-baseline построен за {time.monotonic() - started:.1f} с; "
-        f"hash={schedule_hash}; head={prediction.npv / 1e9:.3f} млрд; "
-        f"repair={repair_rounds}; static={len(static.violations)}; "
-        f"dynamic={len(dynamic.violations)}",
+        f"hash={schedule_hash}; raw-head={prediction.npv / 1e9:.3f} млрд; "
+        f"active-calibrated={calibrated_label}",
         flush=True,
     )
+    if calibrated.npv_rub is not None:
+        print(
+            f"active calibration version={calibration.version[:12]}; "
+            f"holdout APE={calibration.blind_holdout_absolute_relative_error:.2%}; "
+            f"extension APE={calibration.blind_extension_absolute_relative_error:.2%}; "
+            f"repair={repair_rounds}; static={len(static.violations)}; "
+            f"dynamic={len(dynamic.violations)}",
+            flush=True,
+        )
     print(
         f"events={dict(event_counts)}; mean LRAT="
         f"{sum(production_targets) / len(production_targets):.2f}; mean RATE="
@@ -232,6 +254,10 @@ def main() -> int:
             "candidate": candidate_name,
             "water_repair_rounds": repair_rounds,
             "water_safety_factor": args.water_safety_factor,
+            "raw_predicted_npv": prediction.npv,
+            "active_calibrated_npv": calibrated.npv_rub,
+            "active_calibration_domain_score": calibrated.domain_score,
+            "active_calibration_version": calibration.version,
             "injection_reseeded_from_baseline": args.reseed_injection_from_baseline,
             "reference_observation": str(args.observation) if args.observation else None,
             "source": "production controls preserved; injection projected from measured water",
@@ -243,6 +269,9 @@ def main() -> int:
                 "canonical_schedule_hash": schedule_hash,
                 "observation_dir": str(observation_dir),
                 "predicted_npv": prediction.npv,
+                "active_calibrated_npv": calibrated.npv_rub,
+                "active_calibration_domain_score": calibrated.domain_score,
+                "active_calibration_version": calibration.version,
                 "opm_npv": (
                     result.final_npv.npv_methodology if result.final_npv else None
                 ),

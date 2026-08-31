@@ -47,6 +47,7 @@ class ScenarioRobustness:
     final_npv_rub: float | None = None
     final_npv_run_id: str | None = None
     predicted_npv_rub: float | None = None
+    calibrated_npv_rub: float | None = None
     run_validation_clean: bool | None = None
 
     def __post_init__(self) -> None:
@@ -63,6 +64,10 @@ class ScenarioRobustness:
             self.predicted_npv_rub
         ):
             raise ValueError("predicted_npv_rub должен быть конечным числом")
+        if self.calibrated_npv_rub is not None and not math.isfinite(
+            self.calibrated_npv_rub
+        ):
+            raise ValueError("calibrated_npv_rub должен быть конечным числом")
         if self.run_validation_clean is not None and not isinstance(
             self.run_validation_clean, bool
         ):
@@ -93,6 +98,7 @@ def _robustness_json(robustness: ScenarioRobustness) -> dict[str, Any]:
         ),
         "final_npv": final_npv,
         "predicted_npv_rub": robustness.predicted_npv_rub,
+        "calibrated_npv_rub": robustness.calibrated_npv_rub,
         "run_validation_clean": robustness.run_validation_clean,
     }
 

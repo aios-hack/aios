@@ -146,13 +146,29 @@ describe('TrustBoard number indicator', () => {
         final_npv: { npv_rub: 7_714_360_867, run_id: 'run-opm' }
       })
     ]);
-    const title = item(board, 'number').getAttribute('title') ?? '';
+    const title = (item(board, 'number').getAttribute('title') ?? '').replace(/\s/g, ' ');
 
     expect(title).toContain('OPM');
     expect(title).toContain('raw-суррогат');
     expect(title).toContain('OOD');
     expect(title).toContain('10');
     expect(title).toContain('7');
+  });
+
+  it('shows the scoped active-learning correction between OPM and raw output', async () => {
+    const board = await renderBoard([
+      scenario({
+        predicted_npv_rub: 10_535_339_439,
+        calibrated_npv_rub: 7_700_992_958,
+        final_npv: { npv_rub: 7_714_360_867, run_id: 'run-opm' }
+      })
+    ]);
+    const title = (item(board, 'number').getAttribute('title') ?? '').replace(/\s/g, ' ');
+
+    expect(title).toContain('active-learning');
+    expect(title).toContain('7 700');
+    expect(title).toContain('10 535');
+    expect(title).toContain('OOD');
   });
 });
 

@@ -1,15 +1,19 @@
 {
-  "canonical_schedule_hash": "411bb7207e1689c53d7e38c0c18f6e3b6db8e60857682670f5b4359e0f433ba9",
-  "observation_dir": "data/opm-observations/411bb7207e1689c53d7e38c0c18f6e3b6db8e60857682670f5b4359e0f433ba9",
-  "opm_npv_rub": 7714360866.503498,
-  "raw_surrogate_npv_rub": 10535339439.046623,
-  "economic_ood_score": 2.0506229024394127,
+  "canonical_schedule_hash": "a76e915e73073663f6fecbf229d998a80cb06909a82a4e40ebb909ea40e07b7e",
+  "observation_dir": "data/opm-observations/a76e915e73073663f6fecbf229d998a80cb06909a82a4e40ebb909ea40e07b7e",
+  "opm_npv_rub": 7781051025.155466,
+  "raw_surrogate_npv_rub": 10558445546.343525,
+  "active_calibrated_npv_rub": 7755946517.559187,
+  "active_calibration_version": "092d49e8cc013d0440ab3508a3ade57b5277eb4be4d9cfd043497bcef35ec7fb",
+  "active_calibration_blind_holdout_absolute_relative_error": 0.0035815464237754896,
+  "active_calibration_blind_extension_absolute_relative_error": 0.004985655565268825,
+  "economic_ood_score": 2.0197874298096283,
   "economic_ood_threshold": 0.0,
   "sound": true,
   "water": {
-    "integral_injection_to_produced_water": 0.861781,
-    "p90_injection_to_produced_water": 0.867379,
-    "maximum_injection_to_produced_water": 0.969160,
+    "integral_injection_to_produced_water": 0.873367118,
+    "p90_injection_to_produced_water": 0.879057750,
+    "maximum_injection_to_produced_water": 0.979066068,
     "blocking_violations": 0
   }
 }

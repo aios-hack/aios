@@ -127,10 +127,18 @@ const numberIndicator = (scenario: ScenarioEntry): TrustIndicator => {
     valueParams: { run: final.run_id },
     briefKey: 'trust.brief.confirmed',
     detailKey: isMeasured(scenario.predicted_npv_rub)
-      ? 'trust.number.confirmedComparison'
+      ? isMeasured(scenario.calibrated_npv_rub)
+        ? 'trust.number.confirmedCalibratedComparison'
+        : 'trust.number.confirmedComparison'
       : 'trust.number.confirmedValue',
     detailParams: isMeasured(scenario.predicted_npv_rub)
-      ? { value: final.npv_rub, predicted: scenario.predicted_npv_rub }
+      ? isMeasured(scenario.calibrated_npv_rub)
+        ? {
+            value: final.npv_rub,
+            calibrated: scenario.calibrated_npv_rub,
+            predicted: scenario.predicted_npv_rub
+          }
+        : { value: final.npv_rub, predicted: scenario.predicted_npv_rub }
       : { value: final.npv_rub }
   };
 };

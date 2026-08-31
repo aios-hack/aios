@@ -181,6 +181,7 @@ export interface ScenarioEntry {
   worst_regret?: ScenarioWorstRegret | null;
   final_npv?: ScenarioFinalNpv | null;
   predicted_npv_rub?: number | null;
+  calibrated_npv_rub?: number | null;
   run_validation_clean?: boolean | null;
 }
 

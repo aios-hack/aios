@@ -1,0 +1,62 @@
+{
+  "format": "aios.water-family-npv-calibration.v1",
+  "scope": "water_baseline_run: baseline production controls with measured-water injection projection",
+  "economic_model_version": "f034001dcbb83ecf3d8451954fa4a776145c4f4a51548f18045976b083afff77",
+  "anchors": [
+    {
+      "schedule_hash": "cbac451fefa5c6f8844fee24bab9428c98f8001f373bb335812adcf22506ed3e",
+      "raw_npv_rub": 9567537081.257952,
+      "opm_npv_rub": 5970204614.772852,
+      "sound": true,
+      "role": "selection"
+    },
+    {
+      "schedule_hash": "da88ad3edfb5eead6606e301d73928ebe335fda6c5de25275857514f8e9211cf",
+      "raw_npv_rub": 9814017176.368683,
+      "opm_npv_rub": 6417019307.70466,
+      "sound": false,
+      "role": "selection"
+    },
+    {
+      "schedule_hash": "e382692d8935aa1bfd1ffd8899f7c6dbc2bc16082929e9afe6b2227930ce111e",
+      "raw_npv_rub": 10489679627.812937,
+      "opm_npv_rub": 7604295315.578187,
+      "sound": true,
+      "role": "selection"
+    },
+    {
+      "schedule_hash": "411bb7207e1689c53d7e38c0c18f6e3b6db8e60857682670f5b4359e0f433ba9",
+      "raw_npv_rub": 10535339439.046623,
+      "opm_npv_rub": 7714360866.503498,
+      "sound": true,
+      "role": "blind_holdout"
+    },
+    {
+      "schedule_hash": "a76e915e73073663f6fecbf229d998a80cb06909a82a4e40ebb909ea40e07b7e",
+      "raw_npv_rub": 10558445546.343525,
+      "opm_npv_rub": 7781051025.155466,
+      "sound": true,
+      "role": "blind_extension"
+    }
+  ],
+  "deployment": {
+    "slope": 1.8020936350326147,
+    "intercept_rub": -11271360997.344938,
+    "raw_min_rub": 9567537081.257952,
+    "raw_max_rub": 10558445546.343525
+  },
+  "validation": {
+    "blind_holdout_predicted_npv_rub": 7686731524.930359,
+    "blind_holdout_actual_npv_rub": 7714360866.503498,
+    "blind_holdout_error_rub": -27629341.57313919,
+    "blind_holdout_absolute_relative_error": 0.0035815464237754896,
+    "loocv_mae_rub": 16542949.09311924,
+    "loocv_max_absolute_error_rub": 39654846.88736057,
+    "spearman": 1.0,
+    "blind_extension_predicted_npv_rub": 7742257358.281128,
+    "blind_extension_actual_npv_rub": 7781051025.155466,
+    "blind_extension_error_rub": -38793666.87433815,
+    "blind_extension_absolute_relative_error": 0.004985655565268825
+  },
+  "version": "092d49e8cc013d0440ab3508a3ade57b5277eb4be4d9cfd043497bcef35ec7fb"
+}

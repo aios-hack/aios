@@ -11,6 +11,9 @@ import json
 from pathlib import Path
 
 from backend.application.optimization.verification_run import LAMBDA, _load_constraints
+from backend.application.optimization.opm_active_calibration import (
+    WaterFamilyNpvCalibration,
+)
 from backend.core.contracts import FinalNpvArtifact, RunArtifact
 from backend.domain.connectivity.groups import GroupingParams, build_groups
 from backend.domain.connectivity.measure import load_lambda
@@ -60,6 +63,17 @@ def main() -> int:
         lambda_path=LAMBDA,
         constraints=constraints,
     )
+    if env.npv_head is None:
+        raise RuntimeError("champion export requires the economic head")
+    calibration = WaterFamilyNpvCalibration.load(
+        Path("config/opm-active-npv-calibration.json"),
+        economic_model_version=env.npv_head.version,
+    )
+    calibrated = calibration.predict(champion["raw_surrogate_npv_rub"])
+    if not calibrated.trusted or calibrated.npv_rub is None:
+        raise RuntimeError("champion is outside active-calibration support")
+    if abs(calibrated.npv_rub - champion["active_calibrated_npv_rub"]) > 0.01:
+        raise RuntimeError("champion and active-calibration artifacts differ")
     parsed = parse_schedule((model_dir / "Model_Z_sch.inc").read_bytes())
     analysis = analyze_base_case(
         response,
@@ -107,6 +121,14 @@ def main() -> int:
         "source_run_id": summary["source_run_id"],
         "response_hash": response.response_hash,
         "raw_surrogate_npv_rub": champion["raw_surrogate_npv_rub"],
+        "active_calibrated_npv_rub": calibrated.npv_rub,
+        "active_calibration_version": calibration.version,
+        "active_calibration_blind_holdout_absolute_relative_error": (
+            calibration.blind_holdout_absolute_relative_error
+        ),
+        "active_calibration_blind_extension_absolute_relative_error": (
+            calibration.blind_extension_absolute_relative_error
+        ),
         "economic_ood_score": champion["economic_ood_score"],
         "economic_ood_threshold": champion["economic_ood_threshold"],
         "opm_npv_rub": champion["opm_npv_rub"],
@@ -143,6 +165,7 @@ def main() -> int:
                     final_npv_rub=champion["opm_npv_rub"],
                     final_npv_run_id=summary["source_run_id"],
                     predicted_npv_rub=champion["raw_surrogate_npv_rub"],
+                    calibrated_npv_rub=calibrated.npv_rub,
                     run_validation_clean=True,
                 )
             },
