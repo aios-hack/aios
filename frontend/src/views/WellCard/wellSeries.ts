@@ -1,6 +1,21 @@
-import type { TimelineFile, TimelineWellRow } from '../../api/types';
+import type { TimelineFile, TimelineStep, TimelineWellRow } from '../../api/types';
 
 export type WellSeriesKey = 'rate' | 'watercut' | 'bhp';
+
+export const wellRowAt = (
+  step: TimelineStep | null,
+  well: string,
+  column: number
+): TimelineWellRow | null => {
+  if (step === null) {
+    return null;
+  }
+  const positional = step.wells[column];
+  if (positional !== undefined && positional.well === well) {
+    return positional;
+  }
+  return step.wells.find((candidate) => candidate.well === well) ?? null;
+};
 
 export interface WellSeries {
   key: WellSeriesKey;
@@ -43,12 +58,8 @@ export const buildWellSeries = (
   let roleSteps = 0;
 
   for (const step of timeline.steps) {
-    const positional = step.wells[column];
-    const row =
-      positional !== undefined && positional.well === well
-        ? positional
-        : step.wells.find((candidate) => candidate.well === well);
-    if (row === undefined) {
+    const row = wellRowAt(step, well, column);
+    if (row === null) {
       rate.push(null);
       watercut.push(null);
       bhp.push(null);

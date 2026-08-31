@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TimelineFile, TimelineWellRow } from '../../api/types';
-import { buildWellSeries } from './wellSeries';
+import { buildWellSeries, wellRowAt } from './wellSeries';
 
 const row = (overrides: Partial<TimelineWellRow>): TimelineWellRow => ({
   well: 'W1',
@@ -121,5 +121,27 @@ describe('buildWellSeries', () => {
     const timeline = timelineOf([[row({})], []], ['W1']);
     const [rate] = buildWellSeries(timeline, 'W1');
     expect(rate.values).toEqual([10, null]);
+  });
+});
+
+describe('wellRowAt', () => {
+  const first = row({ well: 'W1' });
+  const second = row({ well: 'W2', liquid_rate: 42 });
+  const step = timelineOf([[first, second]], ['W1', 'W2']).steps[0];
+
+  it('reads the row straight from its column when the order holds', () => {
+    expect(wellRowAt(step, 'W1', 0)).toBe(first);
+    expect(wellRowAt(step, 'W2', 1)).toBe(second);
+  });
+
+  it('falls back to a scan when the column does not line up', () => {
+    expect(wellRowAt(step, 'W2', 0)).toBe(second);
+    expect(wellRowAt(step, 'W1', 7)).toBe(first);
+    expect(wellRowAt(step, 'W1', -1)).toBe(first);
+  });
+
+  it('reports a missing well and a missing step as no row', () => {
+    expect(wellRowAt(step, 'W9', 0)).toBeNull();
+    expect(wellRowAt(null, 'W1', 0)).toBeNull();
   });
 });

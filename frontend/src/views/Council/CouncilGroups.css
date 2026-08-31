@@ -124,7 +124,7 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: 1px var(--space-1);
+  padding: var(--space-2) var(--space-1);
   border-radius: var(--radius-sm);
 }
 
@@ -151,7 +151,7 @@
   top: 50%;
   left: 50%;
   width: max(100%, var(--size-tap-min));
-  height: var(--size-tap-min);
+  height: var(--size-hit-min);
   transform: translate(-50%, -50%);
 }
 

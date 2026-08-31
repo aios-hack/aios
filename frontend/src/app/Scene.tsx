@@ -26,7 +26,6 @@ export const Scene = () => {
     }
   }, [workspace, view]);
 
-
   const views = viewsFor(workspace);
   const options = useMemo(
     () => views.map((id) => ({ value: id, label: t(`view.${id}`) })),

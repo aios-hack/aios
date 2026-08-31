@@ -110,6 +110,8 @@ export const CommandPalette = () => {
     } else if (event.key === 'Escape') {
       event.preventDefault();
       closePalette();
+    } else if (event.key === 'Tab') {
+      event.preventDefault();
     }
   };
 
@@ -125,7 +127,12 @@ export const CommandPalette = () => {
         }
       }}
     >
-      <div className="palette" role="dialog" aria-label={t('palette.label')}>
+      <div
+        className="palette"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('palette.label')}
+      >
         <div className="palette-field">
           <input
             ref={inputRef}

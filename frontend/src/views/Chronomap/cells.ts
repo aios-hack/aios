@@ -125,11 +125,11 @@ const npvRgb = (value: number | undefined, ceiling: number, palette: Palette): R
   if (value === undefined) {
     return palette['--color-unknown'];
   }
+  if (ceiling <= 0) {
+    return palette['--color-unknown'];
+  }
   if (value < 0) {
     return palette['--scale-ratio-low'];
-  }
-  if (ceiling <= 0) {
-    return palette['--scale-ratio-mid'];
   }
   return ratioRgb(value / ceiling, palette);
 };
@@ -175,3 +175,30 @@ export const cellColor = (
   context: CellContext
 ): string => toCanvasColor(cellRgb(row, context));
 
+const ALPHA_STEPS = 1000;
+
+const byteOf = (channel: number): number => Math.round(clamp01(channel / 255) * 255);
+
+const rgbKey = ({ r, g, b, a }: Rgb): number => {
+  const alpha = a >= 1 ? ALPHA_STEPS + 1 : Math.round(clamp01(a) * ALPHA_STEPS);
+  return (
+    ((byteOf(r) * 256 + byteOf(g)) * 256 + byteOf(b)) * (ALPHA_STEPS + 2) + alpha
+  );
+};
+
+export const cellColorCache = (
+  context: CellContext
+): ((row: TimelineWellRow | undefined) => string) => {
+  const cache = new Map<number, string>();
+  return (row) => {
+    const rgb = cellRgb(row, context);
+    const key = rgbKey(rgb);
+    const hit = cache.get(key);
+    if (hit !== undefined) {
+      return hit;
+    }
+    const color = toCanvasColor(rgb);
+    cache.set(key, color);
+    return color;
+  };
+};

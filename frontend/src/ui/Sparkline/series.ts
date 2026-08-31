@@ -41,6 +41,9 @@ const extent = (points: readonly SparkPoint[], floor: number | null): [number, n
     min = Math.min(min, floor);
     max = Math.max(max, floor);
   }
+  if (min > max) {
+    return [0, 1];
+  }
   if (min === max) {
     return [min - 0.5, max + 0.5];
   }

@@ -27,7 +27,15 @@ const WellRowView = ({ row, selected, ordinal, lang, t, onSelectWell }: WellRowP
       onClick={() => onSelectWell(row.well)}
     >
       <th scope="row">
-        <button type="button" className="timeline-well-button">
+        <button
+          type="button"
+          className="timeline-well-button"
+          aria-label={t('steps.table.openWell', { well: row.well })}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelectWell(row.well);
+          }}
+        >
           {row.well}
         </button>
       </th>

@@ -14,7 +14,7 @@
   position: absolute;
   top: var(--space-1);
   left: 0;
-  height: 30px;
+  height: var(--size-control-height);
   border-radius: var(--radius-md);
   background: var(--color-accent);
   transition: transform var(--duration-state) var(--ease-emphasis),
@@ -33,7 +33,7 @@
   position: relative;
   z-index: 1;
   flex: none;
-  height: 30px;
+  height: var(--size-control-height);
   padding: 0 var(--space-4);
   white-space: nowrap;
   border: none;
@@ -56,11 +56,10 @@
 }
 
 .segmented-button:disabled {
-  color: var(--color-text-muted);
-  opacity: 0.4;
+  color: var(--color-text-disabled);
   cursor: not-allowed;
 }
 
 .segmented-button:disabled:hover {
-  color: var(--color-text-muted);
+  color: var(--color-text-disabled);
 }

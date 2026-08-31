@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import type { GraphEdge } from '../../api/types';
 import { edgeOpacity, edgeWidth } from '../shared/graphModel';
 import { edgeOpacityAt, type PlacedNode } from './interpolate';
@@ -29,6 +29,45 @@ export const edgeRelation = (
     : 'muted';
 };
 
+interface EdgeStyle {
+  edge: GraphEdge;
+  id: string;
+  baseOpacity: number;
+  relation: EdgeRelation;
+  width: number;
+  stroke: string;
+}
+
+const edgeStyles = (
+  edges: GraphEdge[],
+  maxWeight: number,
+  scale: number,
+  selectedWell: string | null
+): EdgeStyle[] =>
+  edges.map((edge) => {
+    const relation = edgeRelation(edge, selectedWell);
+    const width = edgeWidth(edge.weight, maxWeight) / scale;
+    return {
+      edge,
+      id: `${edge.injector}-${edge.producer}`,
+      baseOpacity: edgeOpacity(edge.weight, maxWeight),
+      relation,
+      width: relation === 'linked' ? width * EDGE_LINKED_BOOST : width,
+      stroke:
+        edge.weight >= 0 ? 'var(--color-edge-positive)' : 'var(--color-edge-negative)'
+    };
+  });
+
+const relativeOpacity = (base: number, relation: EdgeRelation): number => {
+  if (relation === 'muted') {
+    return base * EDGE_MUTED_SHARE;
+  }
+  if (relation === 'linked') {
+    return Math.min(base * EDGE_LINKED_BOOST, 1);
+  }
+  return base;
+};
+
 const EdgeLayerView = ({
   edges,
   placed,
@@ -36,45 +75,42 @@ const EdgeLayerView = ({
   t,
   scale,
   selectedWell
-}: EdgeLayerProps) => (
-  <g className="field-projection-edges" data-testid="field-projection-edges" data-t={t}>
-    {edges.map((edge) => {
-      const from = placed.get(edge.injector);
-      const to = placed.get(edge.producer);
-      if (from === undefined || to === undefined) {
-        return null;
-      }
-      const base = edgeOpacityAt(t, edgeOpacity(edge.weight, maxWeight));
-      const relation = edgeRelation(edge, selectedWell);
-      const opacity =
-        relation === 'muted'
-          ? base * EDGE_MUTED_SHARE
-          : relation === 'linked'
-            ? Math.min(base * EDGE_LINKED_BOOST, 1)
-            : base;
-      const width = edgeWidth(edge.weight, maxWeight) / scale;
-      return (
-        <line
-          key={`${edge.injector}-${edge.producer}`}
-          x1={from.x}
-          y1={from.y}
-          x2={to.x}
-          y2={to.y}
-          stroke={
-            edge.weight >= 0
-              ? 'var(--color-edge-positive)'
-              : 'var(--color-edge-negative)'
-          }
-          strokeWidth={relation === 'linked' ? width * EDGE_LINKED_BOOST : width}
-          strokeOpacity={opacity}
-          strokeLinecap="round"
-          data-edge-id={`${edge.injector}-${edge.producer}`}
-          data-opacity={opacity}
-          data-relation={relation}
-        />
-      );
-    })}
-  </g>
-);
+}: EdgeLayerProps) => {
+  const styles = useMemo(
+    () => edgeStyles(edges, maxWeight, scale, selectedWell),
+    [edges, maxWeight, scale, selectedWell]
+  );
+  return (
+    <g className="field-projection-edges" data-testid="field-projection-edges" data-t={t}>
+      {styles.map((style) => {
+        const from = placed.get(style.edge.injector);
+        const to = placed.get(style.edge.producer);
+        if (from === undefined || to === undefined) {
+          return null;
+        }
+        const opacity = relativeOpacity(
+          edgeOpacityAt(t, style.baseOpacity),
+          style.relation
+        );
+        return (
+          <line
+            key={style.id}
+            x1={from.x}
+            y1={from.y}
+            x2={to.x}
+            y2={to.y}
+            stroke={style.stroke}
+            strokeWidth={style.width}
+            strokeOpacity={opacity}
+            strokeLinecap="round"
+            data-edge-id={style.id}
+            data-opacity={opacity}
+            data-relation={style.relation}
+          />
+        );
+      })}
+    </g>
+  );
+};
 
 export const EdgeLayer = memo(EdgeLayerView);

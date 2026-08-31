@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { memo, useId, useMemo } from 'react';
 import { bandGeometry, buildSparkline } from './series';
 import './Sparkline.css';
 
@@ -14,7 +14,7 @@ interface SparklineProps {
 
 const VIEW_WIDTH = 100;
 
-export const Sparkline = ({
+const SparklineView = ({
   values,
   current,
   label,
@@ -24,17 +24,25 @@ export const Sparkline = ({
   band = null
 }: SparklineProps) => {
   const titleId = useId();
-  const framed = (baseline: number | null) =>
-    buildSparkline(values, { width: VIEW_WIDTH, height, current, total, baseline });
-  const geometry =
-    band === null
-      ? framed(null)
-      : (() => {
-          const low = framed(band.min);
-          const high = framed(band.max);
-          return low.max - low.min >= high.max - high.min ? low : high;
-        })();
-  const corridor = band === null ? null : bandGeometry(geometry, band.min, band.max);
+  const bandMin = band === null ? null : band.min;
+  const bandMax = band === null ? null : band.max;
+  const geometry = useMemo(() => {
+    const framed = (baseline: number | null) =>
+      buildSparkline(values, { width: VIEW_WIDTH, height, current, total, baseline });
+    if (bandMin === null || bandMax === null) {
+      return framed(null);
+    }
+    const low = framed(bandMin);
+    const high = framed(bandMax);
+    return low.max - low.min >= high.max - high.min ? low : high;
+  }, [values, height, current, total, bandMin, bandMax]);
+  const corridor = useMemo(
+    () =>
+      bandMin === null || bandMax === null
+        ? null
+        : bandGeometry(geometry, bandMin, bandMax),
+    [geometry, bandMin, bandMax]
+  );
 
   if (geometry.segments.length === 0) {
     return (
@@ -92,3 +100,5 @@ export const Sparkline = ({
     </svg>
   );
 };
+
+export const Sparkline = memo(SparklineView);

@@ -3,8 +3,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--size-control-height);
-  height: var(--size-control-height);
+  width: var(--size-control-outer);
+  height: var(--size-control-outer);
   padding: 0;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);

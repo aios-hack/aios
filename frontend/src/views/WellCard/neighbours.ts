@@ -18,7 +18,14 @@ export const neighbourThreshold = (edges: GraphEdge[]): number => {
   if (edges.length === 0) {
     return 0;
   }
-  return Math.min(...edges.map((edge) => Math.abs(edge.weight)));
+  let lowest = Number.POSITIVE_INFINITY;
+  for (const edge of edges) {
+    const magnitude = Math.abs(edge.weight);
+    if (magnitude < lowest) {
+      lowest = magnitude;
+    }
+  }
+  return lowest;
 };
 
 export const connectivityOf = (

@@ -14,9 +14,8 @@ export const fetchJson = async <T,>(
 ): Promise<T> => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  if (signal) {
-    signal.addEventListener('abort', () => controller.abort(), { once: true });
-  }
+  const onAbort = () => controller.abort();
+  signal?.addEventListener('abort', onAbort, { once: true });
   try {
     const response = await fetch(url, {
       signal: controller.signal,
@@ -37,5 +36,6 @@ export const fetchJson = async <T,>(
     return data;
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener('abort', onAbort);
   }
 };

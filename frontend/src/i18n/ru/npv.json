@@ -67,6 +67,7 @@
   "mode.withTax": "С распределённым налогом",
   "sort.action": "Сортировать по столбцу",
   "table.bar": "Доля от максимума",
+  "table.caption": "ЧДД по скважинам за весь горизонт",
   "table.openWell": "Открыть карточку скважины {well}",
   "table.total": "Итого по фонду",
   "table.totalUnit": "руб.",

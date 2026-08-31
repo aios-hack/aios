@@ -3,8 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TimelineFile } from '../api/types';
 import { useStepPlayback } from '../app/useStepPlayback';
 import { I18nProvider } from '../i18n/I18nContext';
-import { PlaybackProvider } from './PlaybackContext';
-import { TimelineProvider, useTimeline } from './TimelineContext';
+import {
+  PLAY_SPEED_MAX,
+  PLAY_SPEED_MIN,
+  PlaybackProvider,
+  playIntervalMs
+} from './PlaybackContext';
+import { TimelineProvider } from './TimelineContext';
 
 const fixture: TimelineFile = {
   model: 'Model_Z',
@@ -42,13 +47,7 @@ const fixture: TimelineFile = {
 };
 
 const Consumer = ({ id }: { id: string }) => {
-  const { timeline, stepIndex, setStepIndex } = useTimeline();
-  const stepCount = timeline.status === 'ready' ? timeline.data.steps.length : 0;
-  const { playing, speed, setSpeed, togglePlay } = useStepPlayback(
-    stepCount,
-    stepIndex,
-    setStepIndex
-  );
+  const { playing, speed, setSpeed, togglePlay } = useStepPlayback();
   return (
     <div>
       <span data-testid={`playing-${id}`}>{String(playing)}</span>
@@ -58,6 +57,9 @@ const Consumer = ({ id }: { id: string }) => {
       </button>
       <button type="button" data-testid={`speed-up-${id}`} onClick={() => setSpeed(4)}>
         speed up
+      </button>
+      <button type="button" data-testid={`speed-down-${id}`} onClick={() => setSpeed(0)}>
+        speed down
       </button>
     </div>
   );
@@ -116,8 +118,21 @@ describe('shared playback state', () => {
 
     act(() => screen.getByTestId('speed-up-a').click());
 
-    expect(screen.getByTestId('speed-a').textContent).toBe('4');
-    expect(screen.getByTestId('speed-b').textContent).toBe('4');
+    expect(screen.getByTestId('speed-a').textContent).toBe(String(PLAY_SPEED_MAX));
+    expect(screen.getByTestId('speed-b').textContent).toBe(String(PLAY_SPEED_MAX));
+  });
+
+  it('clamps a speed outside the allowed range instead of accepting it', async () => {
+    renderConsumers();
+    await waitFor(() => expect(screen.getByTestId('speed-a').textContent).toBe('1'));
+
+    act(() => screen.getByTestId('speed-down-a').click());
+
+    expect(screen.getByTestId('speed-a').textContent).toBe(String(PLAY_SPEED_MIN));
+    expect(playIntervalMs(Number(screen.getByTestId('speed-a').textContent))).toBeGreaterThan(0);
+    expect(
+      Number.isFinite(playIntervalMs(Number(screen.getByTestId('speed-a').textContent)))
+    ).toBe(true);
   });
 
   it('advances the shared step from a single timer, not one per consumer', async () => {

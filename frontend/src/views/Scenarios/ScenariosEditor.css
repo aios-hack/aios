@@ -199,11 +199,6 @@
   font-size: var(--font-size-xs);
 }
 
-.scenarios-empty {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
-}
 
 .scenarios-section[data-empty='true'] {
   gap: var(--space-2);

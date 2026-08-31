@@ -196,6 +196,12 @@ output {
   }
 }
 
+.inline-empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

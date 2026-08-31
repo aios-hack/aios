@@ -2,9 +2,8 @@ import { useMemo } from 'react';
 import type { GraphEdge, GraphFile, WellsFile } from '../../api/types';
 import { dataOf, useDataset } from '../../data';
 import { useTimeline } from '../../state/TimelineContext';
+import { npvByWell, npvCeilingOf } from '../shared/wellFacts';
 import {
-  npvByWell,
-  npvCeiling,
   rateCeiling,
   rowsAtStep,
   wellStateOf,
@@ -36,12 +35,21 @@ export const projectNodes = (wells: WellsFile, graph: GraphFile): ProjectedNode[
 };
 
 export const weightBounds = (edges: GraphEdge[]): { min: number; max: number } => {
-  const weights = edges.map((edge) => Math.abs(edge.weight));
-  const top = weights.length > 0 ? Math.max(...weights) : 0;
-  return {
-    min: weights.length > 0 ? Math.min(...weights) : 0,
-    max: top > 0 ? top * 1.02 : 0
-  };
+  if (edges.length === 0) {
+    return { min: 0, max: 0 };
+  }
+  let lowest = Number.POSITIVE_INFINITY;
+  let top = 0;
+  for (const edge of edges) {
+    const magnitude = Math.abs(edge.weight);
+    if (magnitude < lowest) {
+      lowest = magnitude;
+    }
+    if (magnitude > top) {
+      top = magnitude;
+    }
+  }
+  return { min: lowest, max: top > 0 ? top * 1.02 : 0 };
 };
 
 export const useProjectionGeometry = (
@@ -76,7 +84,7 @@ export const useWellStates = (): Map<string, WellState> => {
   const rateMax = useMemo(() => rateCeiling(timelineData), [timelineData]);
   const rows = useMemo(() => rowsAtStep(timelineData, stepIndex), [timelineData, stepIndex]);
   const npv = useMemo(() => npvByWell(dataOf(npvState)), [npvState]);
-  const npvMax = useMemo(() => npvCeiling(npv), [npv]);
+  const npvMax = useMemo(() => npvCeilingOf(npv), [npv]);
   return useMemo(() => {
     const map = new Map<string, WellState>();
     for (const [id, row] of rows) {

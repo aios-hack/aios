@@ -136,3 +136,72 @@ describe('scenario url safety', () => {
     expect(scenarioDataUrl('a'.repeat(65), 'npv.json')).toBe('/data/npv.json');
   });
 });
+
+describe('a stale scenario response cannot land on the new scenario', () => {
+  it('keeps the resource on the url it was last asked for', async () => {
+    const { act, fireEvent, render, screen, waitFor } = await import('@testing-library/react');
+    const { useState } = await import('react');
+    const { useJsonResource } = await import('./useJsonResource');
+
+    let releaseSlow: (() => void) | null = null;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        url.includes('slow')
+          ? new Promise((resolve) => {
+              releaseSlow = () =>
+                resolve({ ok: true, json: () => Promise.resolve({ ok: true, id: 'slow' }) });
+            })
+          : Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, id: 'fast' }) })
+      )
+    );
+
+    const isTagged = (data: unknown): data is { ok: true; id: string } =>
+      typeof data === 'object' && data !== null && typeof (data as { id?: unknown }).id === 'string';
+
+    const Probe = () => {
+      const [url, setUrl] = useState('/data/slow/x.json');
+      const state = useJsonResource(url, isTagged);
+      return (
+        <div>
+          <button type="button" onClick={() => setUrl('/data/fast/x.json')}>
+            switch
+          </button>
+          <span data-testid="value">
+            {state.status === 'ready' ? state.data.id : state.status}
+          </span>
+        </div>
+      );
+    };
+
+    render(<Probe />);
+    expect(screen.getByTestId('value').textContent).toBe('loading');
+
+    fireEvent.click(screen.getByText('switch'));
+    await waitFor(() => expect(screen.getByTestId('value').textContent).toBe('fast'));
+
+    await act(async () => {
+      releaseSlow?.();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(screen.getByTestId('value').textContent).toBe('fast'));
+  });
+
+  it('keeps the two scenario payloads apart in the cache', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        respond({ ok: true, id: url.includes('what_if') ? 'what_if' : 'base' })
+      )
+    );
+    const isTagged = (data: unknown): data is { ok: true; id: string } =>
+      typeof data === 'object' && data !== null && typeof (data as { id?: unknown }).id === 'string';
+
+    const base = await loadJson('/data/npv.json', isTagged);
+    const other = await loadJson('/data/what_if/npv.json', isTagged);
+    expect(base.id).toBe('base');
+    expect(other.id).toBe('what_if');
+    expect(readCachedJson('/data/npv.json', isTagged)?.id).toBe('base');
+    expect(readCachedJson('/data/what_if/npv.json', isTagged)?.id).toBe('what_if');
+  });
+});

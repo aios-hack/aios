@@ -10,7 +10,6 @@ export const HistoryTable = () => {
   const t = useT();
   const { timeline, stepIndex, selectedWell, selectWell } = useTimeline();
 
-
   const wellsAtStep = useMemo((): TimelineWellRow[] => {
     if (timeline.status !== 'ready') {
       return [];
@@ -26,7 +25,7 @@ export const HistoryTable = () => {
     return <ViewStatus kind="error" title={t('steps.error')} hint={t('steps.errorHint')} />;
   }
   if (timeline.data.steps.length === 0) {
-    return null;
+    return <ViewStatus kind="empty" title={t('steps.empty')} />;
   }
 
   return (

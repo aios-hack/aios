@@ -12,7 +12,7 @@ import {
   groupOrder,
   hasUngrouped,
   pathOf,
-  stepAt,
+  stepFor,
   ungroupedAllocations,
   wellsOf
 } from './levels';
@@ -20,19 +20,32 @@ import { WellLevel } from './WellLevel';
 import './Council.css';
 
 const CouncilReady = ({ data }: { data: HierarchyFile }) => {
+  const { t } = useI18n();
   const { stepIndex, selectedWell, selectWell } = useTimeline();
   const [openGroup, setOpenGroup] = useState<string | null>(data.groups[0] ?? null);
 
   const order = useMemo(() => groupOrder(data), [data]);
-  const step = useMemo(() => stepAt(data, stepIndex), [data, stepIndex]);
-  const segments = useMemo(() => fieldSegments(step, order), [step, order]);
-  const cards = useMemo(
-    () => step.groups.map((level) => groupCard(level, order)),
+  const step = useMemo(() => stepFor(data, stepIndex), [data, stepIndex]);
+  const segments = useMemo(
+    () => (step === null ? [] : fieldSegments(step, order)),
     [step, order]
   );
-  const ungrouped = useMemo(() => ungroupedAllocations(step), [step]);
-  const showUngrouped = useMemo(() => hasUngrouped(data, step), [data, step]);
-  const path = useMemo(() => pathOf(step, selectedWell), [step, selectedWell]);
+  const cards = useMemo(
+    () => (step === null ? [] : step.groups.map((level) => groupCard(level, order))),
+    [step, order]
+  );
+  const ungrouped = useMemo(
+    () => (step === null ? [] : ungroupedAllocations(step)),
+    [step]
+  );
+  const showUngrouped = useMemo(
+    () => (step === null ? false : hasUngrouped(data, step)),
+    [data, step]
+  );
+  const path = useMemo(
+    () => (step === null ? null : pathOf(step, selectedWell)),
+    [step, selectedWell]
+  );
 
   useEffect(() => {
     if (path !== null) {
@@ -40,7 +53,20 @@ const CouncilReady = ({ data }: { data: HierarchyFile }) => {
     }
   }, [path]);
 
-  const rows = useMemo(() => wellsOf(step, openGroup, order), [step, openGroup, order]);
+  const rows = useMemo(
+    () => (step === null ? [] : wellsOf(step, openGroup, order)),
+    [step, openGroup, order]
+  );
+
+  if (step === null) {
+    return (
+      <ViewStatus
+        kind="error"
+        title={t('council.desync')}
+        hint={t('council.desyncHint', { step: stepIndex + 1, total: data.steps.length })}
+      />
+    );
+  }
 
   return (
     <section className="council" data-step={step.control_step}>

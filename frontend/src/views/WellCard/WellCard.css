@@ -4,13 +4,6 @@
   gap: var(--space-5);
 }
 
-.wellcard-title-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
 .wellcard-step {
   display: flex;
   flex-wrap: wrap;

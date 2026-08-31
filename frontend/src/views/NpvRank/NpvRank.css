@@ -232,7 +232,7 @@
 }
 
 .npv-sort-arrow {
-  opacity: 0.32;
+  opacity: var(--opacity-sort-idle);
   transition: opacity var(--duration-state) var(--ease-out);
 }
 

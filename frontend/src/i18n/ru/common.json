@@ -22,7 +22,7 @@
   "view.comparison": "Сравнение",
   "view.constraints": "Ограничения",
   "boundary.title": "Раздел не удалось отобразить",
-  "boundary.hint": "Внутренняя ошибка: {message}. Обновите страницу или выберите другой раздел.",
+  "boundary.hint": "Внутренняя ошибка раздела. Обновите страницу или выберите другой раздел.",
   "app.brandAlt": "Blue Sky Research",
   "app.documentTitle": "AIOS",
   "app.viewLoading": "Загрузка раздела…",

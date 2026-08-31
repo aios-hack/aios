@@ -3,6 +3,8 @@
   "constraint.KNS_LIMIT": "Лимит КНС",
   "constraint.LRAT_CEILING": "Потолок по жидкости",
   "constraint.OUTAGE": "Простой скважины",
+  "desync": "Трасса уровней не совпала с таймлайном",
+  "desyncHint": "Таймлайн стоит на шаге {step}, а в hierarchy.json всего {total}. Пересоберите артефакты сценария.",
   "empty": "Трасса уровней пуста",
   "emptyHint": "В hierarchy.json нет ни одного управляющего шага.",
   "error": "Не удалось загрузить трассу уровней",

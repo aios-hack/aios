@@ -15,15 +15,12 @@ import './TimeScale.css';
 
 export const TimeScale = () => {
   const { t, lang } = useI18n();
-  const { timeline, stepIndex, setStepIndex } = useTimeline();
+  const { timeline, stepIndex } = useTimeline();
   const steps = timeline.status === 'ready' ? timeline.data.steps : [];
   const stepCount = steps.length;
   const current = stepCount === 0 ? 0 : Math.min(stepIndex, stepCount - 1);
-  const { playing, speed, showDate, settingsOpen, selectStep, onStep, togglePlay } = useStepPlayback(
-    stepCount,
-    current,
-    setStepIndex
-  );
+  const { playing, speed, showDate, settingsOpen, selectStep, onStep, togglePlay } =
+    useStepPlayback();
 
   useHotkeys({
     steps,

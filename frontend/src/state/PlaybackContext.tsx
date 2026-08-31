@@ -49,7 +49,7 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
   const { timeline, stepIndex, setStepIndex } = useTimeline();
   const stepCount = timeline.status === 'ready' ? timeline.data.steps.length : 0;
   const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState<PlaySpeed>(PLAY_SPEED_DEFAULT);
+  const [speed, setSpeedState] = useState<PlaySpeed>(PLAY_SPEED_DEFAULT);
   const [showDate, setShowDate] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [axisCollapsed, setAxisCollapsed] = useState(false);
@@ -76,6 +76,10 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
     }, playIntervalMs(speed));
     return () => window.clearInterval(id);
   }, [playing, speed, stepCount, setStepIndex]);
+
+  const setSpeed = useCallback((next: PlaySpeed) => {
+    setSpeedState(clampSpeed(next));
+  }, []);
 
   const selectStep = useCallback(
     (index: number) => {
@@ -116,7 +120,17 @@ export const PlaybackProvider = ({ children }: { children: ReactNode }) => {
       onStep,
       togglePlay
     }),
-    [playing, speed, showDate, settingsOpen, axisCollapsed, selectStep, onStep, togglePlay]
+    [
+      playing,
+      speed,
+      showDate,
+      settingsOpen,
+      axisCollapsed,
+      setSpeed,
+      selectStep,
+      onStep,
+      togglePlay
+    ]
   );
 
   return <PlaybackContext.Provider value={value}>{children}</PlaybackContext.Provider>;

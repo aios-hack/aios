@@ -28,10 +28,11 @@
   --color-text-muted: #8a94a1;
   --color-text-subtle: rgba(221, 227, 234, 0.56);
   --color-text-faint: rgba(221, 227, 234, 0.52);
-  --color-text-disabled: rgba(221, 227, 234, 0.32);
+  --color-text-disabled: rgba(221, 227, 234, 0.38);
 
   --color-border: #2a2f45;
-  --color-border-strong: #3a4160;
+  --color-border-strong: #5a6486;
+  --color-grip: #7d87aa;
   --color-border-subtle: rgba(221, 227, 234, 0.09);
   --color-on-fill: #11151c;
   --color-on-fill-muted: rgba(17, 21, 28, 0.9);

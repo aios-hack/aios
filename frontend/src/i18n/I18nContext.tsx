@@ -69,3 +69,9 @@ export const useI18n = (): I18nContextValue => {
 };
 
 export const useT = (): Translate => useI18n().t;
+
+export const useFallbackT = (): Translate => {
+  const value = useContext(I18nContext);
+  const lang: Lang = value === null ? 'ru' : value.lang;
+  return useCallback<Translate>((key, params) => translate(lang, key, params), [lang]);
+};

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { TimelineFile } from '../../api/types';
 import { useI18n } from '../../i18n/I18nContext';
 import { Sparkline } from '../../ui/Sparkline';
@@ -20,7 +21,7 @@ const INJECTOR_STROKE = 'var(--color-injection)';
 
 export const HistoryBlock = ({ timeline, well, stepIndex }: HistoryBlockProps) => {
   const { t, lang } = useI18n();
-  const series = buildWellSeries(timeline, well);
+  const series = useMemo(() => buildWellSeries(timeline, well), [timeline, well]);
 
   if (series.length === 0) {
     return null;

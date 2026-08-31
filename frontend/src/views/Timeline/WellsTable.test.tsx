@@ -75,6 +75,23 @@ describe('wells table reveal order', () => {
     fireEvent.click(bodyRows(container)[2]);
     expect(onSelectWell).toHaveBeenCalledWith('W03');
   });
+
+  it('opens the well from the row button a keyboard user can reach', () => {
+    const onSelectWell = vi.fn();
+    const { container } = render(
+      withProviders(<WellsTable wells={wells} selectedWell={null} onSelectWell={onSelectWell} />)
+    );
+    const button = bodyRows(container)[2].querySelector<HTMLButtonElement>(
+      '.timeline-well-button'
+    );
+
+    expect(button).not.toBeNull();
+    expect(button?.getAttribute('aria-label')).toContain('W03');
+
+    fireEvent.click(button as HTMLButtonElement);
+    expect(onSelectWell).toHaveBeenCalledTimes(1);
+    expect(onSelectWell).toHaveBeenCalledWith('W03');
+  });
 });
 
 describe('the wells table matches the console table pattern', () => {

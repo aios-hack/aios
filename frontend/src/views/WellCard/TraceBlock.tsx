@@ -23,6 +23,9 @@ export const TraceBlock = ({ records }: TraceBlockProps) => {
             <span className="wellcard-decision">{record.decision}</span>
           </div>
           <table className="wellcard-inputs">
+            <caption className="visually-hidden">
+              {t('wellcard.decision.inputsCaption', { rule: record.rule })}
+            </caption>
             <thead>
               <tr>
                 <th scope="col">{t('wellcard.decision.inputName')}</th>

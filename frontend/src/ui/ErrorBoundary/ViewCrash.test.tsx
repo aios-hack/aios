@@ -60,7 +60,8 @@ describe('ErrorBoundary around a real view', () => {
 
     await screen.findByText(ru['boundary.title']);
     const alert = screen.getByRole('alert');
-    expect(alert.textContent).toContain('sort blew up');
+    expect(alert.textContent).toContain(ru['boundary.hint']);
+    expect(alert.textContent).not.toContain('sort blew up');
     expect(container.querySelector('table')).toBeNull();
     expect(container.textContent).not.toBe('');
   });

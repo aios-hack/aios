@@ -22,10 +22,11 @@ export const ScenarioComparison = ({ entries }: ScenarioComparisonProps) => {
   const [otherId, setOtherId] = useState<string | null>(alternatives[0]?.id ?? null);
   const [mode, setMode] = useState<TaxMode>('preTax');
 
+  const resolvedOtherId = otherId ?? alternatives[0]?.id ?? null;
   const baseNpv = useScenarioDataset('npv', submitted?.id ?? null);
-  const otherNpv = useScenarioDataset('npv', otherId);
+  const otherNpv = useScenarioDataset('npv', resolvedOtherId);
 
-  if (submitted === null || alternatives.length === 0) {
+  if (submitted === null || alternatives.length === 0 || resolvedOtherId === null) {
     return null;
   }
   if (baseNpv.status === 'error' || otherNpv.status === 'error') {
@@ -39,7 +40,7 @@ export const ScenarioComparison = ({ entries }: ScenarioComparisonProps) => {
 
   const result = compareScenarios(
     submitted.id,
-    otherId ?? '',
+    resolvedOtherId,
     baseNpv.data,
     otherNpv.data
   );
@@ -95,7 +96,7 @@ export const ScenarioComparison = ({ entries }: ScenarioComparisonProps) => {
                   value: entry.id,
                   label: entry.id
                 }))}
-                active={otherId ?? alternatives[0].id}
+                active={resolvedOtherId}
                 label={t('scenarios.compare.pick')}
                 onSelect={setOtherId}
               />

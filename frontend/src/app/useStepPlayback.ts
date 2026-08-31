@@ -1,4 +1,3 @@
-import type { Dispatch, SetStateAction } from 'react';
 import {
   PLAY_INTERVAL_MS,
   PLAY_SPEED_MAX,
@@ -23,8 +22,4 @@ interface StepPlayback {
   togglePlay: () => void;
 }
 
-export const useStepPlayback = (
-  _stepCount: number,
-  _stepIndex: number,
-  _setStepIndex: Dispatch<SetStateAction<number>>
-): StepPlayback => usePlayback();
+export const useStepPlayback = (): StepPlayback => usePlayback();

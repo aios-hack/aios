@@ -268,7 +268,7 @@
   width: 1.2em;
   text-align: center;
   color: var(--color-accent);
-  opacity: 0;
+  opacity: var(--opacity-sort-idle);
   transition: opacity var(--duration-state) var(--ease-out);
 }
 

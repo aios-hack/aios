@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ScenarioConstraintsSummary, ScenarioEntry } from '../../api/types';
 import { isScenariosFile } from '../../data/validators';
-import { buildIndicators } from './indicators';
+import { buildIndicators, isSyntheticProvenance } from './indicators';
 
 const summary = (): ScenarioConstraintsSummary => ({
   injection_limits: 0,
@@ -41,6 +41,48 @@ describe('trust indicators built from a scenario entry', () => {
     expect(byId.regret.valueKey).toBe('trust.unmeasured');
   });
 
+  it('refuses to call synthetic demo data a measured result', () => {
+    const byId = Object.fromEntries(
+      buildIndicators(scenario(), { provenance: 'synthetic-demo' }).map((one) => [
+        one.id,
+        one
+      ])
+    );
+
+    expect(byId.provenance.status).toBe('unmeasured');
+    expect(byId.provenance.valueKey).toBe('trust.provenance.synthetic');
+    expect(byId.provenance.briefKey).toBe('trust.brief.synthetic');
+  });
+
+  it('marks a real run as measured', () => {
+    const byId = Object.fromEntries(
+      buildIndicators(scenario(), { provenance: 'model-z-base-run' }).map((one) => [
+        one.id,
+        one
+      ])
+    );
+
+    expect(byId.provenance.status).toBe('neutral');
+    expect(byId.provenance.valueKey).toBe('trust.provenance.measured');
+  });
+
+  it('reports unknown provenance when the artifact states none', () => {
+    const byId = Object.fromEntries(
+      buildIndicators(scenario(), { provenance: '' }).map((one) => [one.id, one])
+    );
+
+    expect(byId.provenance.status).toBe('unmeasured');
+    expect(byId.provenance.valueKey).toBe('trust.provenance.unknown');
+  });
+
+  it('recognises the synthetic markers the artifacts actually use', () => {
+    expect(isSyntheticProvenance('synthetic-demo')).toBe(true);
+    expect(isSyntheticProvenance('mock')).toBe(true);
+    expect(isSyntheticProvenance('  demo-fixture ')).toBe(true);
+    expect(isSyntheticProvenance('model-z-base-run')).toBe(false);
+    expect(isSyntheticProvenance('opm-run')).toBe(false);
+  });
+
   it('reads the threshold from the artifact rather than assuming one', () => {
     const lenient = buildIndicators(
       scenario({ ood_score: 0.6, ood_threshold: 0.9 }),
@@ -65,15 +107,34 @@ describe('trust indicators built from a scenario entry', () => {
 });
 
 describe('scenarios validator with trust fields', () => {
-  const base = { id: 'base', constraints: {} };
+  const base = {
+    id: 'base',
+    config_hash: 'a'.repeat(64),
+    converged: true,
+    self_consistent: true,
+    is_submitted: true,
+    npv_methodology: null,
+    constraints: {
+      injection_limits: 0,
+      liquid_limits: 0,
+      production_floors: 0,
+      watercut_limits: 0,
+      well_outages: 0,
+      infrastructure: 0,
+      empty: true,
+      years: [],
+      outage_wells: []
+    }
+  };
 
   it('accepts a bundle that carries none of the trust fields', () => {
-    expect(isScenariosFile({ scenarios: [base] })).toBe(true);
+    expect(isScenariosFile({ submitted: null, scenarios: [base] })).toBe(true);
   });
 
   it('accepts explicit nulls in every trust field', () => {
     expect(
       isScenariosFile({
+        submitted: null,
         scenarios: [
           {
             ...base,
@@ -90,6 +151,7 @@ describe('scenarios validator with trust fields', () => {
   it('accepts fully measured trust fields', () => {
     expect(
       isScenariosFile({
+        submitted: null,
         scenarios: [
           {
             ...base,
@@ -109,6 +171,7 @@ describe('scenarios validator with trust fields', () => {
     ).toBe(false);
     expect(
       isScenariosFile({
+        submitted: null,
         scenarios: [
           { ...base, worst_regret: { scenario_id: 'S', value_rub: 1, part: 'other' } }
         ]

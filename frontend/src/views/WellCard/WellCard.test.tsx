@@ -393,6 +393,33 @@ describe('WellCard', () => {
     expect(list.textContent).toContain('0.420');
   });
 
+  it('keeps both directions of a reciprocal pair as separate neighbours', async () => {
+    mockFetch({
+      ...stepsPayloads,
+      '/data/graph.json': {
+        ...graphFixture,
+        edges: [
+          { injector: '12', producer: '11', weight: 0.42 },
+          { injector: '11', producer: '12', weight: 0.3 },
+          { injector: '13', producer: '11', weight: 0.91 }
+        ],
+        weight_range: { min: 0.3, max: 0.91 }
+      }
+    });
+    await openFromTable('11');
+    const list = await screen.findByTestId('wellcard-neighbours');
+    const entries = [...list.querySelectorAll('[data-neighbour]')].map((node) => ({
+      well: node.getAttribute('data-neighbour'),
+      role: node.getAttribute('data-role')
+    }));
+    expect(entries).toEqual([
+      { well: '13', role: 'INJ' },
+      { well: '12', role: 'INJ' },
+      { well: '12', role: 'PROD' }
+    ]);
+    expect(list.querySelectorAll('li').length).toBe(3);
+  });
+
   it('moves the selection when a neighbour is clicked', async () => {
     mockFetch(stepsPayloads);
     const { container } = await openFromTable('11');

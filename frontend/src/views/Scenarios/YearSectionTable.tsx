@@ -41,9 +41,10 @@ export const YearSectionTable = ({
         <span className="scenarios-unit">{t(`scenarios.unit.${section}`)}</span>
       </header>
       {rows.length === 0 ? (
-        <p className="scenarios-empty">{t('scenarios.section.empty')}</p>
+        <p className="inline-empty">{t('scenarios.section.empty')}</p>
       ) : (
         <table className="scenarios-table">
+          <caption className="visually-hidden">{t(`scenarios.section.${section}`)}</caption>
           <thead>
             <tr>
               <th scope="col">{t('scenarios.column.year')}</th>

@@ -60,6 +60,15 @@
   overflow: hidden;
 }
 
+.council-budget-meter[data-unknown='true'] {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--color-surface-sunken) 0 4px,
+    var(--color-border) 4px 6px
+  );
+  opacity: 0.6;
+}
+
 .council-budget-meter-fill {
   display: block;
   height: 100%;
@@ -156,7 +165,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.06em;
-  line-height: 1;
+  line-height: var(--line-height-tight);
   white-space: nowrap;
 }
 
@@ -166,7 +175,7 @@
   font-size: var(--font-size-mono);
   font-variant-numeric: tabular-nums;
   letter-spacing: var(--tracking-mono);
-  line-height: 1;
+  line-height: var(--line-height-tight);
   white-space: nowrap;
 }
 

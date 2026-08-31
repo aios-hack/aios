@@ -22,6 +22,44 @@ export interface WallPaint {
   palette: WallPalette;
 }
 
+const WATERCUT_STEPS = 1020;
+
+interface WallInk {
+  plotBg: string;
+  unknown: string;
+  axisTick: string;
+  borderStrong: string;
+  oil: string;
+  injection: string;
+  watercutAt: (watercut: number) => string;
+}
+
+const wallInk = (palette: WallPalette): WallInk => {
+  const ramp: (string | undefined)[] = new Array(WATERCUT_STEPS + 1);
+  const low = palette['--scale-watercut-0'];
+  const high = palette['--scale-watercut-1'];
+  return {
+    plotBg: toCanvasColor(palette['--color-plot-bg']),
+    unknown: toCanvasColor(palette['--color-unknown']),
+    axisTick: toCanvasColor(palette['--color-axis-tick']),
+    borderStrong: toCanvasColor(palette['--color-border-strong']),
+    oil: toCanvasColor(palette['--color-oil']),
+    injection: toCanvasColor(palette['--color-injection']),
+    watercutAt: (watercut) => {
+      const slot = Math.round(
+        (watercut <= 0 ? 0 : watercut >= 1 ? 1 : watercut) * WATERCUT_STEPS
+      );
+      const hit = ramp[slot];
+      if (hit !== undefined) {
+        return hit;
+      }
+      const color = toCanvasColor(mixColors(low, high, watercut));
+      ramp[slot] = color;
+      return color;
+    }
+  };
+};
+
 const rateY = (rate: number, ceiling: number, tileHeight: number): number =>
   ceiling <= 0 ? tileHeight : tileHeight - (rate / ceiling) * tileHeight;
 
@@ -31,46 +69,49 @@ const paintTile = (
   row: WallRow,
   originX: number,
   originY: number,
-  paint: WallPaint
+  paint: WallPaint,
+  ink: WallInk
 ): void => {
-  const { palette, ceiling, layout } = paint;
+  const { ceiling, layout } = paint;
   const tileWidth = layout.tileWidth;
   const tileHeight = layout.tileHeight;
-  const count = entry.points.length;
-  ctx.fillStyle = toCanvasColor(palette['--color-plot-bg']);
+  const points = entry.points;
+  const count = points.length;
+  ctx.fillStyle = ink.plotBg;
   ctx.fillRect(originX, originY, tileWidth, tileHeight);
 
   const columnWidth = count <= 1 ? tileWidth : tileWidth / (count - 1);
+  const baseline = originY + tileHeight;
   ctx.globalAlpha = FILL_ALPHA;
-  entry.points.forEach((point, index) => {
+  let filled = '';
+  for (let index = 0; index < count; index += 1) {
+    const point = points[index];
     if (point.rate === null || point.idle) {
-      return;
+      continue;
     }
     const x = originX + stepX(index, count, tileWidth);
     const top = originY + rateY(point.rate, ceiling, tileHeight);
     const color =
       point.watercut === null || Number.isNaN(point.watercut)
-        ? palette['--color-unknown']
-        : mixColors(
-            palette['--scale-watercut-0'],
-            palette['--scale-watercut-1'],
-            point.watercut
-          );
-    ctx.fillStyle = toCanvasColor(color);
-    ctx.fillRect(x, top, columnWidth, originY + tileHeight - top);
-  });
+        ? ink.unknown
+        : ink.watercutAt(point.watercut);
+    if (color !== filled) {
+      ctx.fillStyle = color;
+      filled = color;
+    }
+    ctx.fillRect(x, top, columnWidth, baseline - top);
+  }
   ctx.globalAlpha = 1;
 
-  ctx.strokeStyle = toCanvasColor(
-    entry.injector ? palette['--color-injection'] : palette['--color-oil']
-  );
+  ctx.strokeStyle = entry.injector ? ink.injection : ink.oil;
   ctx.lineWidth = 1;
   ctx.beginPath();
   let started = false;
-  entry.points.forEach((point, index) => {
+  for (let index = 0; index < count; index += 1) {
+    const point = points[index];
     if (point.rate === null || point.idle) {
       started = false;
-      return;
+      continue;
     }
     const x = originX + stepX(index, count, tileWidth);
     const y = originY + rateY(point.rate, ceiling, tileHeight);
@@ -80,32 +121,33 @@ const paintTile = (
       ctx.moveTo(x, y);
       started = true;
     }
-  });
+  }
   ctx.stroke();
 
   ctx.globalAlpha = SHUT_ALPHA;
-  ctx.fillStyle = toCanvasColor(palette['--color-axis-tick']);
-  entry.points.forEach((point, index) => {
-    const previous = entry.points[index - 1];
+  ctx.fillStyle = ink.axisTick;
+  for (let index = 0; index < count; index += 1) {
+    const point = points[index];
+    const previous = points[index - 1];
     if (!point.shut || point.idle || (previous !== undefined && previous.shut)) {
-      return;
+      continue;
     }
     ctx.fillRect(originX + stepX(index, count, tileWidth), originY, 1, tileHeight);
-  });
+  }
   ctx.globalAlpha = IDLE_ALPHA;
-  ctx.fillStyle = toCanvasColor(palette['--color-unknown']);
-  entry.points.forEach((point, index) => {
-    if (!point.idle) {
-      return;
+  ctx.fillStyle = ink.unknown;
+  for (let index = 0; index < count; index += 1) {
+    if (!points[index].idle) {
+      continue;
     }
     ctx.fillRect(originX + stepX(index, count, tileWidth), originY, columnWidth, tileHeight);
-  });
+  }
   ctx.globalAlpha = 1;
 
-  ctx.strokeStyle = toCanvasColor(palette['--color-border-strong']);
+  ctx.strokeStyle = ink.borderStrong;
   ctx.strokeRect(originX + 0.5, originY + 0.5, tileWidth - 1, tileHeight - 1);
 
-  ctx.fillStyle = toCanvasColor(palette['--color-axis-tick']);
+  ctx.fillStyle = ink.axisTick;
   ctx.font = LABEL_FONT;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'bottom';
@@ -115,12 +157,13 @@ const paintTile = (
 export const paintWall = (ctx: CanvasRenderingContext2D, paint: WallPaint): void => {
   const { layout, rows, series } = paint;
   ctx.clearRect(0, 0, layout.width, layout.height);
+  const ink = wallInk(paint.palette);
   rows.forEach((row, index) => {
     const entry = series.get(row.well);
     if (entry === undefined) {
       return;
     }
-    paintTile(ctx, entry, row, tileX(index, layout), tileY(index, layout), paint);
+    paintTile(ctx, entry, row, tileX(index, layout), tileY(index, layout), paint, ink);
   });
 };
 

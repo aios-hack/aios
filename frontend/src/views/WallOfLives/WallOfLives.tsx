@@ -1,21 +1,16 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type MouseEvent
-} from 'react';
+import { useCallback, useMemo, type MouseEvent } from 'react';
 import type { TimelineFile } from '../../api/types';
 import { useHistoryView } from '../../app/HistoryViewContext';
 import { dataOf, useDataset } from '../../data';
-import { useT } from '../../i18n/I18nContext';
+import { useI18n, useT } from '../../i18n/I18nContext';
 import { useTimeline } from '../../state/TimelineContext';
 import { useTheme } from '../../theme/ThemeContext';
 import { wallMarkColors } from '../../theme/tokens';
 import type { LegendSwatch } from '../../ui/Legend';
+import { formatStepDate } from '../../ui/format';
 import { ViewStatus } from '../../ui/ViewStatus';
 import { toCanvasColor } from '../shared/canvasColors';
+import { useCellKeyboard } from '../shared/useCellKeyboard';
 import { groupByWell, npvByWell } from '../shared/wellFacts';
 import { layoutOf, stepAt, tileIndexAt, tileX } from './layout';
 import {
@@ -24,6 +19,7 @@ import {
   useWallPalette,
   watercutByWell
 } from './series';
+import { useContainerBox } from './useContainerBox';
 import { useWallCanvas, useWallCursor } from './useWallCanvas';
 import { WallControls } from './WallControls';
 import { buildWallRows, sortWallRows, ungroupedWells } from './wallSort';
@@ -31,58 +27,8 @@ import './WallOfLives.css';
 
 const WALL_MARKS = ['line', 'fill', 'shut', 'idle', 'cursor'] as const;
 
-interface WallBox {
-  width: number;
-  height: number;
-}
-
-const useContainerBox = (): [
-  (node: HTMLDivElement | null) => void,
-  WallBox
-] => {
-  const [box, setBox] = useState<WallBox>({ width: 0, height: 0 });
-  const observer = useRef<ResizeObserver | null>(null);
-
-  useEffect(() => () => observer.current?.disconnect(), []);
-
-  const attach = useCallback((node: HTMLDivElement | null) => {
-    observer.current?.disconnect();
-    observer.current = null;
-    if (node === null) {
-      return;
-    }
-    const measure = (): WallBox => {
-      const style = getComputedStyle(node);
-      const inset = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
-      const strip = node.ownerDocument.querySelector('.console-area-timeaxis');
-      const floor =
-        strip === null ? window.innerHeight : strip.getBoundingClientRect().top;
-      const top = node.getBoundingClientRect().top;
-      return {
-        width: Math.max(0, node.clientWidth - (Number.isFinite(inset) ? inset : 0)),
-        height: Math.max(0, floor - top - parseFloat(style.paddingBottom))
-      };
-    };
-    setBox(measure());
-    if (typeof ResizeObserver !== 'function') {
-      return;
-    }
-    const next = new ResizeObserver(() => {
-      setBox(measure());
-    });
-    next.observe(node);
-    const strip = node.ownerDocument.querySelector('.console-area-timeaxis');
-    if (strip !== null) {
-      next.observe(strip);
-    }
-    observer.current = next;
-  }, []);
-
-  return [attach, box];
-};
-
 const WallReady = ({ data }: { data: TimelineFile }) => {
-  const t = useT();
+  const { t, lang } = useI18n();
   const { theme } = useTheme();
   const { stepIndex, setStepIndex, selectWell, selectedWell } = useTimeline();
   const npvState = useDataset('npv');
@@ -146,6 +92,27 @@ const WallReady = ({ data }: { data: TimelineFile }) => {
     toCanvasColor(palette['--color-accent'])
   );
 
+  const commitCell = useCallback(
+    ({ row, column }: { row: number; column: number }) => {
+      const target = rows[row];
+      if (target === undefined) {
+        return;
+      }
+      selectWell(target.well);
+      setStepIndex(column);
+    },
+    [rows, selectWell, setStepIndex]
+  );
+
+  const { cursor, onKeyDown } = useCellKeyboard({
+    rowCount: rows.length,
+    columnCount: data.steps.length,
+    onCommit: commitCell
+  });
+
+  const cursorWell = rows[cursor.row]?.well ?? null;
+  const cursorStep = data.steps[cursor.column];
+
   const onClick = useCallback(
     (event: MouseEvent<HTMLCanvasElement>) => {
       const { offsetX, offsetY } = event.nativeEvent;
@@ -186,7 +153,11 @@ const WallReady = ({ data }: { data: TimelineFile }) => {
               data-wells={rows.map((row) => row.well).join(' ')}
               aria-label={t('wall.ariaLabel')}
               role="img"
+              tabIndex={0}
+              data-cursor-row={cursor.row}
+              data-cursor-column={cursor.column}
               onClick={onClick}
+              onKeyDown={onKeyDown}
             />
             <canvas
               ref={cursorRef}
@@ -196,6 +167,14 @@ const WallReady = ({ data }: { data: TimelineFile }) => {
             />
           </div>
         </div>
+        <p className="visually-hidden" aria-live="polite" data-testid="wall-announce">
+          {cursorWell === null || cursorStep === undefined
+            ? ''
+            : t('wall.cellAnnounce', {
+                well: cursorWell,
+                date: formatStepDate(lang, cursorStep.date)
+              })}
+        </p>
       </div>
     </section>
   );

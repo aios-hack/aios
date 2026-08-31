@@ -31,13 +31,6 @@ export const toEntry = (rule: AblationRule): AblationEntry => ({
 export const toEntries = (rules: readonly AblationRule[]): AblationEntry[] =>
   rules.map(toEntry);
 
-export const barRatio = (share: number | null): number | null => {
-  if (share === null) {
-    return null;
-  }
-  return Math.min(Math.max(share, 0), 1);
-};
-
 export interface AblationCoverage {
   measured: number;
   unmeasured: number;

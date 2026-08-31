@@ -20,12 +20,15 @@ import {
   type ReadoutBounds
 } from './ChronoTooltip';
 import {
+  CHRONO_METRICS,
   PALETTE_TOKENS,
+  cellColorCache,
   cellRgb,
   modeOf,
   readChronoPalette,
   type Palette
 } from './cells';
+import { npvCeilingOf } from '../shared/wellFacts';
 import { CELL_HEIGHT, CELL_WIDTH, CELL_WIDTH_MAX, GUTTER_LEFT, GUTTER_RIGHT, GUTTER_TOP, COLUMN_GAP, ROW_GAP, cellWidthFor, columnX, geometryOf, hitTest, yearTicks } from './geometry';
 
 const CELL_FILL_HEIGHT = CELL_HEIGHT - ROW_GAP;
@@ -473,6 +476,20 @@ describe('chronomap cell colours', () => {
     const ratio = toCanvasColor(cellRgb(row, { ...context, metric: 'ratio' }));
     const mode = toCanvasColor(cellRgb(row, { ...context, metric: 'mode' }));
     expect(new Set([watercut, ratio, mode]).size).toBe(3);
+  });
+
+  it('caches a colour per cell without changing what is painted', () => {
+    const npv = new Map(timelineFixture.wells.map((well, index) => [well, index * 10 - 30]));
+    for (const metric of CHRONO_METRICS) {
+      const full = { ...context, metric, npv, npvCeiling: npvCeilingOf(npv) };
+      const colorOf = cellColorCache(full);
+      for (const step of timelineFixture.steps) {
+        for (const wellRow of step.wells) {
+          expect(colorOf(wellRow)).toBe(toCanvasColor(cellRgb(wellRow, full)));
+        }
+      }
+      expect(colorOf(undefined)).toBe(toCanvasColor(cellRgb(undefined, full)));
+    }
   });
 });
 

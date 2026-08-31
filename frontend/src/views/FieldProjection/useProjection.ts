@@ -29,10 +29,19 @@ export const prefersReducedMotion = (): boolean => {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 };
 
+export const FRAME_BUDGET_MS = 16;
+
+export const shouldCommitFrame = (
+  now: number,
+  lastCommit: number,
+  lastCost: number
+): boolean => now - lastCommit >= Math.max(FRAME_BUDGET_MS, lastCost);
+
 export const useProjectionTravel = (initial: number) => {
   const [t, setT] = useState(initial);
   const valueRef = useRef(initial);
   const frameRef = useRef<number | null>(null);
+  const costRef = useRef(0);
 
   const stop = useCallback(() => {
     if (frameRef.current !== null) {
@@ -69,10 +78,21 @@ export const useProjectionTravel = (initial: number) => {
         return;
       }
       const started = performance.now();
+      let lastCommit = started - FRAME_BUDGET_MS;
+      let pending = false;
       const step = (now: number) => {
+        if (pending) {
+          costRef.current = now - lastCommit;
+          pending = false;
+        }
         const progress = Math.min((now - started) / TRAVEL_MS, 1);
-        apply(from + (target - from) * easeInOut(progress));
-        frameRef.current = progress < 1 ? requestAnimationFrame(step) : null;
+        const done = progress >= 1;
+        if (done || shouldCommitFrame(now, lastCommit, costRef.current)) {
+          apply(from + (target - from) * easeInOut(progress));
+          lastCommit = now;
+          pending = !done;
+        }
+        frameRef.current = done ? null : requestAnimationFrame(step);
       };
       frameRef.current = requestAnimationFrame(step);
     },
@@ -82,9 +102,20 @@ export const useProjectionTravel = (initial: number) => {
   return { t, travelTo, setImmediate };
 };
 
+export const ZOOM_STEP = 1.12;
+
+export const coalescedZoom = (deltas: readonly number[]): number => {
+  let factor = 1;
+  for (const delta of deltas) {
+    factor *= delta > 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
+  }
+  return factor;
+};
+
 export const usePlotGestures = () => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const rectRef = useRef<DOMRect | null>(null);
+  const boxRef = useRef<DOMRect | null>(null);
   const [painted, setPainted] = useState<PaintedSize | null>(null);
   const initial = useMemo(() => createViewBox(FIELD_SIZE, FIELD_PAD), []);
   const { viewBox, zoomAtRatio, startPan, panBy, endPan, isPanning, hasDragged } =
@@ -95,22 +126,43 @@ export const usePlotGestures = () => {
     if (svg === null) {
       return;
     }
+    let frame: number | null = null;
+    const pending: number[] = [];
+    let ratioX = 0.5;
+    let ratioY = 0.5;
+    const flush = () => {
+      frame = null;
+      const factor = coalescedZoom(pending);
+      pending.length = 0;
+      zoomAtRatio(factor, ratioX, ratioY);
+    };
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      const factor = event.deltaY > 0 ? 1.12 : 1 / 1.12;
-      const rect = svg.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) {
-        zoomAtRatio(factor, 0.5, 0.5);
+      const rect = boxRef.current ?? svg.getBoundingClientRect();
+      boxRef.current = rect;
+      if (rect.width > 0 && rect.height > 0) {
+        ratioX = (event.clientX - rect.left) / rect.width;
+        ratioY = (event.clientY - rect.top) / rect.height;
+      } else {
+        ratioX = 0.5;
+        ratioY = 0.5;
+      }
+      pending.push(event.deltaY);
+      if (frame === null && typeof requestAnimationFrame === 'function') {
+        frame = requestAnimationFrame(flush);
         return;
       }
-      zoomAtRatio(
-        factor,
-        (event.clientX - rect.left) / rect.width,
-        (event.clientY - rect.top) / rect.height
-      );
+      if (typeof requestAnimationFrame !== 'function') {
+        flush();
+      }
     };
     svg.addEventListener('wheel', onWheel, { passive: false });
-    return () => svg.removeEventListener('wheel', onWheel);
+    return () => {
+      svg.removeEventListener('wheel', onWheel);
+      if (frame !== null) {
+        cancelAnimationFrame(frame);
+      }
+    };
   }, [zoomAtRatio]);
 
   useEffect(() => {
@@ -120,6 +172,7 @@ export const usePlotGestures = () => {
     }
     const measure = () => {
       const rect = svg.getBoundingClientRect();
+      boxRef.current = rect;
       setPainted(
         rect.width > 0 && rect.height > 0
           ? { width: rect.width, height: rect.height }
@@ -137,7 +190,9 @@ export const usePlotGestures = () => {
 
   const handlers = {
     onPointerDown: (event: { clientX: number; clientY: number }) => {
-      rectRef.current = svgRef.current?.getBoundingClientRect() ?? null;
+      const rect = svgRef.current?.getBoundingClientRect() ?? null;
+      rectRef.current = rect;
+      boxRef.current = rect;
       startPan(event.clientX, event.clientY);
     },
     onPointerMove: (event: { clientX: number; clientY: number }) => {

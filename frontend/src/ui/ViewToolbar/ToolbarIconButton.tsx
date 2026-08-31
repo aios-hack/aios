@@ -21,6 +21,7 @@ export const ToolbarIconButton = ({
     type="button"
     className="toolbar-icon-button"
     aria-expanded={open}
+    aria-haspopup="dialog"
     aria-label={label}
     onClick={onClick}
   >

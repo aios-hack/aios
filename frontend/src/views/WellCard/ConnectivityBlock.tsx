@@ -40,7 +40,10 @@ export const ConnectivityBlock = ({ connectivity, onSelect }: ConnectivityBlockP
       {neighbours.length > 0 && (
         <ul className="wellcard-neighbours" data-testid="wellcard-neighbours">
           {neighbours.map((neighbour) => (
-            <li key={neighbour.well} className="wellcard-neighbour">
+            <li
+              key={`${neighbour.well}:${neighbour.role}`}
+              className="wellcard-neighbour"
+            >
               <button
                 type="button"
                 className="wellcard-neighbour-button"

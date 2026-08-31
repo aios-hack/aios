@@ -126,6 +126,13 @@
   stroke: var(--color-accent);
 }
 
+.field-projection-node:focus-visible > circle.field-projection-hit {
+  fill: var(--color-accent-dim);
+  stroke: var(--color-focus);
+  stroke-width: var(--focus-ring-width);
+  vector-effect: non-scaling-stroke;
+}
+
 .field-projection-node[data-only-map='true'] > circle.field-projection-glyph,
 .field-projection-node[data-only-map='true'] > path {
   stroke-dasharray: 0.6 0.6;

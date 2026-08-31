@@ -1,8 +1,8 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import type { TimelineStep } from '../../api/types';
-import { devicePixelRatioOf, toCanvasColor } from '../shared/canvasColors';
+import { devicePixelRatioOf } from '../shared/canvasColors';
 import type { RowIndex } from '../shared/wellFacts';
-import { cellRgb, type CellContext } from './cells';
+import { cellColorCache, type CellContext } from './cells';
 import {
   COLUMN_GAP,
   ROW_GAP,
@@ -11,7 +11,7 @@ import {
   columnX,
   labelStride,
   rowY,
-  yearTicks,
+  stepYearTicks,
   type ChronoGeometry
 } from './geometry';
 import type { ChronoRow } from './sortRows';
@@ -53,25 +53,30 @@ export const paintChronomap = (
   ctx.fillRect(GUTTER_LEFT, GUTTER_TOP, geometry.plotWidth, geometry.plotHeight);
 
   const rowEdges: number[] = [];
+  const rowHeights: number[] = [];
   for (let row = 0; row <= rows.length; row += 1) {
     rowEdges.push(snap(rowY(row, geometry.cellHeight)));
   }
+  for (let row = 0; row < rows.length; row += 1) {
+    rowHeights.push(Math.max(device, rowEdges[row + 1] - rowEdges[row] - rowGap));
+  }
 
+  const colorOf = cellColorCache(context);
+  let painted = '';
   for (let column = 0; column < geometry.columns; column += 1) {
     const step = steps[column];
     const stepRows = index[column];
     const left = snap(columnX(column, geometry.cellWidth));
     const right = snap(columnX(column + 1, geometry.cellWidth));
+    const width = Math.max(device, right - left - columnGap);
     ctx.globalAlpha = step !== undefined && step.terminal ? TERMINAL_ALPHA : 1;
     for (let row = 0; row < rows.length; row += 1) {
-      const entry = rows[row];
-      ctx.fillStyle = toCanvasColor(cellRgb(stepRows?.get(entry.well), context));
-      ctx.fillRect(
-        left,
-        rowEdges[row],
-        Math.max(device, right - left - columnGap),
-        Math.max(device, rowEdges[row + 1] - rowEdges[row] - rowGap)
-      );
+      const color = colorOf(stepRows?.get(rows[row].well));
+      if (color !== painted) {
+        ctx.fillStyle = color;
+        painted = color;
+      }
+      ctx.fillRect(left, rowEdges[row], width, rowHeights[row]);
     }
   }
   ctx.globalAlpha = 1;
@@ -80,7 +85,7 @@ export const paintChronomap = (
   ctx.font = AXIS_FONT;
   ctx.textBaseline = 'top';
   ctx.textAlign = 'left';
-  for (const tick of yearTicks(steps.map((step) => step.date))) {
+  for (const tick of stepYearTicks(steps)) {
     ctx.fillRect(columnX(tick.column, geometry.cellWidth), GUTTER_TOP - 3, 1, 3);
     ctx.fillText(tick.year, columnX(tick.column, geometry.cellWidth) + 2, 1);
   }

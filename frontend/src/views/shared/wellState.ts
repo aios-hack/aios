@@ -1,4 +1,4 @@
-import type { NpvFile, TimelineFile, TimelineWellRow } from '../../api/types';
+import type { TimelineFile, TimelineWellRow } from '../../api/types';
 import { actualRate } from '../../data/wellRow';
 import { areaRadius, ratioColor, watercutColor } from '../../theme/scales';
 
@@ -51,37 +51,15 @@ export const rowsAtStep = (
   return rows;
 };
 
-export const npvByWell = (npv: NpvFile | null): Map<string, number> => {
-  const values = new Map<string, number>();
-  if (npv === null) {
-    return values;
-  }
-  for (const row of npv.wells) {
-    values.set(row.well, row.with_allocated_tax);
-  }
-  return values;
-};
-
-export const npvCeiling = (values: Map<string, number>): number => {
-  let ceiling = 0;
-  for (const value of values.values()) {
-    const magnitude = Math.abs(value);
-    if (magnitude > ceiling) {
-      ceiling = magnitude;
-    }
-  }
-  return ceiling;
-};
-
 export const npvFill = (value: number | undefined, ceiling: number): string => {
   if (value === undefined) {
     return 'var(--color-unknown)';
   }
+  if (ceiling <= 0) {
+    return 'var(--color-unknown)';
+  }
   if (value < 0) {
     return 'var(--scale-ratio-low)';
-  }
-  if (ceiling <= 0) {
-    return 'var(--scale-ratio-mid)';
   }
   return ratioColor(value / ceiling);
 };

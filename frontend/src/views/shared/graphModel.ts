@@ -7,11 +7,6 @@ export interface Selection {
   neighbours: Set<string>;
 }
 
-export interface WellFluidState {
-  watercut: number | null;
-  commissioned: boolean;
-}
-
 export const groupIndex = (data: GraphFile): Map<string, number> =>
   new Map(data.groups.map((group, index) => [group.id, index]));
 

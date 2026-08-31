@@ -42,10 +42,10 @@ export const groupOrder = (file: HierarchyFile): Map<string, number> =>
 export const colorOf = (order: Map<string, number>, group: string | null): string | null =>
   group === null ? null : groupColor(order.get(group) ?? 0);
 
-export const stepAt = (file: HierarchyFile, index: number): HierarchyStep => {
-  const bounded = Math.min(Math.max(index, 0), file.steps.length - 1);
-  return file.steps[bounded];
-};
+export const stepFor = (file: HierarchyFile, index: number): HierarchyStep | null =>
+  Number.isInteger(index) && index >= 0 && index < file.steps.length
+    ? file.steps[index]
+    : null;
 
 export const fieldSegments = (
   step: HierarchyStep,

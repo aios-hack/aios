@@ -134,3 +134,19 @@ export const yearTicks = (dates: readonly string[]): YearTick[] => {
   });
   return ticks;
 };
+
+export const stepYearTicks = (
+  steps: readonly { date: string }[]
+): YearTick[] => {
+  const ticks: YearTick[] = [];
+  let seen: string | null = null;
+  for (let column = 0; column < steps.length; column += 1) {
+    const year = steps[column].date.slice(0, 4);
+    if (year.length === 0 || year === seen) {
+      continue;
+    }
+    seen = year;
+    ticks.push({ column, year });
+  }
+  return ticks;
+};

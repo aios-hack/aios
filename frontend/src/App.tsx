@@ -3,6 +3,7 @@ import { TimeScale } from './app/TimeScale';
 import { useDocumentTitle } from './app/useDocumentTitle';
 import { useI18n } from './i18n/I18nContext';
 import { useConsole } from './state/ConsoleContext';
+import { DEFAULT_SCENARIO_ID, useScenario } from './state/ScenarioContext';
 import { usePlayback } from './state/PlaybackContext';
 import { useTimeline } from './state/TimelineContext';
 import { BrandLogo } from './ui/BrandLogo';
@@ -21,8 +22,17 @@ const ConsoleShell = () => {
   const { selectedWell } = useTimeline();
   const { workspace, view, setRoute } = useConsole();
   const { axisCollapsed } = usePlayback();
+  const { activeId } = useScenario();
   useWorkspaceRouting({ workspace, view, setRoute });
-  useDocumentTitle(t(`workspace.${workspace}`), t('app.documentTitle'), lang);
+  useDocumentTitle(
+    {
+      section: t(`workspace.${workspace}`),
+      view: t(`view.${view}`),
+      scenario: activeId === DEFAULT_SCENARIO_ID ? undefined : activeId,
+      suffix: t('app.documentTitle')
+    },
+    lang
+  );
 
   const inspectorOpen = selectedWell !== null;
 

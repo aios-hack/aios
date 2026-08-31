@@ -20,6 +20,9 @@ export interface WallLayout {
 }
 
 export const columnsFor = (containerWidth: number): number => {
+  if (!Number.isFinite(containerWidth)) {
+    return MIN_COLUMNS;
+  }
   const usable = containerWidth + TILE_GAP;
   const perTile = TILE_WIDTH + TILE_GAP;
   return Math.max(MIN_COLUMNS, Math.floor(usable / perTile));

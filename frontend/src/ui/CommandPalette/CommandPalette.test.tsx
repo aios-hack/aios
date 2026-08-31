@@ -223,6 +223,24 @@ describe('command palette', () => {
     opener.remove();
   });
 
+  it('keeps the focus inside the modal instead of letting tab reach the page behind', async () => {
+    renderPalette();
+    const behind = document.createElement('button');
+    document.body.appendChild(behind);
+    openPalette();
+    const input = await screen.findByRole('combobox');
+    const dialog = screen.getByRole('dialog');
+
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(document.activeElement).toBe(input);
+
+    const tab = fireEvent.keyDown(input, { key: 'Tab' });
+
+    expect(tab).toBe(false);
+    expect(document.activeElement).toBe(input);
+    behind.remove();
+  });
+
   it('opens and closes on the ctrl+k shortcut', async () => {
     renderPalette();
     openPalette();

@@ -67,6 +67,7 @@
   "mode.withTax": "With allocated tax",
   "sort.action": "Sort by this column",
   "table.bar": "Share of maximum",
+  "table.caption": "NPV per well over the whole horizon",
   "table.openWell": "Open the card for well {well}",
   "table.total": "Fund total",
   "table.totalUnit": "RUB",

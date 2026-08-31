@@ -23,9 +23,17 @@ import {
   tileX,
   tileY
 } from './layout';
-import { buildSeries, lastObservedIndex, seriesCeiling, watercutByWell } from './series';
+import {
+  WALL_PALETTE_TOKENS,
+  buildSeries,
+  lastObservedIndex,
+  seriesCeiling,
+  watercutByWell,
+  type WallPalette
+} from './series';
+import { mixColors, toCanvasColor } from '../shared/canvasColors';
 import { buildWallRows, sortWallRows, ungroupedWells } from './wallSort';
-import { paintWallCursor } from './useWallCanvas';
+import { paintWall, paintWallCursor } from './useWallCanvas';
 
 const { ru } = dictionaries;
 
@@ -356,6 +364,82 @@ describe('wall sorting', () => {
   });
 });
 
+describe('wall tile ink', () => {
+  const recorder = () => {
+    const painted: { color: string; rect: number[] }[] = [];
+    let fillStyle = '';
+    const ctx = {
+      globalAlpha: 1,
+      lineWidth: 1,
+      font: '',
+      textAlign: 'left',
+      textBaseline: 'top',
+      strokeStyle: '',
+      clearRect: () => {},
+      strokeRect: () => {},
+      fillText: () => {},
+      beginPath: () => {},
+      moveTo: () => {},
+      lineTo: () => {},
+      stroke: () => {},
+      fillRect: (x: number, y: number, w: number, h: number) => {
+        painted.push({ color: fillStyle, rect: [x, y, w, h] });
+      }
+    };
+    Object.defineProperty(ctx, 'fillStyle', {
+      get: () => fillStyle,
+      set: (value: string) => {
+        fillStyle = value;
+      }
+    });
+    return { ctx: ctx as unknown as CanvasRenderingContext2D, painted };
+  };
+
+  const distinctPalette = (): WallPalette => {
+    const palette = {} as WallPalette;
+    WALL_PALETTE_TOKENS.forEach((token, index) => {
+      palette[token] = { r: index * 20 + 5, g: 255 - index * 20, b: index * 7 + 3, a: 1 };
+    });
+    return palette;
+  };
+
+  it('paints every tile with the colour the palette resolves', () => {
+    const series = buildSeries(timelineFixture);
+    const rows = buildWallRows(
+      timelineFixture.wells,
+      new Map(),
+      new Map(),
+      watercutByWell(series)
+    );
+    const palette = distinctPalette();
+    const layout = layoutOf(rows.length, wideWidth(3));
+    const { ctx, painted } = recorder();
+    paintWall(ctx, { layout, rows, series, ceiling: seriesCeiling(series), palette });
+    expect(painted.length).toBeGreaterThan(0);
+    const background = toCanvasColor(palette['--color-plot-bg']);
+    expect(painted.filter((entry) => entry.color === background).length).toBe(rows.length);
+    const watercutRamp = (share: number) =>
+      toCanvasColor(
+        mixColors(palette['--scale-watercut-0'], palette['--scale-watercut-1'], share)
+      );
+    let checked = 0;
+    for (const row of rows) {
+      const entry = series.get(row.well);
+      const point = entry?.points.find(
+        (candidate) =>
+          candidate.rate !== null && !candidate.idle && candidate.watercut !== null
+      );
+      if (entry === undefined || point === undefined || point.watercut === null) {
+        continue;
+      }
+      const watercut = point.watercut;
+      expect(painted.some((cell) => cell.color === watercutRamp(watercut))).toBe(true);
+      checked += 1;
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+});
+
 describe('wall cursor', () => {
   it('draws one mark per tile at the position of the step', () => {
     const layout = layoutOf(WELL_COUNT, wideWidth(3));
@@ -469,6 +553,56 @@ describe('WallOfLives', () => {
     fireEvent(wallCanvas(), event);
     await waitFor(() =>
       expect(screen.getByTestId('state').textContent).toBe(`${order[1]}:0`)
+    );
+  });
+
+  it('selects a well and a step from the keyboard, not only from a click', async () => {
+    await renderWall();
+    const order = wellOrder();
+    const canvas = wallCanvas();
+    expect(canvas.getAttribute('tabindex')).toBe('0');
+
+    fireEvent.keyDown(canvas, { key: 'ArrowDown' });
+    fireEvent.keyDown(canvas, { key: 'ArrowRight' });
+    fireEvent.keyDown(canvas, { key: 'Enter' });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('state').textContent).toBe(`${order[1]}:1`)
+    );
+  });
+
+  it('announces the cell under the keyboard cursor for a screen reader', async () => {
+    await renderWall();
+    const order = wellOrder();
+    const canvas = wallCanvas();
+    const announce = screen.getByTestId('wall-announce');
+    expect(announce.getAttribute('aria-live')).toBe('polite');
+    expect(announce.textContent).toContain(order[0]);
+
+    fireEvent.keyDown(canvas, { key: 'ArrowDown' });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('wall-announce').textContent).toContain(order[1])
+    );
+  });
+
+  it('never moves the keyboard cursor past the last well or the last step', async () => {
+    await renderWall();
+    const order = wellOrder();
+    const canvas = wallCanvas();
+
+    for (let i = 0; i < order.length + 3; i += 1) {
+      fireEvent.keyDown(canvas, { key: 'ArrowDown' });
+    }
+    for (let i = 0; i < STEP_COUNT + 3; i += 1) {
+      fireEvent.keyDown(canvas, { key: 'ArrowRight' });
+    }
+    fireEvent.keyDown(canvas, { key: 'Enter' });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('state').textContent).toBe(
+        `${order[order.length - 1]}:${STEP_COUNT - 1}`
+      )
     );
   });
 

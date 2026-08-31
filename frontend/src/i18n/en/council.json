@@ -3,6 +3,8 @@
   "constraint.KNS_LIMIT": "Injection station limit",
   "constraint.LRAT_CEILING": "Liquid rate ceiling",
   "constraint.OUTAGE": "Well outage",
+  "desync": "Level trace does not match the timeline",
+  "desyncHint": "The timeline is at step {step}, while hierarchy.json has only {total}. Rebuild the scenario artifacts.",
   "empty": "Level trace is empty",
   "emptyHint": "hierarchy.json has no control steps.",
   "error": "Failed to load the level trace",

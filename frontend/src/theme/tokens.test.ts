@@ -21,6 +21,16 @@ const collectFiles = (dir: string): string[] => {
 const themeFile = (name: string): string =>
   readFileSync(join(srcDir, 'theme', name), 'utf-8');
 
+const rootDir = process.cwd();
+
+const brandAsset = (name: string): string =>
+  readFileSync(join(rootDir, name), 'utf-8');
+
+const tokenValue = (block: string, token: string): string | null => {
+  const match = block.match(new RegExp(`${token}:\\s*(#[0-9a-fA-F]{3,8})\\s*;`));
+  return match === null ? null : match[1].toLowerCase();
+};
+
 const themeCss = ['tokens.light.css', 'tokens.dark.css', 'fonts.css']
   .map(themeFile)
   .join('\n');
@@ -41,6 +51,30 @@ describe('design tokens', () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+
+  it('paints the shell theme colour with the accent token, not a drifting copy', () => {
+    const accent = tokenValue(themeFile('tokens.light.css'), '--color-accent');
+    expect(accent).not.toBeNull();
+    expect(brandAsset('index.html').toLowerCase()).toContain(
+      `content="${accent as string}"`
+    );
+  });
+
+  it('draws the favicon in the console palette the brand logo uses on dark', () => {
+    const favicon = brandAsset(join('public', 'favicon.svg')).toLowerCase();
+    const darkSurface = tokenValue(themeFile('tokens.dark.css'), '--color-surface');
+
+    expect(favicon).toContain(darkSurface as string);
+    expect(favicon).toContain('#9480f1');
+  });
+
+  it('keeps the dark theme-color in step with the dark surface token', () => {
+    const surface = tokenValue(themeFile('tokens.dark.css'), '--color-surface');
+    expect(surface).not.toBeNull();
+    expect(brandAsset('index.html').toLowerCase()).toContain(
+      `content="${surface as string}"`
+    );
   });
 
   it('defines dark theme overrides for every color token', () => {
@@ -305,7 +339,6 @@ describe('readable text on every surface', () => {
 describe('components ship the styles they render', () => {
   const routeComponents = [
     { file: join(srcDir, 'views', 'Scenarios', 'ScenarioLibrary.tsx'), css: 'ScenariosLibrary.css' },
-    { file: join(srcDir, 'views', 'Scenarios', 'Scenarios.tsx'), css: 'ScenariosLibrary.css' },
     { file: join(srcDir, 'views', 'Scenarios', 'ScenarioComparison.tsx'), css: 'ScenariosCompare.css' },
     { file: join(srcDir, 'views', 'Scenarios', 'ConstraintsEditor.tsx'), css: 'ScenariosEditor.css' }
   ];

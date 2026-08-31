@@ -18,7 +18,6 @@ export interface TrustIndicator {
   valueParams?: Record<string, string | number>;
   detailKey?: string;
   detailParams?: Record<string, string | number>;
-  banner?: boolean;
   briefKey?: string;
   briefParams?: Record<string, string | number>;
   spoken?: boolean;
@@ -143,6 +142,11 @@ const numberIndicator = (scenario: ScenarioEntry): TrustIndicator => {
   };
 };
 
+const SYNTHETIC_PROVENANCE = /^(synthetic|demo|mock|sample|fixture)/i;
+
+export const isSyntheticProvenance = (provenance: string): boolean =>
+  SYNTHETIC_PROVENANCE.test(provenance.trim());
+
 const provenanceIndicator = (source: TrustProvenance): TrustIndicator => {
   if (source.provenance.length === 0) {
     return {
@@ -150,6 +154,16 @@ const provenanceIndicator = (source: TrustProvenance): TrustIndicator => {
       status: 'unmeasured',
       labelKey: 'trust.label.provenance',
       valueKey: 'trust.provenance.unknown',
+      spoken: true
+    };
+  }
+  if (isSyntheticProvenance(source.provenance)) {
+    return {
+      id: 'provenance',
+      status: 'unmeasured',
+      labelKey: 'trust.label.provenance',
+      valueKey: 'trust.provenance.synthetic',
+      briefKey: 'trust.brief.synthetic',
       spoken: true
     };
   }

@@ -87,7 +87,10 @@ const graphFixture: GraphFile = {
 
 const wellsFixture = {
   grid: { ni: 40, nj: 40, nk: 4 },
-  layers: [1, 2],
+  layers: [
+    { id: 1, k_min: 1, k_max: 2 },
+    { id: 2, k_min: 3, k_max: 4 }
+  ],
   wells: [
     { id: 'I1', i: 5, j: 5, layers: [1], completions: [], role: 'INJ' },
     { id: 'P1', i: 12, j: 9, layers: [1], completions: [], role: 'PROD' },

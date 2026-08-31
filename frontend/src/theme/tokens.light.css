@@ -31,10 +31,11 @@
   --color-text-muted: rgba(26, 32, 40, 0.68);
   --color-text-subtle: rgba(26, 32, 40, 0.66);
   --color-text-faint: rgba(26, 32, 40, 0.64);
-  --color-text-disabled: rgba(26, 32, 40, 0.38);
+  --color-text-disabled: rgba(26, 32, 40, 0.5);
 
   --color-border: rgba(61, 34, 195, 0.14);
-  --color-border-strong: rgba(61, 34, 195, 0.26);
+  --color-border-strong: rgba(61, 34, 195, 0.55);
+  --color-grip: #7b83a6;
   --color-border-subtle: rgba(11, 12, 20, 0.08);
   --color-on-fill: #11151c;
   --color-on-fill-muted: rgba(17, 21, 28, 0.9);
@@ -87,7 +88,7 @@
   --color-submitted-bg: rgba(19, 118, 69, 0.1);
   --color-whatif: rgba(26, 32, 40, 0.72);
   --color-whatif-bg: rgba(26, 32, 40, 0.05);
-  --color-error-bg: rgba(200, 47, 30, 0.08);
+  --color-error-bg: #fdf0ef;
   --color-ok-bg: rgba(19, 118, 69, 0.1);
   --color-synthetic: #8e6010;
   --color-synthetic-bg: #f7efdc;
@@ -170,10 +171,13 @@
   --focus-ring-width: 2px;
   --focus-ring-offset: 1px;
 
+  --opacity-sort-idle: 0.65;
+
   --size-council-idle: 56px;
   --size-scrollbar: 10px;
   --size-scrollbar-thumb-min: 32px;
   --size-control-height: 26px;
+  --size-control-outer: 32px;
   --size-tap-min: 44px;
   --size-hit-min: 24px;
   --size-icon-button: 34px;

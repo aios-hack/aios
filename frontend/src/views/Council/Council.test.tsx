@@ -15,12 +15,20 @@ import {
   groupOrder,
   hasUngrouped,
   pathOf,
-  stepAt,
+  stepFor,
   ungroupedWells,
   wellsOf
 } from './levels';
 
 const { ru } = dictionaries;
+
+const stepAt = (file: HierarchyFile, index: number): HierarchyStep => {
+  const step = stepFor(file, index);
+  if (step === null) {
+    throw new Error(`no hierarchy step at ${index}`);
+  }
+  return step;
+};
 
 const GROUPS = ['G1', 'G2'];
 const STEP_COUNT = 3;
@@ -272,6 +280,30 @@ describe('Council selection path', () => {
     }
   });
 
+  it('keeps a group with an unmeasurable share open, never folded away as idle', async () => {
+    const base = stepAt(hierarchyFixture, 0);
+    hierarchyPayload = {
+      ...hierarchyFixture,
+      steps: [
+        {
+          ...base,
+          field: { ...base.field, injection_limit_m3_per_day: 0 }
+        }
+      ],
+      n_control_dates: 1
+    };
+    await renderCouncil(0, null);
+
+    const column = screen.getByTestId('council-segment-G1');
+    const card = screen.getByTestId('council-card-G1');
+
+    expect(column.getAttribute('data-empty')).toBeNull();
+    expect(card.getAttribute('data-empty')).toBeNull();
+    expect(screen.getByTestId('council-received-G1').textContent).not.toBe('0');
+    expect(card.querySelector('.council-alloc')).not.toBeNull();
+    expect(column.querySelector('.council-cap-share')?.textContent).toBe('—');
+  });
+
   it('names each group once: on the cap, never repeated in the card body', async () => {
     const { container } = await renderCouncil(0, null);
     const column = container.querySelector('.council-column') as HTMLElement;
@@ -307,6 +339,27 @@ describe('Council selection path', () => {
     const budget = container.querySelector('.council-budget') as HTMLElement;
     const columns = container.querySelector('.council-groups') as HTMLElement;
     expect(columns.compareDocumentPosition(budget) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('reports an unmeasurable water usage instead of drawing an empty meter at zero', async () => {
+    const base = stepAt(hierarchyFixture, 0);
+    hierarchyPayload = {
+      ...hierarchyFixture,
+      steps: [
+        {
+          ...base,
+          field: { ...base.field, water_available_m3_per_day: 0 }
+        }
+      ],
+      n_control_dates: 1
+    };
+    const { container } = await renderCouncil(0, null);
+
+    expect(container.querySelector('.council-budget-usage')?.textContent).toBe('—');
+    expect(container.querySelector('.council-budget-meter-fill')).toBeNull();
+    expect(
+      container.querySelector('.council-budget-meter')?.getAttribute('data-unknown')
+    ).toBe('true');
   });
 
   it('gives both budget figures the same weight: neither is the odd one out', async () => {
@@ -599,5 +652,67 @@ describe('the council table reveals its rows like the other console tables', () 
       const block = css.match(new RegExp(`\\.${name}\\s*\\{[^}]*\\}`))?.[0] ?? '';
       expect(block, name).toContain('min-height');
     }
+  });
+});
+
+describe('Council refuses to guess when hierarchy and timeline disagree', () => {
+  it('reports the mismatch instead of clamping to the last hierarchy step', async () => {
+    hierarchyPayload = {
+      ...hierarchyFixture,
+      n_control_dates: 1,
+      steps: [hierarchyFixture.steps[0]]
+    };
+    render(
+      withProviders(
+        <>
+          <Driver step={2} well={null} />
+          <Council />
+        </>
+      )
+    );
+    const notice = await screen.findByText(ru['council.desync']);
+    expect(notice).not.toBeNull();
+    expect(document.querySelector('.council')).toBeNull();
+    expect(document.querySelector('[data-testid="council-groups"]')).toBeNull();
+  });
+
+  it('renders normally while the step index stays inside the hierarchy', async () => {
+    hierarchyPayload = {
+      ...hierarchyFixture,
+      n_control_dates: 1,
+      steps: [hierarchyFixture.steps[0]]
+    };
+    const { container } = await renderCouncil(0, null);
+    expect(container.querySelector('[data-testid="council-groups"]')).not.toBeNull();
+    expect(screen.queryByText(ru['council.desync'])).toBeNull();
+  });
+
+  it('exposes the mismatch as an alert so it is not read as an empty state', async () => {
+    hierarchyPayload = {
+      ...hierarchyFixture,
+      n_control_dates: 1,
+      steps: [hierarchyFixture.steps[0]]
+    };
+    render(
+      withProviders(
+        <>
+          <Driver step={2} well={null} />
+          <Council />
+        </>
+      )
+    );
+    await screen.findByText(ru['council.desync']);
+    expect(screen.getByRole('alert')).not.toBeNull();
+  });
+});
+
+describe('stepFor bounds the hierarchy lookup', () => {
+  it('returns null past the end rather than the last step', () => {
+    expect(stepFor(hierarchyFixture, STEP_COUNT)).toBeNull();
+    expect(stepFor(hierarchyFixture, -1)).toBeNull();
+    expect(stepFor(hierarchyFixture, 0)).toBe(hierarchyFixture.steps[0]);
+    expect(stepFor(hierarchyFixture, STEP_COUNT - 1)).toBe(
+      hierarchyFixture.steps[STEP_COUNT - 1]
+    );
   });
 });

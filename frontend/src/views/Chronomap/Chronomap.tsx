@@ -139,7 +139,7 @@ const sameBounds = (a: ReadoutBounds, b: ReadoutBounds): boolean =>
 
 const useReadoutBounds = (
   stage: HTMLDivElement | null,
-  hover: HoverTarget | null
+  hovering: boolean
 ): ReadoutBounds => {
   const [bounds, setBounds] = useState<ReadoutBounds>({
     left: 0,
@@ -173,7 +173,7 @@ const useReadoutBounds = (
       strip?.removeEventListener('transitionrun', measure);
       strip?.removeEventListener('transitionend', measure);
     };
-  }, [stage, hover]);
+  }, [stage, hovering]);
 
   return bounds;
 };
@@ -188,7 +188,7 @@ const ChronomapReady = ({ data }: { data: TimelineFile }) => {
   const [hover, setHover] = useState<HoverTarget | null>(null);
   const [frame, frameBox] = useStageBox();
   const [stage, setStage] = useState<HTMLDivElement | null>(null);
-  const bounds = useReadoutBounds(stage, hover);
+  const bounds = useReadoutBounds(stage, hover !== null);
 
   const npv = useMemo(() => npvByWell(dataOf(npvState)), [npvState]);
   const npvCeiling = useMemo(() => npvCeilingOf(npv), [npv]);

@@ -33,9 +33,10 @@ export const InfrastructureTable = ({
         <span className="scenarios-unit">{t('scenarios.unit.infrastructure')}</span>
       </header>
       {rows.length === 0 ? (
-        <p className="scenarios-empty">{t('scenarios.section.empty')}</p>
+        <p className="inline-empty">{t('scenarios.section.empty')}</p>
       ) : (
         <table className="scenarios-table">
+          <caption className="visually-hidden">{t('scenarios.section.infrastructure')}</caption>
           <thead>
             <tr>
               <th scope="col">{t('scenarios.column.pairName')}</th>

@@ -56,6 +56,7 @@ const NpvTableView = ({
       </p>
       <div className="npv-table-wrap">
         <table className="npv-table">
+          <caption className="visually-hidden">{t('npv.table.caption')}</caption>
           <thead>
             <tr>
               <SortHeader

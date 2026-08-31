@@ -4,11 +4,7 @@ import { clearJsonCache } from '../data/jsonCache';
 
 configure({ asyncUtilTimeout: 5000 });
 
-// Node 25 exposes an experimental global `localStorage` which is incomplete
-// unless the process is started with a backing file.  Vitest's globals can
-// shadow jsdom's fully functional storage with that object, so provide the
-// deterministic in-memory implementation the UI tests actually need.
-class TestStorage implements Storage {
+class InMemoryStorageReplacingIncompleteNodeGlobal implements Storage {
   private readonly values = new Map<string, string>();
 
   get length() {
@@ -36,7 +32,7 @@ class TestStorage implements Storage {
   }
 }
 
-const testLocalStorage = new TestStorage();
+const testLocalStorage = new InMemoryStorageReplacingIncompleteNodeGlobal();
 Object.defineProperty(globalThis, 'localStorage', {
   configurable: true,
   value: testLocalStorage

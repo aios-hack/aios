@@ -7,6 +7,7 @@ import { formatStepDate } from '../../ui/format';
 import { ConnectivityBlock } from './ConnectivityBlock';
 import { HistoryBlock } from './HistoryBlock';
 import { connectivityOf, neighbourThreshold } from './neighbours';
+import { wellRowAt } from './wellSeries';
 import { TraceBlock } from './TraceBlock';
 import { WellParams } from './WellParams';
 import './WellCard.css';
@@ -30,7 +31,11 @@ export const WellCard = ({ well }: WellCardProps) => {
 
   const steps = timeline.status === 'ready' ? timeline.data.steps : null;
   const step = steps ? steps[Math.min(stepIndex, steps.length - 1)] : null;
-  const row = step ? (step.wells.find((entry) => entry.well === well) ?? null) : null;
+  const column = useMemo(
+    () => (timeline.status === 'ready' ? timeline.data.wells.indexOf(well) : -1),
+    [timeline, well]
+  );
+  const row = wellRowAt(step, well, column);
   const records =
     step && trace.status === 'ready'
       ? (trace.data[well]?.[String(step.control_step)] ?? [])
@@ -38,8 +43,6 @@ export const WellCard = ({ well }: WellCardProps) => {
 
   return (
     <div className="wellcard" data-testid="wellcard">
-      <div className="wellcard-title-row">
-      </div>
       {step && steps && (
         <p className="wellcard-step">
           <span>

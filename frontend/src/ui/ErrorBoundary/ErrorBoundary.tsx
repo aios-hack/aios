@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { useT } from '../../i18n/I18nContext';
+import { useFallbackT } from '../../i18n/I18nContext';
 import { ViewStatus } from '../ViewStatus';
 
 interface ErrorBoundaryProps {
@@ -8,19 +8,19 @@ interface ErrorBoundaryProps {
 }
 
 interface ErrorBoundaryState {
-  message: string | null;
+  failed: boolean;
 }
 
-const ErrorFallback = ({ message }: { message: string }) => {
-  const t = useT();
-  return <ViewStatus kind="error" title={t('boundary.title')} hint={t('boundary.hint', { message })} />;
+const ErrorFallback = () => {
+  const t = useFallbackT();
+  return <ViewStatus kind="error" title={t('boundary.title')} hint={t('boundary.hint')} />;
 };
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { message: null };
+  state: ErrorBoundaryState = { failed: false };
 
-  static getDerivedStateFromError(error: unknown): ErrorBoundaryState {
-    return { message: error instanceof Error ? error.message : String(error) };
+  static getDerivedStateFromError(): ErrorBoundaryState {
+    return { failed: true };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
@@ -28,11 +28,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   render(): ReactNode {
-    if (this.state.message !== null) {
+    if (this.state.failed) {
       if (this.props.silent === true) {
         return null;
       }
-      return <ErrorFallback message={this.state.message} />;
+      return <ErrorFallback />;
     }
     return this.props.children;
   }

@@ -85,3 +85,25 @@ describe('bandGeometry', () => {
     expect(bandGeometry(geometry, 8, 2)).toBeNull();
   });
 });
+
+describe('sparkline extent on an empty series', () => {
+  it('frames an all-null series without an infinite extent', () => {
+    const geometry = buildSparkline([null, null], { width: 100, height: 24, current: 0 });
+    expect(geometry.segments).toEqual([]);
+    expect(geometry.marker).toBeNull();
+    expect(Number.isFinite(geometry.min)).toBe(true);
+    expect(Number.isFinite(geometry.max)).toBe(true);
+    expect(geometry.max).toBeGreaterThan(geometry.min);
+  });
+
+  it('frames an empty series the same way', () => {
+    const geometry = buildSparkline([], { width: 100, height: 24, current: 0 });
+    expect(geometry.min).toBe(0);
+    expect(geometry.max).toBe(1);
+  });
+
+  it('keeps the band unmeasurable when nothing was plotted', () => {
+    const geometry = buildSparkline([], { width: 100, height: 24, current: 0 });
+    expect(bandGeometry(geometry, 2, 1)).toBeNull();
+  });
+});

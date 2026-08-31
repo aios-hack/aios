@@ -121,7 +121,7 @@
   width: 1.2em;
   text-align: center;
   color: var(--color-accent);
-  opacity: 0;
+  opacity: var(--opacity-sort-idle);
   transition: opacity var(--duration-state) var(--ease-out);
 }
 
@@ -159,11 +159,6 @@
   color: var(--color-danger);
 }
 
-.council-empty {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
-}
 
 @keyframes council-row-in {
   from {

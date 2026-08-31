@@ -70,5 +70,5 @@
 
 .status-chip .icon-button-glyph {
   font-size: var(--font-size-md);
-  line-height: 1;
+  line-height: var(--line-height-tight);
 }

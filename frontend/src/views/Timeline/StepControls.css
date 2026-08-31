@@ -69,8 +69,7 @@
 }
 
 .transport-button:disabled {
-  color: var(--color-text-subtle);
-  opacity: 0.4;
+  color: var(--color-text-disabled);
   cursor: not-allowed;
 }
 

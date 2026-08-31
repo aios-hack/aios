@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { loadJson, readCachedJson } from './jsonCache';
 import type { ResourceState } from './ResourceState';
 
@@ -18,6 +18,8 @@ export const useJsonResource = <T,>(
   validate: (data: unknown) => data is T
 ): ResourceState<T> => {
   const [state, setState] = useState<ResourceState<T>>(() => initialStateFor(url, validate));
+  const validateRef = useRef(validate);
+  validateRef.current = validate;
 
   useEffect(() => {
     if (url === null) {
@@ -25,13 +27,14 @@ export const useJsonResource = <T,>(
       return;
     }
     let cancelled = false;
-    const cached = readCachedJson(url, validate);
+    const check = validateRef.current;
+    const cached = readCachedJson(url, check);
     if (cached !== null) {
       setState({ status: 'ready', data: cached });
       return;
     }
     setState({ status: 'loading' });
-    loadJson(url, validate)
+    loadJson(url, check)
       .then((data) => {
         if (!cancelled) {
           setState({ status: 'ready', data });

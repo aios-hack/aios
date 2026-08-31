@@ -68,7 +68,7 @@ export const OverviewCard = ({
     [geometry, metric.band]
   );
 
-  const ticks = useMemo(() => yearTicks([...steps]), [steps]);
+  const ticks = useMemo(() => yearTicks(steps), [steps]);
   const stride = Math.max(1, Math.ceil(ticks.length / YEAR_TARGET));
   const labelled = ticks.filter((_, index) => index % stride === 0);
   const lastIndex = Math.max(steps.length - 1, 1);

@@ -75,7 +75,7 @@ export interface YearTick {
   year: string;
 }
 
-export const yearTicks = (steps: TimelineStep[]): YearTick[] => {
+export const yearTicks = (steps: readonly TimelineStep[]): YearTick[] => {
   const ticks: YearTick[] = [];
   let last: string | null = null;
   for (let index = 0; index < steps.length; index += 1) {

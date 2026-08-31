@@ -59,7 +59,7 @@ export const GroupLevel = ({
   const { t, lang } = useI18n();
   const limit = step.field.injection_limit_m3_per_day;
   const available = step.field.water_available_m3_per_day;
-  const usage = available > 0 ? limit / available : 0;
+  const usage = available > 0 ? limit / available : null;
 
   return (
     <section className="council-level" data-level="groups" data-testid="council-groups">
@@ -70,8 +70,8 @@ export const GroupLevel = ({
         {cards.map((card, index) => {
           const segment = segments.find((item) => item.group === card.group) ?? null;
           const share = segment?.share ?? null;
-          const weight = share ?? 0;
-          const idle = weight === 0;
+          const weight = share === null ? 1 / cards.length : share;
+          const idle = card.received === 0;
           return (
             <div
               key={card.group}
@@ -165,14 +165,20 @@ export const GroupLevel = ({
         <div className="council-budget-stat council-budget-stat-usage">
           <span className="council-budget-label">{t('council.field.usage')}</span>
           <span className="council-budget-gauge">
-            <span className="council-budget-meter" aria-hidden="true">
-              <span
-                className="council-budget-meter-fill"
-                style={{ inlineSize: `${Math.min(usage, 1) * 100}%` }}
-              />
+            <span
+              className="council-budget-meter"
+              aria-hidden="true"
+              data-unknown={usage === null ? 'true' : undefined}
+            >
+              {usage !== null && (
+                <span
+                  className="council-budget-meter-fill"
+                  style={{ inlineSize: `${Math.min(usage, 1) * 100}%` }}
+                />
+              )}
             </span>
             <span className="council-number council-budget-usage">
-              {formatPercent(lang, usage)}
+              {usage === null ? DASH : formatPercent(lang, usage)}
             </span>
           </span>
         </div>
