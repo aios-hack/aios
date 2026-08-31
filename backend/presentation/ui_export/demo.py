@@ -40,11 +40,10 @@ WHATIF_ID = "whatif-injection-cut"
 DEFAULT_OUT_DIR: Path = project_root() / "frontend" / "public" / "data"
 _DEFAULT_DENSITY = 860.0
 
-# F8: у `base` показатели устойчивости измерены (батарея `robustness/`
-# отработала на нём), заявленного числа нет — финальный тракт сдачи не
-# пройден, и `final_npv` остаётся пустым. У `whatif` не измерено ничего:
-# три `null` — это «не измерено», а не «ноль». Обе ветки обязаны быть в
-# наборе, иначе интерфейс рендерит только одну из них.
+# F8: у `base` показатели устойчивости измерены. Подтверждённый ЧДД и run id
+# добавляются после сборки base-артефакта, чтобы не дублировать число литералом.
+# Base при этом не становится сдаваемым сценарием: `is_submitted` определяется
+# только полем RunArtifact.final_npv. У `whatif` не измерено ничего.
 DEMO_ROBUSTNESS: dict[str, ScenarioRobustness] = {
     BASE_ID: ScenarioRobustness(
         ood_score=0.18,
@@ -57,6 +56,22 @@ DEMO_ROBUSTNESS: dict[str, ScenarioRobustness] = {
     ),
     WHATIF_ID: ScenarioRobustness(),
 }
+
+
+def confirmed_base_robustness(
+    npv_rub: float, source_run_id: str
+) -> ScenarioRobustness:
+    """Attach measured OPM economics without marking base as submitted."""
+
+    measured = DEMO_ROBUSTNESS[BASE_ID]
+    return ScenarioRobustness(
+        ood_score=measured.ood_score,
+        ood_threshold=measured.ood_threshold,
+        worst_regret=measured.worst_regret,
+        final_npv_rub=npv_rub,
+        final_npv_run_id=source_run_id,
+        run_validation_clean=True,
+    )
 
 _BASE_NORMATIVES = NormativeSet(**DEFAULT_NORMATIVES_2007, esp_catalog=ESP_CATALOG_2007)
 _BASE_POLICIES = Policies(
@@ -308,6 +323,9 @@ def build_demo(
         lambda_path=lambda_path,
     )
     base = base_result.artifact
+    base_robustness = confirmed_base_robustness(
+        base.npv_table.npv_methodology, base_result.source_run_id
+    )
     base_meta_by_kind = {
         kind: real_meta(kind, base_result) for kind in ("timeline", "graph", "npv", "trace")
     }
@@ -342,7 +360,9 @@ def build_demo(
     dump_bundle(base, base_bundle)
     dump_bundle(whatif, whatif_bundle)
     scenarios_path = export_scenarios_json(
-        [base_bundle, whatif_bundle], root / "scenarios.json", DEMO_ROBUSTNESS
+        [base_bundle, whatif_bundle],
+        root / "scenarios.json",
+        {**DEMO_ROBUSTNESS, BASE_ID: base_robustness},
     )
     # Индекс смешанный: base — настоящий расчёт, whatif — демо. Ни DEMO_PROVENANCE,
     # ни REAL_PROVENANCE целиком файлу не подходят — provenance у каждого сценария

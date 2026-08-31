@@ -374,7 +374,15 @@ def test_scenarios_index_shows_both_measured_and_not_measured(demo_dir: Path) ->
     assert base["ood_score"] is not None
     assert base["ood_threshold"] is not None
     assert base["worst_regret"]["part"] in ("holdout", "optimization")
-    assert base["final_npv"] is None
+    assert base["is_submitted"] is False
+    assert base["npv_methodology"] == pytest.approx(
+        _read(demo_dir / "base" / "npv.json")["npv_methodology"]
+    )
+    assert base["final_npv"] == {
+        "npv_rub": pytest.approx(base["npv_methodology"]),
+        "run_id": _read(demo_dir / "base" / "npv.json")["meta"]["source_run_id"],
+    }
+    assert base["run_validation_clean"] is True
     whatif = by_id[WHATIF_ID]
     assert whatif["ood_score"] is None
     assert whatif["worst_regret"] is None

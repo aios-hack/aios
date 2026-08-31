@@ -203,6 +203,27 @@ def test_two_submitted_scenarios_raise(tmp_path: Path) -> None:
         build_scenario_index([first, second])
 
 
+def test_confirmed_run_can_be_measured_without_being_submitted(tmp_path: Path) -> None:
+    base = _write_artifact(tmp_path / "base.json", submitted=False)
+    entry = build_scenario_index(
+        [base],
+        {
+            "base": ScenarioRobustness(
+                final_npv_rub=11_873_122_324.91,
+                final_npv_run_id="opm-base-run",
+                run_validation_clean=True,
+            )
+        },
+    )["scenarios"][0]
+
+    assert entry["is_submitted"] is False
+    assert entry["npv_methodology"] == 11_873_122_324.91
+    assert entry["final_npv"] == {
+        "npv_rub": 11_873_122_324.91,
+        "run_id": "opm-base-run",
+    }
+
+
 def test_index_reports_not_converged_flag(tmp_path: Path) -> None:
     path = _write_artifact(tmp_path / "diverged.json", submitted=False, converged=False)
     index = build_scenario_index([path])
