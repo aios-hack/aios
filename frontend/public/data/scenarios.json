@@ -6,7 +6,7 @@
       "converged": true,
       "self_consistent": true,
       "is_submitted": false,
-      "npv_methodology": null,
+      "npv_methodology": 11873122324.910866,
       "constraints": {
         "injection_limits": 0,
         "liquid_limits": 0,
@@ -18,13 +18,20 @@
         "outage_wells": [],
         "empty": true
       },
-      "ood_score": null,
-      "ood_threshold": null,
-      "worst_regret": null,
-      "final_npv": null,
+      "ood_score": 0.18,
+      "ood_threshold": 0.5,
+      "worst_regret": {
+        "scenario_id": "holdout-outage-and-injection-cap",
+        "value_rub": 201000000.0,
+        "part": "holdout"
+      },
+      "final_npv": {
+        "npv_rub": 11873122324.910866,
+        "run_id": "20260816T200926-8b4da543d1ed"
+      },
       "predicted_npv_rub": null,
       "calibrated_npv_rub": null,
-      "run_validation_clean": null
+      "run_validation_clean": true
     },
     {
       "id": "whatif-injection-cut",

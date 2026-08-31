@@ -257,9 +257,15 @@ def build_scenario_index(
     for path in artifact_paths:
         artifact = load_bundle(path)
         scenario_id = Path(path).stem
+        measured = robustness.get(scenario_id, ScenarioRobustness())
         is_submitted = artifact.final_npv is not None
         if is_submitted:
             submitted.append(scenario_id)
+        artifact_npv = (
+            artifact.final_npv.npv_methodology
+            if artifact.final_npv is not None
+            else None
+        )
         scenarios.append(
             {
                 "id": scenario_id,
@@ -267,13 +273,15 @@ def build_scenario_index(
                 "converged": artifact.converged,
                 "self_consistent": artifact.self_consistent,
                 "is_submitted": is_submitted,
+                # Подтверждённый полный прогон не обязан быть сдаваемым
+                # сценарием. Base измерен OPM, но is_submitted остаётся false.
                 "npv_methodology": (
-                    artifact.final_npv.npv_methodology if artifact.final_npv is not None else None
+                    artifact_npv
+                    if artifact_npv is not None
+                    else measured.final_npv_rub
                 ),
                 "constraints": _constraints_summary(artifact.constraints),
-                **_robustness_json(
-                    robustness.get(scenario_id, ScenarioRobustness())
-                ),
+                **_robustness_json(measured),
             }
         )
     if len(submitted) > 1:

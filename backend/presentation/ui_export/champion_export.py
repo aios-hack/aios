@@ -21,7 +21,12 @@ from backend.domain.economics import analyze_base_case, load_response_artifact
 from backend.domain.schedule import parse_schedule
 from backend.infrastructure.resources import chdd_python_dir, model_z_dir
 from backend.presentation.ui_export.artifact_io import dump_bundle, load_schedule_json
-from backend.presentation.ui_export.demo import SCENARIO_KINDS, export_scenario
+from backend.presentation.ui_export.demo import (
+    BASE_ID,
+    SCENARIO_KINDS,
+    confirmed_base_robustness,
+    export_scenario,
+)
 from backend.presentation.ui_export.scenarios import (
     ScenarioRobustness,
     export_scenarios_json,
@@ -150,6 +155,9 @@ def main() -> int:
     bundle = OUT / "bundles" / f"{SCENARIO_ID}.json"
     dump_bundle(artifact, bundle)
     written.append(bundle)
+    base_npv = json.loads(
+        (OUT / BASE_ID / "npv.json").read_text(encoding="utf-8")
+    )
     written.append(
         export_scenarios_json(
             [
@@ -159,6 +167,10 @@ def main() -> int:
             ],
             OUT / "scenarios.json",
             {
+                BASE_ID: confirmed_base_robustness(
+                    float(base_npv["npv_methodology"]),
+                    base_npv["meta"]["source_run_id"],
+                ),
                 SCENARIO_ID: ScenarioRobustness(
                     ood_score=champion["economic_ood_score"],
                     ood_threshold=champion["economic_ood_threshold"],
