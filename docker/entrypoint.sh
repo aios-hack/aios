@@ -82,8 +82,17 @@ cmd_webdata() {
         exit 2
     fi
     if [ ! -f /app/data/base_case/response.json ]; then
-        echo "Нет /app/data/base_case/response.json — базового отклика для витрины." >&2
-        exit 2
+        # Репозиторий содержит проверенный snapshot витрины для срочного
+        # воспроизводимого запуска. Реальный OPM response нужен только для
+        # регенерации; отсутствие локального data/ не должно блокировать web.
+        for path in wells.json graph.json hierarchy.json npv.json timeline.json scenarios.json; do
+            if [ ! -f "/app/frontend/public/data/$path" ]; then
+                echo "Нет ни /app/data/base_case/response.json, ни готового /app/frontend/public/data/$path." >&2
+                exit 2
+            fi
+        done
+        echo "Локального OPM response нет — используется проверенный snapshot витрины из репозитория."
+        return 0
     fi
     mkdir -p /app/frontend/public/data
     if [ -f /app/data/lambda-window-2007/lambda.json ]; then
