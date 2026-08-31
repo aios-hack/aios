@@ -4,6 +4,7 @@ import { useDataset } from '../../data';
 import { useI18n } from '../../i18n/I18nContext';
 import { useTimeline } from '../../state/TimelineContext';
 import { ViewStatus } from '../../ui/ViewStatus';
+import { CouncilControls } from './CouncilControls';
 import { GroupLevel } from './GroupLevel';
 import {
   fieldSegments,
@@ -43,6 +44,7 @@ const CouncilReady = ({ data }: { data: HierarchyFile }) => {
 
   return (
     <section className="council" data-step={step.control_step}>
+      <CouncilControls />
       <GroupLevel
         step={step}
         segments={segments}

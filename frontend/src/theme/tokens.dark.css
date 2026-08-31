@@ -47,12 +47,15 @@
   --color-ok: #4fd894;
   --color-focus: #a998f5;
   --color-selected-bg: rgba(146, 126, 241, 0.16);
+  --color-cursor-ink: #927ef1;
+  --color-cursor-halo: #05070a;
 
   --color-oil: #f0a44c;
   --color-oil-strong: #f5bd78;
   --color-water: #49c1df;
   --color-water-pale: #7fa3ae;
   --color-injection: #63a8ee;
+  --color-injection-strong: #8cc4f5;
   --color-unknown: rgba(221, 227, 234, 0.32);
 
   --scale-watercut-0: #d37c17;
@@ -71,12 +74,12 @@
   --color-graph-edge: rgba(221, 227, 234, 0.3);
   --color-graph-window: #f5bd78;
   --color-graph-window-bg: #2c2415;
-  --color-group-1: #5fa3e7;
-  --color-group-2: #e77a5f;
-  --color-group-3: #5fe7a3;
-  --color-group-4: #ba5fe7;
-  --color-group-5: #e7cc5f;
-  --color-group-6: #e75fba;
+  --color-group-1: #0d85fe;
+  --color-group-2: #eb522b;
+  --color-group-3: #019c4e;
+  --color-group-4: #b860e4;
+  --color-group-5: #a48401;
+  --color-group-6: #e93db0;
   --color-submitted: #4fd894;
   --color-submitted-bg: rgba(79, 216, 148, 0.14);
   --color-whatif: rgba(221, 227, 234, 0.7);
@@ -88,6 +91,7 @@
   --color-synthetic-border: rgba(241, 184, 85, 0.3);
 
   --color-backdrop: rgba(0, 0, 0, 0.4);
+  --color-plot-grid: #1b212a;
   --color-plot-bg: #10141a;
   --color-edge-positive: #ed9f45;
   --color-edge-negative: #5ca3eb;

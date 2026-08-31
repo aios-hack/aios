@@ -1,14 +1,13 @@
 {
-  "metricLabel": "Quantity",
-  "metric.watercut": "Water cut",
   "metric.mode": "Mode",
-  "metric.ratio": "Fact/target",
   "metric.npv": "NPV contribution",
-  "metricUnavailable": "Quantity is the matrix cell encoding; it does not apply in this view",
-  "sortLabel": "Sort",
-  "sort.well": "By number",
+  "metric.ratio": "Fact/target",
+  "metric.watercut": "Water cut",
+  "metricLabel": "Quantity",
   "sort.group": "By area",
   "sort.npv": "By NPV contribution",
   "sort.watercut": "By water cut at the last step",
+  "sort.well": "By number",
+  "sortLabel": "Sort",
   "sortUnavailable": "Not available in this view"
 }

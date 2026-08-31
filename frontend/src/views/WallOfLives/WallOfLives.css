@@ -36,7 +36,7 @@
 
 .wall-stage {
   position: relative;
-  animation: wall-stage-in var(--duration-reveal) var(--ease-emphasis) both;
+  animation: wall-stage-in var(--duration-drawer) var(--ease-out) both;
   animation-delay: var(--stagger-step);
 }
 

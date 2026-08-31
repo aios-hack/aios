@@ -21,6 +21,9 @@ export const readingText = ({ lang, t, metric, row, npv }: ReadingContext): stri
   if (metric === 'mode') {
     return t(`chrono.mode.${modeOf(row)}`);
   }
+  if (row.availability === 'NOT_COMMISSIONED') {
+    return t('chrono.value.unknown');
+  }
   const raw = metric === 'watercut' ? row.watercut : row.fact_to_target;
   if (raw === null || !Number.isFinite(raw)) {
     return t('chrono.value.unknown');

@@ -1,14 +1,16 @@
 import { useMemo } from 'react';
 import { useI18n } from '../../i18n/I18nContext';
 import { useTimeline } from '../../state/TimelineContext';
+import { LegendPopover } from '../../ui/Legend';
 import { ViewStatus } from '../../ui/ViewStatus';
+import { ViewToolbar } from '../../ui/ViewToolbar';
 import { DASH, formatNumber, formatPercent } from '../../ui/format';
 import { overviewMetrics, type OverviewMetric, type OverviewMetricKey } from './overviewMetrics';
 import { OverviewCard } from './OverviewCard';
 import './Overview.css';
 
 const STROKE: Record<OverviewMetricKey, string> = {
-  production: 'var(--color-oil)',
+  production: 'var(--color-oil-strong)',
   injection: 'var(--color-injection)',
   compensation: 'var(--color-water)',
   npv: 'var(--color-accent)',
@@ -57,7 +59,35 @@ export const Overview = () => {
 
   return (
     <section className="overview" data-testid="overview">
-      <p className="overview-lead">{t('overview.lead', { count: steps.length })}</p>
+      <ViewToolbar
+        left={<p className="overview-lead">{t('overview.lead', { count: steps.length })}</p>}
+        right={
+          <LegendPopover
+            triggerLabel={t('toolbar.legend')}
+            title={t('overview.legend.title')}
+            swatches={[
+              {
+                key: 'band',
+                color: 'var(--color-ok)',
+                label: t('overview.legend.band')
+              },
+              {
+                key: 'outside',
+                color: 'var(--color-danger)',
+                label: t('overview.legend.outside')
+              }
+            ]}
+            notes={[
+              { text: t('overview.legend.line') },
+              { text: t('overview.legend.cursor') },
+              { text: t('overview.legend.delta') },
+              { text: t('overview.legend.span') },
+              { text: t('overview.legend.dash') },
+              { text: t('overview.legend.marks') }
+            ]}
+          />
+        }
+      />
       <div className="overview-grid">
         {metrics.map((metric, index) => (
           <OverviewCard

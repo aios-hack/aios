@@ -212,6 +212,35 @@ const contrast = (a: number[], b: number[]): number => {
 const flatten = (fg: number[], bg: number[], alpha: number): number[] =>
   fg.map((c, i) => c * alpha + bg[i] * (1 - alpha));
 
+const labOf = ([r, g, b]: number[]): number[] => {
+  const [R, G, B] = [channel(r), channel(g), channel(b)];
+  const x = (0.4124 * R + 0.3576 * G + 0.1805 * B) / 0.95047;
+  const y = 0.2126 * R + 0.7152 * G + 0.0722 * B;
+  const z = (0.0193 * R + 0.1192 * G + 0.9505 * B) / 1.08883;
+  const f = (t: number): number => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  return [116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))];
+};
+
+const lightness = (rgb: number[]): number => labOf(rgb)[0];
+
+const chroma = (rgb: number[]): number => {
+  const [, a, b] = labOf(rgb);
+  return Math.hypot(a, b);
+};
+
+const saturation = ([r, g, b]: number[]): number => {
+  const mx = Math.max(r, g, b);
+  return mx === 0 ? 0 : (mx - Math.min(r, g, b)) / mx;
+};
+
+const RAMP_STEPS = 21;
+
+const rampSamples = (from: number[], to: number[]): number[][] =>
+  Array.from({ length: RAMP_STEPS }, (_, i) => {
+    const t = i / (RAMP_STEPS - 1);
+    return from.map((c, k) => c + (to[k] - c) * t);
+  });
+
 const hueOf = ([r, g, b]: number[]): number => {
   const [mx, mn] = [Math.max(r, g, b), Math.min(r, g, b)];
   const d = mx - mn;
@@ -377,6 +406,188 @@ describe('a colour ramp reads without relying on hue alone', () => {
       expect(contrast(dry, wet)).toBeGreaterThanOrEqual(2);
     });
   }
+
+  it('light: the watercut ramp keeps its colour without glaring', () => {
+    const css = themeFile('tokens.light.css');
+    const dry = resolve(css, '--scale-watercut-0', [255, 255, 255]);
+    const wet = resolve(css, '--scale-watercut-1', [255, 255, 255]);
+    const samples = rampSamples(dry, wet);
+    const meanChroma = samples.reduce((sum, rgb) => sum + chroma(rgb), 0) / samples.length;
+    expect(meanChroma).toBeGreaterThanOrEqual(15);
+    expect(meanChroma).toBeLessThanOrEqual(22);
+    for (const rgb of samples) {
+      expect(chroma(rgb)).toBeLessThanOrEqual(42);
+    }
+  });
+
+  it('light: the watercut ramp reads warm at the dry end and cool at the wet end', () => {
+    const css = themeFile('tokens.light.css');
+    const dry = resolve(css, '--scale-watercut-0', [255, 255, 255]);
+    const wet = resolve(css, '--scale-watercut-1', [255, 255, 255]);
+    const meanSaturation =
+      rampSamples(dry, wet).reduce((sum, rgb) => sum + saturation(rgb), 0) / RAMP_STEPS;
+    expect(meanSaturation).toBeGreaterThanOrEqual(0.24);
+    expect(meanSaturation).toBeLessThanOrEqual(0.36);
+    expect(hueOf(dry)).toBeGreaterThanOrEqual(20);
+    expect(hueOf(dry)).toBeLessThanOrEqual(50);
+    expect(hueOf(wet)).toBeGreaterThanOrEqual(170);
+    expect(hueOf(wet)).toBeLessThanOrEqual(220);
+  });
+
+  it('light: the watercut ramp climbs in lightness the whole way, so it reads in greyscale', () => {
+    const css = themeFile('tokens.light.css');
+    const dry = resolve(css, '--scale-watercut-0', [255, 255, 255]);
+    const wet = resolve(css, '--scale-watercut-1', [255, 255, 255]);
+    const samples = rampSamples(dry, wet);
+    const lightnesses = samples.map(lightness);
+    for (let i = 1; i < lightnesses.length; i += 1) {
+      expect(lightnesses[i]).toBeGreaterThan(lightnesses[i - 1]);
+    }
+    expect(lightnesses[lightnesses.length - 1] - lightnesses[0]).toBeGreaterThanOrEqual(25);
+  });
+});
+
+describe('a meaning-bearing colour never washes into the page behind it', () => {
+  const surfaces = ['--color-bg', '--color-surface', '--color-surface-sunken'];
+  const carriers = [
+    '--color-group-1',
+    '--color-group-2',
+    '--color-group-3',
+    '--color-group-4',
+    '--color-group-5',
+    '--color-group-6',
+    '--color-oil-strong',
+    '--color-water',
+    '--color-injection',
+    '--color-layer-1',
+    '--color-layer-2',
+    '--color-ok',
+    '--color-error',
+    '--scale-ratio-low',
+    '--scale-ratio-mid',
+    '--scale-ratio-high'
+  ];
+
+  for (const name of ['tokens.light.css', 'tokens.dark.css']) {
+    const css = themeFile(name);
+    for (const carrier of carriers) {
+      it(`${name}: ${carrier} clears 3:1 on every surface`, () => {
+        for (const surface of surfaces) {
+          const bg = resolve(css, surface, [255, 255, 255]);
+          expect(contrast(resolve(css, carrier, bg), bg), `${carrier} on ${surface}`).toBeGreaterThanOrEqual(3);
+        }
+      });
+    }
+  }
+
+  it('light: the categorical groups carry real colour, not a pastel wash', () => {
+    const css = themeFile('tokens.light.css');
+    for (const n of [1, 2, 3, 4, 5, 6]) {
+      const rgb = resolve(css, `--color-group-${n}`, [255, 255, 255]);
+      expect(chroma(rgb), `group ${n} chroma`).toBeGreaterThanOrEqual(40);
+      expect(chroma(rgb), `group ${n} chroma`).toBeLessThanOrEqual(85);
+    }
+  });
+});
+
+describe('the mode fills stay comfortable across a full-screen matrix', () => {
+  const css = themeFile('tokens.light.css');
+  const white = [255, 255, 255];
+
+  it('light: production is the quiet field, because it fills most of the matrix', () => {
+    const oil = resolve(css, '--color-oil', white);
+    expect(saturation(oil)).toBeLessThanOrEqual(0.42);
+    expect(chroma(oil)).toBeLessThanOrEqual(32);
+    expect(lightness(oil)).toBeGreaterThanOrEqual(76);
+  });
+
+  it('light: injection is the smaller accent, so it may carry more weight', () => {
+    const injection = resolve(css, '--color-injection', white);
+    expect(saturation(injection)).toBeLessThanOrEqual(0.70);
+    expect(chroma(injection)).toBeLessThanOrEqual(42);
+  });
+
+  it('light: the two mode fills differ in weight, not only in hue', () => {
+    const oil = resolve(css, '--color-oil', white);
+    const injection = resolve(css, '--color-injection', white);
+    expect(lightness(oil) - lightness(injection)).toBeGreaterThanOrEqual(24);
+    expect(contrast(oil, injection)).toBeGreaterThanOrEqual(2.6);
+  });
+
+  it('light: production reads warm and injection reads cool', () => {
+    const oil = hueOf(resolve(css, '--color-oil', white));
+    const injection = hueOf(resolve(css, '--color-injection', white));
+    expect(oil).toBeGreaterThanOrEqual(20);
+    expect(oil).toBeLessThanOrEqual(50);
+    expect(injection).toBeGreaterThanOrEqual(190);
+    expect(injection).toBeLessThanOrEqual(230);
+  });
+
+  it('light: a mode label uses an ink dark enough to read, never the pale fill', () => {
+    const chronomapCss = readFileSync(
+      join(srcDir, 'views', 'Chronomap', 'Chronomap.css'),
+      'utf-8'
+    );
+    const block = chronomapCss.match(
+      /\.chronomap-readout-mode\[data-mode='production'\]\s*\{[^}]*\}/
+    )?.[0] ?? '';
+    expect(block).toContain('color: var(--color-oil-strong)');
+    for (const token of ['--color-oil-strong', '--color-injection-strong']) {
+      for (const surface of ['--color-bg', '--color-surface', '--color-surface-sunken']) {
+        const bg = resolve(css, surface, white);
+        expect(contrast(resolve(css, token, bg), bg), `${token} on ${surface}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it('light: a thin oil line never uses the pale matrix fill', () => {
+    const tokensTs = readFileSync(join(srcDir, 'theme', 'tokens.ts'), 'utf-8');
+    const wall = tokensTs.match(/wallMarkColors\s*=\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(wall).toContain("line: 'var(--color-oil-strong)'");
+  });
+});
+
+describe('the step cursor separates itself from whatever cell it lands on', () => {
+  const cellFills = (css: string): number[][] => {
+    const dry = resolve(css, '--scale-watercut-0', [255, 255, 255]);
+    const wet = resolve(css, '--scale-watercut-1', [255, 255, 255]);
+    return [
+      ...rampSamples(dry, wet),
+      ...['--color-oil', '--color-injection', '--color-surface-sunken', '--color-plot-bg'].map(
+        (token) => resolve(css, token, [255, 255, 255])
+      )
+    ];
+  };
+
+  for (const name of ['tokens.light.css', 'tokens.dark.css']) {
+    it(`${name}: the ink and halo carry their own edge, whatever cell is underneath`, () => {
+      const css = themeFile(name);
+      const ink = resolve(css, '--color-cursor-ink', [255, 255, 255]);
+      const halo = resolve(css, '--color-cursor-halo', [255, 255, 255]);
+      expect(contrast(ink, halo)).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it(`${name}: one of the two strokes always separates from the cell it covers`, () => {
+      const css = themeFile(name);
+      const ink = resolve(css, '--color-cursor-ink', [255, 255, 255]);
+      const halo = resolve(css, '--color-cursor-halo', [255, 255, 255]);
+      for (const fill of cellFills(css)) {
+        const best = Math.max(contrast(ink, fill), contrast(halo, fill));
+        expect(best).toBeGreaterThanOrEqual(3);
+      }
+    });
+  }
+
+  it('draws the cursor at full strength, never as a translucent wash over the cells', () => {
+    const css = readFileSync(join(srcDir, 'views', 'Chronomap', 'Chronomap.css'), 'utf-8');
+    const block = css.match(/\.chronomap-cursor\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(block).not.toMatch(/opacity:\s*0?\.\d/);
+  });
+
+  it('light: the cursor no longer borrows the wet end of the ramp', () => {
+    const css = themeFile('tokens.light.css');
+    expect(readToken(css, '--color-cursor-ink')).not.toBe(readToken(css, '--scale-watercut-1'));
+  });
 });
 
 describe('text on a group fill stays readable in every group and theme', () => {

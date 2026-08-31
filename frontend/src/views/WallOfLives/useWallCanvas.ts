@@ -1,8 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { devicePixelRatioOf, mixColors, toCanvasColor } from '../shared/canvasColors';
 import {
-  TILE_HEIGHT,
-  TILE_WIDTH,
   stepX,
   tileX,
   tileY,
@@ -13,7 +11,7 @@ import type { WallRow } from './wallSort';
 
 const LABEL_FONT = "9px 'JetBrains Mono', ui-monospace, monospace";
 const IDLE_ALPHA = 0.28;
-const FILL_ALPHA = 0.55;
+const FILL_ALPHA = 0.82;
 const SHUT_ALPHA = 0.7;
 
 export interface WallPaint {
@@ -24,8 +22,8 @@ export interface WallPaint {
   palette: WallPalette;
 }
 
-const rateY = (rate: number, ceiling: number): number =>
-  ceiling <= 0 ? TILE_HEIGHT : TILE_HEIGHT - (rate / ceiling) * TILE_HEIGHT;
+const rateY = (rate: number, ceiling: number, tileHeight: number): number =>
+  ceiling <= 0 ? tileHeight : tileHeight - (rate / ceiling) * tileHeight;
 
 const paintTile = (
   ctx: CanvasRenderingContext2D,
@@ -35,19 +33,21 @@ const paintTile = (
   originY: number,
   paint: WallPaint
 ): void => {
-  const { palette, ceiling } = paint;
+  const { palette, ceiling, layout } = paint;
+  const tileWidth = layout.tileWidth;
+  const tileHeight = layout.tileHeight;
   const count = entry.points.length;
   ctx.fillStyle = toCanvasColor(palette['--color-plot-bg']);
-  ctx.fillRect(originX, originY, TILE_WIDTH, TILE_HEIGHT);
+  ctx.fillRect(originX, originY, tileWidth, tileHeight);
 
-  const columnWidth = count <= 1 ? TILE_WIDTH : TILE_WIDTH / (count - 1);
+  const columnWidth = count <= 1 ? tileWidth : tileWidth / (count - 1);
   ctx.globalAlpha = FILL_ALPHA;
   entry.points.forEach((point, index) => {
     if (point.rate === null || point.idle) {
       return;
     }
-    const x = originX + stepX(index, count);
-    const top = originY + rateY(point.rate, ceiling);
+    const x = originX + stepX(index, count, tileWidth);
+    const top = originY + rateY(point.rate, ceiling, tileHeight);
     const color =
       point.watercut === null || Number.isNaN(point.watercut)
         ? palette['--color-unknown']
@@ -57,7 +57,7 @@ const paintTile = (
             point.watercut
           );
     ctx.fillStyle = toCanvasColor(color);
-    ctx.fillRect(x, top, columnWidth, originY + TILE_HEIGHT - top);
+    ctx.fillRect(x, top, columnWidth, originY + tileHeight - top);
   });
   ctx.globalAlpha = 1;
 
@@ -72,8 +72,8 @@ const paintTile = (
       started = false;
       return;
     }
-    const x = originX + stepX(index, count);
-    const y = originY + rateY(point.rate, ceiling);
+    const x = originX + stepX(index, count, tileWidth);
+    const y = originY + rateY(point.rate, ceiling, tileHeight);
     if (started) {
       ctx.lineTo(x, y);
     } else {
@@ -90,7 +90,7 @@ const paintTile = (
     if (!point.shut || point.idle || (previous !== undefined && previous.shut)) {
       return;
     }
-    ctx.fillRect(originX + stepX(index, count), originY, 1, TILE_HEIGHT);
+    ctx.fillRect(originX + stepX(index, count, tileWidth), originY, 1, tileHeight);
   });
   ctx.globalAlpha = IDLE_ALPHA;
   ctx.fillStyle = toCanvasColor(palette['--color-unknown']);
@@ -98,18 +98,18 @@ const paintTile = (
     if (!point.idle) {
       return;
     }
-    ctx.fillRect(originX + stepX(index, count), originY, columnWidth, TILE_HEIGHT);
+    ctx.fillRect(originX + stepX(index, count, tileWidth), originY, columnWidth, tileHeight);
   });
   ctx.globalAlpha = 1;
 
   ctx.strokeStyle = toCanvasColor(palette['--color-border-strong']);
-  ctx.strokeRect(originX + 0.5, originY + 0.5, TILE_WIDTH - 1, TILE_HEIGHT - 1);
+  ctx.strokeRect(originX + 0.5, originY + 0.5, tileWidth - 1, tileHeight - 1);
 
   ctx.fillStyle = toCanvasColor(palette['--color-axis-tick']);
   ctx.font = LABEL_FONT;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'bottom';
-  ctx.fillText(row.well, originX, originY - 2, TILE_WIDTH);
+  ctx.fillText(row.well, originX, originY - 2, tileWidth);
 };
 
 export const paintWall = (ctx: CanvasRenderingContext2D, paint: WallPaint): void => {
@@ -171,9 +171,9 @@ export const paintWallCursor = (
     return;
   }
   ctx.fillStyle = color;
-  const offset = stepX(step, steps);
+  const offset = stepX(step, steps, layout.tileWidth);
   for (let index = 0; index < layout.count; index += 1) {
-    ctx.fillRect(tileX(index, layout) + offset, tileY(index, layout), 1, TILE_HEIGHT);
+    ctx.fillRect(tileX(index, layout) + offset, tileY(index, layout), 1, layout.tileHeight);
   }
 };
 

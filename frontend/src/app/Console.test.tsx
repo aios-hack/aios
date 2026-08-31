@@ -657,3 +657,30 @@ describe('money workspace', () => {
     expect(screen.queryByText(ru['scenarios.library.title'])).toBeNull();
   });
 });
+
+describe('the time axis never steals the pointer from the scene above it', () => {
+  const track = readFileSync(
+    join(process.cwd(), 'src', 'app', 'TimeScaleTrack.css'),
+    'utf-8'
+  );
+
+  it('lets the year labels pass hover through to the plot behind them', () => {
+    const block = track.match(/\.time-scale-years\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(block).toContain('pointer-events: none');
+  });
+
+  it('keeps the invisible step slider inside its own track', () => {
+    const block = track.match(/\.time-scale-input\s*\{[^}]*\}/)?.[0] ?? '';
+    const bottom = block.match(/bottom:\s*(-?[\d.]+)/)?.[1];
+
+    expect(bottom).toBeDefined();
+    expect(Number(bottom)).toBeGreaterThanOrEqual(0);
+  });
+
+  it('still leaves the slider a usable grab height', () => {
+    const block = track.match(/\.time-scale-input\s*\{[^}]*\}/)?.[0] ?? '';
+    const height = Number(block.match(/height:\s*([\d.]+)px/)?.[1]);
+
+    expect(height).toBeGreaterThanOrEqual(16);
+  });
+});

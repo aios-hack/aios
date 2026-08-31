@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useDeferredClose } from '../Inspector/useDeferredClose';
 import './Popover.css';
 
 interface PopoverProps {
@@ -16,6 +17,7 @@ export const Popover = ({ trigger, label, align = 'end', children }: PopoverProp
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const { visible, closing } = useDeferredClose(open ? label : null);
 
   useEffect(() => {
     if (!open) {
@@ -54,11 +56,12 @@ export const Popover = ({ trigger, label, align = 'end', children }: PopoverProp
         open,
         onClick: () => setOpen((value) => !value)
       })}
-      {open && (
+      {visible !== null && (
         <div
           ref={panelRef}
           className="popover-panel"
           data-align={align}
+          data-closing={closing}
           role="dialog"
           aria-label={label}
         >

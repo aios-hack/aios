@@ -25,6 +25,12 @@ const TimeScaleTrackView = ({
 }: TimeScaleTrackProps) => {
   const t = useT();
   const last = steps.length - 1;
+  const labelOf = (mark: EventMark): string =>
+    t('steps.event', {
+      date: steps[mark.step]?.date ?? '',
+      count: mark.count,
+      types: mark.types.map((type) => t(`steps.eventType.${type}`)).join(', ')
+    });
   const progress = last <= 0 ? 0 : stepIndex / last;
   const trackStyle = {
     '--time-scale-progress': progress,
@@ -85,14 +91,8 @@ const TimeScaleTrackView = ({
             data-event-step={mark.step}
             data-event-types={mark.types.join(' ')}
             style={{ left: `${percentOf(mark.step, last)}%` }}
-            aria-label={t('steps.event', {
-              date: steps[mark.step]?.date ?? '',
-              count: mark.count
-            })}
-            title={t('steps.event', {
-              date: steps[mark.step]?.date ?? '',
-              count: mark.count
-            })}
+            aria-label={labelOf(mark)}
+            title={labelOf(mark)}
             onClick={(event) => {
               event.stopPropagation();
               onSelect(mark.step);

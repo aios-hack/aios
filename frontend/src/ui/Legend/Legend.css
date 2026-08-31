@@ -1,8 +1,8 @@
 .legend {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  min-width: 190px;
+  gap: var(--space-2);
+  min-width: 210px;
 }
 
 .legend-title {
@@ -23,16 +23,20 @@
   list-style: none;
 }
 
-.legend-list--ramp {
-  flex-direction: row;
-  gap: 0;
-  height: var(--size-swatch);
+.legend-ramp {
+  display: block;
+  height: var(--space-4);
+  border-radius: var(--radius-pill);
   border: 1px solid var(--color-border);
 }
 
-.legend-band {
-  flex: 1 1 0;
-  min-width: 0;
+.legend-scale {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
 }
 
 .legend-item {
@@ -49,6 +53,7 @@
   width: var(--size-swatch);
   height: var(--size-swatch);
   border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
 }
 
 .legend-note {

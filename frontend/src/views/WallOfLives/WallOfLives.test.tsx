@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
@@ -11,8 +13,11 @@ import { WallOfLives } from './WallOfLives';
 import {
   TILE_GAP,
   TILE_HEIGHT,
+  TILE_HEIGHT_MAX,
   TILE_WIDTH,
+  TILE_WIDTH_MAX,
   layoutOf,
+  stepAt,
   stepX,
   tileIndexAt,
   tileX,
@@ -362,7 +367,9 @@ describe('wall cursor', () => {
       expect(call[2]).toBe(1);
       expect(call[3]).toBe(TILE_HEIGHT);
     }
-    expect(spy?.fillRect.mock.calls[0][0]).toBe(tileX(0, layout) + stepX(2, STEP_COUNT));
+    expect(spy?.fillRect.mock.calls[0][0]).toBe(
+      tileX(0, layout) + stepX(2, STEP_COUNT, layout.tileWidth)
+    );
   });
 
   it('clears and draws nothing when the step is outside the data', () => {
@@ -490,5 +497,73 @@ describe('WallOfLives', () => {
     openLegend();
     expect(screen.getByRole('group', { name: ru['wall.legend.title'] })).toBeTruthy();
     expect(screen.getByTestId('wall-legend-size')).toBeTruthy();
+  });
+});
+
+describe('the wall spends the width the container offers', () => {
+  it('widens the tiles to fill the row instead of leaving a ragged margin', () => {
+    const container = 1089;
+    const layout = layoutOf(WELL_COUNT, container);
+
+    expect(layout.tileWidth).toBeGreaterThan(TILE_WIDTH);
+    expect(Math.abs(container - layout.width)).toBeLessThanOrEqual(1);
+  });
+
+  it('keeps the tiles at their readable minimum when the container is cramped', () => {
+    const layout = layoutOf(WELL_COUNT, TILE_WIDTH);
+
+    expect(layout.tileWidth).toBe(TILE_WIDTH);
+  });
+
+  it('never lets one tile grow past the ceiling on a very wide screen', () => {
+    const layout = layoutOf(2, 4000);
+
+    expect(layout.tileWidth).toBeLessThanOrEqual(TILE_WIDTH_MAX);
+  });
+
+  it('maps a pointer back through the widened tile, not the default one', () => {
+    const layout = layoutOf(WELL_COUNT, 1089);
+    const lastStep = stepAt(layout.tileWidth, STEP_COUNT, layout.tileWidth);
+    const firstStep = stepAt(0, STEP_COUNT, layout.tileWidth);
+
+    expect(firstStep).toBe(0);
+    expect(lastStep).toBe(STEP_COUNT - 1);
+  });
+});
+
+describe('the wall spends the height the container offers', () => {
+  it('grows the tiles to fill the room instead of leaving a dead band', () => {
+    const rows = 7;
+    const room = 720;
+    const tall = layoutOf(WELL_COUNT, 1500, room);
+    const short = layoutOf(WELL_COUNT, 1500, 0);
+
+    expect(tall.tileHeight).toBeGreaterThan(short.tileHeight);
+    expect(tall.height).toBeLessThanOrEqual(room);
+    expect(tall.rows).toBeGreaterThan(0);
+    expect(rows).toBeGreaterThan(0);
+  });
+
+  it('keeps the tiles at their readable minimum when the container is short', () => {
+    const layout = layoutOf(WELL_COUNT, 1500, 10);
+
+    expect(layout.tileHeight).toBe(TILE_HEIGHT);
+  });
+
+  it('never lets a tile grow past the ceiling on a very tall screen', () => {
+    const layout = layoutOf(4, 1500, 4000);
+
+    expect(layout.tileHeight).toBeLessThanOrEqual(TILE_HEIGHT_MAX);
+  });
+
+  it('reveals the wall on the same beat as the rest of the console', () => {
+    const css = readFileSync(
+      join(process.cwd(), 'src', 'views', 'WallOfLives', 'WallOfLives.css'),
+      'utf-8'
+    );
+    const block = css.match(/\.wall-stage\s*\{[^}]*\}/)?.[0] ?? '';
+
+    expect(block).toContain('var(--duration-drawer)');
+    expect(block).not.toContain('--duration-reveal');
   });
 });

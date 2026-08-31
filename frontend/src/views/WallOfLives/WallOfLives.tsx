@@ -31,11 +31,16 @@ import './WallOfLives.css';
 
 const WALL_MARKS = ['line', 'fill', 'shut', 'idle', 'cursor'] as const;
 
-const useContainerWidth = (): [
+interface WallBox {
+  width: number;
+  height: number;
+}
+
+const useContainerBox = (): [
   (node: HTMLDivElement | null) => void,
-  number
+  WallBox
 ] => {
-  const [width, setWidth] = useState(0);
+  const [box, setBox] = useState<WallBox>({ width: 0, height: 0 });
   const observer = useRef<ResizeObserver | null>(null);
 
   useEffect(() => () => observer.current?.disconnect(), []);
@@ -46,21 +51,34 @@ const useContainerWidth = (): [
     if (node === null) {
       return;
     }
-    setWidth(node.clientWidth);
+    const measure = (): WallBox => {
+      const style = getComputedStyle(node);
+      const inset = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+      const strip = node.ownerDocument.querySelector('.console-area-timeaxis');
+      const floor =
+        strip === null ? window.innerHeight : strip.getBoundingClientRect().top;
+      const top = node.getBoundingClientRect().top;
+      return {
+        width: Math.max(0, node.clientWidth - (Number.isFinite(inset) ? inset : 0)),
+        height: Math.max(0, floor - top - parseFloat(style.paddingBottom))
+      };
+    };
+    setBox(measure());
     if (typeof ResizeObserver !== 'function') {
       return;
     }
-    const next = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry !== undefined) {
-        setWidth(entry.contentRect.width);
-      }
+    const next = new ResizeObserver(() => {
+      setBox(measure());
     });
     next.observe(node);
+    const strip = node.ownerDocument.querySelector('.console-area-timeaxis');
+    if (strip !== null) {
+      next.observe(strip);
+    }
     observer.current = next;
   }, []);
 
-  return [attach, width];
+  return [attach, box];
 };
 
 const WallReady = ({ data }: { data: TimelineFile }) => {
@@ -70,7 +88,7 @@ const WallReady = ({ data }: { data: TimelineFile }) => {
   const npvState = useDataset('npv');
   const graphState = useDataset('graph');
   const { metric, setMetric, sort, setSort } = useHistoryView();
-  const [frame, width] = useContainerWidth();
+  const [frame, box] = useContainerBox();
 
   const npv = useMemo(() => npvByWell(dataOf(npvState)), [npvState]);
   const groups = useMemo(() => groupByWell(dataOf(graphState)), [graphState]);
@@ -81,7 +99,10 @@ const WallReady = ({ data }: { data: TimelineFile }) => {
     () => sortWallRows(buildWallRows(data.wells, groups, npv, watercut), sort),
     [data.wells, groups, npv, watercut, sort]
   );
-  const layout = useMemo(() => layoutOf(rows.length, width), [rows.length, width]);
+  const layout = useMemo(
+    () => layoutOf(rows.length, box.width, box.height),
+    [rows.length, box.width, box.height]
+  );
   const palette = useWallPalette(theme);
 
   const paint = useMemo(
@@ -133,7 +154,9 @@ const WallReady = ({ data }: { data: TimelineFile }) => {
         return;
       }
       selectWell(rows[index].well);
-      setStepIndex(stepAt(offsetX - tileX(index, layout), data.steps.length));
+      setStepIndex(
+        stepAt(offsetX - tileX(index, layout), data.steps.length, layout.tileWidth)
+      );
     },
     [layout, rows, selectWell, setStepIndex, data.steps.length]
   );
