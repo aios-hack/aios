@@ -20,7 +20,7 @@ export const visibleEdges = (edges: GraphEdge[], threshold: number): GraphEdge[]
 
 export const EDGES_PER_PRODUCER = 4;
 
-export const DEFAULT_EDGE_QUANTILE = 0.75;
+export const DEFAULT_EDGE_QUANTILE = 0;
 
 export const defaultThreshold = (
   edges: GraphEdge[],
