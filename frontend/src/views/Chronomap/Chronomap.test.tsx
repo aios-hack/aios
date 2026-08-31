@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
@@ -7,8 +9,16 @@ import { dictionaries } from '../../i18n/dictionaries';
 import { I18nProvider } from '../../i18n/I18nContext';
 import { TimelineProvider, useTimeline } from '../../state/TimelineContext';
 import { ThemeProvider } from '../../theme/ThemeContext';
+import { DASH } from '../../ui/format';
 import { mixColors, parseColor, toCanvasColor } from '../shared/canvasColors';
-import { Chronomap } from './Chronomap';
+import { Chronomap, readoutBoundsOf } from './Chronomap';
+import {
+  readoutFlip,
+  readoutPlacement,
+  readoutRoom,
+  type HoverTarget,
+  type ReadoutBounds
+} from './ChronoTooltip';
 import {
   PALETTE_TOKENS,
   cellRgb,
@@ -16,11 +26,17 @@ import {
   readChronoPalette,
   type Palette
 } from './cells';
-import { CELL_HEIGHT, CELL_WIDTH, CELL_WIDTH_MAX, GUTTER_LEFT, GUTTER_TOP, ROW_GAP, cellWidthFor, geometryOf, hitTest, yearTicks } from './geometry';
+import { CELL_HEIGHT, CELL_WIDTH, CELL_WIDTH_MAX, GUTTER_LEFT, GUTTER_RIGHT, GUTTER_TOP, COLUMN_GAP, ROW_GAP, cellWidthFor, columnX, geometryOf, hitTest, yearTicks } from './geometry';
 
 const CELL_FILL_HEIGHT = CELL_HEIGHT - ROW_GAP;
+const CELL_FILL_WIDTH = CELL_WIDTH - COLUMN_GAP;
 import { buildRows, sortRows, ungroupedCount } from './sortRows';
-import { paintChronomap } from './useChronomapCanvas';
+import {
+  CURSOR_HALO_WIDTH,
+  CURSOR_INK_WIDTH,
+  paintChronomap,
+  paintCursor
+} from './useChronomapCanvas';
 
 const { ru } = dictionaries;
 
@@ -121,6 +137,13 @@ const stubContext = (): CanvasRenderingContext2D => {
     strokeStyle: '',
     beginPath: vi.fn(),
     stroke: vi.fn(),
+    strokeRect: vi.fn(),
+    roundRect: vi.fn(),
+    closePath: vi.fn(),
+    save: vi.fn(),
+    restore: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
     fill: vi.fn(),
     arc: vi.fn()
   };
@@ -194,7 +217,7 @@ const mockRoutes = (timeline: TimelineFile = timelineFixture) => {
 const cellCalls = (): unknown[][] =>
   spies.flatMap((spy) =>
     spy.fillRect.mock.calls.filter(
-      (call) => call[2] === CELL_WIDTH && call[3] === CELL_FILL_HEIGHT
+      (call) => call[2] === CELL_FILL_WIDTH && call[3] === CELL_FILL_HEIGHT
     )
   );
 
@@ -305,7 +328,7 @@ describe('chronomap geometry', () => {
     const large = geometryOf(STEP_COUNT * 3, WELL_COUNT * 2);
     expect(small.plotWidth).toBe(STEP_COUNT * CELL_WIDTH);
     expect(small.plotHeight).toBe(WELL_COUNT * CELL_HEIGHT);
-    expect(large.width - GUTTER_LEFT).toBe(small.plotWidth * 3);
+    expect(large.width - GUTTER_LEFT - GUTTER_RIGHT).toBe(small.plotWidth * 3);
     expect(large.height - GUTTER_TOP).toBe(small.plotHeight * 2);
   });
 
@@ -323,8 +346,33 @@ describe('chronomap geometry', () => {
   });
 
   it('widens the cells to spend the room the container offers, up to the ceiling', () => {
-    expect(cellWidthFor(100, GUTTER_LEFT + 800)).toBe(8);
-    expect(cellWidthFor(100, GUTTER_LEFT + 100000)).toBe(CELL_WIDTH_MAX);
+    expect(cellWidthFor(100, GUTTER_LEFT + GUTTER_RIGHT + 800)).toBe(8);
+    expect(cellWidthFor(100, GUTTER_LEFT + GUTTER_RIGHT + 100000)).toBe(CELL_WIDTH_MAX);
+  });
+
+  it('gives every column the same whole number of device pixels', () => {
+    const columns = 225;
+    const ratio = 1.1;
+    const available = GUTTER_LEFT + GUTTER_RIGHT + 1500;
+    const width = cellWidthFor(columns, available, ratio);
+
+    expect(Number.isInteger(width * ratio)).toBe(true);
+
+    const edges = Array.from({ length: columns + 1 }, (_, column) =>
+      Math.round((GUTTER_LEFT + column * width) * ratio)
+    );
+    const spans = new Set(
+      edges.slice(1).map((edge, index) => edge - edges[index])
+    );
+    expect(spans.size).toBe(1);
+  });
+
+  it('still spends the room it was given rather than leaving a ragged margin', () => {
+    const columns = 225;
+    const available = GUTTER_LEFT + GUTTER_RIGHT + 1500;
+    const geometry = geometryOf(columns, 10, cellWidthFor(columns, available));
+
+    expect(available - geometry.width).toBeLessThan(columns);
   });
 
   it('never shrinks a cell below the readable minimum when the container is cramped', () => {
@@ -336,7 +384,7 @@ describe('chronomap geometry', () => {
 
   it('maps a pointer offset through the widened cell width, not the default one', () => {
     const wide = geometryOf(STEP_COUNT, WELL_COUNT, 10);
-    expect(wide.width - GUTTER_LEFT).toBe(STEP_COUNT * 10);
+    expect(wide.width - GUTTER_LEFT - GUTTER_RIGHT).toBe(STEP_COUNT * 10);
     expect(hitTest(GUTTER_LEFT + 25, GUTTER_TOP + 1, wide)).toEqual({ column: 2, row: 0 });
     expect(hitTest(GUTTER_LEFT + STEP_COUNT * 10 + 1, GUTTER_TOP + 1, wide)).toBeNull();
   });
@@ -464,7 +512,12 @@ describe('Chronomap view', () => {
     );
     await waitFor(() => expect(cellCalls().length).toBeGreaterThan(0));
     expect(cellCalls().length % (STEP_COUNT * WELL_COUNT)).toBe(0);
-    expect(cellCalls()[0]).toEqual([GUTTER_LEFT, GUTTER_TOP, CELL_WIDTH, CELL_FILL_HEIGHT]);
+    expect(cellCalls()[0]).toEqual([
+      GUTTER_LEFT,
+      GUTTER_TOP,
+      CELL_FILL_WIDTH,
+      CELL_FILL_HEIGHT
+    ]);
   });
 
   it('selects the well and the step when a cell is clicked', async () => {
@@ -505,6 +558,18 @@ describe('Chronomap view', () => {
     expect(announce.getAttribute('aria-live')).toBe('polite');
     fireEvent.keyDown(canvas, { key: 'ArrowDown' });
     await waitFor(() => expect(announce.textContent?.length ?? 0).toBeGreaterThan(0));
+  });
+
+  it('keeps the announcement for screen readers without printing it under the matrix', () => {
+    const css = readFileSync(
+      join(process.cwd(), 'src', 'views', 'Chronomap', 'Chronomap.css'),
+      'utf-8'
+    );
+    const block = css.match(/\.chronomap-announce\s*\{[^}]*\}/)?.[0] ?? '';
+
+    expect(block).toContain('clip-path');
+    expect(block).not.toContain('display: none');
+    expect(block).not.toContain('visibility: hidden');
   });
 
   it('keeps clicks in the gutter from changing the selection', async () => {
@@ -548,6 +613,120 @@ describe('Chronomap view', () => {
 
     const tip = await screen.findByRole('tooltip');
     expect(tip.textContent).toContain(ru['chrono.terminalNote']);
+  });
+
+  const readoutOf = async (): Promise<HTMLElement> => await screen.findByTestId('chronomap-readout');
+
+  const factValue = (tip: HTMLElement, key: string): HTMLElement => {
+    const cell = tip.querySelector<HTMLElement>(`[data-fact="${key}"]`);
+    if (cell === null) {
+      throw new Error(`no readout fact ${key}`);
+    }
+    return cell;
+  };
+
+  const mountMatrix = async (timeline: TimelineFile = timelineFixture) => {
+    mockRoutes(timeline);
+    const { container } = render(withProviders(<Chronomap />));
+    await waitFor(() => expect(container.querySelector('.chronomap-canvas')).not.toBeNull());
+    const canvas = matrixCanvas(container);
+    await waitFor(() => expect(canvas.dataset.rows).toBe(String(WELL_COUNT)));
+    return { container, canvas };
+  };
+
+  it('reports the decision context an engineer needs, not one bare percentage', async () => {
+    const { canvas } = await mountMatrix();
+
+    hoverCell(canvas, 1, 2);
+    const tip = await readoutOf();
+
+    for (const key of ['setpoint', 'actual', 'ratio', 'bhp', 'cumulative', 'npv', 'group']) {
+      expect(factValue(tip, key), key).not.toBeNull();
+    }
+    expect(tip.querySelector('.chronomap-readout-mode')?.textContent).toBe(
+      ru['chrono.mode.production']
+    );
+    expect(factValue(tip, 'setpoint').dataset.measured).toBe('true');
+    expect(factValue(tip, 'bhp').textContent).not.toBe('');
+  });
+
+  it('marks an unmeasured watercut as missing instead of printing a zero', async () => {
+    const { canvas } = await mountMatrix();
+
+    hoverCell(canvas, 1, 4);
+    const tip = await readoutOf();
+    const watercut = factValue(tip, 'watercut');
+
+    expect(watercut.dataset.measured).toBe('false');
+    expect(watercut.textContent).toBe(DASH);
+    expect(watercut.getAttribute('title')).toBe(ru['chrono.value.unknown']);
+  });
+
+  it('refuses to invent readings for a well that is not commissioned', async () => {
+    const { canvas } = await mountMatrix();
+
+    hoverCell(canvas, 1, 2);
+    const first = await readoutOf();
+    expect(factValue(first, 'setpoint').dataset.measured).toBe('true');
+
+    hoverCell(canvas, 1, 0);
+    const idle = await readoutOf();
+
+    expect(idle.querySelector('.chronomap-readout-mode')?.textContent).toBe(
+      ru['chrono.mode.idle']
+    );
+    for (const key of ['setpoint', 'actual', 'ratio', 'watercut', 'bhp']) {
+      expect(factValue(idle, key).dataset.measured, key).toBe('false');
+      expect(factValue(idle, key).textContent, key).toBe(DASH);
+    }
+  });
+
+  it('blanks the rates of a shut well rather than reporting its stale setpoint', async () => {
+    const { canvas } = await mountMatrix();
+
+    hoverCell(canvas, 1, 5);
+    const tip = await readoutOf();
+
+    expect(tip.querySelector('.chronomap-readout-mode')?.textContent).toBe(
+      ru['chrono.mode.shut']
+    );
+    expect(factValue(tip, 'setpoint').dataset.measured).toBe('false');
+    expect(factValue(tip, 'actual').dataset.measured).toBe('false');
+  });
+
+  it('names the well group and falls back to a marker when the well has none', async () => {
+    const { canvas } = await mountMatrix();
+
+    hoverCell(canvas, 1, 2);
+    const grouped = await readoutOf();
+    expect(factValue(grouped, 'group').dataset.measured).toBe('true');
+    expect(factValue(grouped, 'group').textContent).toBe('A');
+
+    hoverCell(canvas, 1, 1);
+    const loose = await readoutOf();
+    expect(factValue(loose, 'group').dataset.measured).toBe('false');
+    expect(factValue(loose, 'group').textContent).toBe(DASH);
+  });
+
+  it('plays an exit state when the pointer leaves the readout', async () => {
+    const { container, canvas } = await mountMatrix();
+
+    hoverCell(canvas, 1, 2);
+    await readoutOf();
+
+    const stage = container.querySelector('.chronomap-stage');
+    if (stage === null) {
+      throw new Error('no stage');
+    }
+    fireEvent.mouseLeave(stage);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('chronomap-readout').dataset.closing).toBe('true')
+    );
+    await waitFor(
+      () => expect(screen.queryByTestId('chronomap-readout')).toBeNull(),
+      { timeout: 1000 }
+    );
   });
 
   it('keeps the step cursor on its own canvas so the matrix is not repainted', async () => {
@@ -658,7 +837,11 @@ describe('Chronomap view', () => {
     expect(frame!.contains(stage!)).toBe(true);
     expect(frame!.parentElement?.classList.contains('chronomap-body')).toBe(true);
     const width = Number(stage!.style.width.replace('px', ''));
-    expect(width).toBe(GUTTER_LEFT + STEP_COUNT * cellWidthFor(STEP_COUNT, frame!.clientWidth));
+    expect(width).toBe(
+      GUTTER_LEFT +
+        Math.round(STEP_COUNT * cellWidthFor(STEP_COUNT, frame!.clientWidth)) +
+        GUTTER_RIGHT
+    );
   });
 
   it('renders ui/Legend inside the legend popover', async () => {
@@ -678,11 +861,12 @@ const countingContext = (
   const noop = () => {};
   const ctx = {
     fillRect: (_x: number, _y: number, w: number, h: number) => {
-      if (w === cellWidth && h === CELL_FILL_HEIGHT) {
+      if (w === cellWidth - COLUMN_GAP && h === CELL_FILL_HEIGHT) {
         cells += 1;
       }
     },
     clearRect: noop,
+    strokeRect: noop,
     fillText: noop,
     setTransform: noop,
     beginPath: noop,
@@ -690,6 +874,7 @@ const countingContext = (
     fill: noop,
     arc: noop,
     globalAlpha: 1,
+    lineWidth: 1,
     fillStyle: '',
     strokeStyle: '',
     font: '',
@@ -776,5 +961,251 @@ describe('chronomap paint budget', () => {
     const cellRatio = (columns * rows) / (timelineFixture.n_control_dates * wellIds.length);
     const timeRatio = Math.min(...timings) / Math.max(baseline, 0.01);
     expect(timeRatio).toBeLessThan(cellRatio * 2);
+  });
+});
+
+describe('the step cursor frames its column instead of flooding it', () => {
+  const recordingContext = () => {
+    const strokes: { color: string; width: number; rect: number[] }[] = [];
+    const fills: number[][] = [];
+    const noop = () => {};
+    const ctx = {
+      strokeRect: (x: number, y: number, w: number, h: number) => {
+        strokes.push({ color: ctx.strokeStyle, width: ctx.lineWidth, rect: [x, y, w, h] });
+      },
+      fillRect: (x: number, y: number, w: number, h: number) => {
+        fills.push([x, y, w, h]);
+      },
+      clearRect: noop,
+      fillText: noop,
+      setTransform: noop,
+      globalAlpha: 1,
+      lineWidth: 1,
+      fillStyle: '',
+      strokeStyle: '',
+      font: '',
+      textAlign: 'left',
+      textBaseline: 'top'
+    };
+    return { ctx: ctx as unknown as CanvasRenderingContext2D, strokes, fills };
+  };
+
+  const colors = { ink: 'rgb(17, 21, 28)', halo: 'rgb(255, 255, 255)' };
+
+  it('never fills over the cells, so the data under the cursor stays readable', () => {
+    const geometry = geometryOf(STEP_COUNT, WELL_COUNT);
+    const { ctx, strokes, fills } = recordingContext();
+
+    paintCursor(ctx, geometry, 2, colors);
+
+    expect(fills).toEqual([]);
+    expect(strokes).toHaveLength(2);
+  });
+
+  it('draws a halo outside an ink stroke so the frame carries its own edge on any fill', () => {
+    const geometry = geometryOf(STEP_COUNT, WELL_COUNT);
+    const { ctx, strokes } = recordingContext();
+
+    paintCursor(ctx, geometry, 2, colors);
+
+    const [halo, ink] = strokes;
+    expect(halo.color).toBe(colors.halo);
+    expect(ink.color).toBe(colors.ink);
+    expect(ink.width).toBe(CURSOR_INK_WIDTH);
+    expect(halo.width).toBe(CURSOR_HALO_WIDTH);
+    expect(halo.rect[0]).toBeLessThan(ink.rect[0]);
+    expect(halo.rect[1]).toBeLessThan(ink.rect[1]);
+    expect(halo.rect[2]).toBeGreaterThan(ink.rect[2]);
+    expect(halo.rect[3]).toBeGreaterThan(ink.rect[3]);
+  });
+
+  it('brackets exactly the selected column', () => {
+    const geometry = geometryOf(STEP_COUNT, WELL_COUNT);
+    const { ctx, strokes } = recordingContext();
+
+    paintCursor(ctx, geometry, 3, colors);
+
+    const ink = strokes[1];
+    expect(ink.rect[0] + CURSOR_INK_WIDTH / 2).toBeCloseTo(columnX(3, geometry.cellWidth));
+    expect(ink.rect[2] - CURSOR_INK_WIDTH).toBeCloseTo(geometry.cellWidth);
+  });
+
+  it('paints nothing when the column is outside the matrix', () => {
+    const geometry = geometryOf(STEP_COUNT, WELL_COUNT);
+    for (const column of [-1, STEP_COUNT]) {
+      const { ctx, strokes, fills } = recordingContext();
+      paintCursor(ctx, geometry, column, colors);
+      expect(strokes, `column ${column}`).toEqual([]);
+      expect(fills, `column ${column}`).toEqual([]);
+    }
+  });
+});
+
+describe('readout placement', () => {
+  const readoutOf = async (): Promise<HTMLElement> =>
+    await screen.findByTestId('chronomap-readout');
+
+  const mountMatrix = async () => {
+    mockRoutes(timelineFixture);
+    const { container } = render(withProviders(<Chronomap />));
+    await waitFor(() => expect(container.querySelector('.chronomap-canvas')).not.toBeNull());
+    const canvas = matrixCanvas(container);
+    await waitFor(() => expect(canvas.dataset.rows).toBe(String(WELL_COUNT)));
+    return { container, canvas };
+  };
+
+  const roomy: ReadoutBounds = { left: 0, right: 1000, top: 0, bottom: 800 };
+  const at = (x: number, y: number): HoverTarget => ({ well: 'W1', column: 0, x, y });
+
+  it('keeps the readout beside the cursor when both directions have room', () => {
+    expect(readoutFlip(at(100, 100), roomy, 260)).toEqual({ flipX: false, flipY: false });
+  });
+
+  it('flips left when the panel would cross the right edge of the visible box', () => {
+    expect(readoutFlip(at(900, 100), roomy, 260).flipX).toBe(true);
+  });
+
+  it('flips above when the panel would run under the bottom of the visible box', () => {
+    expect(readoutFlip(at(100, 700), roomy, 260).flipY).toBe(true);
+  });
+
+  it('flips both ways in the bottom-right corner', () => {
+    expect(readoutFlip(at(900, 700), roomy, 260)).toEqual({ flipX: true, flipY: true });
+  });
+
+  it('refuses a flip that would push the panel off the opposite edge instead', () => {
+    const narrow: ReadoutBounds = { left: 0, right: 300, top: 0, bottom: 200 };
+    expect(readoutFlip(at(120, 120), narrow, 260)).toEqual({ flipX: false, flipY: false });
+  });
+
+  it('pulls the panel clear of the player when the cursor itself sits under it', () => {
+    const placed = readoutPlacement(at(100, 900), roomy, 260);
+
+    expect(placed.flipY).toBe(true);
+    expect(placed.nudgeY).toBeLessThan(0);
+    expect(900 - 12 - 260 + placed.nudgeY + 260).toBeLessThanOrEqual(roomy.bottom);
+  });
+
+  it('pulls the panel back inside when neither side of the cursor has room', () => {
+    const tight: ReadoutBounds = { left: 0, right: 280, top: 0, bottom: 800 };
+    const placed = readoutPlacement(at(200, 100), tight, 260);
+
+    expect(placed.flipX).toBe(false);
+    expect(placed.nudgeX).toBeLessThan(0);
+    expect(200 + 12 + placed.nudgeX + 264).toBeLessThanOrEqual(tight.right);
+  });
+
+  it('leaves the panel alone when it already fits', () => {
+    const placed = readoutPlacement(at(100, 100), roomy, 260);
+
+    expect(placed).toMatchObject({ flipX: false, flipY: false, nudgeX: 0, nudgeY: 0 });
+  });
+
+  it('measures the room from the cursor to the edge the panel is anchored against', () => {
+    expect(readoutRoom(at(100, 700), roomy, true)).toBe(688);
+    expect(readoutRoom(at(100, 100), roomy, false)).toBe(688);
+    expect(readoutRoom(at(100, 795), roomy, false)).toBe(0);
+  });
+
+  const rect = (left: number, top: number, right: number, bottom: number): DOMRect =>
+    ({
+      left,
+      top,
+      right,
+      bottom,
+      x: left,
+      y: top,
+      width: right - left,
+      height: bottom - top,
+      toJSON: () => ({})
+    }) as DOMRect;
+
+  it('stops the readout at the top of the player strip, not at the bottom of the window', () => {
+    const bounds = readoutBoundsOf(
+      rect(100, 200, 900, 1000),
+      { width: 1000, height: 900 },
+      [],
+      rect(0, 700, 1000, 900)
+    );
+
+    expect(bounds.bottom).toBe(500);
+    expect(bounds.top).toBe(-200);
+  });
+
+  it('falls back to the window when nothing overlays the scene', () => {
+    const bounds = readoutBoundsOf(
+      rect(100, 200, 900, 1000),
+      { width: 1000, height: 900 },
+      [],
+      null
+    );
+
+    expect(bounds.bottom).toBe(700);
+    expect(bounds.right).toBe(900);
+  });
+
+  it('honours a scrolling ancestor that clips the stage before the player does', () => {
+    const bounds = readoutBoundsOf(
+      rect(100, 200, 900, 1000),
+      { width: 1000, height: 900 },
+      [rect(100, 200, 900, 600)],
+      rect(0, 700, 1000, 900)
+    );
+
+    expect(bounds.bottom).toBe(400);
+    expect(bounds.top).toBe(0);
+    expect(bounds.left).toBe(0);
+  });
+
+  it('never reports a bottom above its own top when the stage is fully hidden', () => {
+    const bounds = readoutBoundsOf(
+      rect(100, 900, 900, 1400),
+      { width: 1000, height: 900 },
+      [rect(100, 200, 900, 600)],
+      null
+    );
+
+    expect(bounds.bottom).toBeGreaterThanOrEqual(bounds.top);
+  });
+
+  it('anchors the panel in its own layer so the cursor position never fights the flip', async () => {
+    const { container, canvas } = await mountMatrix();
+
+    hoverCell(canvas, 1, 2);
+    const panel = await readoutOf();
+    const anchor = container.querySelector<HTMLElement>('.chronomap-readout');
+
+    expect(anchor).not.toBeNull();
+    expect(anchor?.contains(panel)).toBe(true);
+    expect(anchor?.style.left).toBe(`${GUTTER_LEFT + CELL_WIDTH + 1}px`);
+    expect(panel.style.left).toBe('');
+    expect(panel.dataset.flipX).toBe('false');
+    expect(panel.dataset.flipY).toBe('false');
+  });
+
+  it('shows one readout at a time as the pointer crosses cells', async () => {
+    const { container, canvas } = await mountMatrix();
+
+    hoverCell(canvas, 1, 2);
+    const first = await readoutOf();
+    hoverCell(canvas, 2, 3);
+    const second = await readoutOf();
+
+    expect(container.querySelectorAll('.chronomap-readout-panel')).toHaveLength(1);
+    expect(second).toBe(first);
+    expect(second.dataset.closing).toBe('false');
+  });
+
+  it('drives the flip from a shift property, never from an upward pixel translate (V11)', () => {
+    const css = readFileSync(
+      join(process.cwd(), 'src', 'views', 'Chronomap', 'Chronomap.css'),
+      'utf-8'
+    );
+
+    expect(css).toContain('--readout-shift-y: calc(-100% - var(--readout-offset))');
+    expect(css).toMatch(/--readout-offset:\s*12px/);
+    expect(css).toContain('transition: translate var(--duration-state) var(--ease-emphasis)');
+    expect(css).not.toMatch(/translateY\(-\d+px\)/);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*chronomap-readout-panel/);
   });
 });

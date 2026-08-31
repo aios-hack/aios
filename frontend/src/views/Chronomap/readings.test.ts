@@ -54,3 +54,49 @@ describe('readingText', () => {
     expect(text).toMatch(/\d/);
   });
 });
+
+describe('a well that is not in service yet reports no reading', () => {
+  it('refuses to call an uncommissioned watercut a measured zero', () => {
+    const reading = readingText({
+      lang: 'ru',
+      t,
+      metric: 'watercut',
+      row: row({ availability: 'NOT_COMMISSIONED', watercut: 0 })
+    });
+
+    expect(reading).toBe('chrono.value.unknown');
+  });
+
+  it('refuses the same for the fact-to-target ratio', () => {
+    const reading = readingText({
+      lang: 'ru',
+      t,
+      metric: 'ratio',
+      row: row({ availability: 'NOT_COMMISSIONED', fact_to_target: 0 })
+    });
+
+    expect(reading).toBe('chrono.value.unknown');
+  });
+
+  it('still names the mode, which is known even before commissioning', () => {
+    const reading = readingText({
+      lang: 'ru',
+      t,
+      metric: 'mode',
+      row: row({ availability: 'NOT_COMMISSIONED' })
+    });
+
+    expect(reading).toBe('chrono.mode.idle');
+  });
+
+  it('keeps reporting a real measurement once the well is in service', () => {
+    const reading = readingText({
+      lang: 'ru',
+      t,
+      metric: 'watercut',
+      row: row({ watercut: 0 })
+    });
+
+    expect(reading).not.toBe('chrono.value.unknown');
+  });
+});

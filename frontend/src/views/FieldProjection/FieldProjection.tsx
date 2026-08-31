@@ -28,8 +28,8 @@ const FieldProjectionReady = ({ wells, graph }: ReadyProps) => {
   const [pole, setPole] = useState<ProjectionPole>('graph');
   const [threshold, setThreshold] = useState<number | null>(null);
   const [layerFilter, setLayerFilter] = useState<LayerFilter>('all');
-  const { t: blend, travelTo, setImmediate } = useProjectionTravel(1);
-  const { svgRef, viewBox, scale, handlers, hasDragged } = usePlotGestures();
+  const { t: blend, travelTo } = useProjectionTravel(1);
+  const { svgRef, viewBox, scale, unitsPerPixel, handlers, hasDragged } = usePlotGestures();
   const geometry = useProjectionGeometry(wells, graph, blend, threshold);
   const states = useWellStates();
   const highlight = useSelectionHighlight();
@@ -49,14 +49,6 @@ const FieldProjectionReady = ({ wells, graph }: ReadyProps) => {
       travelTo(next === 'map' ? 0 : 1);
     },
     [travelTo]
-  );
-
-  const onBlend = useCallback(
-    (value: number) => {
-      setPole(value >= 0.5 ? 'graph' : 'map');
-      setImmediate(value);
-    },
-    [setImmediate]
   );
 
   const servedMorph = useRef<number | null>(null);
@@ -84,7 +76,6 @@ const FieldProjectionReady = ({ wells, graph }: ReadyProps) => {
     <section className="field-projection">
       <ProjectionControls
         pole={pole}
-        t={blend}
         threshold={geometry.activeThreshold}
         thresholdMin={geometry.bounds.min}
         thresholdMax={geometry.bounds.max}
@@ -93,7 +84,6 @@ const FieldProjectionReady = ({ wells, graph }: ReadyProps) => {
         layers={wells.layers}
         layerFilter={layerFilter}
         onPole={onPole}
-        onT={onBlend}
         onThreshold={setThreshold}
         onLayerFilter={setLayerFilter}
         legendNotes={[
@@ -133,6 +123,7 @@ const FieldProjectionReady = ({ wells, graph }: ReadyProps) => {
             maxWeight={graph.weight_range.max}
             t={blend}
             scale={scale}
+            selectedWell={selectedWell}
           />
           <NodeLayer
             placed={geometry.placed}
@@ -141,6 +132,7 @@ const FieldProjectionReady = ({ wells, graph }: ReadyProps) => {
             highlight={highlight}
             titleOf={titleOf}
             scale={scale}
+            unitsPerPixel={unitsPerPixel}
             isDimmed={isDimmed}
             onSelectWell={onSelectWell}
           />

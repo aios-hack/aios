@@ -1,6 +1,6 @@
 import './Legend.css';
 
-const RAMP_STOPS = [0, 0.25, 0.5, 0.75, 1] as const;
+const RAMP_STOPS = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1] as const;
 
 export interface LegendRamp {
   colorAt: (stop: number) => string;
@@ -45,17 +45,18 @@ export const Legend = ({ title, ramp, swatches, notes }: LegendProps) => (
     )}
     {ramp !== undefined && (
       <>
-        <ul className="legend-list legend-list--ramp" aria-hidden="true">
-          {RAMP_STOPS.map((stop) => (
-            <li
-              key={stop}
-              className="legend-band"
-              style={{ background: ramp.colorAt(stop) }}
-            />
-          ))}
-        </ul>
-        <p className="legend-note">
-          {ramp.lowLabel} → {ramp.highLabel}
+        <span
+          className="legend-ramp"
+          aria-hidden="true"
+          style={{
+            backgroundImage: `linear-gradient(to right, ${RAMP_STOPS.map(
+              (stop) => `${ramp.colorAt(stop)} ${stop * 100}%`
+            ).join(', ')})`
+          }}
+        />
+        <p className="legend-scale">
+          <span>{ramp.lowLabel}</span>
+          <span>{ramp.highLabel}</span>
         </p>
       </>
     )}

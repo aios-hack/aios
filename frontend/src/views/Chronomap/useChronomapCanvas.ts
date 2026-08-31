@@ -4,7 +4,7 @@ import { devicePixelRatioOf, toCanvasColor } from '../shared/canvasColors';
 import type { RowIndex } from '../shared/wellFacts';
 import { cellRgb, type CellContext } from './cells';
 import {
-  CELL_HEIGHT,
+  COLUMN_GAP,
   ROW_GAP,
   GUTTER_LEFT,
   GUTTER_TOP,
@@ -18,6 +18,15 @@ import type { ChronoRow } from './sortRows';
 
 const TERMINAL_ALPHA = 0.4;
 const AXIS_FONT = "9px 'JetBrains Mono', ui-monospace, monospace";
+
+export const CURSOR_INK_WIDTH = 2;
+export const CURSOR_RADIUS = 6;
+export const CURSOR_HALO_WIDTH = 1;
+
+export interface CursorColors {
+  ink: string;
+  halo: string;
+}
 
 export interface ChronoPaint {
   geometry: ChronoGeometry;
@@ -34,18 +43,35 @@ export const paintChronomap = (
   paint: ChronoPaint
 ): void => {
   const { geometry, rows, steps, index, context, axisColor, surfaceColor } = paint;
+  const scale = typeof ctx.getTransform === 'function' ? ctx.getTransform().a || 1 : 1;
+  const snap = (value: number): number => Math.round(value * scale) / scale;
+  const device = 1 / scale;
+  const columnGap = COLUMN_GAP > 0 ? device : 0;
+  const rowGap = ROW_GAP > 0 ? device : 0;
+  ctx.clearRect(0, 0, geometry.width, geometry.height);
   ctx.fillStyle = surfaceColor;
-  ctx.fillRect(0, 0, geometry.width, geometry.height);
+  ctx.fillRect(GUTTER_LEFT, GUTTER_TOP, geometry.plotWidth, geometry.plotHeight);
+
+  const rowEdges: number[] = [];
+  for (let row = 0; row <= rows.length; row += 1) {
+    rowEdges.push(snap(rowY(row, geometry.cellHeight)));
+  }
 
   for (let column = 0; column < geometry.columns; column += 1) {
     const step = steps[column];
     const stepRows = index[column];
-    const x = columnX(column, geometry.cellWidth);
+    const left = snap(columnX(column, geometry.cellWidth));
+    const right = snap(columnX(column + 1, geometry.cellWidth));
     ctx.globalAlpha = step !== undefined && step.terminal ? TERMINAL_ALPHA : 1;
     for (let row = 0; row < rows.length; row += 1) {
       const entry = rows[row];
       ctx.fillStyle = toCanvasColor(cellRgb(stepRows?.get(entry.well), context));
-      ctx.fillRect(x, rowY(row), geometry.cellWidth, CELL_HEIGHT - ROW_GAP);
+      ctx.fillRect(
+        left,
+        rowEdges[row],
+        Math.max(device, right - left - columnGap),
+        Math.max(device, rowEdges[row + 1] - rowEdges[row] - rowGap)
+      );
     }
   }
   ctx.globalAlpha = 1;
@@ -61,9 +87,13 @@ export const paintChronomap = (
 
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
-  const stride = labelStride();
+  const stride = labelStride(geometry.cellHeight);
   for (let row = 0; row < rows.length; row += stride) {
-    ctx.fillText(rows[row].well, GUTTER_LEFT - 4, rowY(row) + CELL_HEIGHT / 2);
+    ctx.fillText(
+      rows[row].well,
+      GUTTER_LEFT - 4,
+      rowY(row, geometry.cellHeight) + geometry.cellHeight / 2
+    );
   }
   ctx.textBaseline = 'top';
 };
@@ -109,22 +139,59 @@ export const paintCursor = (
   ctx: CanvasRenderingContext2D,
   geometry: ChronoGeometry,
   column: number,
-  color: string
+  cursor: CursorColors
 ): void => {
   ctx.clearRect(0, 0, geometry.width, geometry.height);
   if (column < 0 || column >= geometry.columns) {
     return;
   }
-  ctx.fillStyle = color;
-  ctx.fillRect(columnX(column, geometry.cellWidth), GUTTER_TOP, geometry.cellWidth, geometry.plotHeight);
+  const left = columnX(column, geometry.cellWidth);
+  const width = geometry.cellWidth;
+  const outer = CURSOR_HALO_WIDTH + CURSOR_INK_WIDTH;
+  const frame = (
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    stroke: string,
+    lineWidth: number
+  ): void => {
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = lineWidth;
+    if (typeof ctx.roundRect === 'function') {
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, Math.min(CURSOR_RADIUS, w / 2));
+      ctx.stroke();
+      return;
+    }
+    ctx.strokeRect(x, y, w, h);
+  };
+
+  frame(
+    left - outer + CURSOR_HALO_WIDTH / 2,
+    GUTTER_TOP - outer + CURSOR_HALO_WIDTH / 2,
+    width + 2 * outer - CURSOR_HALO_WIDTH,
+    geometry.plotHeight + 2 * outer - CURSOR_HALO_WIDTH,
+    cursor.halo,
+    CURSOR_HALO_WIDTH
+  );
+  frame(
+    left - CURSOR_INK_WIDTH / 2,
+    GUTTER_TOP - CURSOR_INK_WIDTH / 2,
+    width + CURSOR_INK_WIDTH,
+    geometry.plotHeight + CURSOR_INK_WIDTH,
+    cursor.ink,
+    CURSOR_INK_WIDTH
+  );
 };
 
 export const useCursorCanvas = (
   geometry: ChronoGeometry,
   column: number,
-  color: string
+  cursor: CursorColors
 ): RefObject<HTMLCanvasElement | null> => {
   const ref = useRef<HTMLCanvasElement | null>(null);
+  const { ink, halo } = cursor;
 
   useEffect(() => {
     const canvas = ref.current;
@@ -135,8 +202,8 @@ export const useCursorCanvas = (
     if (ctx === null) {
       return;
     }
-    paintCursor(ctx, geometry, column, color);
-  }, [geometry, column, color]);
+    paintCursor(ctx, geometry, column, { ink, halo });
+  }, [geometry, column, ink, halo]);
 
   return ref;
 };

@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo, useRef, useState, type CSSProperties } from
 import type { AblationFile } from '../../api/types';
 import { useI18n } from '../../i18n/I18nContext';
 import { formatNumber, formatPercent } from '../../ui/format';
+import { LegendPopover } from '../../ui/Legend';
 import { SortHeader } from '../../ui/SortHeader';
 import { coverageOf, leadRatio, toEntries } from './ablation';
 import { AblationRow } from './AblationRow';
@@ -89,15 +90,29 @@ const AblationTableView = ({ data, standalone = false }: AblationTableProps) => 
           </h3>
           <p className="abl-intro">{t('npv.ablation.intro')}</p>
         </div>
-        <p className="abl-total">
-          <span className="abl-total-label">{t('npv.ablation.total')}</span>
-          <span className="abl-total-amount">
-            <span className="abl-total-value" data-testid="abl-total">
-              {formatNumber(lang, data.npv_total)}
+        <div className="abl-head-aside">
+          <p className="abl-total">
+            <span className="abl-total-label">{t('npv.ablation.total')}</span>
+            <span className="abl-total-amount">
+              <span className="abl-total-value" data-testid="abl-total">
+                {formatNumber(lang, data.npv_total)}
+              </span>
+              <span className="abl-total-unit">{t('npv.ablation.totalUnit')}</span>
             </span>
-            <span className="abl-total-unit">{t('npv.ablation.totalUnit')}</span>
-          </span>
-        </p>
+          </p>
+          <LegendPopover
+            triggerLabel={t('toolbar.legend')}
+            title={t('npv.ablation.legend.title')}
+            notes={[
+              { text: t('npv.ablation.legend.delta') },
+              { text: t('npv.ablation.legend.bar') },
+              { text: t('npv.ablation.legend.share') },
+              { text: t('npv.ablation.legend.unmeasured') },
+              { text: t('npv.ablation.legend.zero') },
+              { text: t('npv.ablation.legend.disabled') }
+            ]}
+          />
+        </div>
       </header>
 
       <div className="abl-table-wrap">

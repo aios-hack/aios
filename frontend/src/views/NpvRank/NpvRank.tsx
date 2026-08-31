@@ -2,7 +2,9 @@ import { useCallback, useRef, useState } from 'react';
 import { useDataset } from '../../data';
 import { useT } from '../../i18n/I18nContext';
 import { useTimeline } from '../../state/TimelineContext';
+import { LegendPopover } from '../../ui/Legend';
 import { ViewStatus } from '../../ui/ViewStatus';
+import { ViewToolbar } from '../../ui/ViewToolbar';
 import { AblationTable } from './AblationTable';
 import { NpvTable } from './NpvTable';
 import { TaxModeSwitch } from './TaxModeSwitch';
@@ -39,12 +41,39 @@ export const NpvRank = () => {
 
   return (
     <section className="npv">
-      <div className="npv-controls">
-        <TaxModeSwitch mode={mode} onChange={setMode} />
-        <span className="npv-badge" data-mode={mode}>
-          {t(`npv.badge.${mode}`)}
-        </span>
-      </div>
+      <ViewToolbar
+        left={
+          <div className="npv-controls">
+            <TaxModeSwitch mode={mode} onChange={setMode} />
+            <span className="npv-badge" data-mode={mode}>
+              {t(`npv.badge.${mode}`)}
+            </span>
+          </div>
+        }
+        right={
+          <LegendPopover
+            triggerLabel={t('toolbar.legend')}
+            title={t('npv.legend.title')}
+            swatches={[
+              {
+                key: 'positive',
+                color: 'var(--color-accent)',
+                label: t('npv.legend.positive')
+              },
+              {
+                key: 'negative',
+                color: 'var(--color-danger)',
+                label: t('npv.legend.negative')
+              }
+            ]}
+            notes={[
+              { text: t('npv.legend.bar') },
+              { text: t('npv.legend.mode') },
+              { text: t('npv.legend.selected') }
+            ]}
+          />
+        }
+      />
       <NpvTable
         data={npv.data}
         mode={mode}

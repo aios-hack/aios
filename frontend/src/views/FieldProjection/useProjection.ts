@@ -5,6 +5,23 @@ import { FIELD_PAD, FIELD_SIZE } from './model';
 
 export const TRAVEL_MS = 1350;
 
+export const FALLBACK_PLOT_SIZE_PX = 700;
+
+export interface PaintedSize {
+  width: number;
+  height: number;
+}
+
+export const unitsPerPixel = (
+  viewBox: { width: number; height: number },
+  painted: PaintedSize | null
+): number => {
+  if (painted === null || painted.width <= 0 || painted.height <= 0) {
+    return viewBox.width / FALLBACK_PLOT_SIZE_PX;
+  }
+  return Math.max(viewBox.width / painted.width, viewBox.height / painted.height);
+};
+
 export const prefersReducedMotion = (): boolean => {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
     return false;
@@ -68,6 +85,7 @@ export const useProjectionTravel = (initial: number) => {
 export const usePlotGestures = () => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const rectRef = useRef<DOMRect | null>(null);
+  const [painted, setPainted] = useState<PaintedSize | null>(null);
   const initial = useMemo(() => createViewBox(FIELD_SIZE, FIELD_PAD), []);
   const { viewBox, zoomAtRatio, startPan, panBy, endPan, isPanning, hasDragged } =
     useViewBox(initial);
@@ -95,6 +113,28 @@ export const usePlotGestures = () => {
     return () => svg.removeEventListener('wheel', onWheel);
   }, [zoomAtRatio]);
 
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (svg === null) {
+      return;
+    }
+    const measure = () => {
+      const rect = svg.getBoundingClientRect();
+      setPainted(
+        rect.width > 0 && rect.height > 0
+          ? { width: rect.width, height: rect.height }
+          : null
+      );
+    };
+    measure();
+    if (typeof ResizeObserver !== 'function') {
+      return;
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, []);
+
   const handlers = {
     onPointerDown: (event: { clientX: number; clientY: number }) => {
       rectRef.current = svgRef.current?.getBoundingClientRect() ?? null;
@@ -117,5 +157,12 @@ export const usePlotGestures = () => {
     }
   };
 
-  return { svgRef, viewBox, scale: initial.width / viewBox.width, handlers, hasDragged };
+  return {
+    svgRef,
+    viewBox,
+    scale: initial.width / viewBox.width,
+    unitsPerPixel: unitsPerPixel(viewBox, painted),
+    handlers,
+    hasDragged
+  };
 };

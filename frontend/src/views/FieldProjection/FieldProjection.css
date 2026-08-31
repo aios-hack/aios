@@ -7,44 +7,142 @@
 }
 
 .field-projection-canvas {
-  align-self: center;
   display: flex;
   justify-content: center;
   width: 100%;
-  max-width: var(--size-graph-max);
   min-height: 0;
-  max-height: var(--size-plot-viewport);
+  max-height: calc(var(--size-plot-viewport) - var(--space-8) - var(--space-2));
   flex: 1 1 auto;
   overflow: hidden;
 }
 
 .field-projection-plot {
   display: block;
-  width: auto;
+  width: 100%;
   height: 100%;
   max-width: 100%;
-  aspect-ratio: 1 / 1;
-  background: var(--color-plot-bg);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-lg);
+  background: transparent;
+  border: 0;
   touch-action: none;
+}
+
+.field-projection-edges line {
+  animation: field-edge-in var(--duration-state) var(--ease-out) both;
+  transition: stroke-opacity var(--duration-state) var(--ease-out),
+    stroke-width var(--duration-state) var(--ease-out);
+}
+
+@keyframes field-edge-in {
+  from {
+    stroke-opacity: 0;
+  }
 }
 
 .field-projection-node {
   cursor: pointer;
+  transition: opacity var(--duration-state) var(--ease-out);
+}
+
+.field-projection-node > circle.field-projection-glyph,
+.field-projection-node > path {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.field-projection-node[data-active='true'] > circle.field-projection-glyph,
+.field-projection-node[data-active='true'] > path {
+  animation: field-node-in var(--duration-state) var(--ease-out) both;
+}
+
+.field-projection-node[data-active='false'] > circle.field-projection-glyph,
+.field-projection-node[data-active='false'] > path {
+  animation: field-node-out var(--duration-state) var(--ease-out) both;
+}
+
+@keyframes field-node-in {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes field-node-out {
+  from {
+    opacity: 1;
+    scale: 1;
+  }
+
+  to {
+    opacity: 1;
+    scale: 0.72;
+  }
+}
+
+.field-projection-halo {
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: field-halo-in var(--duration-state) var(--ease-emphasis) both;
+}
+
+@keyframes field-halo-in {
+  from {
+    opacity: 0;
+    scale: 0.5;
+  }
+
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+.field-projection-node[data-selected='true'] > circle.field-projection-glyph,
+.field-projection-node[data-selected='true'] > path {
+  animation: field-node-select var(--duration-state) var(--ease-emphasis) both;
+}
+
+@keyframes field-node-select {
+  from {
+    scale: 0.78;
+  }
+
+  to {
+    scale: 1;
+  }
 }
 
 .field-projection-node:focus {
   outline: none;
 }
 
-.field-projection-node:focus-visible > circle,
+.field-projection-node:focus-visible > circle.field-projection-glyph,
 .field-projection-node:focus-visible > path {
   stroke: var(--color-accent);
 }
 
-.field-projection-node[data-only-map='true'] > circle,
+.field-projection-node[data-only-map='true'] > circle.field-projection-glyph,
 .field-projection-node[data-only-map='true'] > path {
   stroke-dasharray: 0.6 0.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .field-projection-edges line {
+    animation: none;
+    transition: none;
+  }
+
+  .field-projection-node,
+  .field-projection-node > circle.field-projection-glyph,
+  .field-projection-node > path,
+  .field-projection-halo {
+    animation: none;
+    transition: none;
+  }
 }
 

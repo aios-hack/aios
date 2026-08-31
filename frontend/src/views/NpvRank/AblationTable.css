@@ -50,6 +50,13 @@
   font-size: var(--font-size-sm);
 }
 
+.abl-head-aside {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
 .abl-total {
   display: flex;
   align-items: baseline;

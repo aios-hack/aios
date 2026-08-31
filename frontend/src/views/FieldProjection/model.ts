@@ -10,7 +10,12 @@ import {
   wellStateOf,
   type WellState
 } from '../shared/wellState';
-import { EDGES_PER_PRODUCER, topEdgesPerProducer, visibleEdges } from '../shared/graphModel';
+import {
+  defaultThreshold,
+  EDGES_PER_PRODUCER,
+  topEdgesPerProducer,
+  visibleEdges
+} from '../shared/graphModel';
 import { fitLayout, placeNodes, type Box, type ProjectedNode } from './interpolate';
 
 export const FIELD_SIZE = 100;
@@ -61,14 +66,10 @@ export const useProjectionGeometry = (
     [projected]
   );
   const bounds = useMemo(() => weightBounds(graph.edges), [graph]);
-  const activeThreshold = threshold ?? bounds.min;
+  const activeThreshold = threshold ?? defaultThreshold(graph.edges, bounds);
   const edges = useMemo(
-    () =>
-      topEdgesPerProducer(
-        visibleEdges(graph.edges, activeThreshold),
-        activeThreshold > bounds.min ? EDGES_PER_PRODUCER : null
-      ),
-    [graph, activeThreshold, bounds.min]
+    () => topEdgesPerProducer(visibleEdges(graph.edges, activeThreshold), EDGES_PER_PRODUCER),
+    [graph, activeThreshold]
   );
   return { placed, placedIndex, withoutConnectivity, bounds, activeThreshold, edges };
 };

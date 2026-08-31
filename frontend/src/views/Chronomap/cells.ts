@@ -24,9 +24,12 @@ export const PALETTE_TOKENS = [
   '--color-injection',
   '--color-surface-sunken',
   '--color-plot-bg',
+  '--color-plot-grid',
   '--color-well-dim',
   '--color-axis-tick',
-  '--color-unknown'
+  '--color-unknown',
+  '--color-cursor-ink',
+  '--color-cursor-halo'
 ] as const;
 
 export type PaletteToken = (typeof PALETTE_TOKENS)[number];

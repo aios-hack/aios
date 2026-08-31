@@ -5,7 +5,7 @@
   --color-accent: #3d22c3;
   --color-accent-hover: #5238d8;
   --color-accent-soft: #7a63e6;
-  --color-accent-softer: #a493ef;
+  --color-accent-softer: #8b78ea;
   --color-accent-deep: #2d1794;
   --color-accent-contrast: #ffffff;
   --color-accent-dim: rgba(61, 34, 195, 0.1);
@@ -50,22 +50,25 @@
   --color-ok: #137645;
   --color-focus: #3d22c3;
   --color-selected-bg: rgba(61, 34, 195, 0.1);
+  --color-cursor-ink: #3d22c3;
+  --color-cursor-halo: #ffffff;
 
-  --color-oil: #975911;
+  --color-oil: #e6cba8;
   --color-oil-strong: #7a4709;
   --color-water: #167188;
-  --color-water-pale: #8fbac6;
-  --color-injection: #1e6bb8;
+  --color-water-pale: #5f9aac;
+  --color-injection: #527cad;
+  --color-injection-strong: #2c5d96;
   --color-unknown: rgba(26, 32, 40, 0.3);
 
-  --scale-watercut-0: #8a510f;
-  --scale-watercut-1: #5cc6e0;
+  --scale-watercut-0: #804f1f;
+  --scale-watercut-1: #87dee6;
   --scale-ratio-low: #c82f1e;
   --scale-ratio-mid: #c37113;
   --scale-ratio-high: #1b9859;
 
   --color-layer-1: #c37113;
-  --color-layer-2: #1b93b1;
+  --color-layer-2: #12839f;
   --color-layer-both: #5b5f77;
   --color-well-dim: rgba(26, 32, 40, 0.2);
   --color-well-idle: rgba(26, 32, 40, 0.34);
@@ -74,12 +77,12 @@
   --color-graph-edge: rgba(26, 32, 40, 0.34);
   --color-graph-window: #7a4709;
   --color-graph-window-bg: #f5ecd9;
-  --color-group-1: #5fa3e7;
-  --color-group-2: #e77a5f;
-  --color-group-3: #5fe7a3;
-  --color-group-4: #ba5fe7;
-  --color-group-5: #e7cc5f;
-  --color-group-6: #e75fba;
+  --color-group-1: #0d85fe;
+  --color-group-2: #eb522b;
+  --color-group-3: #019c4e;
+  --color-group-4: #b860e4;
+  --color-group-5: #a48401;
+  --color-group-6: #e93db0;
   --color-submitted: #0d5230;
   --color-submitted-bg: rgba(19, 118, 69, 0.1);
   --color-whatif: rgba(26, 32, 40, 0.72);
@@ -91,6 +94,7 @@
   --color-synthetic-border: rgba(195, 113, 19, 0.42);
 
   --color-backdrop: rgba(26, 32, 40, 0.2);
+  --color-plot-grid: #dfe4ea;
   --color-plot-bg: #eceff3;
   --color-edge-positive: #c37113;
   --color-edge-negative: #1c80e3;
@@ -149,7 +153,6 @@
   --duration-fast: 120ms;
   --duration-state: 160ms;
   --duration-drawer: 220ms;
-  --duration-reveal: 400ms;
   --duration-travel: 1350ms;
 
   --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);

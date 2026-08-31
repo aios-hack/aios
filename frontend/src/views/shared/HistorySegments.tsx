@@ -28,9 +28,7 @@ export const HistorySegments = ({
 
   const metricOptions: SegmentedOption<HistoryMetric>[] = HISTORY_METRICS.map((value) => ({
     value,
-    label: t(`history.metric.${value}`),
-    disabled: !metricEnabled,
-    disabledReason: metricEnabled ? undefined : t('history.metricUnavailable')
+    label: t(`history.metric.${value}`)
   }));
 
   const sortOptions: SegmentedOption<HistorySort>[] = HISTORY_SORTS.map((value) => ({
@@ -44,12 +42,14 @@ export const HistorySegments = ({
 
   return (
     <>
-      <SegmentedControl<HistoryMetric>
-        options={metricOptions}
-        active={metric}
-        label={t('history.metricLabel')}
-        onSelect={onMetric}
-      />
+      {metricEnabled && (
+        <SegmentedControl<HistoryMetric>
+          options={metricOptions}
+          active={metric}
+          label={t('history.metricLabel')}
+          onSelect={onMetric}
+        />
+      )}
       <SegmentedControl<HistorySort>
         options={sortOptions}
         active={sort}

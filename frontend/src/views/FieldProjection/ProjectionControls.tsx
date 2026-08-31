@@ -14,7 +14,6 @@ export type ProjectionPole = 'map' | 'graph';
 
 interface ProjectionControlsProps {
   pole: ProjectionPole;
-  t: number;
   threshold: number;
   thresholdMin: number;
   thresholdMax: number;
@@ -23,7 +22,6 @@ interface ProjectionControlsProps {
   layers: LayerRange[];
   layerFilter: LayerFilter;
   onPole: (pole: ProjectionPole) => void;
-  onT: (value: number) => void;
   onThreshold: (value: number) => void;
   onLayerFilter: (filter: LayerFilter) => void;
   legendNotes: readonly LegendNote[];
@@ -31,7 +29,6 @@ interface ProjectionControlsProps {
 
 export const ProjectionControls = ({
   pole,
-  t,
   threshold,
   thresholdMin,
   thresholdMax,
@@ -40,13 +37,16 @@ export const ProjectionControls = ({
   layers,
   layerFilter,
   onPole,
-  onT,
   onThreshold,
   onLayerFilter,
   legendNotes
 }: ProjectionControlsProps) => {
   const translate = useT();
-  const step = Math.max((thresholdMax - thresholdMin) / 100, 0.001);
+  const span = Math.max(thresholdMax - thresholdMin, 1e-9);
+  const toSlider = (value: number): number =>
+    Math.sqrt(Math.min(Math.max((value - thresholdMin) / span, 0), 1));
+  const fromSlider = (position: number): number =>
+    thresholdMin + position * position * span;
 
   return (
     <ViewToolbar
@@ -74,7 +74,25 @@ export const ProjectionControls = ({
               lowLabel: translate('chrono.legend.low.watercut'),
               highLabel: translate('chrono.legend.high.watercut')
             }}
+            swatches={[
+              {
+                key: 'edge-positive',
+                color: 'var(--color-edge-positive)',
+                label: translate('projection.legend.edge.positive')
+              },
+              {
+                key: 'edge-negative',
+                color: 'var(--color-edge-negative)',
+                label: translate('projection.legend.edge.negative')
+              }
+            ]}
             notes={[
+              { text: translate('projection.legend.shape.producer') },
+              { text: translate('projection.legend.shape.injector') },
+              { text: translate('projection.legend.size') },
+              { text: translate('projection.legend.edge.width') },
+              { text: translate('projection.legend.pole.explain') },
+              { text: translate('projection.legend.selection') },
               {
                 text: translate('projection.threshold.edges', {
                   shown: shownEdges,
@@ -89,32 +107,17 @@ export const ProjectionControls = ({
             title={translate('toolbar.settings')}
           >
             <SettingsField
-              htmlFor="projection-blend"
-              label={translate('projection.blend.label')}
-              value={t.toFixed(2)}
-              valueTestId="field-projection-t"
-            >
-              <Slider
-                id="projection-blend"
-                min={0}
-                max={1}
-                step={0.01}
-                value={t}
-                onChange={onT}
-              />
-            </SettingsField>
-            <SettingsField
               htmlFor="projection-threshold"
               label={translate('projection.threshold.label')}
               value={String(roundWeight(threshold))}
             >
               <Slider
                 id="projection-threshold"
-                min={thresholdMin}
-                max={thresholdMax}
-                step={step}
-                value={threshold}
-                onChange={onThreshold}
+                min={0}
+                max={1}
+                step={0.01}
+                value={toSlider(threshold)}
+                onChange={(position) => onThreshold(fromSlider(position))}
               />
             </SettingsField>
           </SettingsPopover>

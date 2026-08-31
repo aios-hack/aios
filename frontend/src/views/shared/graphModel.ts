@@ -20,6 +20,23 @@ export const visibleEdges = (edges: GraphEdge[], threshold: number): GraphEdge[]
 
 export const EDGES_PER_PRODUCER = 4;
 
+export const DEFAULT_EDGE_QUANTILE = 0.75;
+
+export const defaultThreshold = (
+  edges: GraphEdge[],
+  bounds: { min: number; max: number }
+): number => {
+  if (edges.length === 0) {
+    return bounds.min;
+  }
+  const sorted = edges.map((edge) => Math.abs(edge.weight)).sort((a, b) => a - b);
+  const index = Math.min(
+    sorted.length - 1,
+    Math.floor(sorted.length * DEFAULT_EDGE_QUANTILE)
+  );
+  return sorted[index];
+};
+
 export const topEdgesPerProducer = (
   edges: GraphEdge[],
   limit: number | null

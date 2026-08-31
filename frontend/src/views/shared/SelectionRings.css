@@ -2,12 +2,64 @@
   fill: none;
   stroke: var(--color-accent);
   pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: selection-ring-in var(--duration-state) var(--ease-emphasis) both;
 }
 
 .selection-rings-neighbour[data-neighbour-ring='neighbour'] {
   stroke-dasharray: 1 1;
+  animation-delay: var(--stagger-step);
 }
 
 .selection-rings-group {
   pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: selection-ring-in var(--duration-state) var(--ease-emphasis) both;
+}
+
+.selection-rings-pulse {
+  fill: none;
+  stroke: var(--color-accent);
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: selection-pulse-in var(--duration-drawer) var(--ease-emphasis) both;
+}
+
+@keyframes selection-ring-in {
+  from {
+    opacity: 0;
+    scale: 0.55;
+  }
+
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes selection-pulse-in {
+  from {
+    opacity: 0;
+    scale: 0.4;
+  }
+
+  60% {
+    opacity: 0.55;
+  }
+
+  to {
+    opacity: 0.28;
+    scale: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selection-rings-neighbour,
+  .selection-rings-group,
+  .selection-rings-pulse {
+    animation: none;
+  }
 }

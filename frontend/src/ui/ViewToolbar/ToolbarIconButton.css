@@ -1,20 +1,42 @@
 .toolbar-icon-button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: var(--size-control-height);
   height: var(--size-control-height);
+  padding: 0;
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text-muted);
   cursor: pointer;
-  transition: color var(--duration-state) var(--ease-out), background var(--duration-state) var(--ease-out);
+  transition:
+    color var(--duration-state) var(--ease-out),
+    border-color var(--duration-state) var(--ease-out),
+    background var(--duration-state) var(--ease-out);
+}
+
+.toolbar-icon-button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--size-tap-min);
+  height: var(--size-tap-min);
+  transform: translate(-50%, -50%);
+}
+
+.toolbar-icon-button:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-dim);
+  color: var(--color-accent);
 }
 
 .toolbar-icon-button[aria-expanded='true'] {
-  color: var(--color-text);
   border-color: var(--color-accent);
+  background: var(--color-accent-dim);
+  color: var(--color-accent);
 }
 
 .toolbar-icon-button:focus-visible {

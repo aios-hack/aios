@@ -10,8 +10,19 @@ import { I18nProvider } from '../../i18n/I18nContext';
 import { TimelineProvider } from '../../state/TimelineContext';
 import { ThemeProvider } from '../../theme/ThemeContext';
 import { FieldProjection } from './FieldProjection';
+import { edgeRelation } from './EdgeLayer';
 import { easeInOut, fitLayout, lerp, placeNodes } from './interpolate';
 import { projectNodes, weightBounds } from './model';
+import { GLYPH_SCALE, hitRadius, nearestGaps, nodeOpacity, TAP_MIN_PX } from './NodeLayer';
+import { FALLBACK_PLOT_SIZE_PX, unitsPerPixel } from './useProjection';
+import {
+  GROUP_GAP,
+  MAX_STROKE,
+  MIN_STROKE,
+  NEIGHBOUR_GAP,
+  PULSE_GAP,
+  ringStroke
+} from '../shared/SelectionRings';
 
 const { ru } = dictionaries;
 
@@ -178,16 +189,18 @@ const renderReady = async () => {
 };
 
 const openSettings = () => {
-  if (screen.queryByLabelText(ru['projection.blend.label']) !== null) {
+  if (screen.queryByLabelText(ru['projection.threshold.label']) !== null) {
     return;
   }
   fireEvent.click(screen.getByLabelText(ru['toolbar.settings']));
 };
 
 const setBlend = (value: number) => {
-  openSettings();
-  const slider = screen.getByLabelText(ru['projection.blend.label']);
-  fireEvent.change(slider, { target: { value: String(value) } });
+  fireEvent.click(
+    screen.getByRole('tab', {
+      name: value >= 0.5 ? ru['projection.pole.graph'] : ru['projection.pole.map']
+    })
+  );
 };
 
 beforeEach(() => {
@@ -316,6 +329,7 @@ describe('placeNodes', () => {
 
 describe('FieldProjection view', () => {
   it('draws the graph layout at t = 1 by default (KS1) and the map layout at t = 0', async () => {
+    stubMatchMedia(true);
     const { container } = await renderReady();
     await waitFor(() =>
       expect(container.querySelectorAll('[data-well-id]')).toHaveLength(WELL_IDS.length)
@@ -337,34 +351,16 @@ describe('FieldProjection view', () => {
 
     setBlend(0);
 
-    await waitFor(() => {
-      expect(nodePosition(container, 'W1').x).toBeCloseTo(mapFit.get('W1')!.x, 6);
-    });
+    await waitFor(
+      () => {
+        expect(nodePosition(container, 'W1').x).toBeCloseTo(mapFit.get('W1')!.x, 6);
+      },
+      { timeout: 4000 }
+    );
     CONNECTED.forEach((id) => {
       expect(nodePosition(container, id).x).toBeCloseTo(mapFit.get(id)!.x, 6);
       expect(nodePosition(container, id).y).toBeCloseTo(mapFit.get(id)!.y, 6);
     });
-  });
-
-  it('holds the nodes between the two layouts at t = 0.5', async () => {
-    const { container } = await renderReady();
-    await waitFor(() =>
-      expect(container.querySelectorAll('[data-well-id]')).toHaveLength(WELL_IDS.length)
-    );
-    const atOne = nodePosition(container, 'W3');
-
-    setBlend(0);
-    await waitFor(() => expect(nodePosition(container, 'W3').x).not.toBeCloseTo(atOne.x, 6));
-    const atZero = nodePosition(container, 'W3');
-
-    setBlend(0.5);
-    await waitFor(() =>
-      expect(nodePosition(container, 'W3').x).toBeCloseTo((atZero.x + atOne.x) / 2, 6)
-    );
-    const half = nodePosition(container, 'W3');
-    expect(half.y).toBeCloseTo((atZero.y + atOne.y) / 2, 6);
-    expect(Math.min(atZero.x, atOne.x)).toBeLessThan(half.x);
-    expect(Math.max(atZero.x, atOne.x)).toBeGreaterThan(half.x);
   });
 
   it('shows every lambda edge visible by default and hides them on the bare map', async () => {
@@ -430,8 +426,6 @@ describe('FieldProjection view', () => {
       expect(nodePosition(container, 'W3').x).toBeCloseTo(mapFit.get('W3')!.x, 6)
     );
     expect(frames).toHaveLength(0);
-    openSettings();
-    expect(screen.getByTestId('field-projection-t').textContent).toBe('0.00');
   });
 
   it('reports a russian error when a layout cannot be loaded', async () => {
@@ -554,9 +548,34 @@ describe('the map fits the screen instead of forcing a scroll', () => {
   const css = readFileSync(join(process.cwd(), 'src', 'views', 'FieldProjection', 'FieldProjection.css'), 'utf-8');
   const consoleCss = readFileSync(join(process.cwd(), 'src', 'app', 'console.css'), 'utf-8');
 
-  it('caps the square plot against the visible height, not just its width', () => {
+  it('caps the plot against the visible height, not just its width', () => {
     const block = css.match(/\.field-projection-canvas\s*\{[^}]*\}/)?.[0] ?? '';
-    expect(block).toContain('max-height: var(--size-plot-viewport)');
+    const cap = block.match(/max-height:\s*([^;]+);/)?.[1] ?? '';
+
+    expect(cap).toContain('var(--size-plot-viewport)');
+    expect(cap).not.toMatch(/\d+px/);
+  });
+
+  it('leaves the transport its own room instead of drawing under it', () => {
+    const block = css.match(/\.field-projection-canvas\s*\{[^}]*\}/)?.[0] ?? '';
+    const cap = block.match(/max-height:\s*([^;]+);/)?.[1] ?? '';
+
+    expect(cap).toContain('calc(');
+    expect(cap).toMatch(/-\s*var\(--space-/);
+  });
+
+  it('lets the graph spend the full width instead of a square well', () => {
+    const block = css.match(/\.field-projection-plot\s*\{[^}]*\}/)?.[0] ?? '';
+
+    expect(block).toContain('width: 100%');
+    expect(block).not.toContain('aspect-ratio');
+  });
+
+  it('leaves the plot itself unframed so the graph reads on the page', () => {
+    const block = css.match(/\.field-projection-plot\s*\{[^}]*\}/)?.[0] ?? '';
+
+    expect(block).toContain('background: transparent');
+    expect(block).toContain('border: 0');
   });
 
   it('measures that ceiling from the chrome it actually sits under', () => {
@@ -569,5 +588,230 @@ describe('the map fits the screen instead of forcing a scroll', () => {
   it('spends no literal pixel heights on that ceiling', () => {
     const value = consoleCss.match(/--size-plot-viewport:\s*([^;]+);/)?.[1] ?? '';
     expect(value).not.toMatch(/\d+px/);
+  });
+});
+
+describe('the projection animates its edges and drops the redundant slider', () => {
+  const css = readFileSync(
+    join(process.cwd(), 'src', 'views', 'FieldProjection', 'FieldProjection.css'),
+    'utf-8'
+  );
+
+  it('fades an edge in rather than snapping it onto the plot', () => {
+    const block = css.match(/\.field-projection-edges line\s*\{[^}]*\}/)?.[0] ?? '';
+
+    expect(block).toContain('field-edge-in');
+    expect(css).toContain('@keyframes field-edge-in');
+  });
+
+  it('eases the opacity and width as the lambda threshold moves', () => {
+    const block = css.match(/\.field-projection-edges line\s*\{[^}]*\}/)?.[0] ?? '';
+
+    expect(block).toContain('stroke-opacity');
+    expect(block).toContain('stroke-width');
+  });
+
+  it('holds the edges still when the reader asked for less motion', () => {
+    const reduced = css.match(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/
+    )?.[0] ?? '';
+
+    expect(reduced).toContain('animation: none');
+    expect(reduced).toContain('transition: none');
+  });
+
+  it('offers no blend slider now that the pole switch owns the morph', async () => {
+    const { container } = await renderReady();
+    fireEvent.click(screen.getByLabelText(ru['toolbar.settings']));
+
+    expect(container.querySelector('#projection-blend')).toBeNull();
+    expect(container.querySelector('#projection-threshold')).not.toBeNull();
+  });
+});
+
+describe('the pointer target follows the screen, not the viewBox units', () => {
+  it('converts a tap target from pixels using the axis the viewBox actually fits to', () => {
+    const wide = unitsPerPixel({ width: 120, height: 120 }, { width: 2134, height: 773 });
+    expect(wide).toBeCloseTo(120 / 773, 6);
+
+    const tall = unitsPerPixel({ width: 120, height: 120 }, { width: 400, height: 1200 });
+    expect(tall).toBeCloseTo(120 / 400, 6);
+  });
+
+  it('falls back to a declared plot size rather than dividing by zero before layout', () => {
+    expect(unitsPerPixel({ width: 120, height: 120 }, null)).toBeCloseTo(
+      120 / FALLBACK_PLOT_SIZE_PX,
+      6
+    );
+    expect(
+      unitsPerPixel({ width: 120, height: 120 }, { width: 0, height: 0 })
+    ).toBeCloseTo(120 / FALLBACK_PLOT_SIZE_PX, 6);
+  });
+
+  it('spends the full 44px tap standard when the neighbours leave room', () => {
+    const upp = 120 / 773;
+    const roomy = hitRadius(0.5, upp, 40);
+    expect(roomy).toBeCloseTo((TAP_MIN_PX / 2) * upp, 6);
+    expect(roomy / upp).toBeCloseTo(TAP_MIN_PX / 2, 6);
+  });
+
+  it('never lets two hit areas overlap, which is what stole the click', () => {
+    const upp = 120 / 773;
+    const gap = 1.2;
+    const crowded = hitRadius(0.2, upp, gap);
+    expect(crowded).toBeLessThanOrEqual(gap / 2 + 1e-9);
+    expect(crowded * 2).toBeLessThanOrEqual(gap + 1e-9);
+  });
+
+  it('never shrinks the target below the glyph the reader is aiming at', () => {
+    expect(hitRadius(3, 120 / 773, 0.4)).toBe(3);
+  });
+
+  it('measures the nearest neighbour of every node so crowding is known per node', () => {
+    const gaps = nearestGaps([
+      { id: 'a', x: 0, y: 0, presence: 1, onlyMap: false, onlyGraph: false },
+      { id: 'b', x: 3, y: 4, presence: 1, onlyMap: false, onlyGraph: false },
+      { id: 'c', x: 0, y: 30, presence: 1, onlyMap: false, onlyGraph: false }
+    ]);
+    expect(gaps.get('a')).toBeCloseTo(5, 6);
+    expect(gaps.get('b')).toBeCloseTo(5, 6);
+    expect(gaps.get('c')).toBeCloseTo(Math.sqrt(3 * 3 + 26 * 26), 6);
+    expect(nearestGaps([]).size).toBe(0);
+  });
+
+  it('clicks the well the reader aimed at instead of a crowded neighbour', async () => {
+    const { container } = await renderReady();
+    await waitFor(() =>
+      expect(container.querySelectorAll('[data-well-id]')).toHaveLength(WELL_IDS.length)
+    );
+
+    for (const id of CONNECTED) {
+      fireEvent.click(container.querySelector(`[data-well-id="${id}"]`) as SVGGElement);
+      await waitFor(() =>
+        expect(
+          container
+            .querySelector('[data-well-id][data-selected="true"]')
+            ?.getAttribute('data-well-id')
+        ).toBe(id)
+      );
+    }
+  });
+});
+
+describe('the selection reads at a glance without shouting', () => {
+  it('keeps every ring a small constant away from the glyph, not a multiple of it', () => {
+    expect(GROUP_GAP).toBeLessThan(NEIGHBOUR_GAP);
+    expect(NEIGHBOUR_GAP).toBeLessThan(PULSE_GAP);
+    expect(PULSE_GAP).toBeLessThanOrEqual(2.5);
+  });
+
+  it('derives the stroke from the node radius and caps it so zooming cannot balloon it', () => {
+    expect(ringStroke(0.1, 1)).toBe(MIN_STROKE);
+    expect(ringStroke(100, 1)).toBe(MAX_STROKE);
+    const mid = ringStroke(1.5, 1);
+    expect(mid).toBeGreaterThanOrEqual(MIN_STROKE);
+    expect(mid).toBeLessThanOrEqual(MAX_STROKE);
+    expect(ringStroke(1.5, 0.6)).toBeLessThan(mid);
+  });
+
+  it('draws the glyphs smaller than the raw well radius so 103 nodes stay readable', () => {
+    expect(GLYPH_SCALE).toBeLessThan(1);
+    expect(GLYPH_SCALE).toBeGreaterThan(0.3);
+  });
+
+  it('pushes an unrelated well further back than one merely outside the layer', () => {
+    expect(nodeOpacity(1, 'faded', false)).toBeLessThan(nodeOpacity(1, 'plain', true));
+    expect(nodeOpacity(1, 'selected', false)).toBe(1);
+    expect(nodeOpacity(0.5, 'plain', false)).toBeCloseTo(0.5, 6);
+  });
+
+  it('mutes the edges that miss the selection and lifts the ones that touch it', async () => {
+    const { container } = await renderReady();
+    await waitFor(() =>
+      expect(container.querySelectorAll('[data-edge-id]')).toHaveLength(
+        graphFixture.edges.length
+      )
+    );
+    expect(
+      [...container.querySelectorAll('[data-edge-id]')].every(
+        (line) => line.getAttribute('data-relation') === 'plain'
+      )
+    ).toBe(true);
+
+    fireEvent.click(container.querySelector('[data-well-id="W1"]') as SVGGElement);
+
+    await waitFor(() =>
+      expect(container.querySelectorAll('[data-relation="linked"]')).toHaveLength(2)
+    );
+  });
+
+  it('marks an edge that touches neither end of the selection as muted', () => {
+    const far = { injector: 'W9', producer: 'W8', weight: 0.5 };
+    expect(edgeRelation(far, 'W1')).toBe('muted');
+    expect(edgeRelation({ injector: 'W1', producer: 'W2', weight: 0.5 }, 'W1')).toBe(
+      'linked'
+    );
+    expect(edgeRelation(far, null)).toBe('plain');
+  });
+
+  it('animates the rings in and holds them still under reduced motion', () => {
+    const ringCss = readFileSync(
+      join(process.cwd(), 'src', 'views', 'shared', 'SelectionRings.css'),
+      'utf-8'
+    );
+    expect(ringCss).toContain('@keyframes selection-ring-in');
+    expect(ringCss).toContain('@keyframes selection-pulse-in');
+    const reduced =
+      ringCss.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
+    expect(reduced).toContain('animation: none');
+  });
+});
+
+describe('the layer switch animates the nodes it turns on and off', () => {
+  const css = readFileSync(
+    join(process.cwd(), 'src', 'views', 'FieldProjection', 'FieldProjection.css'),
+    'utf-8'
+  );
+
+  it('gives a node an explicit enter AND an explicit exit keyframe', () => {
+    expect(css).toContain('@keyframes field-node-in');
+    expect(css).toContain('@keyframes field-node-out');
+  });
+
+  it('drives them off the same data-active flag the filter already sets', () => {
+    expect(css).toMatch(/\[data-active='true'\][\s\S]*?field-node-in/);
+    expect(css).toMatch(/\[data-active='false'\][\s\S]*?field-node-out/);
+  });
+
+  it('builds the motion from opacity and scale, never a banned shadow or lift (V11)', () => {
+    expect(css).not.toMatch(/var\(--shadow/);
+    expect(css).not.toMatch(/translateY\(-\d+px\)/);
+  });
+});
+
+describe('the legend explains the picture a new engineer is looking at', () => {
+  it('names both node shapes, the size and the edge encodings', async () => {
+    await renderReady();
+    fireEvent.click(screen.getByLabelText(ru['toolbar.legend']));
+
+    for (const key of [
+      'projection.legend.shape.producer',
+      'projection.legend.shape.injector',
+      'projection.legend.size',
+      'projection.legend.edge.width',
+      'projection.legend.edge.positive',
+      'projection.legend.edge.negative',
+      'projection.legend.pole.explain',
+      'projection.legend.selection'
+    ]) {
+      expect(screen.getByText(ru[key]), key).toBeTruthy();
+    }
+  });
+
+  it('shows a colour swatch for each edge sign rather than describing it in prose alone', async () => {
+    const { container } = await renderReady();
+    fireEvent.click(screen.getByLabelText(ru['toolbar.legend']));
+
+    expect(container.querySelectorAll('.legend-swatch').length).toBeGreaterThanOrEqual(2);
   });
 });

@@ -43,7 +43,7 @@ export const chronoModeColors = {
 } as const;
 
 export const wallMarkColors = {
-  line: 'var(--color-oil)',
+  line: 'var(--color-oil-strong)',
   fill: 'var(--scale-watercut-1)',
   shut: 'var(--color-axis-tick)',
   idle: 'var(--color-unknown)',
