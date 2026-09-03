@@ -94,6 +94,16 @@
   --color-synthetic-bg: #f7efdc;
   --color-synthetic-border: rgba(195, 113, 19, 0.42);
 
+  --color-jarvis-body: #1c80e3;
+  --color-jarvis-pulse: #ffffff;
+  --color-jarvis-deep: #0b3d6e;
+  --color-jarvis-rim: #a9e6ff;
+  --color-jarvis-halo: rgba(28, 128, 227, 0.22);
+  --color-jarvis-face: #eef3f9;
+  --color-jarvis-spark: #1c80e3;
+  --color-jarvis-ink: #1668bd;
+  --color-jarvis-vignette: rgba(26, 32, 40, 0.14);
+
   --color-backdrop: rgba(26, 32, 40, 0.2);
   --color-plot-grid: #dfe4ea;
   --color-plot-bg: #eceff3;
@@ -196,6 +206,32 @@
   --size-trust-pop: 320px;
 
   --size-nav: 140px;
+  --size-sphere-nav: calc(var(--size-nav) - 2 * var(--space-5));
+  --size-sphere-stage: clamp(180px, 22vh, 280px);
+  --size-orbit-radius: clamp(260px, 30vw, 420px);
+  --size-jarvis-card: 280px;
+  --size-jarvis-card-max-h: 240px;
+  --size-jarvis-card-max-h-wide: 70vh;
+  --size-jarvis-card-wide: 520px;
+  --size-jarvis-input-max: 720px;
+  --size-jarvis-depth: 400px;
+  --size-cube-half: 50vw;
+  --size-sphere-say-min: 72px;
+  --size-spotlight-ring: 6px;
+  --duration-jarvis-shrink: 220ms;
+  --duration-jarvis-turn: 600ms;
+  --duration-jarvis-settle: 220ms;
+  --duration-jarvis-crossfade: 200ms;
+  --duration-jarvis-error: 600ms;
+  --duration-jarvis-spotlight: 3000ms;
+  --duration-jarvis-breath: 3200ms;
+  --duration-jarvis-breath-hover: 2000ms;
+  --stagger-orbit: 80ms;
+  --perspective-stage: 1600px;
+  --scale-jarvis-face: 0.85;
+  --scale-jarvis-hover: 1.08;
+  --scale-jarvis-stack: 0.6;
+  --z-stage-sphere: 50;
   --size-console-min: 900px;
   --h-header: 96px;
   --h-timeaxis: 172px;

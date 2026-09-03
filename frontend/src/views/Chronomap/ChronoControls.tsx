@@ -40,6 +40,7 @@ export const ChronoControls = ({
       right={
         <LegendPopover
           triggerLabel={t('toolbar.legend')}
+          guide="history-matrix-legend"
           title={t('chrono.legend.title')}
           swatches={legendSwatches}
           ramp={legendRamp}

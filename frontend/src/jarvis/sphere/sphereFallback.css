@@ -1,0 +1,46 @@
+.jarvis-sphere-css {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-pill);
+  background:
+    radial-gradient(circle at 50% 50%, var(--color-jarvis-rim) 0%, transparent 26%),
+    radial-gradient(circle at 50% 50%, var(--color-jarvis-body) 18%, transparent 62%),
+    radial-gradient(circle at 50% 50%, var(--color-jarvis-halo) 40%, transparent 78%);
+  animation: jarvis-breathe var(--duration-jarvis-breath) var(--ease-in-out) infinite;
+}
+
+.jarvis-sphere-css-core {
+  position: absolute;
+  inset: 30%;
+  border-radius: var(--radius-pill);
+  background: radial-gradient(circle, var(--color-jarvis-pulse) 0%, transparent 70%);
+  opacity: 0.75;
+}
+
+.jarvis-sphere[data-state='hover'] .jarvis-sphere-css {
+  animation-duration: var(--duration-jarvis-breath-hover);
+}
+
+.jarvis-sphere[data-state='error'] .jarvis-sphere-css {
+  background:
+    radial-gradient(circle at 50% 50%, var(--color-error) 0%, transparent 60%),
+    radial-gradient(circle at 50% 50%, var(--color-jarvis-halo) 40%, transparent 78%);
+}
+
+@keyframes jarvis-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.88;
+  }
+  50% {
+    transform: scale(1.03);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jarvis-sphere-css {
+    animation: none;
+  }
+}

@@ -1,0 +1,30 @@
+.jarvis-error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  background: var(--color-error-bg);
+}
+
+.jarvis-error-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-error);
+}
+
+.jarvis-error-reason {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
+  color: var(--color-text);
+}
+
+.jarvis-error-tool {
+  margin: 0;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  color: var(--color-text-muted);
+}

@@ -66,6 +66,10 @@ services:
     depends_on:
       webdata:
         condition: service_completed_successfully
+      jarvis:
+        condition: service_started
+    environment:
+      AIOS_JARVIS_UPSTREAM: ${AIOS_JARVIS_UPSTREAM:-http://jarvis:8010}
     ports:
       - "${AIOS_PORT:-8000}:8000"
     volumes:
@@ -80,3 +84,25 @@ services:
       timeout: 3s
       retries: 10
       start_period: 3s
+
+  jarvis:
+    image: aios:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["jarvis"]
+    depends_on:
+      webdata:
+        condition: service_completed_successfully
+    environment:
+      JARVIS_PROVIDER: ${JARVIS_PROVIDER:-openrouter}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      JARVIS_MODEL: ${JARVIS_MODEL:-anthropic/claude-sonnet-4.5}
+      JARVIS_MAX_TOKENS: ${JARVIS_MAX_TOKENS:-1200}
+      AIOS_UI_DATA: /app/frontend/dist/data
+      AIOS_JARVIS_KNOWLEDGE: /app/frontend/public/jarvis/knowledge
+    ports:
+      - "${AIOS_JARVIS_PORT:-8010}:8010"
+    volumes:
+      - ${AIOS_UI_DATA:-./frontend/public/data}:/app/frontend/dist/data:ro

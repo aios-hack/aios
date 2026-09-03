@@ -14,6 +14,7 @@ interface HistorySegmentsProps {
   sort: HistorySort;
   onSort: (sort: HistorySort) => void;
   sortDisabled?: readonly HistorySort[];
+  sortGuide?: string;
 }
 
 export const HistorySegments = ({
@@ -22,7 +23,8 @@ export const HistorySegments = ({
   metricEnabled,
   sort,
   onSort,
-  sortDisabled = []
+  sortDisabled = [],
+  sortGuide
 }: HistorySegmentsProps) => {
   const t = useT();
 
@@ -54,6 +56,7 @@ export const HistorySegments = ({
         options={sortOptions}
         active={sort}
         label={t('history.sortLabel')}
+        guide={sortGuide}
         onSelect={onSort}
       />
     </>

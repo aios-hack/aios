@@ -1,0 +1,68 @@
+.jarvis-metric {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.jarvis-metric-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.jarvis-metric-row + .jarvis-metric-row {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.jarvis-metric-label {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.jarvis-metric-value {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.jarvis-metric-number {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xl);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.jarvis-metric-unit {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.jarvis-metric-delta {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.jarvis-metric-delta-label {
+  font-family: var(--font-family-base);
+  color: var(--color-text-faint);
+}
+
+.jarvis-metric-delta[data-sign='up'] {
+  color: var(--color-ok);
+}
+
+.jarvis-metric-delta[data-sign='down'] {
+  color: var(--color-error);
+}
+
+.jarvis-metric-nospark {
+  margin: 0;
+  color: var(--color-text-disabled);
+}

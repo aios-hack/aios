@@ -25,6 +25,7 @@ export const PlaybackSettings = () => {
           ref={ref}
           type="button"
           className="icon-button playback-settings-trigger"
+          data-guide="player-speed"
           aria-label={t('playback.settings')}
           title={t('playback.settings')}
           aria-expanded={open}

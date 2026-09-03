@@ -1,0 +1,25 @@
+.jarvis-spotlight {
+  position: relative;
+  outline: var(--size-spotlight-ring) solid var(--color-jarvis-pulse);
+  outline-offset: var(--space-2);
+  border-radius: var(--radius-md);
+  animation: jarvis-spotlight-ring var(--duration-jarvis-breath-hover) var(--ease-in-out) infinite;
+}
+
+@keyframes jarvis-spotlight-ring {
+  0%,
+  100% {
+    outline-color: var(--color-jarvis-pulse);
+    outline-offset: var(--space-2);
+  }
+  50% {
+    outline-color: var(--color-jarvis-body);
+    outline-offset: var(--space-4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jarvis-spotlight {
+    animation: none;
+  }
+}

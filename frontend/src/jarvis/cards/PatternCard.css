@@ -1,0 +1,70 @@
+.jarvis-pattern {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.jarvis-pattern-name {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.jarvis-pattern-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.jarvis-pattern-well {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  color: var(--color-text-muted);
+}
+
+.jarvis-pattern-severity {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.jarvis-pattern-severity[data-severity='high'] {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.jarvis-pattern-window {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}
+
+.jarvis-pattern-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.jarvis-pattern-inputs > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.jarvis-pattern-inputs dt {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.jarvis-pattern-inputs dd {
+  margin: 0;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}

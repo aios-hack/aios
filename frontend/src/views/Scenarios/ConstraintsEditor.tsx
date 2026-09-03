@@ -110,7 +110,7 @@ export const ConstraintsEditor = ({ nIntervals }: ConstraintsEditorProps) => {
         </p>
       )}
 
-      <div className="scenarios-grid">
+      <div className="scenarios-grid" data-guide="money-constraints-table">
         {YEAR_SECTIONS.map((section, index) => (
           <YearSectionTable
             key={section}

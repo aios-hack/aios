@@ -147,6 +147,7 @@ const WallReady = ({ data }: { data: TimelineFile }) => {
             <canvas
               ref={canvasRef}
               className="wall-canvas"
+              data-guide="history-wall-rows"
               data-tiles={rows.length}
               data-columns={layout.columns}
               data-sort={sort}

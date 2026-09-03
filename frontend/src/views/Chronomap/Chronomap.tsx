@@ -338,6 +338,7 @@ const ChronomapReady = ({ data }: { data: TimelineFile }) => {
             <canvas
               ref={canvasRef}
               className="chronomap-canvas"
+              data-guide="history-matrix-axis"
               data-columns={geometry.columns}
               data-rows={geometry.rows}
               aria-label={t('chrono.ariaLabel')}

@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { JarvisLauncher } from '../../jarvis/JarvisLauncher';
 import { useT } from '../../i18n/I18nContext';
 import { useConsole, type Workspace } from '../../state/ConsoleContext';
 import { useRovingTabs } from '../shared/useRovingTabs';
@@ -65,6 +66,7 @@ export const WorkspaceNav = () => {
           );
         })}
       </div>
+      <JarvisLauncher />
     </nav>
   );
 };

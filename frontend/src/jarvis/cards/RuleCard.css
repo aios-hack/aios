@@ -1,0 +1,81 @@
+.jarvis-rule {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.jarvis-rule-name {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.jarvis-rule-statement {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
+  color: var(--color-text-muted);
+}
+
+.jarvis-rule-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.jarvis-rule-inputs-label,
+.jarvis-rule-decision-label,
+.jarvis-rule-impact-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}
+
+.jarvis-rule-input {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.jarvis-rule-input-key {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.jarvis-rule-input-value {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.jarvis-rule-decision,
+.jarvis-rule-impact {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.jarvis-rule-decision-value {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  color: var(--color-text);
+}
+
+.jarvis-rule-impact-value {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.jarvis-rule-unmeasured {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-disabled);
+}

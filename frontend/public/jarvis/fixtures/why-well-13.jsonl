@@ -1,0 +1,21 @@
+{"context": {"date": "2007-11-01", "scenario": "whatif-injection-cut", "selected_well": "13", "step": 10, "view": "rules", "workspace": "decisions"}, "question": "Почему скважина 13 так работает?", "scene_id": "s-01", "type": "scene"}
+{"state": "thinking", "type": "status"}
+{"state": "tool", "tool": "well_snapshot", "type": "status"}
+{"card": {"action": {"scenario": "whatif-injection-cut", "step": 10, "view": "projection", "well": "13", "workspace": "field"}, "payload": {"availability": "AVAILABLE", "bhp": 67.32, "date": "2007-11-01", "injection_rate": 0, "liquid_rate": 60.23, "npv": 1523.0450641989237, "operating_status": "OPEN", "role": "PROD", "setpoint": 62.6, "spark": [{"step": 0, "value": 61.14}, {"step": 1, "value": 61.05}, {"step": 2, "value": 60.96}, {"step": 3, "value": 60.87}, {"step": 4, "value": 60.78}, {"step": 5, "value": 60.68}, {"step": 6, "value": 60.59}, {"step": 7, "value": 60.5}, {"step": 8, "value": 60.41}, {"step": 9, "value": 60.32}, {"step": 10, "value": 60.23}], "step": 10, "watercut": 0.78258, "well": "13"}, "provenance": "synthetic-demo", "title": "Скважина 13", "type": "well"}, "card_id": "c-01", "order": 1, "scene_id": "s-01", "type": "card"}
+{"state": "tool", "tool": "well_series", "type": "status"}
+{"card": {"action": {"scenario": "whatif-injection-cut", "view": "table", "well": "13", "workspace": "history"}, "payload": {"label": "обводнённость", "metric": "watercut", "rows": [{"date": "2007-01-01", "step": 0, "value": 0.778102}, {"date": "2007-02-01", "step": 1, "value": 0.778551}, {"date": "2007-03-01", "step": 2, "value": 0.779}, {"date": "2007-04-01", "step": 3, "value": 0.779448}, {"date": "2007-05-01", "step": 4, "value": 0.779894}, {"date": "2007-06-01", "step": 5, "value": 0.780342}, {"date": "2007-07-01", "step": 6, "value": 0.780791}, {"date": "2007-08-01", "step": 7, "value": 0.781239}, {"date": "2007-09-01", "step": 8, "value": 0.781684}, {"date": "2007-10-01", "step": 9, "value": 0.782132}, {"date": "2007-11-01", "step": 10, "value": 0.78258}], "unit": "fraction", "well": "13", "window": [4, 10]}, "provenance": "synthetic-demo", "title": "Обводнённость — скважина 13", "type": "series"}, "card_id": "c-02", "order": 2, "scene_id": "s-01", "type": "card"}
+{"state": "tool", "tool": "explain_decision", "type": "status"}
+{"card": {"action": {"scenario": "whatif-injection-cut", "step": 10, "view": "rules", "well": "13", "workspace": "decisions"}, "payload": {"date": "2007-11-01", "decision": "SET_LRAT 112.9", "inputs": {"liquid_rate": 112.9, "watercut": 0.614}, "name": "Ценность закачки", "rule": "R1", "statement": "Вода течёт к тем скважинам, где она превращается в нефть, а не в воду.", "step": 10, "well": "13", "why": "Скважина 13 (добывающая). На шаге 10 сработало правило R1: правило прочитало фактические величины (liquid_rate=112.9, watercut=0.614) и по своему условию приняло решение «SET_LRAT 112.9». Причина решения — именно эти значения на входе правила R1, других источников у решения нет."}, "provenance": "synthetic-demo", "title": "Правило R1 — скважина 13", "type": "rule"}, "card_id": "c-03", "order": 3, "scene_id": "s-01", "type": "card"}
+{"state": "thinking", "type": "status"}
+{"scene_id": "s-01", "text": "Скважина 13 держится на ", "type": "caption_delta"}
+{"scene_id": "s-01", "text": "правиле R1: при обводнён", "type": "caption_delta"}
+{"scene_id": "s-01", "text": "ности 0,614 система выст", "type": "caption_delta"}
+{"scene_id": "s-01", "text": "авила ей уставку по жидк", "type": "caption_delta"}
+{"scene_id": "s-01", "text": "ости, потому что закачка", "type": "caption_delta"}
+{"scene_id": "s-01", "text": " на этом участке ещё пре", "type": "caption_delta"}
+{"scene_id": "s-01", "text": "вращается в нефть, а не ", "type": "caption_delta"}
+{"scene_id": "s-01", "text": "в воду.", "type": "caption_delta"}
+{"state": "composing", "type": "status"}
+{"guarded": true, "scene_id": "s-01", "text": "Скважина 13 держится на правиле R1: при обводнённости 0,614 система выставила ей уставку по жидкости, потому что закачка на этом участке ещё превращается в нефть, а не в воду.", "type": "caption"}
+{"items": [{"text": "Почему скважина 13 так работает?"}, {"text": "Кто связан со скважиной 13?"}, {"text": "Сравни base и whatif-injection-cut"}], "type": "suggestions"}
+{"elapsed_ms": 9728, "scene_id": "s-01", "tool_rounds": 1, "type": "done"}

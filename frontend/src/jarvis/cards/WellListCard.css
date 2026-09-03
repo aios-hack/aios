@@ -1,0 +1,64 @@
+.jarvis-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jarvis-list-row {
+  display: grid;
+  grid-template-columns: 3ch minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--size-row);
+}
+
+.jarvis-list-well {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  color: var(--color-text-muted);
+}
+
+.jarvis-list-bar {
+  display: block;
+  height: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-plot-bg);
+  overflow: hidden;
+}
+
+.jarvis-list-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-sm);
+  background: var(--color-jarvis-body);
+}
+
+.jarvis-list-row[data-sign='down'] .jarvis-list-bar-fill {
+  background: var(--color-error);
+}
+
+.jarvis-list-value,
+.jarvis-list-share {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--color-text);
+}
+
+.jarvis-list-share {
+  color: var(--color-text-faint);
+}
+
+.jarvis-list-legend {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}

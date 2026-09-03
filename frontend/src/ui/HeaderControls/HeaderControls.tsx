@@ -14,6 +14,7 @@ export const HeaderControls = () => {
         <button
           type="button"
           className="icon-button"
+          data-guide="header-theme"
           onClick={toggleTheme}
           aria-label={t(`theme.${nextTheme}`)}
           title={t(`theme.${nextTheme}`)}
@@ -30,6 +31,7 @@ export const HeaderControls = () => {
       <button
         type="button"
         className="lang-toggle"
+        data-guide="header-language"
         onClick={toggleLang}
         aria-label={t('lang.switch')}
         title={t('lang.switch')}

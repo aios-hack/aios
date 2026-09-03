@@ -7,6 +7,7 @@ interface SortHeaderProps {
   dir: SortDirection;
   title: string;
   numericClass?: string;
+  guide?: string;
   onSort: () => void;
 }
 
@@ -17,11 +18,13 @@ export const SortHeader = ({
   dir,
   title,
   numericClass,
+  guide,
   onSort
 }: SortHeaderProps) => (
   <th
     scope="col"
     className={numericClass}
+    data-guide={guide}
     aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
   >
     <button

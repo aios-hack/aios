@@ -1,0 +1,56 @@
+.jarvis-guide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.jarvis-guide-block {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
+  color: var(--color-text-muted);
+}
+
+.jarvis-guide-label {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}
+
+.jarvis-guide-controls ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jarvis-guide-controls li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.jarvis-guide-controls li > span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.jarvis-guide-hotkey {
+  flex: none;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  color: var(--color-text-muted);
+}
+
+.jarvis-guide-questions {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}

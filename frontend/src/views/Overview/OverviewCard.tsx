@@ -4,7 +4,7 @@ import { useI18n } from '../../i18n/I18nContext';
 import { bandGeometry, buildSparkline } from '../../ui/Sparkline/series';
 import { yearTicks } from '../../app/events';
 import { DASH } from '../../ui/format';
-import type { OverviewMetric } from './overviewMetrics';
+import type { OverviewMetric, OverviewMetricKey } from './overviewMetrics';
 
 interface OverviewCardProps {
   metric: OverviewMetric;
@@ -31,6 +31,14 @@ const bandKeyOf = (metric: OverviewMetric): string | null => {
     return 'overview.bandAbove';
   }
   return 'overview.bandInside';
+};
+
+const GUIDE_ANCHOR: Partial<Record<OverviewMetricKey, string>> = {
+  activeWells: 'overview-active-metric',
+  production: 'overview-production-metric',
+  injection: 'overview-injection-metric',
+  compensation: 'overview-compensation-metric',
+  npv: 'overview-npv-metric'
 };
 
 export const OverviewCard = ({
@@ -83,6 +91,7 @@ export const OverviewCard = ({
     <article
       className="overview-card"
       data-metric={metric.key}
+      data-guide={GUIDE_ANCHOR[metric.key]}
       data-featured={featured ? 'true' : undefined}
       data-band={bandKey === null ? undefined : bandKey.split('.').pop()}
       data-ordinal={ordinal}

@@ -1,0 +1,98 @@
+.jarvis-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: var(--size-jarvis-card);
+  max-height: var(--size-jarvis-card-max-h);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.jarvis-card[data-expanded='true'] {
+  width: var(--size-jarvis-card-wide);
+  max-height: var(--size-jarvis-card-max-h-wide);
+}
+
+.jarvis-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.jarvis-card-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.jarvis-card-chip {
+  flex: none;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  color: var(--color-text-faint);
+}
+
+.jarvis-card-chip[data-kind='synthetic'] {
+  border-color: var(--color-synthetic-border);
+  background: var(--color-synthetic-bg);
+  color: var(--color-synthetic);
+}
+
+.jarvis-card-chip[data-kind='general'],
+.jarvis-card-chip[data-kind='unknown'] {
+  border-style: dashed;
+}
+
+.jarvis-card-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.jarvis-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.jarvis-card-toggle,
+.jarvis-card-open {
+  min-height: var(--size-hit-min);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.jarvis-card-open {
+  border-color: var(--color-jarvis-ink);
+  color: var(--color-jarvis-ink);
+  font-weight: var(--font-weight-medium);
+}
+
+.jarvis-card-toggle:hover,
+.jarvis-card-open:hover {
+  color: var(--color-text);
+}
+
+.jarvis-card-toggle:focus-visible,
+.jarvis-card-open:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}

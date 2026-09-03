@@ -100,6 +100,7 @@ export const StatusChip = () => {
         ref={triggerRef}
         type="button"
         className="icon-button status-chip"
+        data-guide="overview-trustboard"
         data-level={verdict.level}
         aria-expanded={open}
         aria-label={t('trust.chip.label')}

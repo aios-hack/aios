@@ -1,0 +1,75 @@
+.jarvis-events {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.jarvis-events-count {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}
+
+.jarvis-events-total {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.jarvis-events-strip {
+  position: relative;
+  height: var(--space-6);
+  border-radius: var(--radius-sm);
+  background: var(--color-plot-bg);
+}
+
+.jarvis-events-mark {
+  position: absolute;
+  inset-block: var(--space-2);
+  width: var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-text-muted);
+}
+
+.jarvis-events-mark[data-type='COMMISSIONED'],
+.jarvis-events-swatch[data-type='COMMISSIONED'] {
+  background: var(--color-ok);
+}
+
+.jarvis-events-mark[data-type='ROLE_CHANGE'],
+.jarvis-events-swatch[data-type='ROLE_CHANGE'] {
+  background: var(--color-jarvis-body);
+}
+
+.jarvis-events-mark[data-type='SHUT'],
+.jarvis-events-swatch[data-type='SHUT'] {
+  background: var(--color-error);
+}
+
+.jarvis-events-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.jarvis-events-legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.jarvis-events-swatch {
+  width: var(--size-swatch);
+  height: var(--size-swatch);
+  border-radius: var(--radius-sm);
+  background: var(--color-text-muted);
+}

@@ -14,13 +14,15 @@ interface SegmentedControlProps<Value> {
   active: Value;
   label: string;
   onSelect: (value: Value) => void;
+  guide?: string;
 }
 
 export const SegmentedControl = <Value,>({
   options,
   active,
   label,
-  onSelect
+  onSelect,
+  guide
 }: SegmentedControlProps<Value>) => {
   const refs = useRef<Map<string, HTMLButtonElement | null>>(new Map());
   const [thumb, setThumb] = useState<CSSProperties>({ opacity: 0 });
@@ -54,7 +56,13 @@ export const SegmentedControl = <Value,>({
   }, [activeKey, options]);
 
   return (
-    <div className="segmented" role="tablist" aria-label={label} onKeyDown={onKeyDown}>
+    <div
+      className="segmented"
+      role="tablist"
+      aria-label={label}
+      data-guide={guide}
+      onKeyDown={onKeyDown}
+    >
       <span className="segmented-thumb" style={thumb} aria-hidden="true" />
       {options.map((option, index) => {
         const key = String(option.value);

@@ -1,0 +1,68 @@
+.jarvis-dock {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  width: min(var(--size-jarvis-input-max), 100%);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+}
+
+.jarvis-dock-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--size-control-height);
+  max-height: calc(var(--size-control-height) * 4);
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-base);
+  resize: none;
+}
+
+.jarvis-dock-input:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.jarvis-dock-input::placeholder {
+  color: var(--color-text-disabled);
+}
+
+.jarvis-dock-count {
+  flex: none;
+  align-self: center;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  color: var(--color-text-faint);
+}
+
+.jarvis-dock-send {
+  flex: none;
+  min-height: var(--size-icon-button);
+  padding: 0 var(--space-5);
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--color-jarvis-body);
+  color: var(--color-accent-contrast);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.jarvis-dock-send:disabled {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-disabled);
+  cursor: default;
+}
+
+.jarvis-dock-send:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}

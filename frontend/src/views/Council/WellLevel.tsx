@@ -53,7 +53,12 @@ export const WellLevel = ({ rows, groupLabel, path, onSelectWell }: WellLevelPro
       : t('council.wells.title', { group: groupLabel });
 
   return (
-    <section className="council-level" data-level="wells" data-testid="council-wells">
+    <section
+      className="council-level"
+      data-level="wells"
+      data-testid="council-wells"
+      data-guide="council-wells"
+    >
       <h3 className="council-level-title">{title}</h3>
       {sorted.length === 0 ? (
         <p className="inline-empty">{t('council.wells.empty')}</p>

@@ -1,0 +1,40 @@
+.jarvis-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jarvis-suggestion {
+  min-height: var(--size-hit-min);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition:
+    color var(--duration-state) var(--ease-out),
+    border-color var(--duration-state) var(--ease-out);
+}
+
+.jarvis-suggestion:hover {
+  color: var(--color-text);
+  border-color: var(--color-jarvis-body);
+}
+
+.jarvis-suggestion:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jarvis-suggestion {
+    transition: none;
+  }
+}

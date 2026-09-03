@@ -43,6 +43,87 @@ presentation → application → domain → core
 Only `backend/` contains backend code. Temporary top-level package
 paths were removed after migration.
 
+## Jarvis
+
+Jarvis is the console's visual assistant: a question in natural language turns
+into a scene of cards built from the same JSON showcase the frontend reads. It
+is a module that crosses every layer under the rules above, not a script bolted
+onto the UI. Its design and wire contract live in `JARVIS.md`.
+
+```text
+frontend/src/jarvis/          Browser presentation: the second cube face, sphere, scenes, cards.
+          │  SSE  /api/jarvis/*
+backend/presentation/api/     HTTP boundary: service, handler, SSE framing, proxy into web.py.
+backend/application/jarvis/   Orchestrator, tools, knowledge base, number guard, sessions.
+backend/domain/*              Policy, economics, connectivity — read, never duplicated.
+backend/infrastructure/llm/   Chat providers: OpenRouter (primary), Anthropic (fallback).
+backend/core/contracts        Shared types; nothing here is reinvented in the module.
+```
+
+The dependency direction is the project's own: `presentation → application →
+domain → core` and `application → infrastructure → core`. `application/jarvis`
+receives a `ChatClient` from the outside and imports neither `urllib`, `http`,
+nor `anthropic`; tools read artifacts through `application/jarvis/artifacts.py`
+and reuse `infrastructure/llm/explainer.py` and `diagnostics.py` instead of
+copying their logic. A test in `tests/` guards the layering.
+
+### Service
+
+`jarvis` is a separate process and a separate compose service on port 8010, on
+the stdlib `ThreadingHTTPServer`, with a chunked `text/event-stream` response
+and a `: keep-alive` comment every 15 seconds so idle proxies do not drop a slow
+answer. Routes: `GET /api/jarvis/health`, `POST /api/jarvis/ask`,
+`POST /api/jarvis/cancel`. CORS is granted only to the dev origins
+`http://localhost:5199` and `http://127.0.0.1:5199`. In a container the `web`
+service forwards `/api/jarvis/*` to `jarvis:8010`, so the frontend always talks
+to a single origin.
+
+Entry points: `python -m backend.presentation.cli.jarvis` locally,
+`docker compose up jarvis web` in a container, and the `jarvis` command in
+`docker/entrypoint.sh`.
+
+### Environment
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `JARVIS_PROVIDER` | `openrouter` | `openrouter` or `anthropic` |
+| `OPENROUTER_API_KEY` | — | OpenRouter key, the primary path |
+| `ANTHROPIC_API_KEY` | — | Anthropic key, the fallback path |
+| `JARVIS_MODEL` | `anthropic/claude-sonnet-4.5` | any model with tool calling and streaming |
+| `JARVIS_MAX_TOKENS` | `1200` | answer length ceiling |
+| `AIOS_UI_DATA` | the showcase in the repository | JSON showcase directory |
+| `AIOS_JARVIS_KNOWLEDGE` | `frontend/public/jarvis/knowledge` | curated knowledge base |
+| `AIOS_JARVIS_HOST` / `AIOS_JARVIS_PORT` | `0.0.0.0` / `8010` | bind address |
+| `AIOS_JARVIS_UPSTREAM` | `http://jarvis:8010` | upstream the `web` proxy forwards to |
+
+Without a key the service still starts and answers `503`
+`{"ok": false, "error": "no-api-key"}` with a message naming the variable to
+set; the console keeps working and the assistant falls back to the recorded
+fixtures.
+
+### Removing the module
+
+The module boundary is hard, and that is a checkable property: it protects the
+product if the assistant does not land in time. To switch Jarvis off entirely,
+delete
+
+```text
+frontend/src/jarvis/
+frontend/public/jarvis/
+backend/application/jarvis/
+backend/presentation/api/
+backend/infrastructure/llm/{chat,chat_events,openrouter,anthropic_chat,tools_format,provider,fake_chat}.py
+backend/presentation/cli/jarvis.py
+```
+
+and drop the four call sites that reference them: the proxy import and the two
+`is_jarvis_path` branches in `backend/presentation/cli/web.py`, the `jarvis`
+command in `docker/entrypoint.sh`, the `jarvis` service in
+`docker-compose.yml`, and the Jarvis mount points in `frontend/src/main.tsx`
+and `frontend/src/ui/WorkspaceNav/`. Nothing else in the backend imports the
+module: `infrastructure/llm/client.py`, `explainer.py`, and `diagnostics.py`
+predate Jarvis and stay.
+
 ## Run command
 
 Use `python -m backend.presentation.cli.run search`, `verify`, or `full`. The `full` mode runs

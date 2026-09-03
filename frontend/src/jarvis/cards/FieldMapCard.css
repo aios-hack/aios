@@ -1,0 +1,40 @@
+.jarvis-map {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.jarvis-map-plot {
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  background: var(--color-plot-bg);
+}
+
+.jarvis-map-edge {
+  stroke: var(--color-graph-edge);
+  stroke-width: 0.4;
+}
+
+.jarvis-map-node {
+  fill: var(--color-well-dim);
+}
+
+.jarvis-map-node[data-role='focus'] {
+  fill: var(--color-jarvis-body);
+  stroke: var(--color-jarvis-rim);
+  stroke-width: 0.5;
+}
+
+.jarvis-map-node[data-role='highlight'] {
+  fill: var(--color-graph-producer);
+}
+
+.jarvis-map-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}

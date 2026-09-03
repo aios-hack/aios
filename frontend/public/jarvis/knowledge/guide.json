@@ -1,0 +1,681 @@
+{
+  "version": 1,
+  "notice": {
+    "ru": "Курируемая справка Джарвиса по экранам консоли. Каждая пара workspace/view из ConsoleContext имеет запись на двух языках; каждый spotlight — якорь data-guide в разметке.",
+    "en": "Jarvis's curated guide to the console screens. Every workspace/view pair from ConsoleContext has an entry in both languages; every spotlight is a data-guide anchor in the markup."
+  },
+  "screens": [
+    {
+      "workspace": "overview",
+      "view": "fund",
+      "title": {
+        "ru": "Обзор → Фонд",
+        "en": "Overview → Fund"
+      },
+      "what": {
+        "ru": "Состояние всего фонда на выбранном шаге: сколько скважин работает, сколько добывается и закачивается, какая компенсация и сколько накоплено ЧДД.",
+        "en": "The state of the whole well stock at the selected step: how many wells operate, how much is produced and injected, what the compensation is and how much NPV has accumulated."
+      },
+      "how_to_read": {
+        "ru": "Каждая плитка — одна величина и её ход по шагам. Компенсация читается относительно нормативного коридора: выход за него означает, что закачка и отбор разошлись. Панель доверия внизу называет источник каждого артефакта.",
+        "en": "Each tile is one value and its run across steps. Compensation is read against the normative corridor: leaving it means injection and offtake have diverged. The trust board below names the source of every artifact."
+      },
+      "controls": [
+        {
+          "label": {
+            "ru": "Действующий фонд",
+            "en": "Active well stock"
+          },
+          "spotlight": "overview-active-metric"
+        },
+        {
+          "label": {
+            "ru": "Добыча жидкости",
+            "en": "Liquid production"
+          },
+          "spotlight": "overview-production-metric"
+        },
+        {
+          "label": {
+            "ru": "Закачка",
+            "en": "Injection"
+          },
+          "spotlight": "overview-injection-metric"
+        },
+        {
+          "label": {
+            "ru": "Компенсация",
+            "en": "Compensation"
+          },
+          "spotlight": "overview-compensation-metric"
+        },
+        {
+          "label": {
+            "ru": "Накопленный ЧДД",
+            "en": "Cumulative NPV"
+          },
+          "spotlight": "overview-npv-metric"
+        },
+        {
+          "label": {
+            "ru": "Панель доверия",
+            "en": "Trust board"
+          },
+          "spotlight": "overview-trustboard"
+        }
+      ],
+      "questions": {
+        "ru": [
+          "Что с фондом сейчас?",
+          "Сколько скважин работает?",
+          "Какая компенсация по фонду?"
+        ],
+        "en": [
+          "How is the field doing now?",
+          "How many wells are running?",
+          "What is the field compensation?"
+        ]
+      }
+    },
+    {
+      "workspace": "field",
+      "view": "projection",
+      "title": {
+        "ru": "Поле → Проекция",
+        "en": "Field → Projection"
+      },
+      "what": {
+        "ru": "Карта фонда: скважины на своих координатах из дека и измеренные связи между нагнетательными и добывающими.",
+        "en": "A map of the well stock: wells at their deck coordinates and the measured links between injectors and producers."
+      },
+      "how_to_read": {
+        "ru": "Узел — скважина, цвет зависит от выбранного слоя: роль, обводнённость или дебит. Ребро — измеренное влияние закачки на добычу; чем толще, тем сильнее. Ползунок порога λ отсекает слабые связи, чтобы за 2375 рёбрами были видны значимые.",
+        "en": "A node is a well, coloured by the chosen layer: role, water cut or rate. An edge is a measured influence of injection on production; the thicker it is, the stronger. The λ threshold slider cuts off weak links so the significant ones are visible behind 2375 edges."
+      },
+      "controls": [
+        {
+          "label": {
+            "ru": "Слой раскраски",
+            "en": "Colour layer"
+          },
+          "spotlight": "projection-layer-switch"
+        },
+        {
+          "label": {
+            "ru": "Порог λ",
+            "en": "λ threshold"
+          },
+          "spotlight": "projection-threshold-slider"
+        },
+        {
+          "label": {
+            "ru": "Полюс проекции",
+            "en": "Projection pole"
+          },
+          "spotlight": "projection-pole-control"
+        }
+      ],
+      "questions": {
+        "ru": [
+          "Кто с кем связан?",
+          "На кого влияет закачка этой скважины?",
+          "Где на карте эта скважина?"
+        ],
+        "en": [
+          "Which wells are linked?",
+          "Whom does this well's injection affect?",
+          "Where is this well on the map?"
+        ]
+      }
+    },
+    {
+      "workspace": "history",
+      "view": "matrix",
+      "title": {
+        "ru": "История → Матрица",
+        "en": "History → Matrix"
+      },
+      "what": {
+        "ru": "Вся история фонда одним полотном: скважины по вертикали, шаги управления по горизонтали, события — вводы, переводы и остановки — отметками на пересечении.",
+        "en": "The field's whole history on one canvas: wells vertically, control steps horizontally, and events — commissionings, conversions and shut-ins — as marks at the intersections."
+      },
+      "how_to_read": {
+        "ru": "Столбец — один месяц горизонта, строка — одна скважина. Отметка означает смену состояния именно на этом шаге; годовые засечки на оси помогают попадать в нужный год.",
+        "en": "A column is one month of the horizon, a row is one well. A mark means a state change at exactly that step; the year ticks on the axis help hit the right year."
+      },
+      "controls": [
+        {
+          "label": {
+            "ru": "Ось шагов и годовые засечки",
+            "en": "Step axis and year ticks"
+          },
+          "spotlight": "history-matrix-axis"
+        },
+        {
+          "label": {
+            "ru": "Легенда событий",
+            "en": "Event legend"
+          },
+          "spotlight": "history-matrix-legend"
+        }
+      ],
+      "questions": {
+        "ru": [
+          "Что случилось с фондом в 2015 году?",
+          "Когда ввели эту скважину?",
+          "Когда её перевели в нагнетательные?"
+        ],
+        "en": [
+          "What happened to the field in 2015?",
+          "When was this well commissioned?",
+          "When was it converted to injection?"
+        ]
+      }
+    },
+    {
+      "workspace": "history",
+      "view": "wall",
+      "title": {
+        "ru": "История → Стена",
+        "en": "History → Wall"
+      },
+      "what": {
+        "ru": "Жизнь каждой скважины отдельной полосой: как долго она работала, когда останавливалась и в какой роли жила.",
+        "en": "Each well's life as its own band: how long it worked, when it was shut in and in what role it lived."
+      },
+      "how_to_read": {
+        "ru": "Полоса читается слева направо как время. Разрыв — остановка, смена заливки — смена роли. Так видно, какие скважины несли фонд весь горизонт, а какие вошли поздно.",
+        "en": "A band reads left to right as time. A gap is a shut-in, a change of fill is a change of role. This shows which wells carried the field through the whole horizon and which entered late."
+      },
+      "controls": [
+        {
+          "label": {
+            "ru": "Полосы жизни скважин",
+            "en": "Well life bands"
+          },
+          "spotlight": "history-wall-rows"
+        },
+        {
+          "label": {
+            "ru": "Сортировка полос",
+            "en": "Band sorting"
+          },
+          "spotlight": "history-wall-sort"
+        }
+      ],
+      "questions": {
+        "ru": [
+          "Как долго работала эта скважина?",
+          "Какие скважины вошли позже всех?",
+          "Кто останавливался чаще всех?"
+        ],
+        "en": [
+          "How long did this well operate?",
+          "Which wells entered latest?",
+          "Which was shut in most often?"
+        ]
+      }
+    },
+    {
+      "workspace": "history",
+      "view": "table",
+      "title": {
+        "ru": "История → Таблица",
+        "en": "History → Table"
+      },
+      "what": {
+        "ru": "Числа как они есть: по каждой скважине на выбранном шаге — уставка и факт, дебит жидкости, закачка, обводнённость и забойное давление.",
+        "en": "The numbers as they are: for each well at the selected step — setpoint and fact, liquid rate, injection, water cut and bottomhole pressure."
+      },
+      "how_to_read": {
+        "ru": "Колонки сортируются щелчком по заголовку. Прочерк означает, что величина не определена в данных, а не ноль: подставлять нули здесь запрещено.",
+        "en": "Columns sort on a header click. A dash means the value is undefined in the data, not zero: substituting zeros here is forbidden."
+      },
+      "controls": [
+        {
+          "label": {
+            "ru": "Дебит жидкости",
+            "en": "Liquid rate"
+          },
+          "spotlight": "history-table-liquid"
+        },
+        {
+          "label": {
+            "ru": "Обводнённость",
+            "en": "Water cut"
+          },
+          "spotlight": "history-table-watercut"
+        },
+        {
+          "label": {
+            "ru": "Забойное давление",
+            "en": "Bottomhole pressure"
+          },
+          "spotlight": "history-table-bhp"
+        },
+        {
+          "label": {
+            "ru": "Уставка и факт к цели",
+            "en": "Setpoint and fact to target"
+          },
+          "spotlight": "history-table-setpoint"
+        }
+      ],
+      "questions": {
+        "ru": [
+          "Какой дебит у этой скважины?",
+          "Какая у неё обводнённость?",
+          "Она добирает уставку?"
+        ],
+        "en": [
+          "What is this well's rate?",
+          "What is its water cut?",
+          "Is it meeting its setpoint?"
+        ]
+      }
+    },
+    {
+      "workspace": "decisions",
+      "view": "council",
+      "title": {
+        "ru": "Решения → Совет",
+        "en": "Decisions → Council"
+      },
+      "what": {
+        "ru": "Как распределяется ограниченный ресурс: доступная вода делится между участками, а внутри участка — между скважинами.",
+        "en": "How a limited resource is allocated: available water is split across areas and, within an area, across wells."
+      },
+      "how_to_read": {
+        "ru": "Сверху — уровень участков с их лимитами, ниже — уровень скважин с назначенными уставками. Сумма по скважинам не превосходит лимит участка, сумма по участкам — доступную воду.",
+        "en": "The area level with its limits is on top, the well level with assigned setpoints below. The wells' sum does not exceed the area limit, and the areas' sum does not exceed available water."
+      },
+      "controls": [
+        {
+          "label": {
+            "ru": "Уровень участков",
+            "en": "Area level"
+          },
+          "spotlight": "council-groups"
+        },
+        {
+          "label": {
+            "ru": "Уровень скважин",
+            "en": "Well level"
+          },
+          "spotlight": "council-wells"
+        }
+      ],
+      "questions": {
+        "ru": [
+          "Сколько воды досталось этому участку?",
+          "Как распределили закачку?",
+          "Кому подняли уставку?"
+        ],
+        "en": [
+          "How much water did this area get?",
+          "How was injection allocated?",
+          "Whose setpoint was raised?"
+        ]
+      }
+    },
+    {
+      "workspace": "decisions",
+      "view": "rules",
+      "title": {
+        "ru": "Решения → Правила",
+        "en": "Decisions → Rules"
+      },
+      "what": {
+        "ru": "Правила R0–R7: формулировка каждого, когда оно срабатывало и с какими фактическими входами.",
+        "en": "Rules R0 to R7: the statement of each, when it fired and with what actual inputs."
+      },
+      "how_to_read": {
+        "ru": "Строка — правило. Раскрыв её, видно записи Trace: шаг, скважина, входы и принятое решение. Правило без измеренного вклада помечено как неизмеренное, а не как нулевое.",
+        "en": "A row is a rule. Expanding it shows the Trace records: step, well, inputs and the decision taken. A rule without a measured contribution is marked unmeasured, not zero."
+      },
+      "controls": [
+        {
+          "label": {
+            "ru": "Таблица правил",
+            "en": "Rules table"
+          },
+          "spotlight": "rules-table"
+        },
+        {
+          "label": {
+            "ru": "Записи Trace",
+            "en": "Trace records"
+          },
+          "spotlight": "rules-trace"
+        }
+      ],
+      "questions": {
+        "ru": [
+          "Почему закрыли эту скважину?",
+          "Что делает правило R1?",
+          "Какие правила измерены?"
+        ],
+        "en": [
+          "Why was this well shut in?",
+          "What does rule R1 do?",
+          "Which rules are measured?"
+        ]
+      }
+    },
+    {
+      "workspace": "money",
+      "view": "rank",
+      "title": {
+        "ru": "Деньги → Рейтинг ЧДД",
+        "en": "Money → NPV rank"
+      },
+      "what": {
+        "ru": "Кто сколько заработал: разложение итогового ЧДД по скважинам и измеренный вклад каждого правила.",
+        "en": "Who earned what: the final NPV broken down by well, and the measured contribution of each rule."
+      },
+      "how_to_read": {
+        "ru": "Скважины отсортированы по вкладу — сверху те, кто тянет итог вверх, снизу те, кто в минусе. Ниже таблица абляции: насколько просядет ЧДД, если выключить правило.",
+        "en": "Wells are sorted by contribution — those pulling the total up at the top, those in the red at the bottom. Below is the ablation table: how much NPV drops if a rule is switched off."
+      },
+      "controls": [
+        {
+          "label": {
+            "ru": "Таблица ЧДД по скважинам",
+            "en": "NPV by well table"
+          },
+          "spotlight": "npv-rank-table"
+        },
+        {
+          "label": {
+            "ru": "Таблица вклада правил",
+            "en": "Rule contribution table"
+          },
+          "spotlight": "npv-ablation-table"
+        },
+        {
+          "label": {
+            "ru": "Режим налога",
+            "en": "Tax mode"
+          },
+          "spotlight": "npv-tax-mode"
+        }
+      ],
+      "questions": {
+        "ru": [
+          "Кто тянет ЧДД вниз?",
+          "Какая скважина принесла больше всех?",
+          "Что даёт правило R0?"
+        ],
+        "en": [
+          "Who drags NPV down?",
+          "Which well earned the most?",
+          "What does rule R0 contribute?"
+        ]
+      }
+    },
+    {
+      "workspace": "money",
+      "view": "comparison",
+      "title": {
+        "ru": "Деньги → Сравнение сценариев",
+        "en": "Money → Scenario comparison"
+      },
+      "what": {
+        "ru": "Сценарии рядом: ЧДД каждого, статус проверки, показатель OOD и худший regret по батарее.",
+        "en": "Scenarios side by side: each one's NPV, verification status, OOD score and worst regret across the battery."
+      },
+      "how_to_read": {
+        "ru": "Сравнивать имеет смысл ЧДД проверенных сценариев: предсказание суррогата и проверенный прогон — разные величины и подписаны по-разному. Высокий OOD означает, что предсказанию верить нельзя.",
+        "en": "It only makes sense to compare the NPV of verified scenarios: a surrogate prediction and a verified run are different values and are labelled differently. A high OOD means the prediction cannot be trusted."
+      },
+      "controls": [
+        {
+          "label": {
+            "ru": "Таблица сравнения сценариев",
+            "en": "Scenario comparison table"
+          },
+          "spotlight": "money-comparison-table"
+        },
+        {
+          "label": {
+            "ru": "Выбор сценария",
+            "en": "Scenario selector"
+          },
+          "spotlight": "money-scenario-select"
+        }
+      ],
+      "questions": {
+        "ru": [
+          "Сравни base и whatif-injection-cut",
+          "Какой сценарий сдан?",
+          "Насколько план устойчив?"
+        ],
+        "en": [
+          "Compare base and whatif-injection-cut",
+          "Which scenario is submitted?",
+          "How robust is the plan?"
+        ]
+      }
+    },
+    {
+      "workspace": "money",
+      "view": "constraints",
+      "title": {
+        "ru": "Деньги → Ограничения",
+        "en": "Money → Constraints"
+      },
+      "what": {
+        "ru": "Внешние рамки сценария: лимиты закачки и жидкости, полы добычи, потолки обводнённости, простои скважин и инфраструктура.",
+        "en": "The scenario's external bounds: injection and liquid limits, production floors, water-cut ceilings, well outages and infrastructure."
+      },
+      "how_to_read": {
+        "ru": "Пустой набор ограничений означает свободный сценарий, а не отсутствие данных. Простои задаются интервалом шагов и решениями политики не отменяются.",
+        "en": "An empty constraint set means an unconstrained scenario, not missing data. Outages are given as an interval of steps and cannot be overridden by policy decisions."
+      },
+      "controls": [
+        {
+          "label": {
+            "ru": "Таблица ограничений",
+            "en": "Constraints table"
+          },
+          "spotlight": "money-constraints-table"
+        },
+        {
+          "label": {
+            "ru": "Простои скважин",
+            "en": "Well outages"
+          },
+          "spotlight": "money-constraints-outages"
+        }
+      ],
+      "questions": {
+        "ru": [
+          "Какие ограничения у этого сценария?",
+          "Какие скважины простаивают?",
+          "Есть ли лимит закачки?"
+        ],
+        "en": [
+          "What constraints does this scenario have?",
+          "Which wells are out?",
+          "Is there an injection limit?"
+        ]
+      }
+    }
+  ],
+  "elements": [
+    {
+      "id": "header",
+      "title": {
+        "ru": "Шапка консоли",
+        "en": "Console header"
+      },
+      "what": {
+        "ru": "Общий контекст: выбранный сценарий, текущая дата шага, язык и тема.",
+        "en": "The shared context: the chosen scenario, the current step date, language and theme."
+      },
+      "how_to_read": {
+        "ru": "Всё, что показано ниже в консоли, относится именно к этому сценарию и этому шагу. Смена сценария в шапке перерисовывает все экраны.",
+        "en": "Everything shown below in the console refers to exactly this scenario and this step. Changing the scenario in the header redraws every screen."
+      },
+      "controls": [
+        {
+          "label": {
+            "ru": "Выбор сценария",
+            "en": "Scenario selector"
+          },
+          "spotlight": "header-scenario"
+        },
+        {
+          "label": {
+            "ru": "Переключатель языка",
+            "en": "Language switch"
+          },
+          "spotlight": "header-language"
+        },
+        {
+          "label": {
+            "ru": "Переключатель темы",
+            "en": "Theme switch"
+          },
+          "spotlight": "header-theme"
+        }
+      ],
+      "questions": {
+        "ru": [
+          "Какой сценарий сейчас открыт?",
+          "Как сменить язык?"
+        ],
+        "en": [
+          "Which scenario is open now?",
+          "How do I change the language?"
+        ]
+      }
+    },
+    {
+      "id": "player",
+      "title": {
+        "ru": "Плеер шагов",
+        "en": "Step player"
+      },
+      "what": {
+        "ru": "Прокрутка горизонта по шагам управления: 225 контрольных дат от 2007 года до конца горизонта.",
+        "en": "Scrubbing the horizon by control steps: 225 control dates from 2007 to the end of the horizon."
+      },
+      "how_to_read": {
+        "ru": "Позиция плеера задаёт шаг для всех экранов сразу. Отметки на дорожке — шаги, где происходили события фонда.",
+        "en": "The player position sets the step for every screen at once. Marks on the track are steps where field events occurred."
+      },
+      "controls": [
+        {
+          "label": {
+            "ru": "Дорожка шагов",
+            "en": "Step track"
+          },
+          "spotlight": "player-track"
+        },
+        {
+          "label": {
+            "ru": "Пуск и пауза",
+            "en": "Play and pause"
+          },
+          "spotlight": "player-play",
+          "hotkey": "Space"
+        },
+        {
+          "label": {
+            "ru": "Скорость воспроизведения",
+            "en": "Playback speed"
+          },
+          "spotlight": "player-speed"
+        }
+      ],
+      "questions": {
+        "ru": [
+          "Как перейти на январь 2015?",
+          "Что было на предыдущем шаге?"
+        ],
+        "en": [
+          "How do I jump to January 2015?",
+          "What was at the previous step?"
+        ]
+      }
+    },
+    {
+      "id": "inspector",
+      "title": {
+        "ru": "Инспектор скважины",
+        "en": "Well inspector"
+      },
+      "what": {
+        "ru": "Карточка выбранной скважины: роль, статус, уставка и факт, обводнённость, забойное давление и её вклад в ЧДД.",
+        "en": "The selected well's card: role, status, setpoint and fact, water cut, bottomhole pressure and its contribution to NPV."
+      },
+      "how_to_read": {
+        "ru": "Инспектор всегда показывает скважину на текущем шаге плеера. Прочерк — величина не определена в данных, а не ноль.",
+        "en": "The inspector always shows the well at the player's current step. A dash means the value is undefined in the data, not zero."
+      },
+      "controls": [
+        {
+          "label": {
+            "ru": "Панель инспектора",
+            "en": "Inspector panel"
+          },
+          "spotlight": "inspector-panel"
+        },
+        {
+          "label": {
+            "ru": "Закрыть инспектор",
+            "en": "Close inspector"
+          },
+          "spotlight": "inspector-close",
+          "hotkey": "Escape"
+        }
+      ],
+      "questions": {
+        "ru": [
+          "Что со скважиной 13?",
+          "Какой у неё вклад в ЧДД?"
+        ],
+        "en": [
+          "How is well 13 doing?",
+          "What is its contribution to NPV?"
+        ]
+      }
+    },
+    {
+      "id": "command-palette",
+      "title": {
+        "ru": "Палитра команд",
+        "en": "Command palette"
+      },
+      "what": {
+        "ru": "Быстрый переход между экранами и к скважинам по имени, без мыши.",
+        "en": "A fast jump between screens and to wells by name, without the mouse."
+      },
+      "how_to_read": {
+        "ru": "Открывается сочетанием клавиш, ищет по названиям экранов и номерам скважин; выбор из списка переносит консоль туда сразу.",
+        "en": "It opens on a shortcut and searches screen names and well numbers; picking from the list moves the console there at once."
+      },
+      "controls": [
+        {
+          "label": {
+            "ru": "Поле поиска палитры",
+            "en": "Palette search field"
+          },
+          "spotlight": "palette-input",
+          "hotkey": "Ctrl+K"
+        }
+      ],
+      "questions": {
+        "ru": [
+          "Как быстро перейти на другой экран?",
+          "Как найти скважину по номеру?"
+        ],
+        "en": [
+          "How do I switch screens quickly?",
+          "How do I find a well by number?"
+        ]
+      }
+    }
+  ]
+}

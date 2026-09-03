@@ -48,4 +48,6 @@ testpaths = [
     "backend/domain/schedule/tests",
     "backend/ml/surrogate/tests",
     "backend/presentation/ui_export/tests",
+    "backend/application/jarvis/tests",
+    "backend/presentation/api/tests",
 ]

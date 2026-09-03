@@ -1,0 +1,64 @@
+.jarvis-orbit {
+  grid-area: 1 / 1;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.jarvis-orbit-seat {
+  grid-area: 1 / 1;
+  transform: translate(
+      calc(var(--orbit-x) * var(--size-orbit-radius)),
+      calc(var(--orbit-y) * var(--size-orbit-radius))
+    )
+    translateZ(0);
+  animation: jarvis-orbit-arrive var(--duration-drawer) var(--ease-emphasis) backwards;
+  animation-delay: var(--orbit-delay);
+  transition: transform var(--duration-state) var(--ease-emphasis);
+}
+
+.jarvis-orbit-seat:hover,
+.jarvis-orbit-seat:focus-within {
+  transform: translate(
+      calc(var(--orbit-x) * var(--size-orbit-radius)),
+      calc(var(--orbit-y) * var(--size-orbit-radius))
+    )
+    scale(var(--scale-jarvis-hover));
+  z-index: 1;
+}
+
+.jarvis-orbit-seat[data-open='true'] {
+  transform: none;
+  z-index: 2;
+}
+
+@keyframes jarvis-orbit-arrive {
+  from {
+    opacity: 0;
+    transform: translate(
+        calc(var(--orbit-x) * var(--size-orbit-radius)),
+        calc(var(--orbit-y) * var(--size-orbit-radius))
+      )
+      translateZ(calc(-1 * var(--size-jarvis-depth)));
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jarvis-orbit-seat {
+    animation: none;
+    transition: none;
+  }
+
+  .jarvis-orbit-seat:hover,
+  .jarvis-orbit-seat:focus-within {
+    transform: translate(
+      calc(var(--orbit-x) * var(--size-orbit-radius)),
+      calc(var(--orbit-y) * var(--size-orbit-radius))
+    );
+  }
+}

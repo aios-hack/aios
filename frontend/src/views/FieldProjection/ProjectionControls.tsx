@@ -59,6 +59,7 @@ export const ProjectionControls = ({
             ]}
             active={pole}
             label={translate('projection.poleLabel')}
+            guide="projection-pole-control"
             onSelect={onPole}
           />
           <LayerFilterSwitch layers={layers} filter={layerFilter} onChange={onLayerFilter} />
@@ -117,6 +118,7 @@ export const ProjectionControls = ({
                 max={1}
                 step={0.01}
                 value={toSlider(threshold)}
+                guide="projection-threshold-slider"
                 onChange={(position) => onThreshold(fromSlider(position))}
               />
             </SettingsField>

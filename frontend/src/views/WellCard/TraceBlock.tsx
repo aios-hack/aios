@@ -15,7 +15,7 @@ export const TraceBlock = ({ records }: TraceBlockProps) => {
   }
 
   return (
-    <ol className="wellcard-trace">
+    <ol className="wellcard-trace" data-guide="rules-trace">
       {records.map((record, index) => (
         <li key={`${record.rule}-${index}`} className="wellcard-trace-item">
           <div className="wellcard-trace-head">

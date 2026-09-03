@@ -3,8 +3,20 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { I18nProvider } from '../../i18n/I18nContext';
+import { JarvisProvider } from '../../jarvis/JarvisContext';
+import type { JarvisTransport } from '../../jarvis/transport/JarvisTransport';
 import { ConsoleProvider, useConsole } from '../../state/ConsoleContext';
+import { PlaybackProvider } from '../../state/PlaybackContext';
+import { ScenarioProvider } from '../../state/ScenarioContext';
+import { TimelineProvider } from '../../state/TimelineContext';
 import { WorkspaceNav } from './WorkspaceNav';
+
+const silentTransport: JarvisTransport = {
+  mode: 'mock',
+  ask: async function* () {
+    yield* [];
+  }
+};
 
 const renderNav = () =>
   render(
@@ -94,5 +106,61 @@ describe('WorkspaceNav arrow keys do not switch workspace', () => {
     fireEvent.keyDown(tablist, { key: 'ArrowDown' });
     fireEvent.keyDown(tablist, { key: 'ArrowDown' });
     expect(screen.getByTestId('active-workspace').textContent).toBe(before);
+  });
+});
+
+const renderNavWithJarvis = () =>
+  render(
+    <I18nProvider>
+      <ScenarioProvider>
+        <TimelineProvider>
+          <PlaybackProvider>
+            <ConsoleProvider>
+              <JarvisProvider transport={silentTransport}>
+                <WorkspaceNav />
+              </JarvisProvider>
+            </ConsoleProvider>
+          </PlaybackProvider>
+        </TimelineProvider>
+      </ScenarioProvider>
+    </I18nProvider>
+  );
+
+describe('the Jarvis sphere sits under the workspaces without joining them', () => {
+  it('is a button, not a tab, so the tablist keeps exactly five tabs', () => {
+    renderNavWithJarvis();
+    expect(screen.getAllByRole('tab').length).toBe(5);
+    const launcher = screen.getByRole('button', { name: 'Открыть Джарвис' });
+    expect(launcher.getAttribute('role')).toBeNull();
+  });
+
+  it('still exposes exactly one tab stop into the tablist', () => {
+    renderNavWithJarvis();
+    expect(screen.getAllByRole('tab').filter((tab) => tab.tabIndex === 0).length).toBe(1);
+  });
+
+  it('leaves the launcher out of the arrow-key ring of the tablist', () => {
+    renderNavWithJarvis();
+    const tablist = screen.getByRole('tablist');
+    const launcher = screen.getByRole('button', { name: 'Открыть Джарвис' });
+    expect(tablist.contains(launcher)).toBe(false);
+  });
+
+  it('announces its shortcut and its collapsed state', () => {
+    renderNavWithJarvis();
+    const launcher = screen.getByRole('button', { name: 'Открыть Джарвис' });
+    expect(launcher.getAttribute('aria-keyshortcuts')).toBe('j');
+    expect(launcher.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('carries the visible name of the assistant next to the sphere', () => {
+    renderNavWithJarvis();
+    expect(screen.getByText('Джарвис')).toBeTruthy();
+  });
+
+  it('renders nothing extra when Jarvis is not mounted at all', () => {
+    renderNav();
+    expect(screen.queryByRole('button', { name: 'Открыть Джарвис' })).toBeNull();
+    expect(screen.getAllByRole('tab').length).toBe(5);
   });
 });

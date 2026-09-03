@@ -21,6 +21,7 @@ export const LayerFilterSwitch = ({ layers, filter, onChange }: LayerFilterSwitc
       options={options}
       active={filter}
       label={t('projection.layerLabel')}
+      guide="projection-layer-switch"
       onSelect={onChange}
     />
   );

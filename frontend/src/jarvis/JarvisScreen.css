@@ -1,0 +1,77 @@
+.jarvis-screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  height: 100%;
+  padding: var(--space-5);
+  background: var(--color-jarvis-face);
+  color: var(--color-text);
+  overflow: hidden;
+}
+
+.jarvis-screen-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-5);
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.jarvis-screen-orbit {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.jarvis-screen-slot {
+  grid-area: 1 / 1;
+  display: block;
+  width: var(--size-sphere-stage);
+  height: var(--size-sphere-stage);
+  border-radius: var(--radius-pill);
+  pointer-events: none;
+}
+
+.jarvis-screen-say {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+  min-height: var(--size-sphere-say-min);
+}
+
+.jarvis-screen-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: center;
+}
+
+.jarvis-screen-empty-title {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-light);
+  color: var(--color-text);
+}
+
+.jarvis-screen-empty-body {
+  margin: 0;
+  max-width: var(--size-prose-max);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.jarvis-screen-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  flex: none;
+}

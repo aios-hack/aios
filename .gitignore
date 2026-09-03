@@ -34,3 +34,8 @@ build/
 **/.impeccable/hook.cache.json
 .claude/
 .mcp.json
+
+# Мудборд Джарвиса: рабочий материал дизайнера, в рантайме не нужен.
+# SOURCES.md остаётся в репозитории — он описывает источники и лицензии.
+frontend/public/jarvis/references/*
+!frontend/public/jarvis/references/SOURCES.md

@@ -49,7 +49,7 @@ export const ScenarioComparison = ({ entries }: ScenarioComparisonProps) => {
   const sign = better ? '+' : '';
 
   return (
-    <section className="scenario-compare">
+    <section className="scenario-compare" data-guide="money-comparison-table">
       <header className="scenario-compare-head">
         <h3 className="scenarios-heading">{t('scenarios.compare.title')}</h3>
         <SegmentedControl
@@ -90,7 +90,7 @@ export const ScenarioComparison = ({ entries }: ScenarioComparisonProps) => {
           {alternatives.length === 1 ? (
             <span className="scenario-compare-id">{alternatives[0].id}</span>
           ) : (
-            <span className="scenario-compare-pick">
+            <span className="scenario-compare-pick" data-guide="money-scenario-select">
               <SegmentedControl
                 options={alternatives.map((entry) => ({
                   value: entry.id,

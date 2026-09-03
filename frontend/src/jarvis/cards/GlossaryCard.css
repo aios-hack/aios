@@ -1,0 +1,86 @@
+.jarvis-glossary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.jarvis-glossary-definition {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
+  color: var(--color-text-muted);
+}
+
+.jarvis-glossary-label {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}
+
+.jarvis-glossary-formula {
+  margin: 0;
+}
+
+.jarvis-glossary-formula code {
+  display: block;
+  overflow-x: auto;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  color: var(--color-text);
+}
+
+.jarvis-glossary-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}
+
+.jarvis-glossary-where ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jarvis-glossary-where li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.jarvis-glossary-open,
+.jarvis-guide-open {
+  flex: none;
+  min-height: var(--size-hit-min);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-jarvis-ink);
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--color-jarvis-ink);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.jarvis-glossary-open:focus-visible,
+.jarvis-guide-open:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.jarvis-glossary-related {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}

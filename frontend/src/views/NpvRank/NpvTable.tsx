@@ -54,7 +54,7 @@ const NpvTableView = ({
           <span className="npv-total-unit">{t('npv.table.totalUnit')}</span>
         </span>
       </p>
-      <div className="npv-table-wrap">
+      <div className="npv-table-wrap" data-guide="npv-rank-table">
         <table className="npv-table">
           <caption className="visually-hidden">{t('npv.table.caption')}</caption>
           <thead>

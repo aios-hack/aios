@@ -75,6 +75,15 @@ cmd_web() {
     exec python -m backend.presentation.cli.web --host "${AIOS_HOST:-0.0.0.0}" --port "${AIOS_PORT:-8000}" "$@"
 }
 
+cmd_jarvis() {
+    if [ -z "${OPENROUTER_API_KEY:-}" ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+        echo "ВНИМАНИЕ: ни OPENROUTER_API_KEY, ни ANTHROPIC_API_KEY не заданы." >&2
+        echo "Сервис поднимется, но /api/jarvis/health вернёт 503 no-api-key," >&2
+        echo "а фронт перейдёт в демо-режим на фикстурах." >&2
+    fi
+    exec python -m backend.presentation.cli.jarvis --host "${AIOS_JARVIS_HOST:-0.0.0.0}" --port "${AIOS_JARVIS_PORT:-8010}" "$@"
+}
+
 cmd_webdata() {
     if ! have_docs; then
         warn_no_docs
@@ -118,6 +127,7 @@ usage() {
   npv [аргументы]            расчёт ЧДД и сверка с эталонным расчётчиком
   emit [аргументы]           эмит wells_schedule.inc из дека организаторов
   web [аргументы]            веб-интерфейс (требует собранного frontend)
+  jarvis [аргументы]         сервис Джарвиса: HTTP и SSE на порту 8010
   webdata                    собрать полный JSON-набор для интерфейса
   selfcheck                  что найдено в образе и в смонтированных данных
   shell                      интерактивная оболочка
@@ -141,6 +151,7 @@ main() {
         npv) cmd_npv "$@" ;;
         emit) cmd_emit "$@" ;;
         web) cmd_web "$@" ;;
+        jarvis) cmd_jarvis "$@" ;;
         webdata) cmd_webdata "$@" ;;
         selfcheck) cmd_selfcheck "$@" ;;
         shell) exec /bin/bash "$@" ;;

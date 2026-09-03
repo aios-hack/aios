@@ -28,6 +28,7 @@ export const OutageTable = ({
   return (
     <section
       className="scenarios-section"
+      data-guide="money-constraints-outages"
       data-section="well_outages"
       data-empty={rows.length === 0}
       style={{ '--scenarios-section-index': index } as CSSProperties}

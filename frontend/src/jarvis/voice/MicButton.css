@@ -1,0 +1,59 @@
+.jarvis-mic {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--size-icon-button);
+  height: var(--size-icon-button);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-state) var(--ease-out),
+    background var(--duration-state) var(--ease-out);
+}
+
+.jarvis-mic:hover {
+  border-color: var(--color-border-strong);
+}
+
+.jarvis-mic:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.jarvis-mic[data-open='true'] {
+  border-color: var(--color-jarvis-body);
+  background: var(--color-jarvis-halo);
+}
+
+.jarvis-mic-dot {
+  width: var(--size-swatch);
+  height: var(--size-swatch);
+  border-radius: var(--radius-pill);
+  background: currentColor;
+}
+
+.jarvis-mic[data-open='true'] .jarvis-mic-dot {
+  background: var(--color-jarvis-body);
+  animation: jarvis-mic-pulse var(--duration-jarvis-breath-hover) var(--ease-in-out) infinite;
+}
+
+@keyframes jarvis-mic-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jarvis-mic,
+  .jarvis-mic[data-open='true'] .jarvis-mic-dot {
+    transition: none;
+    animation: none;
+  }
+}

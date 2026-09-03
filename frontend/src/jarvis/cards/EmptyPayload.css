@@ -1,0 +1,8 @@
+.jarvis-empty-payload {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+}

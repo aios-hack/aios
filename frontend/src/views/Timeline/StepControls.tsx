@@ -66,6 +66,7 @@ const StepControlsView = ({
         <button
           type="button"
           className="transport-button transport-button--play"
+          data-guide="player-play"
           onClick={onTogglePlay}
           aria-label={playing ? t('steps.pause') : t('steps.play')}
           title={playing ? t('steps.pause') : t('steps.play')}

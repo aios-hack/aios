@@ -139,6 +139,7 @@ export const CommandPalette = () => {
             type="text"
             role="combobox"
             className="palette-input"
+            data-guide="palette-input"
             aria-label={t('palette.label')}
             aria-expanded
             aria-controls={`${uid}-list`}

@@ -32,7 +32,7 @@ export const ScenarioBadge = ({ onOpenLibrary }: ScenarioBadgeProps = {}) => {
 
   if (!onOpenLibrary) {
     return (
-      <p className="scenario-badge" data-submitted={active.is_submitted} title={label}>
+      <p className="scenario-badge" data-guide="header-scenario" data-submitted={active.is_submitted} title={label}>
         <span className="scenario-badge-id">{active.id}</span>
       </p>
     );
@@ -42,6 +42,7 @@ export const ScenarioBadge = ({ onOpenLibrary }: ScenarioBadgeProps = {}) => {
     <button
       type="button"
       className="scenario-badge"
+      data-guide="header-scenario"
       data-submitted={active.is_submitted}
       title={label}
       aria-label={label}

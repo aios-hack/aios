@@ -18,6 +18,7 @@ export const TaxModeSwitch = ({ mode, onChange }: TaxModeSwitchProps) => {
       options={options}
       active={mode}
       label={t('npv.mode.legend')}
+      guide="npv-tax-mode"
       onSelect={onChange}
     />
   );

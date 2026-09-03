@@ -33,6 +33,7 @@ export const WallControls = ({
           metricEnabled={false}
           sort={sort}
           onSort={onSort}
+          sortGuide="history-wall-sort"
         />
       }
       right={

@@ -1,0 +1,133 @@
+.jarvis-stage {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--color-bg);
+  perspective: var(--perspective-stage);
+  perspective-origin: 50% 50%;
+}
+
+.jarvis-stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse at center, transparent 55%, var(--color-jarvis-vignette) 100%);
+  transition: opacity var(--duration-jarvis-shrink) var(--ease-emphasis);
+}
+
+.jarvis-stage:not([data-phase='closed'])::after {
+  opacity: 1;
+}
+
+.jarvis-cube {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: translateZ(calc(-1 * var(--size-cube-half))) rotateY(0deg);
+  transition: transform var(--duration-jarvis-turn) var(--ease-in-out);
+}
+
+.jarvis-stage[data-direction='opening'][data-phase='turning'] .jarvis-cube,
+.jarvis-stage[data-direction='opening'][data-phase='settling'] .jarvis-cube,
+.jarvis-stage[data-direction='closing'][data-phase='shrinking'] .jarvis-cube,
+.jarvis-stage[data-phase='open'] .jarvis-cube {
+  transform: translateZ(calc(-1 * var(--size-cube-half))) rotateY(-90deg);
+}
+
+.jarvis-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+}
+
+.jarvis-face-console {
+  transform: translateZ(var(--size-cube-half));
+}
+
+.jarvis-face-screen {
+  transform: rotateY(90deg) translateZ(var(--size-cube-half));
+}
+
+.jarvis-face-scale {
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 50%;
+  transform: scale(1);
+  transition: transform var(--duration-jarvis-settle) var(--ease-emphasis);
+}
+
+.jarvis-stage[data-phase='shrinking'] .jarvis-face-scale,
+.jarvis-stage[data-phase='turning'] .jarvis-face-scale {
+  transform: scale(var(--scale-jarvis-face));
+}
+
+.jarvis-stage[data-phase='shrinking'] .jarvis-cube,
+.jarvis-stage[data-phase='turning'] .jarvis-cube,
+.jarvis-stage[data-phase='settling'] .jarvis-cube {
+  will-change: transform;
+}
+
+.jarvis-stage[data-phase='shrinking'] .jarvis-face,
+.jarvis-stage[data-phase='turning'] .jarvis-face,
+.jarvis-stage[data-phase='settling'] .jarvis-face {
+  pointer-events: none;
+}
+
+.jarvis-stage[data-phase='shrinking'] .console-area-scene,
+.jarvis-stage[data-phase='turning'] .console-area-scene,
+.jarvis-stage[data-phase='settling'] .console-area-scene {
+  contain: paint;
+}
+
+.jarvis-stage[data-crossfade='true'] .jarvis-cube {
+  transform: none;
+  transition: none;
+}
+
+.jarvis-stage[data-crossfade='true'] .jarvis-face {
+  transform: none;
+  transition: opacity var(--duration-jarvis-crossfade) var(--ease-out);
+}
+
+.jarvis-stage[data-crossfade='true'] .jarvis-face-scale {
+  transform: none;
+  transition: none;
+}
+
+.jarvis-stage[data-crossfade='true'][data-phase='closed'] .jarvis-face-screen,
+.jarvis-stage[data-crossfade='true'][data-direction='closing'] .jarvis-face-screen {
+  opacity: 0;
+}
+
+.jarvis-stage[data-crossfade='true'][data-phase='open'] .jarvis-face-console,
+.jarvis-stage[data-crossfade='true'][data-direction='opening'] .jarvis-face-console {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jarvis-cube,
+  .jarvis-face-scale,
+  .jarvis-stage::after {
+    transition: none;
+  }
+
+  .jarvis-cube {
+    transform: none;
+  }
+
+  .jarvis-face {
+    transform: none;
+    transition: opacity var(--duration-jarvis-crossfade) var(--ease-out);
+  }
+
+  .jarvis-stage[data-phase='closed'] .jarvis-face-screen {
+    opacity: 0;
+  }
+
+  .jarvis-stage[data-phase='open'] .jarvis-face-console {
+    opacity: 0;
+  }
+}

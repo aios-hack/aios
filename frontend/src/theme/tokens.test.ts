@@ -673,3 +673,88 @@ describe('text on a group fill stays readable in every group and theme', () => {
     }
   });
 });
+
+describe('the Jarvis sphere inverts with the theme instead of borrowing the accent', () => {
+  const light = themeFile('tokens.light.css');
+  const dark = themeFile('tokens.dark.css');
+  const sphereTokens = [
+    '--color-jarvis-body',
+    '--color-jarvis-pulse',
+    '--color-jarvis-deep',
+    '--color-jarvis-rim',
+    '--color-jarvis-halo',
+    '--color-jarvis-face',
+    '--color-jarvis-spark',
+    '--color-jarvis-vignette'
+  ];
+
+  it('names every sphere colour in both themes', () => {
+    for (const token of sphereTokens) {
+      expect(light, token).toContain(token);
+      expect(dark, token).toContain(token);
+    }
+  });
+
+  it('paints a blue body on the light face and an icy body on the dark face', () => {
+    const lightBody = resolve(light, '--color-jarvis-body', [255, 255, 255]);
+    const darkBody = resolve(dark, '--color-jarvis-body', [255, 255, 255]);
+    expect(lightness(lightBody)).toBeLessThan(lightness(darkBody));
+    const hue = hueOf(lightBody);
+    expect(hue).toBeGreaterThanOrEqual(195);
+    expect(hue).toBeLessThanOrEqual(225);
+  });
+
+  it('shares the light body with the injector blue so the sphere reads as water', () => {
+    expect(readToken(light, '--color-jarvis-body')).toBe(readToken(light, '--color-graph-injector'));
+  });
+
+  for (const theme of [
+    { name: 'light', css: light },
+    { name: 'dark', css: dark }
+  ]) {
+    it(`${theme.name}: the body separates from the Jarvis face and the console background`, () => {
+      for (const surface of ['--color-jarvis-face', '--color-bg']) {
+        const bg = resolve(theme.css, surface, [255, 255, 255]);
+        expect(contrast(resolve(theme.css, '--color-jarvis-body', bg), bg), surface).toBeGreaterThanOrEqual(3);
+      }
+    });
+
+    it(`${theme.name}: the scene caption clears 4.5:1 on the Jarvis face`, () => {
+      const face = resolve(theme.css, '--color-jarvis-face', [255, 255, 255]);
+      for (const text of ['--color-text', '--color-text-muted']) {
+        expect(contrast(resolve(theme.css, text, face), face), text).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+
+    it(`${theme.name}: the action ink clears 4.5:1 on every surface a card sits on`, () => {
+      for (const surface of ['--color-surface', '--color-surface-sunken', '--color-jarvis-face']) {
+        const bg = resolve(theme.css, surface, [255, 255, 255]);
+        expect(
+          contrast(resolve(theme.css, '--color-jarvis-ink', bg), bg),
+          `${theme.name} ${surface}`
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+
+    it(`${theme.name}: the pulse colour and the body colour never merge`, () => {
+      const body = resolve(theme.css, '--color-jarvis-body', [255, 255, 255]);
+      const pulse = resolve(theme.css, '--color-jarvis-pulse', [255, 255, 255]);
+      expect(contrast(body, pulse)).toBeGreaterThanOrEqual(2);
+    });
+  }
+
+  it('keeps the transition takts as duration tokens', () => {
+    for (const token of [
+      '--duration-jarvis-shrink',
+      '--duration-jarvis-turn',
+      '--duration-jarvis-settle',
+      '--duration-jarvis-crossfade',
+      '--stagger-orbit',
+      '--perspective-stage'
+    ]) {
+      expect(light, token).toContain(token);
+    }
+    expect(readToken(light, '--duration-jarvis-turn')).toBe('600ms');
+    expect(readToken(light, '--duration-jarvis-shrink')).toBe('220ms');
+  });
+});

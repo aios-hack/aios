@@ -41,6 +41,7 @@ const TimeScaleTrackView = ({
     <div
       className="time-scale-track"
       data-testid="time-scale-track"
+      data-guide="player-track"
       style={trackStyle}
     >
       <div className="time-scale-years" aria-hidden="true">

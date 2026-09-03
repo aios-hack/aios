@@ -5,6 +5,7 @@ interface ToolbarIconButtonProps {
   refCallback: (node: HTMLButtonElement | null) => void;
   open: boolean;
   label: string;
+  guide?: string;
   onClick: () => void;
   children: ReactNode;
 }
@@ -13,6 +14,7 @@ export const ToolbarIconButton = ({
   refCallback,
   open,
   label,
+  guide,
   onClick,
   children
 }: ToolbarIconButtonProps) => (
@@ -23,6 +25,7 @@ export const ToolbarIconButton = ({
     aria-expanded={open}
     aria-haspopup="dialog"
     aria-label={label}
+    data-guide={guide}
     onClick={onClick}
   >
     {children}

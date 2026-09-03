@@ -91,6 +91,16 @@
   --color-synthetic-bg: rgba(241, 184, 85, 0.1);
   --color-synthetic-border: rgba(241, 184, 85, 0.3);
 
+  --color-jarvis-body: #eaf6ff;
+  --color-jarvis-pulse: #3aa2ff;
+  --color-jarvis-deep: #b8dcff;
+  --color-jarvis-rim: #ffffff;
+  --color-jarvis-halo: rgba(58, 162, 255, 0.32);
+  --color-jarvis-face: #0b0e13;
+  --color-jarvis-spark: #9ed2ff;
+  --color-jarvis-ink: #7cc4ff;
+  --color-jarvis-vignette: rgba(0, 0, 0, 0.5);
+
   --color-backdrop: rgba(0, 0, 0, 0.4);
   --color-plot-grid: #1b212a;
   --color-plot-bg: #10141a;

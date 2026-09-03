@@ -35,6 +35,7 @@ export const Inspector = <T extends InspectorContext>({
       className="inspector"
       data-closing={closing}
       data-testid="inspector"
+      data-guide="inspector-panel"
       aria-labelledby={titleId}
     >
       <header className="inspector-header">
@@ -44,6 +45,7 @@ export const Inspector = <T extends InspectorContext>({
         <button
           type="button"
           className="inspector-close"
+          data-guide="inspector-close"
           aria-label={t('inspector.close')}
           onClick={onClose}
         >

@@ -115,7 +115,10 @@ const AblationTableView = ({ data, standalone = false }: AblationTableProps) => 
         </div>
       </header>
 
-      <div className="abl-table-wrap">
+      <div
+        className="abl-table-wrap"
+        data-guide={standalone ? 'rules-table' : 'npv-ablation-table'}
+      >
         <table className="abl-table">
           <caption className="abl-caption">{t('npv.ablation.tableCaption')}</caption>
           <thead>

@@ -5,6 +5,8 @@ import functools
 import http.server
 from pathlib import Path
 
+from backend.presentation.api.proxy import forward, is_jarvis_path
+
 DEFAULT_DIST = Path("/app/frontend/dist")
 
 
@@ -25,6 +27,18 @@ class SpaRequestHandler(http.server.SimpleHTTPRequestHandler):
         if not Path(path).exists() and "." not in Path(path).name:
             self.path = "/index.html"
         return super().send_head()
+
+    def do_GET(self):  # type: ignore[override]
+        if is_jarvis_path(self.path):
+            forward(self)
+            return
+        return super().do_GET()
+
+    def do_POST(self):  # type: ignore[override]
+        if is_jarvis_path(self.path):
+            forward(self)
+            return
+        self.send_error(405, "POST is only accepted on /api/jarvis/*")
 
 
 def main(argv: list[str] | None = None) -> int:

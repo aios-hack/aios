@@ -1,0 +1,93 @@
+.jarvis-ribbon {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex: none;
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.jarvis-ribbon-facts {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-5);
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.jarvis-ribbon-facts > div {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.jarvis-ribbon-facts dt {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}
+
+.jarvis-ribbon-facts dd {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.jarvis-ribbon-demo {
+  flex: none;
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-synthetic-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-synthetic-bg);
+  font-size: var(--font-size-xs);
+  color: var(--color-synthetic);
+}
+
+.jarvis-ribbon-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+}
+
+.jarvis-ribbon-button,
+.jarvis-ribbon-close {
+  display: grid;
+  place-items: center;
+  min-height: var(--size-hit-min);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.jarvis-ribbon-close {
+  width: var(--size-icon-button);
+  padding: 0;
+}
+
+.jarvis-ribbon-button[aria-pressed='true'] {
+  border-color: var(--color-jarvis-ink);
+  color: var(--color-jarvis-ink);
+}
+
+.jarvis-ribbon-button:hover,
+.jarvis-ribbon-close:hover {
+  color: var(--color-text);
+}
+
+.jarvis-ribbon-button:focus-visible,
+.jarvis-ribbon-close:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}

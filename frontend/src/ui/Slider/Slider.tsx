@@ -9,6 +9,7 @@ interface SliderProps {
   step: number;
   value: number;
   ariaLabel?: string;
+  guide?: string;
   onChange: (value: number) => void;
 }
 
@@ -20,6 +21,7 @@ export const Slider = ({
   step,
   value,
   ariaLabel,
+  guide,
   onChange
 }: SliderProps) => {
   const span = max - min;
@@ -30,7 +32,11 @@ export const Slider = ({
   } as CSSProperties;
 
   return (
-    <span className={className ? `slider ${className}` : 'slider'} style={style}>
+    <span
+      className={className ? `slider ${className}` : 'slider'}
+      data-guide={guide}
+      style={style}
+    >
       <span className="slider-rail" aria-hidden="true">
         <span className="slider-fill" />
       </span>

@@ -62,7 +62,12 @@ export const GroupLevel = ({
   const usage = available > 0 ? limit / available : null;
 
   return (
-    <section className="council-level" data-level="groups" data-testid="council-groups">
+    <section
+      className="council-level"
+      data-level="groups"
+      data-testid="council-groups"
+      data-guide="council-groups"
+    >
       <header className="council-level-head">
         <h3 className="council-level-title">{t('council.groups.title')}</h3>
       </header>
