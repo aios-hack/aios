@@ -2,6 +2,7 @@ import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { ReactNode } from 'react';
 import type { TimelineStep, TimelineWellRow } from '../../api/types';
+import { dictionaries } from '../../i18n/dictionaries';
 import { I18nProvider } from '../../i18n/I18nContext';
 import { overviewMetrics } from './overviewMetrics';
 import { OverviewCard } from './OverviewCard';
@@ -80,5 +81,35 @@ describe('overview card reveal order', () => {
     expect(card!.dataset.featured).toBe('true');
     expect(card!.dataset.band).toBeTruthy();
     expect(container.querySelector('.overview-card-value')?.textContent).toBeTruthy();
+  });
+});
+
+describe('overview card units', () => {
+  it('names the unit of every metric next to the reading', () => {
+    metrics.forEach((metric, index) => {
+      const expected = dictionaries.ru[`overview.unit.${metric.key}`];
+      expect(expected, metric.key).toBeTruthy();
+      const { container, unmount } = renderCard(index);
+      const unit = container.querySelector('.overview-card-unit');
+      expect(unit, metric.key).not.toBeNull();
+      expect(unit!.textContent, metric.key).toBe(expected);
+      unmount();
+    });
+  });
+
+  it('gives volume, money, share and count metrics distinct units', () => {
+    const unitOf = (key: string) => dictionaries.ru[`overview.unit.${key}`];
+    expect(unitOf('production')).toBe(unitOf('injection'));
+    expect(unitOf('production')).not.toBe(unitOf('npv'));
+    expect(unitOf('npv')).not.toBe(unitOf('activeWells'));
+    expect(unitOf('watercut')).not.toBe(unitOf('activeWells'));
+  });
+
+  it('repeats the unit in the accessible plot title and the horizon footer', () => {
+    const production = metrics.findIndex((metric) => metric.key === 'production');
+    const { container } = renderCard(production);
+    const unit = dictionaries.ru['overview.unit.production'];
+    expect(container.querySelector('title')?.textContent).toContain(unit);
+    expect(container.querySelector('.overview-card-span')?.textContent).toContain(unit);
   });
 });

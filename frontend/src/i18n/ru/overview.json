@@ -21,5 +21,13 @@
   "metric.production": "Отбор жидкости",
   "metric.shutWells": "Скважины в простое",
   "metric.watercut": "Средняя обводнённость",
-  "span": "{from} → {to}"
+  "span": "{from} → {to} {unit}",
+  "unit.activeWells": "скв.",
+  "unit.compensation": "%",
+  "unit.factToTarget": "%",
+  "unit.injection": "м³/сут",
+  "unit.npv": "₽",
+  "unit.production": "м³/сут",
+  "unit.shutWells": "скв.",
+  "unit.watercut": "%"
 }

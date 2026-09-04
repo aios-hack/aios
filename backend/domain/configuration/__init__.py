@@ -13,7 +13,9 @@ from backend.domain.configuration.normatives import (
 from backend.domain.configuration.schema import (
     COMPONENT_SEEDS,
     DEFAULT_BUDGETS,
+    DEFAULT_CONNECTIVITY_MEASUREMENT,
     GLOBAL_SEED_KEY,
+    ConnectivityMeasurementParams,
     economics_config_hash,
     config_hash,
     default_config,
@@ -23,7 +25,9 @@ from backend.domain.configuration.schema import (
 __all__ = [
     "COMPONENT_SEEDS",
     "ConfigError",
+    "ConnectivityMeasurementParams",
     "DEFAULT_BUDGETS",
+    "DEFAULT_CONNECTIVITY_MEASUREMENT",
     "GLOBAL_SEED_KEY",
     "NORMATIVE_FIELDS",
     "NormativeSource",

@@ -11,6 +11,7 @@ from datetime import datetime
 import json
 from pathlib import Path
 
+from backend.application.cases import CaseError, load_case
 from backend.application.runs import RunRequest, RunWorkflow
 from backend.core.paths import out_root
 from backend.presentation.ui_export.run_summary import export_run_summary
@@ -22,7 +23,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("mode", choices=("search", "verify", "full"))
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--runs-root", type=Path, default=out_root() / "runs")
+    parser.add_argument(
+        "--case",
+        type=Path,
+        default=None,
+        help="файл кейса в формате Constraints; по умолчанию config/competition-constraints.json",
+    )
     return parser
+
+
+def resolve_case(case_path: Path | None) -> Path | None:
+    """Проверить файл кейса до запуска поиска: ошибка здесь дешевле."""
+    if case_path is None:
+        return None
+    try:
+        load_case(case_path)
+    except CaseError as error:
+        raise SystemExit(f"кейс отклонён — {error}") from error
+    return case_path
 
 
 def load_run_request(runs_root: Path, run_id: str) -> RunRequest:
@@ -42,10 +60,11 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     mode = args.mode
     if mode in {"search", "full"}:
+        case_path = resolve_case(args.case)
         from backend.application.optimization.search_run import run_search
         from backend.application.optimization.verification_run import verify_schedule
 
-        outcome = run_search()
+        outcome = run_search(case_path=case_path)
         run_id = args.run_id or datetime.now().strftime("run-%Y%m%d-%H%M%S")
         request = RunRequest(run_id, outcome.schedule, outcome.predicted_npv)
         workflow = RunWorkflow(args.runs_root)
@@ -62,6 +81,11 @@ def main(argv: list[str] | None = None) -> int:
     if mode == "verify":
         if not args.run_id:
             raise SystemExit("verify требует --run-id ранее найденного запуска")
+        if args.case is not None:
+            raise SystemExit(
+                "verify не принимает --case: проверяется расписание сохранённого "
+                "запуска вместе с кейсом, на котором оно было найдено"
+            )
         from backend.application.optimization.verification_run import verify_schedule
 
         request = load_run_request(args.runs_root, args.run_id)

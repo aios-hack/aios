@@ -155,6 +155,19 @@
   font-size: var(--font-size-mono);
 }
 
+.council-table .jarvis-explain {
+  margin-left: var(--space-2);
+  color: var(--color-text-muted);
+  transition: color var(--duration-state) var(--ease-out);
+}
+
+.council-table tr:hover .jarvis-explain,
+.council-table tr[data-selected='true'] .jarvis-explain,
+.council-table .jarvis-explain:hover,
+.council-table .jarvis-explain:focus-visible {
+  color: var(--color-jarvis-ink);
+}
+
 .council-constraint {
   color: var(--color-danger);
 }
@@ -179,7 +192,8 @@
   .council-table tbody tr,
   .council-sort-button,
   .council-sort-arrow,
-  .council-well-button {
+  .council-well-button,
+  .council-table .jarvis-explain {
     transition: none;
   }
 }

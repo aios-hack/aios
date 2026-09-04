@@ -13,6 +13,7 @@ from backend.infrastructure.opm.runner import (
     _RECOVERABLE_MARKERS,
     _first_marker,
     _unrecovered_iteration_limit_failure,
+    mount_path,
     summary_spec_hash,
 )
 from backend.core.contracts import RunStatus, Schedule, ScheduleMeta, SummarySpec, hash_schedule
@@ -322,3 +323,71 @@ def test_empty_override_restores_the_image_default_user(
 # сообщении, и до этой правки получал «Failed opening file /out/BROKEN.PRT for
 # StreamLog» — текст ошибки разбора оставался в файле, который Flow не смог
 # создать. Отдельный тест на то же самое здесь был бы копией.
+
+
+# Регрессия на `docker: invalid spec: \\?\W:\...\decks\levels-0002:/deck:ro:
+# too many colons` из manifest.jsonl набора dataset-main. `Path.resolve()` на
+# Windows возвращает путь с extended-length префиксом, а докер разбирает
+# спецификацию тома по двоеточиям и на таком пути отказывает.
+
+EXTENDED_PREFIX = "\\\\?\\"
+PLAIN_DECK = "W:\\Projects\\hacks\\aios\\data\\dataset-main\\decks\\levels-0002"
+PLAIN_OUT = "W:\\Projects\\hacks\\aios\\data\\dataset-main\\runs\\r1\\output"
+EXTENDED_DECK = EXTENDED_PREFIX + PLAIN_DECK
+EXTENDED_OUT = EXTENDED_PREFIX + PLAIN_OUT
+
+
+def _mounts(command: list[str]) -> list[str]:
+    return [command[index + 1] for index, arg in enumerate(command) if arg == "-v"]
+
+
+def test_mount_path_strips_the_extended_length_prefix() -> None:
+    assert mount_path(EXTENDED_DECK) == PLAIN_DECK
+
+
+def test_mount_path_keeps_a_plain_windows_path_unchanged() -> None:
+    assert mount_path(PLAIN_DECK) == PLAIN_DECK
+
+
+def test_mount_path_keeps_a_posix_path_unchanged() -> None:
+    posix = "/home/user/dataset-main/decks/levels-0002"
+    assert mount_path(posix) == posix
+
+
+def test_mount_path_restores_the_unc_form() -> None:
+    assert mount_path(EXTENDED_PREFIX + "UNC\\server\\share\\decks") == (
+        "\\\\server\\share\\decks"
+    )
+
+
+def test_volume_arguments_never_carry_the_extended_length_prefix(tmp_path: Path) -> None:
+    runner = OpmRunner(tmp_path / "runs")
+    command = runner._command(
+        Path(EXTENDED_DECK) / "X.DATA", Path(EXTENDED_OUT), "opm-run-test", None
+    )
+
+    mounts = _mounts(command)
+    assert len(mounts) == 2
+    for mount in mounts:
+        assert EXTENDED_PREFIX not in mount, mount
+    assert mounts[0] == PLAIN_DECK + ":/deck:ro"
+    assert mounts[1] == PLAIN_OUT + ":/out"
+
+
+def test_a_resolved_work_root_produces_a_mount_docker_can_parse(tmp_path: Path) -> None:
+    """`OpmRunner` резолвит `work_root` в конструкторе — именно там на Windows
+    и появлялся префикс, который затем уезжал в `-v`."""
+
+    runner = OpmRunner(tmp_path / "runs")
+    command = runner._command(
+        tmp_path / "deck" / "X.DATA",
+        runner.work_root / "r1" / "output",
+        "opm-run-test",
+        None,
+    )
+
+    mounts = _mounts(command)
+    assert len(mounts) == 2
+    for mount in mounts:
+        assert not mount.startswith(EXTENDED_PREFIX), mount
+        assert "?" not in mount, mount

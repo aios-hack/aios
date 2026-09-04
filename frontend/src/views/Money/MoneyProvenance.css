@@ -1,0 +1,71 @@
+.money-provenance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.money-provenance-title {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.money-provenance-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.money-provenance-item {
+  display: grid;
+  grid-template-columns: minmax(0, 12ch) minmax(0, auto) minmax(0, 6ch) minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-2) 0;
+}
+
+.money-provenance-item + .money-provenance-item {
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.money-provenance-id {
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.money-provenance-value {
+  color: var(--color-text);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.money-provenance-item[data-kind='forecast'] .money-provenance-value,
+.money-provenance-item[data-kind='unmeasured'] .money-provenance-value {
+  color: var(--color-text-subtle);
+}
+
+.money-provenance-unit {
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-xs);
+}
+
+@media (max-width: 900px) {
+  .money-provenance-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .money-provenance-item > .npv-provenance {
+    grid-column: 1 / -1;
+  }
+}

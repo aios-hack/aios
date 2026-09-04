@@ -33,6 +33,27 @@ from .opm_deck import EmittedOpmDeck, bundle_hash
 DEFAULT_OPM_IMAGE = "openporousmedia/opmreleases:latest"
 OPM_IMAGE_ENV = "OPM_FLOW_IMAGE"
 
+_EXTENDED_LENGTH_PREFIX = "\\\\?\\"
+_EXTENDED_LENGTH_UNC_PREFIX = "\\\\?\\UNC\\"
+
+
+def mount_path(path: Path | str) -> str:
+    r"""Путь для аргумента `-v` докера, без extended-length префикса Windows.
+
+    `Path.resolve()` на Windows возвращает путь вида `\\?\W:\...`. Докер
+    разбирает спецификацию тома по двоеточиям и на таком пути отказывает:
+    `invalid spec: ... too many colons`. Префикс здесь снимается, а сам путь
+    остаётся абсолютным.
+    """
+
+    text = str(path)
+    if text.startswith(_EXTENDED_LENGTH_UNC_PREFIX):
+        return "\\\\" + text[len(_EXTENDED_LENGTH_UNC_PREFIX):]
+    if text.startswith(_EXTENDED_LENGTH_PREFIX):
+        return text[len(_EXTENDED_LENGTH_PREFIX):]
+    return text
+
+
 # Образ opmreleases объявляет пользователя opm с uid 1001. Каталог прогона
 # создаём мы, и владеет им тот, кто запустил тесты, — на любой машине, где
 # это не uid 1001, flow не может открыть даже собственный .PRT.
@@ -402,9 +423,9 @@ class OpmRunner:
             "--name",
             container,
             "-v",
-            f"{data_file.parent}:/deck:ro",
+            f"{mount_path(data_file.parent)}:/deck:ro",
             "-v",
-            f"{output_dir}:/out",
+            f"{mount_path(output_dir)}:/out",
             self.image,
             "flow",
             f"/deck/{data_file.name}",

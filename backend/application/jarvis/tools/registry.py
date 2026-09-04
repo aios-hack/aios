@@ -14,12 +14,16 @@ from backend.application.jarvis.tools.schemas import (
 from backend.infrastructure.llm.chat_events import ToolSpec
 
 BY_NAME: Mapping[str, ToolDefinition] = {item.name: item for item in DEFINITIONS}
+JOURNAL_TOOL = "decision_journal"
+NO_TRACE_ENTRY = "no-trace-entry"
 
 __all__ = [
     "BY_NAME",
     "CONNECTIVITY_LIMIT",
     "DEFINITIONS",
     "EVENT_TYPES",
+    "JOURNAL_TOOL",
+    "NO_TRACE_ENTRY",
     "RANK_LIMIT",
     "RANK_METRICS",
     "SERIES_METRICS",

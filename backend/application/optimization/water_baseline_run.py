@@ -20,7 +20,7 @@ from backend.core.contracts import EventKind, ResponseArtifact, Schedule, hash_s
 from backend.domain.economics import load_response_artifact
 from backend.domain.schedule import canonicalize, validate_dynamic, validate_static
 from backend.infrastructure.resources import chdd_python_dir, model_z_dir
-from backend.presentation.ui_export.artifact_io import load_schedule_json
+from backend.application.cases import load_schedule_json
 
 from .opm_active_calibration import WaterFamilyNpvCalibration
 from .runtime_artifacts import resolve_runtime_artifacts, validate_runtime_economic_head

@@ -3,6 +3,7 @@ import { useT } from '../../i18n/I18nContext';
 import { ViewStatus } from '../../ui/ViewStatus';
 import { ScenarioComparison } from '../Scenarios/ScenarioComparison';
 import { ScenarioLibrary } from '../Scenarios/ScenarioLibrary';
+import { MoneyProvenance } from './MoneyProvenance';
 
 export const MoneyComparison = () => {
   const t = useT();
@@ -20,7 +21,12 @@ export const MoneyComparison = () => {
           hint={t('scenarios.library.errorHint')}
         />
       )}
-      {index.status === 'ready' && <ScenarioComparison entries={index.data.scenarios} />}
+      {index.status === 'ready' && (
+        <>
+          <ScenarioComparison entries={index.data.scenarios} />
+          <MoneyProvenance entries={index.data.scenarios} meta={index.data.meta} />
+        </>
+      )}
       <ScenarioLibrary />
     </div>
   );

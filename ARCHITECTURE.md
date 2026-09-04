@@ -63,8 +63,8 @@ backend/core/contracts        Shared types; nothing here is reinvented in the mo
 The dependency direction is the project's own: `presentation → application →
 domain → core` and `application → infrastructure → core`. `application/jarvis`
 receives a `ChatClient` from the outside and imports neither `urllib`, `http`,
-nor `anthropic`; tools read artifacts through `application/jarvis/artifacts.py`
-and reuse `infrastructure/llm/explainer.py` and `diagnostics.py` instead of
+nor `anthropic`; tools read artifacts through `backend/application/jarvis/artifacts.py`
+and reuse `backend/infrastructure/llm/explainer.py` and `diagnostics.py` instead of
 copying their logic. A test in `tests/` guards the layering.
 
 ### Service
@@ -121,7 +121,7 @@ and drop the four call sites that reference them: the proxy import and the two
 command in `docker/entrypoint.sh`, the `jarvis` service in
 `docker-compose.yml`, and the Jarvis mount points in `frontend/src/main.tsx`
 and `frontend/src/ui/WorkspaceNav/`. Nothing else in the backend imports the
-module: `infrastructure/llm/client.py`, `explainer.py`, and `diagnostics.py`
+module: `backend/infrastructure/llm/client.py`, `explainer.py`, and `diagnostics.py`
 predate Jarvis and stay.
 
 ## Run command

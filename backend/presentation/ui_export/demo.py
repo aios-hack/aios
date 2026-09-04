@@ -20,6 +20,7 @@ from backend.core.contracts import (
 from backend.core.contracts.response import N_DECK_DATES
 from backend.core.paths import project_root
 from backend.domain.economics import ESP_CATALOG_2007
+from backend.domain.policy.agents.registry import DEFAULT_REGISTRY
 
 from backend.presentation.ui_export.ablation_view import export_ablation_json
 from backend.presentation.ui_export.artifact_io import dump_bundle
@@ -91,6 +92,38 @@ def demo_meta(kind: str) -> dict[str, Any]:
     }
 
 
+HIERARCHY_PROVENANCE = "policy-hierarchy-trace"
+HIERARCHY_NOTICE_RU = (
+    "Настоящий журнал решений: уровни поля, участка и скважины получены прогоном "
+    "политики (policy/hierarchy.run_step) на отклике сценария"
+)
+HIERARCHY_NOTICE_EN = (
+    "Real decision log: field, group and well levels come from a policy run "
+    "(policy/hierarchy.run_step) over the scenario response"
+)
+
+
+def hierarchy_meta(artifact: RunArtifact) -> dict[str, Any]:
+    """Журнал решений настоящий всегда: он посчитан, а не сгенерирован.
+
+    Синтетическим он становится только вместе с откликом, на котором его
+    посчитали, — поэтому признак читается из самого артефакта, а не из
+    того, кто вызвал экспортёр.
+    """
+
+    return {
+        "provenance": HIERARCHY_PROVENANCE,
+        "synthetic": False,
+        "kind": "hierarchy",
+        "lambda_measured": any(
+            weight != 0.0 for row in artifact.lambda_.matrix for weight in row
+        ),
+        "agent_registry": list(DEFAULT_REGISTRY.names()),
+        "notice_ru": HIERARCHY_NOTICE_RU,
+        "notice_en": HIERARCHY_NOTICE_EN,
+    }
+
+
 def deck_scale(deck_path: str | Path = DEFAULT_DECK_PATH) -> tuple[str, ...]:
     heads = load_wellheads(deck_path)
     return tuple(sorted(heads, key=lambda name: (len(name), name)))
@@ -148,10 +181,8 @@ def export_scenario(
     trace_path = export_trace_json(artifact, out_dir / "trace.json")
     _stamp_trace(trace_path, meta_by_kind["trace"])
     written.append(trace_path)
-    hierarchy_path = export_hierarchy_json(
-        artifact, out_dir / "hierarchy.json", DEMO_SEED
-    )
-    _stamp(hierarchy_path, meta_by_kind.get("hierarchy", demo_meta("hierarchy")))
+    hierarchy_path = export_hierarchy_json(artifact, out_dir / "hierarchy.json")
+    _stamp(hierarchy_path, meta_by_kind.get("hierarchy", hierarchy_meta(artifact)))
     written.append(hierarchy_path)
     ablation_path = export_ablation_json(
         artifact, out_dir / "ablation.json", DEMO_SEED
@@ -326,8 +357,14 @@ def build_demo(
     base_robustness = confirmed_base_robustness(
         base.npv_table.npv_methodology, base_result.source_run_id
     )
-    base_meta_by_kind = {
+    base_meta_by_kind: dict[str, dict[str, Any]] = {
         kind: real_meta(kind, base_result) for kind in ("timeline", "graph", "npv", "trace")
+    }
+    base_meta_by_kind["hierarchy"] = {
+        **real_meta("hierarchy", base_result),
+        **hierarchy_meta(base),
+        "source_run_id": base_result.source_run_id,
+        "response_hash": base_result.response_hash,
     }
     whatif = build_demo_artifact(
         wells=wells,

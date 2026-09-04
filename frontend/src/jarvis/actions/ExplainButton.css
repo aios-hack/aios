@@ -1,0 +1,46 @@
+.jarvis-explain {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--size-control-height);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-jarvis-body);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-jarvis-ink);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-state) var(--ease-out),
+    color var(--duration-state) var(--ease-out);
+}
+
+.jarvis-explain:hover {
+  background: var(--color-jarvis-halo);
+}
+
+.jarvis-explain:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.jarvis-explain[data-compact='true'] {
+  min-height: auto;
+  padding: 0 var(--space-1);
+  border: none;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.jarvis-explain[data-compact='true']:hover {
+  background: none;
+  color: var(--color-jarvis-body);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jarvis-explain {
+    transition: none;
+  }
+}

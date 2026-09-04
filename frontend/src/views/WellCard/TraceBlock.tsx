@@ -1,21 +1,32 @@
 import type { TraceRecord } from '../../api/types';
 import { useI18n } from '../../i18n/I18nContext';
+import { ExplainButton } from '../../jarvis/actions/ExplainButton';
 import { formatNumber } from '../../ui/format';
 import './TraceBlock.css';
 
 interface TraceBlockProps {
   records: TraceRecord[];
+  well: string;
+  step: number;
 }
 
-export const TraceBlock = ({ records }: TraceBlockProps) => {
+export const TraceBlock = ({ records, well, step }: TraceBlockProps) => {
   const { t, lang } = useI18n();
 
   if (records.length === 0) {
-    return <p className="wellcard-empty">{t('wellcard.decision.empty')}</p>;
+    return (
+      <div className="wellcard-trace-empty">
+        <p className="wellcard-empty">{t('wellcard.decision.empty')}</p>
+        <ExplainButton well={well} step={step} />
+      </div>
+    );
   }
 
   return (
     <ol className="wellcard-trace" data-guide="rules-trace">
+      <li className="wellcard-trace-actions">
+        <ExplainButton well={well} step={step} />
+      </li>
       {records.map((record, index) => (
         <li key={`${record.rule}-${index}`} className="wellcard-trace-item">
           <div className="wellcard-trace-head">

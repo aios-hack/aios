@@ -95,6 +95,14 @@
   letter-spacing: var(--tracking-mono);
 }
 
+.overview-card-unit {
+  margin-left: calc(var(--space-2) * -0.5);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
 .overview-card-delta {
   color: var(--color-text-subtle);
   font-family: var(--font-family-mono);

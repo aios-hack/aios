@@ -4,7 +4,7 @@ import { useTimeline } from '../../state/TimelineContext';
 import { LegendPopover } from '../../ui/Legend';
 import { ViewStatus } from '../../ui/ViewStatus';
 import { ViewToolbar } from '../../ui/ViewToolbar';
-import { DASH, formatNumber, formatPercent } from '../../ui/format';
+import { DASH, formatNumber } from '../../ui/format';
 import { overviewMetrics, type OverviewMetric, type OverviewMetricKey } from './overviewMetrics';
 import { OverviewCard } from './OverviewCard';
 import './Overview.css';
@@ -52,7 +52,7 @@ export const Overview = () => {
       return DASH;
     }
     if (metric.unit === 'percent') {
-      return formatPercent(lang, value);
+      return formatNumber(lang, value * 100, 1);
     }
     return formatNumber(lang, value);
   };

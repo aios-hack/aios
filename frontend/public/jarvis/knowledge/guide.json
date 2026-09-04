@@ -17,8 +17,8 @@
         "en": "The state of the whole well stock at the selected step: how many wells operate, how much is produced and injected, what the compensation is and how much NPV has accumulated."
       },
       "how_to_read": {
-        "ru": "Каждая плитка — одна величина и её ход по шагам. Компенсация читается относительно нормативного коридора: выход за него означает, что закачка и отбор разошлись. Панель доверия внизу называет источник каждого артефакта.",
-        "en": "Each tile is one value and its run across steps. Compensation is read against the normative corridor: leaving it means injection and offtake have diverged. The trust board below names the source of every artifact."
+        "ru": "Каждая плитка — одна величина и её ход по шагам. Компенсация читается относительно коридора: выход выше грозит ростом давления и раскрытием трещины, выход ниже — падением давления и потерей добычи. Строго компенсация считается в пластовых условиях, через объёмные коэффициенты PVT, а не как поверхностное отношение закачки к отбору. Панель доверия внизу называет источник каждого артефакта.",
+        "en": "Each tile is one value and its run across steps. Compensation is read against its corridor: going above threatens rising pressure and an opened fracture, going below means falling pressure and lost production. Strictly, compensation is computed in reservoir conditions through the PVT formation volume factors, not as a surface ratio of injection to offtake. The trust board below names the source of every artifact."
       },
       "controls": [
         {
@@ -68,12 +68,14 @@
         "ru": [
           "Что с фондом сейчас?",
           "Сколько скважин работает?",
-          "Какая компенсация по фонду?"
+          "Какая компенсация по фонду?",
+          "Что такое коридор закачки?"
         ],
         "en": [
           "How is the field doing now?",
           "How many wells are running?",
-          "What is the field compensation?"
+          "What is the field compensation?",
+          "What is the injection corridor?"
         ]
       }
     },
@@ -89,8 +91,8 @@
         "en": "A map of the well stock: wells at their deck coordinates and the measured links between injectors and producers."
       },
       "how_to_read": {
-        "ru": "Узел — скважина, цвет зависит от выбранного слоя: роль, обводнённость или дебит. Ребро — измеренное влияние закачки на добычу; чем толще, тем сильнее. Ползунок порога λ отсекает слабые связи, чтобы за 2375 рёбрами были видны значимые.",
-        "en": "A node is a well, coloured by the chosen layer: role, water cut or rate. An edge is a measured influence of injection on production; the thicker it is, the stronger. The λ threshold slider cuts off weak links so the significant ones are visible behind 2375 edges."
+        "ru": "Узел — скважина, цвет зависит от выбранного слоя: роль, обводнённость или дебит. Ребро — измеренное влияние закачки на добычу; чем толще, тем сильнее. Величина λ на ребре измерена планом эксперимента на возмущённых прогонах, а не выведена из расстояния: близкие скважины могут быть не связаны. Ползунок порога λ отсекает слабые связи, чтобы за 2375 рёбрами были видны значимые. Барьеры — границы регионов равновесия, выклинивания и полосы неактивных ячеек; ребро, пересекающее барьер, рисуется пунктиром и требует подтверждения.",
+        "en": "A node is a well, its colour set by the chosen layer: role, water cut or rate. An edge is the measured influence of injection on production; the thicker it is, the stronger. The λ on an edge is measured by a design of experiments over perturbed runs, not derived from distance: nearby wells may well be unconnected. The λ threshold slider cuts off weak links so that the significant ones show through 2375 edges. Barriers are equilibration region boundaries, pinch-outs and bands of inactive cells; an edge crossing a barrier is drawn dashed and needs verification."
       },
       "controls": [
         {
@@ -119,12 +121,14 @@
         "ru": [
           "Кто с кем связан?",
           "На кого влияет закачка этой скважины?",
-          "Где на карте эта скважина?"
+          "Что такое барьер и есть ли разломы?",
+          "Как измерена λ?"
         ],
         "en": [
-          "Which wells are linked?",
-          "Whom does this well's injection affect?",
-          "Where is this well on the map?"
+          "Which wells are connected?",
+          "Whom does this well's injection influence?",
+          "What is a barrier and are there faults?",
+          "How was λ measured?"
         ]
       }
     },
@@ -448,12 +452,14 @@
         "ru": [
           "Сравни base и whatif-injection-cut",
           "Какой сценарий сдан?",
-          "Насколько план устойчив?"
+          "Насколько план устойчив?",
+          "Что такое incumbent и sound?"
         ],
         "en": [
           "Compare base and whatif-injection-cut",
           "Which scenario is submitted?",
-          "How robust is the plan?"
+          "How robust is the plan?",
+          "What are incumbent and sound?"
         ]
       }
     },
@@ -492,12 +498,14 @@
         "ru": [
           "Какие ограничения у этого сценария?",
           "Какие скважины простаивают?",
-          "Есть ли лимит закачки?"
+          "Есть ли лимит закачки?",
+          "Что такое объём n дополнительной воды?"
         ],
         "en": [
           "What constraints does this scenario have?",
           "Which wells are out?",
-          "Is there an injection limit?"
+          "Is there an injection limit?",
+          "What is the volume n of additional water?"
         ]
       }
     }

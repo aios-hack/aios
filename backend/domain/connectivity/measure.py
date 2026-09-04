@@ -49,6 +49,10 @@ from backend.domain.connectivity.estimator import (
     realized_drive,
     scan_lag,
 )
+from backend.domain.configuration.schema import (
+    DEFAULT_CONNECTIVITY_MEASUREMENT,
+    ConnectivityMeasurementParams,
+)
 from backend.domain.connectivity.groups import GroupingParams, build_groups
 from backend.domain.connectivity.sweep import WindowSteps, cumulative_liquid, mean_injection_rate
 
@@ -60,15 +64,7 @@ DEFAULT_LAGS = (0, 1, 2, 3, 4, 5, 6)
 #: страхует от вырождения при выпавшем прогоне.
 DEFAULT_RIDGE = 1e-6
 
-#: Допуск недобора приёмистости: скважина, недобравшая больше, помечается как
-#: недостижимая и её столбец объявляется ненадёжным (`achievability_ok`).
-DEFAULT_TOLERANCE = 0.1
-
-#: Ниже этого разделения по фактической приёмистости (м³/сут, разница средних
-#: между уровнями HIGH и LOW) столбец считается не сдвинутым вовсе. Такая
-#: скважина не «слабо влияет» — она не участвовала в эксперименте, и её
-#: коэффициент определяется шумом. Порог берётся долей от шага амплитуды.
-SEPARATION_FLOOR_SHARE = 0.1
+DEFAULT_MEASUREMENT_PARAMS = DEFAULT_CONNECTIVITY_MEASUREMENT
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,6 +199,7 @@ def _movable(
     injectors: Sequence[str],
     baseline_by_well: Mapping[str, float],
     steps: WindowSteps,
+    separation_floor_share: float,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """Разделить фонд окна на сдвинувшиеся и не сдвинувшиеся столбцы.
 
@@ -215,7 +212,7 @@ def _movable(
     называются поимённо: «не измерено» — честный ответ, «0.0» — нет.
     """
 
-    floor = prepared.amplitude.step_m3_per_day * SEPARATION_FLOOR_SHARE
+    floor = prepared.amplitude.step_m3_per_day * separation_floor_share
     by_id = _samples_by_scenario(samples)
     high: dict[str, list[float]] = {well: [] for well in injectors}
     low: dict[str, list[float]] = {well: [] for well in injectors}
@@ -250,7 +247,7 @@ def measure(
     n_steps: int,
     lags: Sequence[int] = DEFAULT_LAGS,
     ridge: float = DEFAULT_RIDGE,
-    tolerance: float = DEFAULT_TOLERANCE,
+    params: ConnectivityMeasurementParams = DEFAULT_MEASUREMENT_PARAMS,
 ) -> MeasurementReport:
     """λ по двум партиям плана, с выбранным лагом и сверкой достижимости."""
 
@@ -260,7 +257,12 @@ def measure(
     baseline_injection = _baseline_injection(baseline.state_at_date, all_injectors, steps)
 
     injectors, unmoved = _movable(
-        prepared, samples, all_injectors, baseline_injection, steps
+        prepared,
+        samples,
+        all_injectors,
+        baseline_injection,
+        steps,
+        params.separation_floor_share,
     )
     if len(injectors) < 2:
         raise CampaignError(
@@ -289,7 +291,10 @@ def measure(
             # попадают только сдвинувшиеся.
             actual_all = _injection_by_run(ordered, all_injectors, steps)
             report = achievability(
-                plan, _targets_by_run(plan, baseline_injection), actual_all, tolerance
+                plan,
+                _targets_by_run(plan, baseline_injection),
+                actual_all,
+                params.injection_shortfall_tolerance,
             )
             unreachable.update(
                 well for well, ok in report.achievability_ok().items() if not ok

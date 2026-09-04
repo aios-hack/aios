@@ -83,6 +83,7 @@ const FieldProjectionReady = ({ wells, graph }: ReadyProps) => {
         totalEdges={graph.edges.length}
         layers={wells.layers}
         layerFilter={layerFilter}
+        edgesMeta={graph.meta}
         onPole={onPole}
         onThreshold={setThreshold}
         onLayerFilter={setLayerFilter}

@@ -77,4 +77,15 @@
   border-bottom: none;
 }
 
-.wellcard-empty,
+.wellcard-trace-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.wellcard-trace-actions {
+  display: flex;
+  justify-content: flex-end;
+}

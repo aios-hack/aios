@@ -21,5 +21,13 @@
   "metric.production": "Liquid production",
   "metric.shutWells": "Shut wells",
   "metric.watercut": "Mean watercut",
-  "span": "{from} → {to}"
+  "span": "{from} → {to} {unit}",
+  "unit.activeWells": "wells",
+  "unit.compensation": "%",
+  "unit.factToTarget": "%",
+  "unit.injection": "m³/day",
+  "unit.npv": "₽",
+  "unit.production": "m³/day",
+  "unit.shutWells": "wells",
+  "unit.watercut": "%"
 }

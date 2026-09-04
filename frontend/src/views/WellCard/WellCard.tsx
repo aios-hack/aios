@@ -84,7 +84,9 @@ export const WellCard = ({ well }: WellCardProps) => {
           </section>
           <section className="wellcard-section">
             <h4 className="wellcard-section-title">{t('wellcard.decision.title')}</h4>
-            {trace.status === 'ready' && <TraceBlock records={records} />}
+            {trace.status === 'ready' && step && (
+              <TraceBlock records={records} well={well} step={step.control_step} />
+            )}
             {trace.status === 'loading' && (
               <p className="wellcard-empty">{t('wellcard.loading')}</p>
             )}

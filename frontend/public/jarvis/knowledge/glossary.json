@@ -486,8 +486,8 @@
         "compensation"
       ],
       "definition": {
-        "ru": "Отношение закачки к отбору жидкости по участку. Ниже коридора пласт истощается и давление падает, выше — вода закачивается впустую и растит обводнённость.",
-        "en": "The ratio of injection to liquid offtake over an area. Below the corridor the reservoir depletes and pressure falls; above it, water is injected to no purpose and drives water cut up."
+        "ru": "Отношение закачки к отбору жидкости по участку. Ниже коридора пласт истощается и давление падает, выше — вода закачивается впустую и растит обводнённость. Строго величина считается в пластовых условиях (см. компенсацию отбора закачкой), а поверхностное отношение закачки к отбору — упрощение.",
+        "en": "The ratio of injection to liquid offtake over an area. Below the corridor the reservoir depletes and pressure falls; above it, water is injected to no purpose and drives water cut up. Strictly the quantity is computed in reservoir conditions (see voidage replacement); the surface ratio of injection to offtake is a simplification."
       },
       "formula": "компенсация = закачка (м³/сут) / отбор жидкости (м³/сут)",
       "unit": "доля",
@@ -516,7 +516,9 @@
         "injection-rate",
         "ppd",
         "rule-r5",
-        "area"
+        "area",
+        "voidage-replacement",
+        "injection-corridor"
       ]
     },
     {
@@ -820,14 +822,17 @@
         "en": "Lambda"
       },
       "aliases": [
-        "лямбда",
+        "design of experiments",
         "lambda",
+        "вес связи",
         "коэффициент влияния",
-        "вес связи"
+        "коэффициент влияния закачки",
+        "лямбда",
+        "план эксперимента"
       ],
       "definition": {
-        "ru": "Коэффициент матрицы влияния: сколько добычи связанной скважины приходится на единицу закачки. Ползунок λ на «Поле» отсекает слабые связи, оставляя видимыми значимые.",
-        "en": "A coefficient of the influence matrix: how much of a connected well's production corresponds to a unit of injection. The λ slider on Field cuts off weak links, leaving the significant ones visible."
+        "ru": "Коэффициент влияния закачки нагнетательной скважины на накопленную жидкость добывающей с измеренным лагом. Измерен ПЛАНОМ ЭКСПЕРИМЕНТА на возмущённых прогонах OPM, а не выведен из расстояния между скважинами: расстояние не означает гидродинамическую связь. Устойчивость проверена между двумя партиями плана; ребро без подтверждения помечается unverified и групповым уровнем не используется. Ползунок λ на экране «Поле» отсекает слабые связи.",
+        "en": "The coefficient of an injector's influence on a producer's cumulative liquid at a measured lag. It is measured by a DESIGN OF EXPERIMENTS over perturbed OPM runs, not derived from the distance between wells: distance does not imply a hydrodynamic link. Stability is checked between two batches of the plan; an unconfirmed edge is marked unverified and is not used by the group level. The λ slider on the Field screen cuts off weak links."
       },
       "formula": null,
       "unit": "доля",
@@ -846,7 +851,9 @@
       "related": [
         "connectivity",
         "rule-r1",
-        "lag"
+        "lag",
+        "barrier",
+        "geology-prior"
       ]
     },
     {
@@ -1069,14 +1076,17 @@
         "en": "Surrogate model"
       },
       "aliases": [
-        "быстрая модель",
         "surrogate",
-        "суррогатная модель",
-        "прокси-модель"
+        "surrogate model",
+        "аппроксиматор отклика",
+        "быстрая модель",
+        "прокси-модель",
+        "ранжировщик",
+        "суррогатная модель"
       ],
       "definition": {
-        "ru": "Быстрая обучаемая модель отклика пласта, которой перебираются варианты расписания вместо долгого симулятора. Её предсказание требует последующей проверки настоящим прогоном.",
-        "en": "A fast learned model of the reservoir response, used to search schedule options instead of the slow simulator. Its prediction requires a subsequent verification by a real run."
+        "ru": "Обучаемый аппроксиматор отклика симулятора: по расписанию предсказывает, что ответит OPM, и тем самым РАНЖИРУЕТ кандидатов расписания и оценивает риск. Чем он НЕ является: он не измеряет связность (λ измеряется планом эксперимента на возмущённых прогонах OPM) и не выбирает скважины (их выбирают правила политики, а уставки проходят через проекцию на жёсткие ограничения). Его предсказание обязано быть проверено настоящим прогоном; за пределами области обучения (высокий OOD) предсказание не используется.",
+        "en": "A learned approximator of the simulator response: from a schedule it predicts what OPM would answer, and thereby RANKS schedule candidates and scores risk. What it is NOT: it does not measure connectivity (λ is measured by a design of experiments over perturbed OPM runs) and it does not pick wells (those are chosen by the policy rules, and setpoints pass through the projection onto hard constraints). Its prediction must be verified by a real run; outside the training region (high OOD) the prediction is not used."
       },
       "formula": null,
       "unit": null,
@@ -1095,7 +1105,9 @@
       "related": [
         "opm",
         "ood",
-        "scenario"
+        "scenario",
+        "incumbent",
+        "lambda"
       ]
     },
     {
@@ -1131,7 +1143,8 @@
       "related": [
         "surrogate",
         "regret",
-        "scenario"
+        "scenario",
+        "incumbent"
       ]
     },
     {
@@ -2130,6 +2143,572 @@
         "watercut",
         "start-stop-cost",
         "ablation"
+      ]
+    },
+    {
+      "id": "voidage-replacement",
+      "term": {
+        "ru": "Компенсация отбора закачкой (в пластовых условиях)",
+        "en": "Voidage replacement"
+      },
+      "aliases": [
+        "voidage replacement",
+        "компенсация в пластовых условиях",
+        "пластовая компенсация",
+        "voidage",
+        "компенсация отбора закачкой"
+      ],
+      "definition": {
+        "ru": "Отношение закачанного объёма к отобранному, посчитанное в ПЛАСТОВЫХ условиях, а не на поверхности: дебиты умножаются на объёмные коэффициенты B_w и B_o из PVT дека при текущем пластовом давлении. Поверхностное отношение закачки к отбору — упрощение; правильная величина именно пластовая. Свободного газа в Model_Z нет (Rs около 0.0054 при давлении насыщения около 1.13 бар), поэтому газовый член отбора равен нулю.",
+        "en": "The ratio of injected to offtaken volume computed in RESERVOIR conditions rather than at the surface: rates are multiplied by the formation volume factors B_w and B_o from the deck PVT at the current reservoir pressure. The surface ratio of injection to offtake is a simplification; the correct quantity is the reservoir one. Model_Z has no free gas (Rs about 0.0054 at a bubble point of about 1.13 bar), so the gas term of the offtake is zero."
+      },
+      "formula": "C(k) = V_inj(k) / V_prod(k); V_inj = sum_i q_wi * B_w(p); V_prod = sum_p [q_o * B_o(p) + q_w * B_w(p)]",
+      "unit": "доля",
+      "source": "backend/domain/physics/pvt.py",
+      "where_in_platform": [
+        {
+          "workspace": "overview",
+          "view": "fund",
+          "what": {
+            "ru": "компенсация фонда и её коридор",
+            "en": "the field compensation and its corridor"
+          },
+          "spotlight": "overview-compensation-metric"
+        },
+        {
+          "workspace": "decisions",
+          "view": "council",
+          "what": {
+            "ru": "распределение закачки по участкам",
+            "en": "the injection allocation across areas"
+          },
+          "spotlight": "council-groups"
+        }
+      ],
+      "related": [
+        "compensation",
+        "injection-corridor",
+        "reservoir-pressure",
+        "compensation-scope",
+        "rule-r5"
+      ]
+    },
+    {
+      "id": "injection-corridor",
+      "term": {
+        "ru": "Коридор закачки",
+        "en": "Injection corridor"
+      },
+      "aliases": [
+        "коридор компенсации",
+        "коридор закачки",
+        "compensation corridor",
+        "injection corridor",
+        "коридор"
+      ],
+      "definition": {
+        "ru": "Допустимый интервал компенсации от C_min до C_max. Выход выше коридора — пластовое давление растёт и появляется риск раскрыть трещину; выход ниже — давление падает, пласт истощается и добыча теряется. Границы не назначаются нами: они измеряются по базовому прогону организаторов как интервал от минимума до максимума компенсации базы, расширенный на 0.05 в каждую сторону, а на тестовом кейсе берутся из самого кейса. В режиме hard выход за коридор делает расписание непригодным.",
+        "en": "The admissible interval of compensation from C_min to C_max. Going above the corridor raises reservoir pressure and risks opening a fracture; going below it drops pressure, depletes the reservoir and loses production. The bounds are not assigned by us: they are measured from the organisers' base run as the interval from the minimum to the maximum base compensation widened by 0.05 on each side, and on the test case they are taken from the case itself. Under hard enforcement, leaving the corridor makes a schedule unusable."
+      },
+      "formula": "C_min <= C(k) <= C_max; нарушения COMPENSATION_BELOW_CORRIDOR и COMPENSATION_ABOVE_CORRIDOR",
+      "unit": "доля",
+      "source": "config/competition-constraints.json",
+      "where_in_platform": [
+        {
+          "workspace": "money",
+          "view": "constraints",
+          "what": {
+            "ru": "коридор компенсации среди ограничений сценария",
+            "en": "the compensation corridor among the scenario constraints"
+          },
+          "spotlight": "money-constraints-table"
+        },
+        {
+          "workspace": "overview",
+          "view": "fund",
+          "what": {
+            "ru": "текущая компенсация относительно коридора",
+            "en": "the current compensation against the corridor"
+          },
+          "spotlight": "overview-compensation-metric"
+        }
+      ],
+      "related": [
+        "voidage-replacement",
+        "compensation",
+        "external-water",
+        "reservoir-pressure",
+        "constraints"
+      ]
+    },
+    {
+      "id": "external-water",
+      "term": {
+        "ru": "Объём n — дополнительная вода",
+        "en": "Volume n, additional water"
+      },
+      "aliases": [
+        "n",
+        "внешняя вода",
+        "дополнительная вода",
+        "external_water_m3_per_day",
+        "external water",
+        "объём n"
+      ],
+      "definition": {
+        "ru": "Объём воды, который организаторы разрешают закачивать сверх добытой на тестовом кейсе. В контракте это параметр external_water_m3_per_day. Проверка «закачка не больше добытой воды плюс n» выполняется только если кейс явно объявил ограничение источника воды; иначе закачка ограничена не источником, а коридором компенсации.",
+        "en": "The volume of water the organisers permit to be injected beyond the produced water on the test case. In the contract this is the parameter external_water_m3_per_day. The check that injection does not exceed produced water plus n applies only if the case explicitly declares a water-source limit; otherwise injection is bounded not by the source but by the compensation corridor."
+      },
+      "formula": "sum_i q_wi(k) <= sum_p q_w(p,k) + n",
+      "unit": "м3/сут",
+      "source": "backend/core/contracts/constraints.py",
+      "where_in_platform": [
+        {
+          "workspace": "money",
+          "view": "constraints",
+          "what": {
+            "ru": "лимит источника воды среди ограничений",
+            "en": "the water source limit among the constraints"
+          },
+          "spotlight": "money-constraints-table"
+        },
+        {
+          "workspace": "overview",
+          "view": "fund",
+          "what": {
+            "ru": "закачка фонда относительно добытой воды",
+            "en": "the field injection against the produced water"
+          },
+          "spotlight": "overview-compensation-metric"
+        }
+      ],
+      "related": [
+        "water-supply",
+        "injection-corridor",
+        "voidage-replacement",
+        "constraints"
+      ]
+    },
+    {
+      "id": "reservoir-pressure",
+      "term": {
+        "ru": "Пластовое давление",
+        "en": "Reservoir pressure"
+      },
+      "aliases": [
+        "пластовое давление",
+        "FPR",
+        "RPR",
+        "давление пласта",
+        "reservoir pressure"
+      ],
+      "definition": {
+        "ru": "Среднее давление пласта по полю (FPR) и по регионам (RPR по FIPNUM). Доступно только после прогона OPM: до него давление оценивается суррогатом лишь как предупреждение. Если политика давления включена, а серии прогона нет — это ошибка, а не пропуск проверки.",
+        "en": "The average reservoir pressure over the field (FPR) and by region (RPR over FIPNUM). It is available only after an OPM run: before that, pressure is estimated by the surrogate as a warning only. If the pressure policy is on but the run series is missing, that is an error, not a skipped check."
+      },
+      "formula": null,
+      "unit": "бар",
+      "source": "backend/domain/physics",
+      "where_in_platform": [
+        {
+          "workspace": "overview",
+          "view": "fund",
+          "what": {
+            "ru": "давление фонда на выбранном шаге",
+            "en": "the field pressure at the selected step"
+          },
+          "spotlight": "overview-compensation-metric"
+        },
+        {
+          "workspace": "money",
+          "view": "comparison",
+          "what": {
+            "ru": "статус проверки давления у сценария",
+            "en": "the scenario's pressure check status"
+          },
+          "spotlight": "money-comparison-table"
+        }
+      ],
+      "related": [
+        "pressure-floor",
+        "pressure-ceiling",
+        "bhp",
+        "voidage-replacement"
+      ]
+    },
+    {
+      "id": "pressure-floor",
+      "term": {
+        "ru": "Пол давления",
+        "en": "Pressure floor"
+      },
+      "aliases": [
+        "пол давления",
+        "нижний предел давления",
+        "p_floor",
+        "pressure floor",
+        "пол по давлению"
+      ],
+      "definition": {
+        "ru": "Нижняя граница пластового давления. Считается как максимум из давления насыщения с запасом и давления, при котором добывающие упираются в предел по забойному. Для Model_Z давление насыщения около 1.13 бар, поэтому фактический пол задаёт эксплуатация, а не разгазирование — это надо говорить прямо, а не скрывать. Нарушения: FIELD_PRESSURE_BELOW_FLOOR и REGION_PRESSURE_BELOW_FLOOR.",
+        "en": "The lower bound of reservoir pressure. It is computed as the maximum of the bubble point pressure with a margin and the pressure at which producers hit their bottomhole limit. For Model_Z the bubble point is about 1.13 bar, so the actual floor is set by operation rather than by gas liberation — this should be stated plainly, not hidden. Violations: FIELD_PRESSURE_BELOW_FLOOR and REGION_PRESSURE_BELOW_FLOOR."
+      },
+      "formula": "p_floor = max(Pb + 5 бар, p_lift)",
+      "unit": "бар",
+      "source": "backend/domain/physics",
+      "where_in_platform": [
+        {
+          "workspace": "overview",
+          "view": "fund",
+          "what": {
+            "ru": "давление фонда относительно пола",
+            "en": "the field pressure against its floor"
+          },
+          "spotlight": "overview-compensation-metric"
+        },
+        {
+          "workspace": "money",
+          "view": "comparison",
+          "what": {
+            "ru": "нарушения давления у сценария",
+            "en": "the scenario's pressure violations"
+          },
+          "spotlight": "money-comparison-table"
+        }
+      ],
+      "related": [
+        "reservoir-pressure",
+        "pressure-ceiling",
+        "bhp"
+      ]
+    },
+    {
+      "id": "pressure-ceiling",
+      "term": {
+        "ru": "Потолок давления",
+        "en": "Pressure ceiling"
+      },
+      "aliases": [
+        "потолок давления",
+        "верхний предел давления",
+        "p_ceiling",
+        "pressure ceiling",
+        "потолок по давлению"
+      ],
+      "definition": {
+        "ru": "Верхняя граница пластового давления. Физический смысл — не раскрыть трещину: заказчик указал, что выше примерно 300 атм трещина в жизни раскрывается. По умолчанию потолок равен начальному давлению, умноженному на 1.25; значение из кейса имеет приоритет. Нарушения: FIELD_PRESSURE_ABOVE_CEILING и REGION_PRESSURE_ABOVE_CEILING.",
+        "en": "The upper bound of reservoir pressure. Its physical meaning is not to open a fracture: the customer stated that above roughly 300 atm a fracture does open in practice. By default the ceiling is the initial pressure multiplied by 1.25; a value from the case takes priority. Violations: FIELD_PRESSURE_ABOVE_CEILING and REGION_PRESSURE_ABOVE_CEILING."
+      },
+      "formula": "p_ceiling = p_init * 1.25 по умолчанию",
+      "unit": "бар",
+      "source": "backend/domain/physics",
+      "where_in_platform": [
+        {
+          "workspace": "overview",
+          "view": "fund",
+          "what": {
+            "ru": "давление фонда относительно потолка",
+            "en": "the field pressure against its ceiling"
+          },
+          "spotlight": "overview-compensation-metric"
+        },
+        {
+          "workspace": "money",
+          "view": "comparison",
+          "what": {
+            "ru": "нарушения давления у сценария",
+            "en": "the scenario's pressure violations"
+          },
+          "spotlight": "money-comparison-table"
+        }
+      ],
+      "related": [
+        "reservoir-pressure",
+        "pressure-floor",
+        "injection-corridor"
+      ]
+    },
+    {
+      "id": "barrier",
+      "term": {
+        "ru": "Барьер",
+        "en": "Barrier"
+      },
+      "aliases": [
+        "барьер",
+        "гидродинамический барьер",
+        "разлом",
+        "fault",
+        "barrier",
+        "выклинивание",
+        "неактивные ячейки"
+      ],
+      "definition": {
+        "ru": "Препятствие потоку между участками пласта. В Model_Z это НЕ разлом: в деке FAULTS и MULTFLT равны нулю. Барьером служат граница региона равновесия EQLNUM (их пять, у каждого своя строка EQUIL), выклинивание пластов PINCHREG, нулевая доля коллектора NTG, полоса неактивных ячеек (56 процентов ячеек неактивны) и множитель проводимости меньше единицы. Читатель геологии поддерживает FAULTS, MULTFLT, MULTX, MULTY, MULTZ, MULTREGT и NNC синтаксически, поэтому на месторождении с настоящими разломами барьеры появятся без правки кода.",
+        "en": "An obstacle to flow between parts of the reservoir. In Model_Z this is NOT a fault: FAULTS and MULTFLT in the deck are both zero. The barriers are the boundary of an equilibration region EQLNUM (there are five, each with its own EQUIL line), pinch-out of layers PINCHREG, zero net-to-gross NTG, a band of inactive cells (56 per cent of cells are inactive) and a transmissibility multiplier below one. The geology reader supports FAULTS, MULTFLT, MULTX, MULTY, MULTZ, MULTREGT and NNC syntactically, so on a field with real faults the barriers will appear without a code change."
+      },
+      "formula": null,
+      "unit": null,
+      "source": "backend/domain/geology/barriers.py",
+      "where_in_platform": [
+        {
+          "workspace": "field",
+          "view": "projection",
+          "what": {
+            "ru": "слой барьеров на карте поля",
+            "en": "the barrier layer on the field map"
+          },
+          "spotlight": "projection-layer-switch"
+        },
+        {
+          "workspace": "field",
+          "view": "projection",
+          "what": {
+            "ru": "рёбра через барьер отмечены пунктиром",
+            "en": "edges crossing a barrier are drawn dashed"
+          },
+          "spotlight": "projection-threshold-slider"
+        }
+      ],
+      "related": [
+        "eqlnum",
+        "connectivity",
+        "lambda",
+        "geology-prior"
+      ]
+    },
+    {
+      "id": "eqlnum",
+      "term": {
+        "ru": "Регион равновесия (EQLNUM)",
+        "en": "Equilibration region (EQLNUM)"
+      },
+      "aliases": [
+        "eqlnum",
+        "регион равновесия",
+        "равновесный регион",
+        "equilibration region",
+        "equil"
+      ],
+      "definition": {
+        "ru": "Область деки со своей строкой EQUIL — собственным начальным распределением давления и контактов. В Model_Z таких регионов пять. Граница между двумя разными регионами равновесия работает как гидродинамический барьер, потому что по разные стороны от неё пласт изначально уравновешен по-разному.",
+        "en": "A region of the deck with its own EQUIL line — its own initial distribution of pressure and contacts. Model_Z has five such regions. The boundary between two different equilibration regions acts as a hydrodynamic barrier, because on either side of it the reservoir is initially equilibrated differently."
+      },
+      "formula": null,
+      "unit": null,
+      "source": "backend/domain/geology/barriers.py",
+      "where_in_platform": [
+        {
+          "workspace": "field",
+          "view": "projection",
+          "what": {
+            "ru": "границы регионов равновесия на карте",
+            "en": "equilibration region boundaries on the map"
+          },
+          "spotlight": "projection-layer-switch"
+        }
+      ],
+      "related": [
+        "barrier",
+        "geology-prior",
+        "deck"
+      ]
+    },
+    {
+      "id": "geology-prior",
+      "term": {
+        "ru": "Геологический априор",
+        "en": "Geological prior"
+      },
+      "aliases": [
+        "геологический априор",
+        "априор",
+        "geological prior",
+        "проводимость между скважинами"
+      ],
+      "definition": {
+        "ru": "Ожидание связи между парой скважин по геометрии и свойствам породы: гармоническая средняя произведения проницаемости на долю коллектора вдоль прямой между устьями по слоям перфораций, плюс доля активных ячеек на пути. Это НЕ связность: расстояние и проницаемость не означают гидродинамическую связь. Априор нужен для проверки — ребро с большим значением λ и нулевым априором первым идёт на перепроверку.",
+        "en": "The expectation of a link between a pair of wells from geometry and rock properties: the harmonic mean of permeability times net-to-gross along the straight line between the wellheads over the perforated layers, plus the fraction of active cells on the path. This is NOT connectivity: distance and permeability do not imply a hydrodynamic link. The prior is used for checking — an edge with a large λ and a zero prior is the first to be re-verified."
+      },
+      "formula": null,
+      "unit": null,
+      "source": "backend/domain/geology/prior.py",
+      "where_in_platform": [
+        {
+          "workspace": "field",
+          "view": "projection",
+          "what": {
+            "ru": "рёбра графа и их подтверждение",
+            "en": "graph edges and their verification"
+          },
+          "spotlight": "projection-threshold-slider"
+        }
+      ],
+      "related": [
+        "barrier",
+        "connectivity",
+        "lambda",
+        "eqlnum"
+      ]
+    },
+    {
+      "id": "compensation-scope",
+      "term": {
+        "ru": "Область проверки компенсации",
+        "en": "Compensation scope"
+      },
+      "aliases": [
+        "область проверки компенсации",
+        "compensation scope",
+        "поле и участки",
+        "field_and_groups"
+      ],
+      "definition": {
+        "ru": "Компенсация проверяется и по полю, и по участкам. Участок без нагнетательных скважин не проверяется. Участок без отбора — это ошибка данных, а не ноль: величина, которую нельзя посчитать, обязана дать отказ, а не подставное значение.",
+        "en": "Compensation is checked over the field and over the areas. An area with no injectors is not checked. An area with no offtake is a data error, not a zero: a quantity that cannot be computed must produce a refusal, not a stand-in value."
+      },
+      "formula": null,
+      "unit": null,
+      "source": "backend/core/contracts/constraints.py",
+      "where_in_platform": [
+        {
+          "workspace": "decisions",
+          "view": "council",
+          "what": {
+            "ru": "компенсация по участкам",
+            "en": "compensation by area"
+          },
+          "spotlight": "council-groups"
+        },
+        {
+          "workspace": "overview",
+          "view": "fund",
+          "what": {
+            "ru": "компенсация по полю",
+            "en": "compensation over the field"
+          },
+          "spotlight": "overview-compensation-metric"
+        }
+      ],
+      "related": [
+        "voidage-replacement",
+        "injection-corridor",
+        "area",
+        "rule-r5"
+      ]
+    },
+    {
+      "id": "material-balance",
+      "term": {
+        "ru": "Материальный баланс",
+        "en": "Material balance"
+      },
+      "aliases": [
+        "материальный баланс",
+        "material balance",
+        "тождество баланса",
+        "MATERIAL_BALANCE_BROKEN"
+      ],
+      "definition": {
+        "ru": "Тождества сохранения объёмов на прогоне: изменение запасов нефти сходится с накопленной добычей, изменение запасов воды — с накопленной закачкой за вычетом добытой воды. Относительная ошибка выше одного процента — нарушение MATERIAL_BALANCE_BROKEN: прогон не считается достоверным.",
+        "en": "The volume conservation identities over a run: the change in oil in place matches cumulative oil production, and the change in water in place matches cumulative injection less produced water. A relative error above one per cent is the violation MATERIAL_BALANCE_BROKEN: the run is not considered trustworthy."
+      },
+      "formula": "dFOIP + dFOPT ~ 0; dFWIP - (dFWIT - dFWPT) ~ 0",
+      "unit": "доля",
+      "source": "backend/domain/robustness",
+      "where_in_platform": [
+        {
+          "workspace": "money",
+          "view": "comparison",
+          "what": {
+            "ru": "тождества баланса в статусе прогона",
+            "en": "the balance identities in the run status"
+          },
+          "spotlight": "money-comparison-table"
+        }
+      ],
+      "related": [
+        "sound",
+        "opm",
+        "reservoir-pressure"
+      ]
+    },
+    {
+      "id": "incumbent",
+      "term": {
+        "ru": "Incumbent",
+        "en": "Incumbent"
+      },
+      "aliases": [
+        "incumbent",
+        "инкумбент",
+        "действующее расписание",
+        "лучшее расписание",
+        "текущий чемпион"
+      ],
+      "definition": {
+        "ru": "Последнее расписание, подтверждённое прогоном OPM как sound и имеющее лучший ЧДД среди подтверждённых. Сдаётся только оно: кандидат, который лучше по предсказанию суррогата, но не проверен симулятором, incumbent не заменяет.",
+        "en": "The most recent schedule confirmed sound by an OPM run and holding the best NPV among the confirmed ones. Only it is submitted: a candidate that looks better by the surrogate's prediction but has not been checked by the simulator does not replace the incumbent."
+      },
+      "formula": null,
+      "unit": null,
+      "source": "backend/core/contracts/policy.py",
+      "where_in_platform": [
+        {
+          "workspace": "money",
+          "view": "comparison",
+          "what": {
+            "ru": "подтверждённые сценарии и их ЧДД",
+            "en": "the confirmed scenarios and their NPV"
+          },
+          "spotlight": "money-comparison-table"
+        }
+      ],
+      "related": [
+        "sound",
+        "submitted",
+        "opm",
+        "surrogate",
+        "scenario"
+      ]
+    },
+    {
+      "id": "sound",
+      "term": {
+        "ru": "Sound",
+        "en": "Sound"
+      },
+      "aliases": [
+        "sound",
+        "саунд",
+        "достоверный прогон",
+        "корректный прогон",
+        "признан достоверным"
+      ],
+      "definition": {
+        "ru": "Признак прогона: симулятор дошёл до конца горизонта, тождества материального баланса сходятся, блокирующих нарушений ограничений нет. Расписание без этого признака не сдаётся, каким бы хорошим ни выглядел его ЧДД.",
+        "en": "A property of a run: the simulator reached the end of the horizon, the material balance identities hold, and there are no blocking constraint violations. A schedule without this property is not submitted, however good its NPV may look."
+      },
+      "formula": null,
+      "unit": null,
+      "source": "backend/core/contracts/policy.py",
+      "where_in_platform": [
+        {
+          "workspace": "money",
+          "view": "comparison",
+          "what": {
+            "ru": "статус sound у сценария",
+            "en": "the scenario's sound status"
+          },
+          "spotlight": "money-comparison-table"
+        }
+      ],
+      "related": [
+        "incumbent",
+        "material-balance",
+        "opm",
+        "submitted",
+        "constraints"
       ]
     }
   ]

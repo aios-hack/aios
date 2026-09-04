@@ -175,6 +175,20 @@ DECISION_TOOLS: tuple[ToolDefinition, ...] = (
         card_type="rule",
     ),
     ToolDefinition(
+        name="decision_journal",
+        description=(
+            "The journal facts recorded for a well at a control step: every rule "
+            "that fired, its recorded inputs and its decision, read straight from "
+            "the trace of the run. Refuses with no-trace-entry when the journal "
+            "holds no record for that well and step."
+        ),
+        schema=obj(
+            {"well": {"type": "string"}, "step": {"type": "integer"}},
+            ("well", "step"),
+        ),
+        card_type="rule",
+    ),
+    ToolDefinition(
         name="rule_impact",
         description=(
             "The contribution of rules R0 to R7 to NPV by ablation: delta, share "

@@ -53,6 +53,7 @@ export const OverviewCard = ({
   const { t } = useI18n();
   const titleId = useId();
   const label = t(`overview.metric.${metric.key}`);
+  const unit = t(`overview.unit.${metric.key}`);
 
   const geometry = useMemo(() => {
     const framed = (baseline: number | null) =>
@@ -101,6 +102,7 @@ export const OverviewCard = ({
         <h3 className="overview-card-title">{label}</h3>
         <p className="overview-card-reading">
           <span className="overview-card-value">{format(metric.current)}</span>
+          <span className="overview-card-unit">{unit}</span>
           {deltaLabel !== null && (
             <span className="overview-card-delta" data-trend={metric.delta! > 0 ? 'up' : 'down'}>
               {deltaLabel}
@@ -116,7 +118,7 @@ export const OverviewCard = ({
         role="img"
         aria-labelledby={titleId}
       >
-        <title id={titleId}>{label}</title>
+        <title id={titleId}>{`${label}, ${unit}`}</title>
         {corridor !== null && (
           <rect
             className="overview-card-band"
@@ -184,7 +186,8 @@ export const OverviewCard = ({
         <span className="overview-card-span">
           {t('overview.span', {
             from: metric.first === null ? DASH : format(metric.first),
-            to: metric.last === null ? DASH : format(metric.last)
+            to: metric.last === null ? DASH : format(metric.last),
+            unit
           })}
         </span>
         {bandKey !== null && <span className="overview-card-flag">{t(bandKey)}</span>}

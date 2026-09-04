@@ -1,6 +1,11 @@
 {
   "ariaLabel": "Well stock projection: the map morphs into the hydrodynamic connectivity graph",
   "dim": "Outside selected layer",
+  "edges.hint.label": "How the edges are computed",
+  "edges.hint.measured": "How the edges are computed. Connectivity λ is measured by a design of experiments: injection is perturbed well by well, simulator runs are repeated, and λ is read off the production response. It is not the distance between wells and not the pad geometry. Response lag: {lag}. Stability across run batches: {stability}. Rank of the response matrix: {rank}. Condition number: {condition}.",
+  "edges.hint.unmeasured": "How the edges are computed. Connectivity λ is not measured for this scenario: no design of experiments on perturbed runs was made. The edges are shown as they come from the artifact, with no stability or condition numbers behind them.",
+  "edges.lagMonths": "{value} mo.",
+  "edges.lagZero": "no shift, response within the same step",
   "empty": "The artifact holds neither wells nor nodes",
   "emptyHint": "Nothing to project: both layouts are empty.",
   "error": "The projection could not be loaded",

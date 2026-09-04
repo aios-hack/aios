@@ -1,5 +1,6 @@
 import { memo, useCallback, type CSSProperties } from 'react';
 import type { Lang } from '../../i18n/dictionaries';
+import { ExplainButton } from '../../jarvis/actions/ExplainButton';
 import { DASH, formatNumber } from '../../ui/format';
 import { dimState, type CouncilPath, type WellRow as WellRowData } from './levels';
 import { decisionAmount, decisionVerb } from './wellSorting';
@@ -60,6 +61,7 @@ const WellRowView = ({ row, index, path, lang, t, onSelectWell }: WellRowProps) 
         <span className="council-rule" title={t(`council.rule.${row.rule}`)}>
           {row.rule}
         </span>
+        <ExplainButton well={row.well} compact />
       </td>
       <td className="council-cell-num">
         {numericCell(lang, row.inputs.group_limit_m3_per_day ?? null)}

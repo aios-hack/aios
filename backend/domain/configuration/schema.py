@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import fields
+from dataclasses import dataclass, fields
 
 from backend.core.contracts import (
     ArtifactHashes,
@@ -32,6 +32,40 @@ COMPONENT_SEEDS: tuple[str, ...] = (
 DEFAULT_BUDGETS = Budgets(
     runs_per_verification_round=8,
     fixed_point_iteration_cap=12,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ConnectivityMeasurementParams:
+    """Допуски измерения связности: два числа, которые кампания λ обязана
+    получить параметром, а не прочитать литералом внутри домена.
+
+    `injection_shortfall_tolerance` — доля недобора приёмистости, выше которой
+    скважина объявляется недостижимой (`achievability_ok` = false).
+    `separation_floor_share` — доля шага амплитуды; разделение фактической
+    приёмистости между уровнями HIGH и LOW ниже неё означает, что столбец
+    в эксперименте не участвовал.
+    """
+
+    injection_shortfall_tolerance: float
+    separation_floor_share: float
+
+    def __post_init__(self) -> None:
+        if not 0.0 < self.injection_shortfall_tolerance < 1.0:
+            raise ValueError(
+                f"допуск недобора приёмистости — доля в (0, 1), получено "
+                f"{self.injection_shortfall_tolerance}"
+            )
+        if not 0.0 < self.separation_floor_share < 1.0:
+            raise ValueError(
+                f"порог разделения — доля шага амплитуды в (0, 1), получено "
+                f"{self.separation_floor_share}"
+            )
+
+
+DEFAULT_CONNECTIVITY_MEASUREMENT = ConnectivityMeasurementParams(
+    injection_shortfall_tolerance=0.1,
+    separation_floor_share=0.1,
 )
 
 _HASH_FIELDS: tuple[str, ...] = tuple(f.name for f in fields(ArtifactHashes))

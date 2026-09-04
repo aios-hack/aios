@@ -81,5 +81,12 @@
   "warning.number-dropped": "A number missing from the data was cut from the caption",
   "warning.unknown": "The answer arrived with a caveat",
   "provenanceKnowledge": "from the project knowledge base",
-  "badPayload": "The card payload failed validation"
+  "badPayload": "The card payload failed validation",
+  "explain": "Explain",
+  "explainHint": "Show the decision journal facts for this well and step",
+  "explainQuestion": "Why this decision for well {well}?",
+  "explainCardTitle": "Rule {rule} — well {well}",
+  "explainCaption": "The decision for well {well} is recorded in the journal: rules {rules} fired, the result is {decision}. Every number on the cards comes from the decision journal; nothing was computed on top.",
+  "explainNoEntryTitle": "No journal record",
+  "explainNoEntry": "The decision journal holds no record for well {well} at this step: there is nothing to explain, and Jarvis will not invent a reason."
 }

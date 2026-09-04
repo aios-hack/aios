@@ -1,4 +1,11 @@
 import type { GraphEdge, GraphFile, GraphNode } from '../../api/types';
+import {
+  EDGE_OPACITY_FLOOR,
+  EDGE_OPACITY_SPAN,
+  EDGE_WIDTH_FLAT,
+  EDGE_WIDTH_FLOOR,
+  EDGE_WIDTH_SPAN
+} from '../../theme/tokens';
 
 export interface Selection {
   well: string;
@@ -15,21 +22,34 @@ export const visibleEdges = (edges: GraphEdge[], threshold: number): GraphEdge[]
 
 export const EDGES_PER_PRODUCER = 4;
 
-export const DEFAULT_EDGE_QUANTILE = 0;
+export const DEFAULT_EDGE_BUDGET = 400;
+
+const nextAbove = (descending: number[], from: number): number => {
+  const value = descending[from];
+  for (let index = from - 1; index >= 0; index -= 1) {
+    if (descending[index] > value) {
+      return descending[index];
+    }
+  }
+  return descending[0];
+};
 
 export const defaultThreshold = (
   edges: GraphEdge[],
-  bounds: { min: number; max: number }
+  bounds: { min: number; max: number },
+  budget: number = DEFAULT_EDGE_BUDGET
 ): number => {
   if (edges.length === 0) {
     return bounds.min;
   }
-  const sorted = edges.map((edge) => Math.abs(edge.weight)).sort((a, b) => a - b);
-  const index = Math.min(
-    sorted.length - 1,
-    Math.floor(sorted.length * DEFAULT_EDGE_QUANTILE)
-  );
-  return sorted[index];
+  const sorted = edges.map((edge) => Math.abs(edge.weight)).sort((a, b) => b - a);
+  const keep = Math.max(1, Math.min(sorted.length, Math.floor(budget)));
+  if (keep >= sorted.length) {
+    return sorted[sorted.length - 1];
+  }
+  const cutoff = sorted[keep - 1];
+  const next = sorted[keep];
+  return next < cutoff ? cutoff : nextAbove(sorted, keep);
 };
 
 export const topEdgesPerProducer = (
@@ -56,18 +76,25 @@ export const topEdgesPerProducer = (
   return kept;
 };
 
+export const edgeStrength = (weight: number, max: number): number => {
+  if (max <= 0) {
+    return 1;
+  }
+  return Math.sqrt(Math.min(Math.abs(weight) / max, 1));
+};
+
 export const edgeOpacity = (weight: number, max: number): number => {
   if (max <= 0) {
     return 1;
   }
-  return 0.14 + 0.5 * (Math.abs(weight) / max);
+  return EDGE_OPACITY_FLOOR + EDGE_OPACITY_SPAN * edgeStrength(weight, max);
 };
 
 export const edgeWidth = (weight: number, max: number): number => {
   if (max <= 0) {
-    return 0.4;
+    return EDGE_WIDTH_FLAT;
   }
-  return 0.15 + 0.75 * (Math.abs(weight) / max);
+  return EDGE_WIDTH_FLOOR + EDGE_WIDTH_SPAN * edgeStrength(weight, max);
 };
 
 export const buildSelection = (

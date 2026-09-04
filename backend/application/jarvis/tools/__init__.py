@@ -4,6 +4,7 @@ from typing import Any, Callable, Mapping
 
 from backend.application.jarvis.tools import (
     connectivity as connectivity_module,
+    decisions,
     fields,
     knowledge as knowledge_module,
     patterns,
@@ -14,8 +15,11 @@ from backend.application.jarvis.tools import (
 )
 from backend.application.jarvis.tools.actions import build_action
 from backend.application.jarvis.tools.context import Card, ToolContext, ToolFailure
+from backend.application.jarvis.tools.decisions import NoTraceEntry
 from backend.application.jarvis.tools.labels import title
 from backend.application.jarvis.tools.registry import (
+    JOURNAL_TOOL,
+    NO_TRACE_ENTRY,
     ToolInputError,
     definition,
     tool_specs,
@@ -30,6 +34,7 @@ HANDLERS: Mapping[str, ToolFn] = {
     "field_metrics": fields.field_metrics,
     "field_events": fields.field_events,
     "explain_decision": rules.explain_decision,
+    "decision_journal": decisions.explain_decision,
     "rank_wells": ranking.rank_wells,
     "rule_impact": rules.rule_impact,
     "connectivity": connectivity_module.connectivity,
@@ -79,6 +84,9 @@ def error_card(name: str, message: str, lang: str = "ru") -> Card:
 __all__ = [
     "Card",
     "HANDLERS",
+    "JOURNAL_TOOL",
+    "NO_TRACE_ENTRY",
+    "NoTraceEntry",
     "ToolContext",
     "ToolFailure",
     "ToolInputError",

@@ -6,11 +6,12 @@ import {
   type ScenesState
 } from './scenes';
 import { QUESTION_LIMIT, sessionIdOf, type JarvisTransport } from './transport/JarvisTransport';
-import type { JarvisAskContext } from './transport/events';
+import type { JarvisAskContext, JarvisEvent } from './transport/events';
 
 export interface JarvisSession {
   scenes: ScenesState;
   askQuestion: (question: string) => void;
+  pushEvents: (events: readonly JarvisEvent[]) => void;
   cancel: () => void;
   selectScene: (index: number) => void;
   busy: boolean;
@@ -36,6 +37,18 @@ export const useJarvisSession = (
 
   const selectScene = useCallback(
     (index: number) => setScenes((current) => selectSceneAt(current, index)),
+    []
+  );
+
+  const pushEvents = useCallback(
+    (events: readonly JarvisEvent[]) => {
+      abortRef.current?.abort();
+      abortRef.current = null;
+      setBusy(false);
+      setScenes((current) =>
+        events.reduce((state, event) => scenesReducer(state, event), current)
+      );
+    },
     []
   );
 
@@ -83,7 +96,7 @@ export const useJarvisSession = (
   );
 
   return useMemo(
-    () => ({ scenes, askQuestion, cancel, selectScene, busy }),
-    [scenes, askQuestion, cancel, selectScene, busy]
+    () => ({ scenes, askQuestion, pushEvents, cancel, selectScene, busy }),
+    [scenes, askQuestion, pushEvents, cancel, selectScene, busy]
   );
 };

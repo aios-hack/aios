@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
 import type { GraphEdge } from '../../api/types';
-import { edgeOpacity, edgeWidth } from '../shared/graphModel';
+import { edgeColors } from '../../theme/tokens';
+import { edgeOpacity, edgeStrength, edgeWidth } from '../shared/graphModel';
 import { edgeOpacityAt, type PlacedNode } from './interpolate';
 
 export const EDGE_MUTED_SHARE = 0.18;
@@ -34,6 +35,7 @@ interface EdgeStyle {
   id: string;
   baseOpacity: number;
   relation: EdgeRelation;
+  strength: number;
   width: number;
   stroke: string;
 }
@@ -52,9 +54,9 @@ const edgeStyles = (
       id: `${edge.injector}-${edge.producer}`,
       baseOpacity: edgeOpacity(edge.weight, maxWeight),
       relation,
+      strength: edgeStrength(edge.weight, maxWeight),
       width: relation === 'linked' ? width * EDGE_LINKED_BOOST : width,
-      stroke:
-        edge.weight >= 0 ? 'var(--color-edge-positive)' : 'var(--color-edge-negative)'
+      stroke: edge.weight >= 0 ? edgeColors.positive : edgeColors.negative
     };
   });
 
@@ -106,6 +108,7 @@ const EdgeLayerView = ({
             data-edge-id={style.id}
             data-opacity={opacity}
             data-relation={style.relation}
+            data-strength={style.strength}
           />
         );
       })}

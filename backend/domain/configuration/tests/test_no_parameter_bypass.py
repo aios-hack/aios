@@ -37,8 +37,8 @@ NORMATIVE_VALUES: frozenset[float] = frozenset(
 )
 
 TECHNICAL_TOLERANCE_LITERALS: dict[str, frozenset[str]] = {
-    "domain/connectivity/measure.py": frozenset(
-        {"DEFAULT_TOLERANCE", "SEPARATION_FLOOR_SHARE"}
+    "domain/configuration/schema.py": frozenset(
+        {"injection_shortfall_tolerance", "separation_floor_share"}
     ),
 }
 
@@ -77,26 +77,36 @@ def allowed_technical_tolerance_lines(path: Path) -> set[int]:
     """Return only the two named non-economic uses of the 0.10 literal.
 
     The names are part of this exception: a new bare ``0.10`` must fail the
-    guard instead of silently becoming another exemption.
+    guard instead of silently becoming another exemption. Both live in the
+    configuration schema, where they are declared parameters; domain code
+    receives them and never spells the number itself.
     """
 
-    names = TECHNICAL_TOLERANCE_LITERALS.get(str(path.relative_to(ROOT)))
+    names = TECHNICAL_TOLERANCE_LITERALS.get(path.relative_to(ROOT).as_posix())
     if names is None:
         return set()
     tree = ast.parse(path.read_text(encoding="utf-8"))
     lines: set[int] = set()
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Constant):
-            continue
-        if not isinstance(node.value.value, (int, float)) or isinstance(node.value.value, bool):
-            continue
-        if float(node.value.value) != 0.10:
-            continue
-        assigned = {
-            target.id for target in node.targets if isinstance(target, ast.Name)
-        }
-        if assigned & names:
-            lines.add(node.value.lineno)
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant):
+            value = node.value
+            if not isinstance(value.value, (int, float)) or isinstance(value.value, bool):
+                continue
+            if float(value.value) != 0.10:
+                continue
+            assigned = {
+                target.id for target in node.targets if isinstance(target, ast.Name)
+            }
+            if assigned & names:
+                lines.add(value.lineno)
+        elif isinstance(node, ast.keyword) and isinstance(node.value, ast.Constant):
+            value = node.value
+            if not isinstance(value.value, (int, float)) or isinstance(value.value, bool):
+                continue
+            if float(value.value) != 0.10:
+                continue
+            if node.arg in names:
+                lines.add(value.lineno)
     return lines
 
 

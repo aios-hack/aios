@@ -237,7 +237,7 @@ open ─(close)─▶ shrinking ─220ms─▶ turning ─600ms─▶ settling �
 
 При `prefers-reduced-motion` анимации нет: сфера просто исчезает и появляется.
 
-Математика вынесена в `sphere/sphereBurst.ts` (`burstModeOf`, `burstFrameAt`) и покрыта
+Математика вынесена в `frontend/src/jarvis/sphere/sphereBurst.ts` (`burstModeOf`, `burstFrameAt`) и покрыта
 тестами; фаза → режим: `shrinking` → `collapse`, `settling` → `materialize`, остальное →
 `none`.
 
@@ -600,9 +600,9 @@ src/jarvis/
 ```
 
 Точки врезки в существующий код (минимальные):
-- `src/main.tsx` — `<JarvisProvider>` и `<JarvisStage>` вокруг `<App/>`;
-- `src/ui/WorkspaceNav/WorkspaceNav.tsx` — слот сферы после tablist;
-- `src/app/useHotkeys.ts` — клавиша `J`;
+- `frontend/src/main.tsx` — `<JarvisProvider>` и `<JarvisStage>` вокруг `<App/>`;
+- `frontend/src/ui/WorkspaceNav/WorkspaceNav.tsx` — слот сферы после tablist;
+- `frontend/src/app/useHotkeys.ts` — клавиша `J`;
 - `src/theme/tokens.*.css`, `tokens.test.ts` — токены и их проверка;
 - `vite.config.ts` — `server.proxy['/api/jarvis'] → http://localhost:8010`.
 
@@ -659,7 +659,7 @@ backend/
   `AIOS_UI_DATA`. Сценарий — подпапка. Артефакты индексируются один раз при старте
   (скважина → шаги, шаг → строки, рёбра по узлу); перечитываются по `mtime`.
 - **Модель и провайдер.** Ключ — **OpenRouter**: один ключ на все модели, смена модели без
-  правки кода, и Джарвис не привязан к одному вендору. Слой `infrastructure/llm/chat.py` задаёт
+  правки кода, и Джарвис не привязан к одному вендору. Слой `backend/infrastructure/llm/chat.py` задаёт
   протокол `ChatClient`; у него две реализации: `openrouter.py` (OpenAI-совместимый
   `/chat/completions`, `stream: true`, `tools`; на stdlib `urllib` со своим SSE-парсером, без
   SDK) и `anthropic_chat.py` поверх уже установленного `anthropic==0.40.0`. Оркестратор видит
@@ -769,7 +769,7 @@ backend/
 | `well_snapshot` | `{well, step?}` (step по умолчанию — из контекста) | `well`: `{well, role, availability, operating_status, liquid_rate, injection_rate, watercut, bhp, setpoint, npv, spark:[{step,value}]}` |
 | `well_series` | `{well, metric: liquid_rate\|injection_rate\|watercut\|bhp, from_step, to_step}` | `series`: `{metric, unit, rows:[{step,date,value}], window?:[from,to]}` |
 | `field_metrics` | `{step?}` | `metric[]`: `{id, label, value, unit, delta?, spark}` |
-| `field_events` | `{from_step, to_step, types?}` | `event-strip`: `{events:[{step,date,well,type}]}` — из той же логики, что `app/events.ts` |
+| `field_events` | `{from_step, to_step, types?}` | `event-strip`: `{events:[{step,date,well,type}]}` — из той же логики, что `frontend/src/app/events.ts` |
 | `explain_decision` | `{well, step}` | `rule`: `{rule, name, statement, inputs:{…}, decision, why}` — из `explainer.explain_decision` |
 | `rank_wells` | `{by: npv\|watercut\|liquid_rate\|injection_rate, order, limit≤10, step?}` | `well-list`: `{by, unit, rows:[{well, value, share?}]}` |
 | `rule_impact` | `{rule?}` | `rule[]` или сводка `{npv_total, rules:[{rule,delta,share,measured}]}` |
@@ -798,7 +798,7 @@ backend/
 }
 ```
 
-`action` — необязателен; собирает бэкенд (`tools/actions.py`) по типу карточки.
+`action` — необязателен; собирает бэкенд (`backend/application/jarvis/tools/actions.py`) по типу карточки.
 `provenance` — из `meta.provenance` артефакта-источника; для синтетики — как есть.
 
 ### 11.4 Действие консоли
@@ -912,7 +912,7 @@ interface ConsoleAction {
       сброса: `useConsoleActions` снимал `pending` на первом же кадре, когда шаг и скважина
       совпали, а `TimelineProvider` сбрасывал их эффектом на смену `activeId` уже после этого.
       Исправлено флагом `settled` в `Pending`: отложенное применение держится ещё один проход
-      эффекта и переживает сброс. Тест `actions/useConsoleActions.test.tsx` (3 кейса) на
+      эффекта и переживает сброс. Тест `frontend/src/jarvis/actions/useConsoleActions.test.tsx` (3 кейса) на
       настоящих провайдерах; без флага падает.
 - [x] **F-18** Голос: `useSpeechInput` (interim, язык из i18n), скрытие mic без поддержки,
       `useMicLevel` → `u_audio`, push-to-talk на `Space`.
@@ -973,19 +973,19 @@ interface ConsoleAction {
 - [x] **B-16** `jarvis_server.py` + `sse.py`: stdlib `ThreadingHTTPServer`, chunked SSE,
       keep-alive комментарием раз в 15 с, `health`, `cancel`, `503` без ключа, CORS для dev
       (`localhost:5199`). Тест на живом сокете.
-- [x] **B-17** `cli/jarvis.py`, команда `jarvis` в `entrypoint.sh`, сервис в
+- [x] **B-17** `backend/presentation/cli/jarvis.py`, команда `jarvis` в `entrypoint.sh`, сервис в
       `docker-compose.yml`, прокси `/api/jarvis/*` в `web.py`, раздел в `README.md`
       (запуск, ключ, порт, что делать без ключа).
 - [x] **B-18** Системный промпт: тон §6, запрет чисел, язык ответа = `lang`, формат подписи
       ≤2 фраз, правило «термины и платформа — только через `explain_term`/`platform_guide`»;
       тест, что промпт содержит каждый пункт.
-- [x] **B-19** `knowledge/glossary.json`: не меньше 40 терминов ru/en по §5.1, каждый с
+- [x] **B-19** `frontend/public/jarvis/knowledge/glossary.json`: не меньше 40 терминов ru/en по §5.1, каждый с
       `source` и `where_in_platform`; JSON-схема и тест валидности. **Сдать в первый день**
       вместе с фикстурами — F строит карточки на них.
-- [x] **B-20** `knowledge/guide.json`: все экраны из `WORKSPACE_VIEWS` плюс шапка, плеер,
+- [x] **B-20** `frontend/public/jarvis/knowledge/guide.json`: все экраны из `WORKSPACE_VIEWS` плюс шапка, плеер,
       инспектор, палитра; список `spotlight`-якорей согласован с F (F-24) и зафиксирован в
       этом файле. Тест покрытия экранов на обоих языках.
-- [x] **B-21** `knowledge.py` и `tools/knowledge.py`: `explain_term` (поиск по термину и
+- [x] **B-21** `knowledge.py` и `backend/application/jarvis/tools/knowledge.py`: `explain_term` (поиск по термину и
       алиасам на двух языках, нечёткое совпадение, возврат `general` при промахе),
       `platform_guide` (по запросу или по текущему `workspace/view`). Тесты на попадание,
       алиас, опечатку, промах.

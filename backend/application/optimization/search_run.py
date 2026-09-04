@@ -56,7 +56,7 @@ from backend.domain.schedule import (
     validate_static,
 )
 from backend.infrastructure.resources import chdd_python_dir, model_z_dir
-from backend.presentation.ui_export.scenarios import constraints_from_json
+from backend.application.cases import load_case
 
 LAMBDA = Path(os.environ.get("AIOS_LAMBDA_PATH", "data/lambda-window-2007/lambda.json"))
 RESPONSE = Path("data/base_case/response.json")
@@ -211,12 +211,13 @@ def _search_theta(constraints) -> Theta:
     return Theta(values=values, bounds=bounds)
 
 
-def run_search(*, budget: int = BUDGET) -> SearchOutcome:
+def run_search(
+    *, budget: int = BUDGET, case_path: Path | None = None
+) -> SearchOutcome:
     """Run CMA-ES and return the plan instead of deciding where to save it."""
     artifacts = resolve_runtime_artifacts()
-    constraints = constraints_from_json(
-        json.loads(CONSTRAINTS.read_text(encoding="utf-8"))
-    )
+    constraints_path = Path(case_path) if case_path is not None else CONSTRAINTS
+    constraints = load_case(constraints_path)
     env = load_environment(
         model_dir=model_z_dir(),
         normatives_path=chdd_python_dir() / "input" / "Нормативы_ЧДД.xlsx",
@@ -239,7 +240,7 @@ def run_search(*, budget: int = BUDGET) -> SearchOutcome:
         "seed": str(SEED),
         "runtime_artifact_source": artifacts.source,
         "npv_head_version": env.npv_head.version if env.npv_head else "none",
-        "constraints_path": str(CONSTRAINTS),
+        "constraints_path": str(constraints_path),
         "ood_threshold": str(env.ood_threshold),
     }
     calls = {"n": 0, "best": float("-inf")}
@@ -432,7 +433,8 @@ def run_search(*, budget: int = BUDGET) -> SearchOutcome:
 
 def main() -> int:
     budget = int(sys.argv[1]) if len(sys.argv) > 1 else BUDGET
-    outcome = run_search(budget=budget)
+    case_path = Path(sys.argv[2]) if len(sys.argv) > 2 else None
+    outcome = run_search(budget=budget, case_path=case_path)
     out = Path("data/lambda-window-2007/cmaes.json")
     out.write_text(
         json.dumps(

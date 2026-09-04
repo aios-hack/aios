@@ -67,7 +67,7 @@ import math
 from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Callable, Mapping, Sequence
 
 from backend.domain.configuration.schema import default_policies
 from backend.core.contracts import (
@@ -91,6 +91,10 @@ from backend.core.contracts import (
 )
 from backend.domain.connectivity.groups import GroupingParams, group_hash, lambda_hash
 from backend.domain.economics import analyze_base_case, load_normatives, load_response_artifact
+from backend.domain.policy.agents.projection import (
+    HardConstraints,
+    project_to_hard_constraints,
+)
 from backend.domain.policy.fixed_point import Evaluation
 from backend.domain.policy.flags import DEFAULT_RULE_FLAGS, RuleFlags
 from backend.domain.policy.hierarchy import observations_by_group, run_step
@@ -106,6 +110,10 @@ from backend.ml.surrogate.features import ScheduleFeatureizer
 from backend.ml.surrogate.model import TrajectorySurrogate
 from backend.ml.surrogate.model_z_context import ModelZFeatureArtifact
 from backend.ml.surrogate.npv_head import ScenarioNpvHead
+
+Projection = Callable[[ControlEvent, HardConstraints], ControlEvent]
+
+UNCONSTRAINED_WELLS = HardConstraints(well_cap_m3_per_day={})
 
 _UNCONSTRAINED_FIELD_LIMIT_M3_PER_DAY = 1.0e7
 
@@ -642,17 +650,22 @@ def _baseline_conversion_steps(schedule: Schedule) -> dict[str, int]:
     return steps
 
 
-def _capped(event: ControlEvent, caps: Mapping[str, float]) -> ControlEvent:
-    """Уставка, срезанная физическим потолком скважины."""
+def _admit(
+    pending: dict[tuple[int, str, EventKind], ControlEvent],
+    event: ControlEvent,
+    hard: HardConstraints,
+    projection: Projection = project_to_hard_constraints,
+) -> ControlEvent:
+    """Единственный вход в расписание: предложение → проекция → `pending`.
 
-    if event.kind not in (EventKind.SET_RATE, EventKind.SET_LRAT):
-        return event
-    if event.value is None:
-        return event
-    cap = caps.get(event.well)
-    if cap is None or event.value <= cap:
-        return event
-    return replace(event, value=cap)
+    Ни один агент не пишет уставку мимо этой функции — на этом держится
+    протокол «агенты предлагают, проекция отсекает, OPM решает», и это
+    проверяет `policy/tests/test_projection_gate.py`.
+    """
+
+    admitted = projection(event, hard)
+    pending[(admitted.control_step, admitted.well, admitted.kind)] = admitted
+    return admitted
 
 
 def _emit_dense_layer(
@@ -663,7 +676,8 @@ def _emit_dense_layer(
     current_role: dict[str, Role],
     current_is_open: dict[str, bool],
     current_setpoint: dict[str, float],
-    caps: Mapping[str, float],
+    hard: HardConstraints,
+    projection: Projection = project_to_hard_constraints,
 ) -> None:
     """Дописать шаг до плотного слоя: у каждой скважины статус и уставка.
 
@@ -686,18 +700,28 @@ def _emit_dense_layer(
         role = current_role.get(well, Role.PROD)
         target_kind = EventKind.SET_RATE if role is Role.INJ else EventKind.SET_LRAT
         if (step, well, target_kind) not in pending:
-            pending[(step, well, target_kind)] = ControlEvent(
-                control_step=step,
-                well=well,
-                kind=target_kind,
-                value=min(current_setpoint.get(well, 0.0), caps.get(well, float("inf"))),
+            _admit(
+                pending,
+                ControlEvent(
+                    control_step=step,
+                    well=well,
+                    kind=target_kind,
+                    value=current_setpoint.get(well, 0.0),
+                ),
+                hard,
+                projection,
             )
         status_kind = EventKind.OPEN if current_is_open.get(well, False) else EventKind.SHUT
         other = EventKind.SHUT if status_kind is EventKind.OPEN else EventKind.OPEN
         pending.pop((step, well, other), None)
         if (step, well, status_kind) not in pending:
-            pending[(step, well, status_kind)] = ControlEvent(
-                control_step=step, well=well, kind=status_kind, value=None
+            _admit(
+                pending,
+                ControlEvent(
+                    control_step=step, well=well, kind=status_kind, value=None
+                ),
+                hard,
+                projection,
             )
 
 
@@ -705,6 +729,8 @@ def _close_producing_side_on_conversion(
     pending: dict[tuple[int, str, EventKind], ControlEvent],
     step: int,
     decisions: Sequence[ControlEvent],
+    hard: HardConstraints,
+    projection: Projection = project_to_hard_constraints,
 ) -> None:
     """На шаге перевода уставка добывающей стороны — только ноль.
 
@@ -728,7 +754,7 @@ def _close_producing_side_on_conversion(
         key = (step, well, EventKind.SET_LRAT)
         event = pending.get(key)
         if event is not None and event.value:
-            pending[key] = replace(event, value=0.0)
+            _admit(pending, replace(event, value=0.0), hard, projection)
 
 
 def _scale_step_injection_to_limit(
@@ -738,6 +764,8 @@ def _scale_step_injection_to_limit(
     *,
     current_is_open: dict[str, bool],
     current_setpoint: dict[str, float],
+    hard: HardConstraints = UNCONSTRAINED_WELLS,
+    projection: Projection = project_to_hard_constraints,
 ) -> float:
     """Final material-balance guard for the dense command layer."""
 
@@ -757,15 +785,20 @@ def _scale_step_injection_to_limit(
             math.floor(raw_value / SETPOINT_STEP_M3_PER_DAY)
             * SETPOINT_STEP_M3_PER_DAY
         )
-        pending[key] = replace(event, value=value)
+        _admit(pending, replace(event, value=value), hard, projection)
         current_setpoint[event.well] = value
         if value <= 0.0:
             current_is_open[event.well] = False
             pending.pop((step, event.well, EventKind.OPEN), None)
-            pending[(step, event.well, EventKind.SHUT)] = ControlEvent(
-                control_step=step,
-                well=event.well,
-                kind=EventKind.SHUT,
+            _admit(
+                pending,
+                ControlEvent(
+                    control_step=step,
+                    well=event.well,
+                    kind=EventKind.SHUT,
+                ),
+                hard,
+                projection,
             )
     return sum(float(pending[key].value or 0.0) for key in keys)
 
@@ -825,6 +858,7 @@ def make_policy(
     trace_sink: dict,
     *,
     water_reference_response: ResponseArtifact | None = None,
+    projection: Projection = project_to_hard_constraints,
 ):
     """Возвращает `Policy` (`object -> Schedule`) для одной θ.
 
@@ -841,6 +875,7 @@ def make_policy(
     )
     role_at_commission = _role_at_commission(env.base_schedule)
     well_caps, field_limit = _physical_caps(env.base_schedule)
+    hard_constraints = HardConstraints(well_cap_m3_per_day=well_caps)
     baseline_injection = _baseline_injection_by_step(env.base_schedule)
     baseline_conversion = _baseline_conversion_steps(env.base_schedule)
     # Уставка, с которой дек вводит скважину: с неё начинается наша, иначе
@@ -957,8 +992,7 @@ def make_policy(
                 event for event in result.decisions if event.well not in blocked_wells
             ) + _outage_events(state, blocked_wells)
             for event in decisions:
-                event = _capped(event, well_caps)
-                pending[(event.control_step, event.well, event.kind)] = event
+                event = _admit(pending, event, hard_constraints, projection)
                 context = replace(
                     context,
                     memory=_apply_decision(
@@ -969,7 +1003,9 @@ def make_policy(
                         memory=context.memory,
                     ),
                 )
-            _close_producing_side_on_conversion(pending, step, decisions)
+            _close_producing_side_on_conversion(
+                pending, step, decisions, hard_constraints, projection
+            )
             _emit_dense_layer(
                 pending,
                 step,
@@ -977,7 +1013,8 @@ def make_policy(
                 current_role=current_role,
                 current_is_open=current_is_open,
                 current_setpoint=current_setpoint,
-                caps=well_caps,
+                hard=hard_constraints,
+                projection=projection,
             )
             commanded_injection = _scale_step_injection_to_limit(
                 pending,
@@ -985,6 +1022,8 @@ def make_policy(
                 step_field_limit,
                 current_is_open=current_is_open,
                 current_setpoint=current_setpoint,
+                hard=hard_constraints,
+                projection=projection,
             )
             if commanded_injection > step_field_limit + 1.0e-9:
                 raise ScheduleSearchError(

@@ -1,0 +1,28 @@
+.npv-provenance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 46ch;
+}
+
+.npv-provenance-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  text-wrap: pretty;
+}
+
+.npv-provenance-note {
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-xs);
+  text-wrap: pretty;
+}
+
+.npv-provenance[data-kind='run'] .npv-provenance-label {
+  color: var(--color-ok);
+}
+
+.npv-provenance[data-kind='forecast'] .npv-provenance-label,
+.npv-provenance[data-kind='unmeasured'] .npv-provenance-label {
+  color: var(--color-synthetic);
+}

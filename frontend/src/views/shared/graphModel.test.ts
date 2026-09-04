@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { GraphEdge, GraphFile, GraphNode } from '../../api/types';
+import { EDGE_WIDTH_FLAT } from '../../theme/tokens';
 import {
-  DEFAULT_EDGE_QUANTILE,
+  DEFAULT_EDGE_BUDGET,
   EDGES_PER_PRODUCER,
   buildSelection,
   defaultThreshold,
@@ -101,13 +102,13 @@ describe('visibleEdges', () => {
 });
 
 describe('defaultThreshold', () => {
-  it('starts with every edge visible', () => {
-    expect(DEFAULT_EDGE_QUANTILE).toBe(0);
+  it('leaves a small graph fully visible, since it fits inside the budget', () => {
+    expect(EDGES.length).toBeLessThan(DEFAULT_EDGE_BUDGET);
     const threshold = defaultThreshold(EDGES, BOUNDS);
     expect(visibleEdges(EDGES, threshold)).toHaveLength(EDGES.length);
   });
 
-  it('lands on the weakest edge in the graph', () => {
+  it('lands on the weakest edge when everything fits', () => {
     expect(defaultThreshold(EDGES, BOUNDS)).toBeCloseTo(0.05);
   });
 
@@ -172,8 +173,9 @@ describe('edgeOpacity and edgeWidth', () => {
 
   it('falls back to a fixed look when the graph has no scale', () => {
     expect(edgeOpacity(0.5, 0)).toBe(1);
-    expect(edgeWidth(0.5, 0)).toBe(0.4);
+    expect(edgeWidth(0.5, 0)).toBe(EDGE_WIDTH_FLAT);
   });
+
 });
 
 describe('buildSelection', () => {

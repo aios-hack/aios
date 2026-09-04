@@ -47,7 +47,7 @@ from backend.application.optimization.search_run import (
 from backend.domain.policy.fixed_point import resolve
 from backend.domain.policy.theta import default_theta
 from backend.infrastructure.resources import chdd_python_dir, model_z_dir
-from backend.presentation.ui_export.scenarios import constraints_from_json
+from backend.application.cases import constraints_from_json
 
 LAMBDA = Path("data/lambda-window-2007/lambda.json")
 RESPONSE = Path("data/base_case/response.json")
