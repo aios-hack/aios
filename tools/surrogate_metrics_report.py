@@ -46,12 +46,13 @@ import conftest
 from contracts import ResponseArtifact, canonical_bytes, hash_schedule
 from economics.base_case import analyze_base_case
 from optimizer.runtime_artifacts import resolve_runtime_artifacts
-from optimizer.schedule_search import load_environment
+from optimizer.schedule_search import load_environment, predict_economics
 from optimizer.search_run import LAMBDA, NORMATIVES, RESPONSE
 from surrogate.adapter import ResponseAdapter
 from surrogate.features import ScheduleFeatureizer
 from surrogate.metrics import ranking_metrics
-from surrogate.npv_head import scenario_feature_vector
+from bridge.dataset_plan import baseline_profile, build_plan, materialize
+from surrogate.cycle import PILOT_CONFIG, EXTRA_CONFIG
 from ui.artifact_io import _load_schedule
 
 FORMAT = "aios.surrogate-metrics.v1"
@@ -134,50 +135,67 @@ def _ranking(actual: list[float], predicted: list[float]) -> dict[str, object]:
     }
 
 
-def _held_out(args, env, labels: dict) -> dict[str, object]:
-    """Таблица (а): отложенные сценарии знакомого распределения."""
+def _score_schedule(env, schedule) -> dict[str, float]:
+    model_input = replace(ScheduleFeatureizer().transform(schedule, env.feature_context.context), lambda_edges=())
+    scored = env.model.predict(model_input)
+    states, intervals = ResponseAdapter().adapt(scored.output, schedule, env.real_history, env.control_dates)
+    response = ResponseArtifact(
+        source_run_id=f"surrogate-metrics:{env.model.version[:12]}",
+        response_hash=hashlib.sha256(canonical_bytes({"schedule": hash_schedule(schedule)})).hexdigest(),
+        state_at_date=states, interval_response=intervals,
+    )
+    return predict_economics(env, model_input, response)
 
-    bundle = torch.load(args.tensors, map_location="cpu", weights_only=False)
-    identities = bundle["identities"].get(args.split)
-    tensors = bundle["tensors"].get(args.split)
-    if not identities or tensors is None:
-        raise MetricsReportError(f"в тензорах нет сплита {args.split!r}")
-    x, well_index = tensors[0], tensors[1]
-    n_wells = len(bundle["wells"])
-    per_scenario = len(x) // len(identities)
-    head = env.npv_head
-    if head is None:
-        raise MetricsReportError("production-указатель не содержит головы ЧДД")
 
-    by_hash = {row["canonical_schedule_hash"]: row for row in labels["rows"].values()}
-    actual: list[float] = []
-    predicted: list[float] = []
-    for index, identity in enumerate(identities):
-        label = by_hash.get(identity["canonical_schedule_hash"])
-        if label is None:
-            raise MetricsReportError(
-                f"нет метки ЧДД для {identity['scenario_id']}: метки и тензоры разошлись"
-            )
-        start = index * per_scenario
-        vector = scenario_feature_vector(
-            x[start : start + per_scenario],
-            well_index[start : start + per_scenario],
-            n_wells=n_wells,
-            # Тот же набор, что хардкодит `BlockKernelNpvHead.predict`:
-            # вектор обязан совпасть с тем, на котором голова обучалась.
-            feature_set="economic",
-        )
-        actual.append(float(label["npv_rub"]))
-        predicted.append(float(head.predict_vectors(vector.unsqueeze(0))[0]))
-
+def _component_metrics(rows):
+    actual = [row["npv_opm_rub"] for row in rows]
     return {
-        "population": f"{args.split} split знакомого распределения",
-        "note": (
-            "прямая голова ЧДД без физической компоненты: она требует расписаний, "
-            "которых в тензорном кеше нет, и меряется на manifold оптимизатора ниже"
-        ),
-        "regression": _regression(actual, predicted),
-        "ranking": _ranking(actual, predicted),
+        name: {"regression": _regression(actual, [row[name] for row in rows]),
+               "ranking": _ranking(actual, [row[name] for row in rows])}
+        for name in ("direct", "physical", "blended") if name in rows[0]
+    }
+
+
+def _held_out(args, env, labels: dict) -> dict[str, object]:
+    """Reconstruct exact schedules and evaluate the same blend used by search."""
+    bundle = torch.load(args.tensors, map_location="cpu", weights_only=False, mmap=True)
+    identities = bundle["identities"].get(args.split)
+    if not identities:
+        raise MetricsReportError(f"в тензорах нет сплита {args.split!r}")
+    by_identity = {(r["source_dataset"], r["scenario_id"], r["canonical_schedule_hash"]): r
+                   for r in labels["rows"].values()}
+    plans = {
+        source: {spec.scenario_id: spec for spec in build_plan(env.base_schedule, seed=seed, config=config)}
+        for source, seed, config in (("dataset-main", 20260816, PILOT_CONFIG),
+                                     ("dataset-extra-500", 20260817, EXTRA_CONFIG))
+    }
+    profile = baseline_profile(env.base_schedule)
+    rows = []
+    seen = set()
+    for index, identity in enumerate(identities):
+        key = (identity["source_dataset"], identity["scenario_id"], identity["canonical_schedule_hash"])
+        label = by_identity.get(key)
+        if label is None or label["bucket"] != args.split:
+            raise MetricsReportError(f"нет точной метки ЧДД в нужном сплите: {key}")
+        if key[2] in seen:
+            continue
+        seen.add(key[2])
+        spec = plans[key[0]][key[1]]
+        schedule = materialize(env.base_schedule, spec, profile=profile).schedule
+        if hash_schedule(schedule) != key[2]:
+            raise MetricsReportError(f"восстановленное расписание разошлось с меткой: {key}")
+        rows.append({**identity, "family": spec.family.value, "npv_opm_rub": float(label["npv_rub"]),
+                     **_score_schedule(env, schedule)})
+        if (index + 1) % 10 == 0:
+            print(f"{args.split}: {index + 1}/{len(identities)}", flush=True)
+    components = _component_metrics(rows)
+    return {
+        "population": f"{args.split}: unique schedules, current production blend",
+        "note": "diagnostic disclosed split; all predictions evaluated, including OOD",
+        **components["blended"], "components": components, "rows": rows,
+        "by_family": {family: _component_metrics([r for r in rows if r["family"] == family])
+                      for family in sorted({r["family"] for r in rows})
+                      if sum(r["family"] == family for r in rows) >= 2},
     }
 
 
@@ -194,54 +212,18 @@ def _manifold(args, env) -> dict[str, object]:
             f"{args.manifold_root}/{args.manifold_glob}: нужно минимум два прогона "
             "с настоящим ЧДД OPM, чтобы ранжирование имело смысл"
         )
-    featureizer, adapter = ScheduleFeatureizer(), ResponseAdapter()
     physical_weight = float(getattr(env.npv_head, "physical_npv_weight", 0.0))
-
-    actual: list[float] = []
-    predicted: list[float] = []
-    rows: list[dict[str, object]] = []
+    actual, predicted, rows = [], [], []
     for directory in directories:
-        schedule = _load_schedule(
-            json.loads((directory / "schedule.json").read_text(encoding="utf-8"))
-        )
-        result = json.loads((directory / "result.json").read_text(encoding="utf-8"))
-        model_input = replace(
-            featureizer.transform(schedule, env.feature_context.context),
-            lambda_edges=(),
-        )
-        direct = float(env.npv_head.predict(model_input))
-        if physical_weight > 0.0:
-            output = env.model.predict(model_input).output
-            states, intervals = adapter.adapt(
-                output, schedule, env.real_history, env.control_dates
-            )
-            response = ResponseArtifact(
-                source_run_id=f"surrogate-metrics:{env.model.version[:12]}",
-                response_hash=hashlib.sha256(
-                    canonical_bytes({"schedule": hash_schedule(schedule)})
-                ).hexdigest(),
-                state_at_date=states,
-                interval_response=intervals,
-            )
-            physical = analyze_base_case(
-                response,
-                env.deck_dates,
-                env.t0_deck_date_index,
-                env.normatives,
-                env.policies,
-            ).npv_methodology
-            blended = (1.0 - physical_weight) * direct + physical_weight * physical
-        else:
-            blended = direct
+        schedule = _load_schedule(json.loads((directory / "schedule.json").read_text()))
+        result = json.loads((directory / "result.json").read_text())
+        if result["canonical_schedule_hash"] != hash_schedule(schedule):
+            raise MetricsReportError(f"{directory}: schedule hash differs from OPM result")
+        components = _score_schedule(env, schedule)
         actual.append(float(result["npv_opm"]))
-        predicted.append(blended)
-        rows.append(
-            {
-                "run": directory.name,
-                "npv_opm_rub": float(result["npv_opm"]),
-                "npv_surrogate_rub": blended,
-            }
-        )
+        predicted.append(components["blended"])
+        rows.append({"run": directory.name, "npv_opm_rub": actual[-1],
+                     "npv_surrogate_rub": predicted[-1], **components})
 
     return {
         "population": "кандидаты контура с настоящим ЧДД OPM",
@@ -254,11 +236,13 @@ def _manifold(args, env) -> dict[str, object]:
         "regression": _regression(actual, predicted),
         "ranking": _ranking(actual, predicted),
         "rows": rows,
+        "components": _component_metrics(rows),
     }
 
 
 def main() -> int:
     args = _parser().parse_args()
+    torch.set_num_threads(2)
     _require(args.labels, "файл меток ЧДД")
     _require(args.tensors, "тензорный кеш")
     labels = json.loads(args.labels.read_text(encoding="utf-8"))
@@ -284,6 +268,10 @@ def main() -> int:
             "feature_context": str(artifacts.feature_context),
             "source": artifacts.source,
             "model_version": env.model.version,
+            "economic_model_version": env.npv_head.version,
+            "source_sha256": {name: _sha256(Path(name)) for name in (
+                "surrogate/model.py", "surrogate/adapter.py", "bridge/response_loader.py",
+                "optimizer/schedule_search.py", "tools/surrogate_metrics_report.py")},
             "labels": str(args.labels),
             "labels_sha256": _sha256(args.labels),
             "labels_dataset_hash": labels.get("dataset_hash"),

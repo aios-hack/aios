@@ -634,13 +634,14 @@ def _money_weights(
 def _ranks(values: Tensor) -> Tensor:
     order = torch.argsort(values)
     ranks = torch.empty_like(values)
-    positions = torch.arange(values.numel(), dtype=values.dtype, device=values.device)
-    ranks[order] = positions
+    _, inverse, counts = torch.unique_consecutive(values[order], return_inverse=True, return_counts=True)
+    average_positions = counts.cumsum(0).to(values.dtype) - (counts.to(values.dtype) + 1) / 2
+    ranks[order] = average_positions[inverse]
     return ranks
 
 
 def _spearman(left: Tensor, right: Tensor) -> float:
-    """Ранговая корреляция без scipy; связи игнорируются — суммы непрерывны."""
+    """Ранговая корреляция со средними рангами связей и нулём для константы."""
     if left.numel() < 2:
         return 0.0
     centred_left = _ranks(left) - (left.numel() - 1) / 2.0
@@ -698,9 +699,10 @@ class _ScenarioBatches:
 
     Ранговый член лосса сравнивает сценарии между собой, поэтому в батче их
     должно быть несколько сразу. Из каждого сценария берётся случайная выборка
-    узлов: денежный прокси — сумма по узлам, значит подвыборка даёт его
-    несмещённую оценку с точностью до множителя, а множитель для попарного
-    сравнения не важен, он одинаков у всех сценариев батча.
+    узлов с одинаковыми координатами во всех сценариях батча. Это снижает
+    шум состава фонда при попарном сравнении; несмещённость отдельной суммы
+    сама по себе не гарантирует сохранения порядка. Полные метки ЧДД
+    передаются отдельно через scenario_targets.
     """
 
     def __init__(
@@ -711,11 +713,20 @@ class _ScenarioBatches:
         scenarios_per_batch: int,
         nodes_per_scenario: int,
         generator: torch.Generator,
+        scenario_targets: Tensor | None = None,
     ) -> None:
         self.tensors = tensors
         self.scenarios_per_batch = scenarios_per_batch
         self.nodes_per_scenario = nodes_per_scenario
         self.generator = generator
+        self.scenario_targets = scenario_targets
+        if not counts or any(size <= 0 for size in counts) or len(set(counts)) != 1:
+            raise SurrogateModelError("ранговые батчи требуют одинаковые непустые оси сценариев")
+        if scenario_targets is not None and (
+            scenario_targets.shape != (len(counts),)
+            or not bool(torch.isfinite(scenario_targets).all())
+        ):
+            raise SurrogateModelError("ранговые цели не покрывают сценарии конечными числами")
         offsets, start = [], 0
         for size in counts:
             offsets.append((start, size))
@@ -733,10 +744,13 @@ class _ScenarioBatches:
             if len(chosen) < 2:
                 continue
             rows, groups = [], []
+            # Common well/step coordinates remove composition noise between
+            # schedules. Independent samples reversed ~34% of train pairs.
+            size = self.offsets[0][1]
+            take = min(self.nodes_per_scenario, size)
+            picked = torch.randperm(size, generator=self.generator)[:take]
             for group, index in enumerate(chosen.tolist()):
                 start, size = self.offsets[index]
-                take = min(self.nodes_per_scenario, size)
-                picked = torch.randperm(size, generator=self.generator)[:take]
                 rows.append(picked + start)
                 groups.append(torch.full((take,), group, dtype=torch.long))
             selection = torch.cat(rows)
@@ -744,6 +758,7 @@ class _ScenarioBatches:
                 *(tensor[selection] for tensor in self.tensors),
                 torch.cat(groups),
                 len(chosen),
+                *((self.scenario_targets[chosen],) if self.scenario_targets is not None else ()),
             )
 
 
@@ -882,6 +897,7 @@ def _validate(
     parameterization: str = "absolute",
     oil_density_t_per_m3: float = 0.9131,
     settings: "ModelConfig | None" = None,
+    scenario_targets: Tensor | None = None,
 ) -> _ValidationOutcome:
     """Один проход валидации, отдающий все три критерия отбора чекпоинта."""
     network.eval()
@@ -932,7 +948,10 @@ def _validate(
             parameterization=parameterization,
             oil_density_t_per_m3=oil_density_t_per_m3,
         )
-        rank = _spearman(predicted_money, actual_money)
+        rank = _spearman(
+            predicted_money,
+            actual_money if scenario_targets is None else scenario_targets.to(predicted_money),
+        )
     return _ValidationOutcome(loss=loss, money_loss=money_loss, rank=rank)
 
 
@@ -1064,6 +1083,8 @@ class TrajectorySurrogate:
         device: str | None = None,
         epoch_callback: Callable[[EpochMetrics], None] | None = None,
         target_stats: MutableMapping[str, int] | None = None,
+        train_npv_rub: Tensor | None = None,
+        validation_npv_rub: Tensor | None = None,
     ) -> TrainingResult:
         """Обучение по готовым тензорам, без списка `TrainingExample`.
 
@@ -1089,11 +1110,35 @@ class TrajectorySurrogate:
 
         generator = torch.Generator().manual_seed(settings.seed)
         ranking = settings.ranking_loss_weight > 0.0
-        if ranking and train_node_counts is None:
+        if (train_npv_rub is None) != (validation_npv_rub is None):
+            raise SurrogateModelError("точные ранговые цели нужны и для train, и для validation")
+        for name, values, counts in (
+            ("train", train_npv_rub, train_node_counts),
+            ("validation", validation_npv_rub, validation_node_counts),
+        ):
+            if values is not None and (
+                counts is None or values.shape != (len(counts),)
+                or not bool(torch.isfinite(values).all())
+            ):
+                raise SurrogateModelError(f"{name}: неверная ось или нечисловая метка ЧДД")
+        if ranking and not settings.money_rub_per_unit:
+            raise SurrogateModelError("ранговый лосс требует денежные коэффициенты")
+        if ranking and not train_node_counts:
             raise SurrogateModelError(
                 "ranking_loss_weight требует train_node_counts: без разбиения по "
                 "сценариям попарное сравнение не собрать"
             )
+        if ranking:
+            step_column = len(_NUMERIC_NAMES) + len(model.static_feature_names)
+            size = train_node_counts[0]
+            if any(count <= 0 for count in train_node_counts) or sum(train_node_counts) != len(train_x) or len(set(train_node_counts)) != 1:
+                raise SurrogateModelError("ранговое обучение требует одинаковые полные оси сценариев")
+            for start in range(size, len(train_x), size):
+                if (
+                    not torch.equal(train_wells[start:start + size], train_wells[:size])
+                    or not torch.equal(train_x[start:start + size, step_column], train_x[:size, step_column])
+                ):
+                    raise SurrogateModelError("порядок well/step разошёлся между сценариями рангового батча")
         train_loader = (
             _ScenarioBatches(
                 (train_x, train_wells, train_y),
@@ -1101,6 +1146,7 @@ class TrajectorySurrogate:
                 scenarios_per_batch=settings.ranking_scenarios_per_batch,
                 nodes_per_scenario=settings.ranking_nodes_per_scenario,
                 generator=generator,
+                scenario_targets=train_npv_rub,
             )
             if ranking
             else _Batches(
@@ -1157,7 +1203,7 @@ class TrajectorySurrogate:
             count = 0
             for batch in train_loader:
                 if ranking:
-                    x, well_index, y, groups, n_groups = batch
+                    x, well_index, y, groups, n_groups = batch[:5]
                     groups = groups.to(selected_device)
                 else:
                     x, well_index, y = batch
@@ -1182,8 +1228,8 @@ class TrajectorySurrogate:
                 else:
                     loss = _elementwise_loss(prediction, y, settings).mean()
                 if ranking:
-                    # Денежный прокси по подвыборке узлов каждого сценария:
-                    # множитель одинаков у всех, поэтому порядок не искажает.
+                    # Shared coordinates reduce composition noise. Exact
+                    # full-scenario labels, when provided, determine the order.
                     money = torch.zeros(
                         n_groups, dtype=prediction.dtype, device=prediction.device
                     )
@@ -1193,6 +1239,8 @@ class TrajectorySurrogate:
                         settings))
                     truth.index_add_(0, groups, _proxy_value(
                         y, target_scale, target_mean, rub_per_unit, settings))
+                    if train_npv_rub is not None:
+                        truth = batch[5].to(device=selected_device, dtype=prediction.dtype)
                     loss = loss + settings.ranking_loss_weight * (
                         _pairwise_ranking_loss(
                             money, truth,
@@ -1219,6 +1267,7 @@ class TrajectorySurrogate:
                 parameterization=settings.target_parameterization,
                 oil_density_t_per_m3=settings.oil_density_t_per_m3,
                 settings=settings,
+                scenario_targets=validation_npv_rub,
             )
             validation_loss = outcome.loss
             current_lr = float(optimizer.param_groups[0]["lr"])

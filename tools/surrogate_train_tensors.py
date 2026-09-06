@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import time
 from dataclasses import asdict, replace
@@ -20,6 +21,7 @@ from surrogate.model import (
     _NodeNetwork,
 )
 from surrogate.train import money_rub_per_unit
+from surrogate.npv_target import validate_target_provenance
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -28,11 +30,14 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--normatives", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--mode", choices=("rank", "physical"), required=True)
-    parser.add_argument("--device", default="mps")
+    parser.add_argument("--device", choices=("cpu", "cuda", "mps"), default="cpu")
     parser.add_argument("--seed", type=int, default=20260817)
     parser.add_argument("--epochs", type=int, default=None)
     parser.add_argument("--patience", type=int, default=None)
     parser.add_argument("--ranking-loss-weight", type=float, default=3.0)
+    parser.add_argument("--ranking-target", choices=("exact-npv", "proxy"), default="exact-npv")
+    parser.add_argument("--npv-labels", type=Path, default=Path("data/npv-v4/historical_labels_rebuilt.json"))
+    parser.add_argument("--threads", type=int, default=2)
     parser.add_argument("--residual", action="store_true")
     parser.add_argument("--lr-schedule", choices=("none", "cosine"), default="none")
     parser.add_argument(
@@ -52,6 +57,35 @@ def _parser() -> argparse.ArgumentParser:
              "нельзя — каналы разные",
     )
     return parser
+
+
+def _exact_targets(blob: dict, labels: dict) -> dict[str, Tensor]:
+    if labels.get("format") != "aios.surrogate-npv-labels.v1" or labels.get("dataset_hash") != blob["dataset_hash"]:
+        raise RuntimeError("метки ЧДД относятся к другому датасету")
+    validate_target_provenance(labels.get("target_provenance"))
+    train_hashes = {row["canonical_schedule_hash"] for row in blob["identities"]["train"]}
+    validation_hashes = {row["canonical_schedule_hash"] for row in blob["identities"]["validation"]}
+    if train_hashes & validation_hashes:
+        raise RuntimeError("train и validation содержат одинаковые расписания")
+    by_identity = {}
+    for row in labels["rows"].values():
+        key = (row["source_dataset"], row["scenario_id"], row["canonical_schedule_hash"])
+        if key in by_identity:
+            raise RuntimeError(f"дублирующаяся метка ЧДД: {key}")
+        by_identity[key] = row
+    result = {}
+    for bucket in ("train", "validation"):
+        values = []
+        for identity in blob["identities"][bucket]:
+            key = (identity["source_dataset"], identity["scenario_id"], identity["canonical_schedule_hash"])
+            row = by_identity.get(key)
+            if row is None or row["bucket"] != bucket:
+                raise RuntimeError(f"нет метки ЧДД в правильном сплите: {key}")
+            values.append(row["npv_rub"])
+        result[bucket] = torch.tensor(values, dtype=torch.float64)
+        if not bool(torch.isfinite(result[bucket]).all()):
+            raise RuntimeError("нечисловая метка ЧДД")
+    return result
 
 
 def _config(args, rub_per_unit: tuple[float, ...]) -> ModelConfig:
@@ -91,6 +125,11 @@ def _config(args, rub_per_unit: tuple[float, ...]) -> ModelConfig:
 
 def main() -> int:
     args = _parser().parse_args()
+    if args.threads < 1:
+        raise RuntimeError("--threads должен быть положительным")
+    torch.set_num_threads(args.threads)
+    if (args.output_dir / "model.pt").exists():
+        raise FileExistsError("output-dir уже содержит модель; выберите новый каталог")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     print(f"загрузка {args.tensors}", flush=True)
     # `mmap=True` оставляет тензоры на диске: страницы подгружаются по мере
@@ -119,6 +158,15 @@ def main() -> int:
     # занимает 2.4 млн узлов впустую. На 24 ГБ машины это не мелочь: прогон
     # был убит нехваткой памяти, когда рядом считал OPM.
     tensors.pop("test", None)
+    npv_targets = {}
+    labels_hash = None
+    if args.mode == "rank" and args.ranking_target == "exact-npv":
+        label_bytes = args.npv_labels.read_bytes()
+        labels_hash = hashlib.sha256(label_bytes).hexdigest()
+        labels = json.loads(label_bytes)
+        npv_targets = _exact_targets(blob, labels)
+        if labels["target_provenance"]["normatives_sha256"] != hashlib.sha256(args.normatives.read_bytes()).hexdigest():
+            raise RuntimeError("нормативы меток ЧДД отличаются от нормативов обучения")
     rub = money_rub_per_unit(load_normatives(args.normatives))
     config = replace(_config(args, rub), target_parameterization=parameterization)
     print(f"параметризация целей: {parameterization}", flush=True)
@@ -143,6 +191,9 @@ def main() -> int:
             )
             x, well_index, y = x[index], well_index[index], y[index]
             counts[bucket] = [counts[bucket][s] for s in picked]
+            blob["identities"][bucket] = [blob["identities"][bucket][s] for s in picked]
+            if bucket in npv_targets:
+                npv_targets[bucket] = npv_targets[bucket][picked]
             print(
                 f"train урезан до {len(picked)} сценариев из {n_scenarios} "
                 f"(доля {args.scenario_fraction})",
@@ -207,11 +258,18 @@ def main() -> int:
         dataset_hash=blob["dataset_hash"],
         device=args.device,
         epoch_callback=on_epoch,
+        train_npv_rub=npv_targets.get("train"),
+        validation_npv_rub=npv_targets.get("validation"),
     )
     checkpoint = result.model.save(args.output_dir / "model.pt")
     report = {
         "format": "aios.surrogate-tensor-training-report.v1",
         "mode": args.mode,
+        "ranking_target": args.ranking_target if args.mode == "rank" else None,
+        "ranking_sampling": "shared_well_step_coordinates",
+        "npv_labels_sha256": labels_hash,
+        "npv_labels": str(args.npv_labels) if labels_hash else None,
+        "synthetic_inputs": False,
         "tensor_artifact": str(args.tensors),
         "feature_context": blob["feature_context"],
         "feature_context_training_scenarios": blob[

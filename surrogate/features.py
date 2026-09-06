@@ -44,18 +44,8 @@ _MONTHS = {
     "NOV": 11,
     "DEC": 12,
 }
-_EVENT_ORDER = {
-    # A conversion batch contains the old producer's zero LRAT and the new
-    # injector's RATE at one control step.  Apply the close while the well is
-    # still PROD, then change role, then apply the injector target.  The
-    # canonical/hash order puts CONVERT_INJ first, but that serialization
-    # order is not a valid state-transition order for feature construction.
-    EventKind.SET_LRAT: 0,
-    EventKind.CONVERT_INJ: 1,
-    EventKind.SET_RATE: 2,
-    EventKind.OPEN: 3,
-    EventKind.SHUT: 3,
-}
+from schedule.wcon import CONTROL_ORDER as _EVENT_ORDER, commissioning_state
+
 
 
 class FeatureError(ValueError):
@@ -340,11 +330,10 @@ def history_targets_from_deck(
 
 
 def _commissioning_state(event_operator: str, raw_args: tuple[str, ...]) -> _MutableState:
-    if event_operator == "WCONPROD":
-        return _state_from_wcon(event_operator, ("<fixed>", *raw_args))[1]
-    if event_operator == "WCONINJE":
-        return _state_from_wcon(event_operator, ("<fixed>", *raw_args))[1]
-    raise FeatureError(f"{event_operator}: не является событием ввода")
+    try:
+        return _MutableState.from_contract(commissioning_state(event_operator, raw_args))
+    except ValueError as error:
+        raise FeatureError(str(error)) from error
 
 
 def _apply_control(state: _MutableState, event: ControlEvent) -> None:

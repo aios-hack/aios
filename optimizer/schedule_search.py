@@ -201,35 +201,19 @@ def _enforce_physics(
     enabled: bool,
     baseline: Mapping[str, int] | None = None,
 ) -> None:
-    """Гейт по блокирующим нарушениям **сверх эталона**, но не по полноте.
+    """Block every impossible prediction, including violations shared with an anchor.
 
-    Отвергать кандидата за нарушения, которые есть и у опоры, нельзя. Замер на
-    одиннадцати прогонах OPM показал прямо: у якоря 305 нарушений динамики, из
-    них 224 — свойство конфигурации кейса, и они одинаковы у всех кандидатов.
-    То же и с физикой прогноза: признаки на входе модели и таймлайны
-    `response_loader` расходятся в моменте ввода части скважин, из-за чего на
-    самом эталоне возникает 58 флагов `SHUT_WELL_FLOW`. Гейт, считающий это
-    виной кандидата, останавливает поиск на первом же шаге.
-
-    Поэтому сравнение идёт с профилем опоры: блокируется то, чего у эталона
-    нет, — новые нарушения, внесённые именно этим расписанием.
-
-    В поиске сравнивать кандидата с опорой нечем: он меняет и отбор, и
-    закачку сразу, а differential-инварианты определены только на паре, где
-    менялась одна закачка. Поэтому здесь спрашивается ``blocking_count``, а не
-    ``admissible``: последнее требует всех семи инвариантов и уместно на
-    отборе в OPM-пакет, где кандидат уже сравнивается с проверенным
-    incumbent (`admit_to_opm`).
+    ``baseline`` is retained for callers of the old API, but counts never
+    excuse a violation on a different well/step. Fixed commissioning is now
+    interpreted consistently by features and response timelines.
     """
 
     if not enabled or report.blocking_count == 0:
         return
-    reference = dict(baseline or {})
     blocking = {
-        name: count - reference.get(name, 0)
+        name: count
         for name, count in sorted(report.counts.items())
         if severity_of(name) is Severity.BLOCKING
-        and count > reference.get(name, 0)
     }
     if not blocking:
         return
@@ -394,6 +378,9 @@ def load_environment(
         if Path(checkpoint_path).suffix == ".json"
         else TrajectorySurrogate.load(checkpoint_path)
     )
+    scenario_ood = ScenarioDensityDomain.load(scenario_ood_path) if scenario_ood_path is not None else None
+    if scenario_ood is not None and scenario_ood.dataset_hash != model.dataset_hash:
+        raise ScheduleSearchError("scenario OOD dataset differs from trajectory checkpoint")
     calibration_path = npv_calibration_path
     if calibration_path is None:
         adjacent = Path(checkpoint_path).parent / "npv_calibration.json"
@@ -441,11 +428,7 @@ def load_environment(
         npv_calibration=calibration,
         npv_head=npv_head,
         ood_threshold=ood_threshold,
-        scenario_ood=(
-            ScenarioDensityDomain.load(scenario_ood_path)
-            if scenario_ood_path is not None
-            else None
-        ),
+        scenario_ood=scenario_ood,
     )
 
 
@@ -1145,27 +1128,22 @@ def make_policy(
     return policy
 
 
+def predict_economics(env: SearchEnvironment, model_input, response: ResponseArtifact) -> dict[str, float]:
+    """One economic path shared by search and diagnostic component reports."""
+    physical = analyze_base_case(
+        response, env.deck_dates, env.t0_deck_date_index, env.normatives, env.policies,
+    ).npv_methodology
+    if env.npv_head is None:
+        blended = env.npv_calibration.apply(physical) if env.npv_calibration is not None else physical
+        return {"physical": physical, "blended": blended}
+    direct = env.npv_head.predict(model_input)
+    weight = float(getattr(env.npv_head, "physical_npv_weight", 0.0))
+    return {"direct": direct, "physical": physical, "blended": (1.0 - weight) * direct + weight * physical}
+
+
 def make_evaluator(env: SearchEnvironment):
     featureizer = ScheduleFeatureizer()
     adapter = ResponseAdapter()
-
-    def _physics_counts(schedule: Schedule) -> dict[str, int]:
-        model_input = replace(
-            featureizer.transform(schedule, env.feature_context.context),
-            lambda_edges=(),
-        )
-        report = check_prediction(
-            env.model.predict(model_input).output,
-            schedule=schedule,
-            oil_density_t_per_m3=env.oil_density_t_per_m3,
-        )
-        return dict(report.counts)
-
-    # Профиль физических флагов опоры. Кандидат отвечает за то, что внёс он, а
-    # не за то, что уже есть в эталоне: на самом базовом расписании прогноз
-    # даёт 58 флагов SHUT_WELL_FLOW из-за расхождения признаков и таймлайнов
-    # загрузчика в моменте ввода скважин.
-    baseline_physics = _physics_counts(env.base_schedule) if env.physics_gate else {}
 
     def evaluator(schedule: Schedule) -> Evaluation:
         model_input = replace(
@@ -1185,7 +1163,6 @@ def make_evaluator(env: SearchEnvironment):
                 oil_density_t_per_m3=env.oil_density_t_per_m3,
             ),
             env.physics_gate,
-            baseline_physics,
         )
         states, intervals = adapter.adapt(
             scored.output, schedule, env.real_history, env.control_dates
@@ -1200,39 +1177,7 @@ def make_evaluator(env: SearchEnvironment):
             state_at_date=states,
             interval_response=intervals,
         )
-        if env.npv_head is not None:
-            direct_npv = env.npv_head.predict(model_input)
-            physical_weight = float(
-                getattr(env.npv_head, "physical_npv_weight", 0.0)
-            )
-            if physical_weight > 0.0:
-                physical_npv = analyze_base_case(
-                    response,
-                    env.deck_dates,
-                    env.t0_deck_date_index,
-                    env.normatives,
-                    env.policies,
-                ).npv_methodology
-                npv = (
-                    (1.0 - physical_weight) * direct_npv
-                    + physical_weight * physical_npv
-                )
-            else:
-                npv = direct_npv
-        else:
-            analysis = analyze_base_case(
-                response,
-                env.deck_dates,
-                env.t0_deck_date_index,
-                env.normatives,
-                env.policies,
-            )
-            raw_npv = analysis.npv_methodology
-            npv = (
-                env.npv_calibration.apply(raw_npv)
-                if env.npv_calibration is not None
-                else raw_npv
-            )
+        npv = predict_economics(env, model_input, response)["blended"]
         return Evaluation(npv=npv, state=response)
 
     return evaluator

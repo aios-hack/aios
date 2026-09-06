@@ -643,6 +643,40 @@ def test_scenario_batches_reject_counts_that_do_not_cover_rows() -> None:
         )
 
 
+def test_shared_sampling_preserves_small_scenario_uplifts() -> None:
+    # Large well-to-well differences must cancel in paired scenario comparisons.
+    x = torch.arange(30, dtype=torch.float32).reshape(-1, 1)
+    w = torch.arange(10).repeat(3)
+    y = torch.cat([torch.arange(10) * 1000.0 + uplift for uplift in (0., 1., 2.)]).reshape(-1, 1)
+    targets = torch.tensor([30., 20., 10.], dtype=torch.float64)
+    for seed in range(5):
+        batches = _ScenarioBatches(
+            (x, w, y), [10] * 3, scenarios_per_batch=3, nodes_per_scenario=4,
+            generator=torch.Generator().manual_seed(seed), scenario_targets=targets,
+        )
+        bx, bw, by, groups, n_groups, truth = next(iter(batches))
+        for group in range(n_groups):
+            assert torch.equal(bw[groups == group], bw[groups == 0])
+            scenario = int(bx[groups == group][0, 0]) // 10
+            assert truth[group] == targets[scenario]
+            reference = int(bx[groups == 0][0, 0]) // 10
+            assert (by[groups == group].sum() - by[groups == 0].sum()).item() == 4 * (scenario - reference)
+
+
+def test_scenario_batches_reject_unaligned_lengths() -> None:
+    with pytest.raises(SurrogateModelError, match="одинаковые"):
+        _ScenarioBatches(
+            (torch.zeros(11, 1),), [5, 6], scenarios_per_batch=2,
+            nodes_per_scenario=3, generator=torch.Generator(),
+        )
+
+
+def test_spearman_constant_prediction_has_no_ranking_skill() -> None:
+    from surrogate.model import _spearman
+    assert _spearman(torch.ones(4), torch.arange(4.)) == 0.0
+    assert _spearman(torch.tensor([1., 1., 3.]), torch.tensor([1., 1., 3.])) == pytest.approx(1.)
+
+
 def test_ranking_loss_is_invariant_to_the_scale_of_money() -> None:
     """Прокси измеряется в рублях порядка 1e9. Без нормировки softplus от такой
     разности возвращает саму разность, и член перекрывает поштатный лосс при

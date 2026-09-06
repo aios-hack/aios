@@ -127,14 +127,15 @@ def test_whatif_scenario_carries_the_synthetic_flag(demo_dir: Path) -> None:
 
 
 def test_base_scenario_is_marked_real_not_synthetic(demo_dir: Path) -> None:
-    """G3: `base` — настоящий расчёт, `synthetic-demo` из него убрана (аудит D2)."""
+    """OPM views are real; generated hierarchy/ablation must remain synthetic."""
 
     for scenario in ("", BASE_ID):
         for name in VIEW_FILES:
             data = _read(demo_dir / scenario / name if scenario else demo_dir / name)
             meta = data["__meta__"] if name == "trace.json" else data["meta"]
-            assert meta["provenance"] == REAL_PROVENANCE
-            assert meta["synthetic"] is False
+            synthetic = name in ("hierarchy.json", "ablation.json")
+            assert meta["provenance"] == (DEMO_PROVENANCE if synthetic else REAL_PROVENANCE)
+            assert meta["synthetic"] is synthetic
             assert meta["notice_ru"] and meta["notice_en"]
 
 

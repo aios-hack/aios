@@ -106,6 +106,7 @@ def main() -> int:
         checkpoint_path=artifacts.checkpoint,
         feature_context_path=artifacts.feature_context,
         npv_head_path=artifacts.npv_head,
+        scenario_ood_path=artifacts.scenario_ood,
         lambda_path=LAMBDA,
         ood_threshold=OOD_THRESHOLD,
         constraints=constraints,
@@ -134,6 +135,7 @@ def main() -> int:
         "lambda_stability": f"{env.lambda_.stability:.3f}",
         "seed": str(SEED),
         "ood_threshold": str(OOD_THRESHOLD),
+        "scenario_ood_version": env.scenario_ood.version if env.scenario_ood else "disabled-explicit-model",
         "npv_calibrated": str(env.npv_calibration is not None).lower(),
         "npv_head_version": (
             env.npv_head.version if env.npv_head is not None else "none"

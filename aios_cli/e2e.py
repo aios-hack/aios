@@ -97,6 +97,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--budget", type=int, default=120)
     parser.add_argument("--seed", type=int, default=default_seed())
     parser.add_argument("--ood-threshold", type=float, default=0.0)
+    parser.add_argument("--scenario-ood", type=Path, help="Density guard for an explicitly selected bundle.")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
         "--search-only", action="store_true", help="Stop before the real OPM run."
@@ -171,7 +172,11 @@ def _runtime_environment(args: argparse.Namespace) -> tuple[dict[str, str], Path
         )
         env.pop("AIOS_SURROGATE_BUNDLE", None)
 
+    if args.scenario_ood is not None:
+        env["AIOS_SCENARIO_OOD_PATH"] = str(_require_file(args.scenario_ood, "scenario OOD"))
     artifacts = resolve_runtime_artifacts(env)
+    if artifacts.scenario_ood is None:
+        raise SystemExit("production E2E требует сценарный OOD: используйте manifest или --scenario-ood")
     if artifacts.npv_head is None:
         raise SystemExit(
             "production E2E требует совместимый NPV head рядом с trajectory "
@@ -192,6 +197,7 @@ def _runtime_environment(args: argparse.Namespace) -> tuple[dict[str, str], Path
         "budget": args.budget,
         "seed": args.seed,
         "ood_threshold": args.ood_threshold,
+        "scenario_ood": str(artifacts.scenario_ood.resolve()),
     }
     (out / "invocation.json").write_text(
         json.dumps(config, ensure_ascii=False, indent=2, sort_keys=True),

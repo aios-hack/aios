@@ -36,6 +36,26 @@ DECK_SCALE_VALUES: frozenset[float] = frozenset(
 
 ALLOWED_IN_TESTS = "tests"
 
+# These are experimental quality thresholds, not the economic discount rate.
+# Match the named assignment and value exactly; other literals remain forbidden.
+ALGORITHM_THRESHOLDS = {
+    ("connectivity/measure.py", "DEFAULT_TOLERANCE"): 0.1,
+    ("connectivity/measure.py", "SEPARATION_FLOOR_SHARE"): 0.1,
+}
+
+
+def algorithm_threshold_lines(path: Path) -> set[int]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    return {
+        node.value.lineno
+        for node in tree.body
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant)
+        for target in node.targets
+        if isinstance(target, ast.Name)
+        and (str(path.relative_to(ROOT)), target.id) in ALGORITHM_THRESHOLDS
+        and node.value.value == ALGORITHM_THRESHOLDS[(str(path.relative_to(ROOT)), target.id)]
+    }
+
 
 def owned_sources() -> list[Path]:
     sources: list[Path] = []
@@ -71,8 +91,9 @@ def test_owned_packages_are_scanned() -> None:
 def test_no_normative_value_is_hardcoded_outside_the_config() -> None:
     offenders: list[str] = []
     for path in owned_sources():
+        algorithm_lines = algorithm_threshold_lines(path)
         for line, value in numeric_literals(path):
-            if value in NORMATIVE_VALUES:
+            if value in NORMATIVE_VALUES and line not in algorithm_lines:
                 offenders.append(f"{path.relative_to(ROOT)}:{line} → {value}")
     assert offenders == [], (
         "нормативы читаются мимо конфига: " + "; ".join(offenders)

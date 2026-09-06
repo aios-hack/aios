@@ -18,3 +18,41 @@
 текущим кодом: канон спецификации разошёлся с 17.08, все записи кеша
 промахиваются по ключу, а материализованные расписания нигде не сохранены.
 Подробности — `../docs/v2/STATUS.md`, строка про датасет.
+
+## Исправления суррогата 06.09.2026
+
+Production manifest теперь содержит обязательный `scenario_ood` с путём,
+SHA-256 артефакта и SHA-256 контекста признаков. Регистрация существующего
+детектора проверяет его формат, fingerprint и соответствие датасету модели:
+
+```bash
+PYTHONPATH=. python tools/surrogate_register_scenario_ood.py \
+  --manifest data/surrogate-production.json \
+  --domain data/npv-v3/scenario_density_domain.pt
+```
+
+Для явно выбранного bundle в `aios_cli.e2e` передайте `--scenario-ood`.
+Отсутствие детектора в production — ошибка; исследовательская загрузка
+отдельного checkpoint через `load_environment` допускает его отсутствие.
+
+Тензорный ранговый тренер по умолчанию использует полные метки ЧДД с
+проверенным provenance (`--npv-labels`). `--ranking-target proxy` оставлен
+для контрольных экспериментов. Координаты скважина/шаг при подвыборке общие;
+метки и записанные идентичности учитывают `--scenario-fraction`.
+Устройство по умолчанию CPU, число потоков задаётся `--threads`.
+
+```bash
+PYTHONPATH=. python tools/surrogate_train_tensors.py \
+  --mode rank --device cpu --threads 2 \
+  --tensors data/lean700/tensors_context_490_canonical.pt \
+  --npv-labels data/npv-v4/historical_labels_rebuilt.json \
+  --normatives ../docs/models/CHDD_PYTHON/input/Нормативы_ЧДД.xlsx \
+  --output-dir data/new-ranked-candidate
+```
+
+`surrogate_ranking_ablation.py --sampling independent|shared` запускает
+тренер с прежней или исправленной выборкой при одинаковых остальных
+параметрах. Прежняя выборка доступна только в эксперименте; автоматического
+переключения production нет. Для оценки модели сравнивайте одинаковые
+метки ЧДД, метрики короткого списка и полный бленд. Раскрытые исторические
+наборы дают диагностику; новое продвижение требует независимого holdout.

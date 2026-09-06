@@ -31,6 +31,8 @@ def _inputs(tmp_path: Path) -> dict[str, Path]:
         ),
         encoding="utf-8",
     )
+    guard = tmp_path / "scenario.pt"
+    guard.write_bytes(b"guard")
     bundle = tmp_path / "surrogate"
     (bundle / "physical").mkdir(parents=True)
     (bundle / "physical" / "trajectory_ensemble.json").write_text("{}")
@@ -43,6 +45,7 @@ def _inputs(tmp_path: Path) -> dict[str, Path]:
         "lambda": lambda_path,
         "constraints": constraints,
         "bundle": bundle,
+        "guard": guard,
         "out": tmp_path / "out",
     }
 
@@ -61,6 +64,8 @@ def _argv(paths: dict[str, Path], *extra: str) -> list[str]:
         str(paths["constraints"]),
         "--surrogate-bundle",
         str(paths["bundle"]),
+        "--scenario-ood",
+        str(paths["guard"]),
         "--out",
         str(paths["out"]),
         *extra,
@@ -88,6 +93,8 @@ def test_search_only_pins_all_runtime_artifacts(monkeypatch, tmp_path) -> None:
         (paths["out"] / "invocation.json").read_text(encoding="utf-8")
     )
     assert invocation["npv_head"].endswith("physical/npv_head.pt")
+    assert invocation["scenario_ood"] == str(paths["guard"].resolve())
+    assert env["AIOS_SCENARIO_OOD_PATH"] == str(paths["guard"].resolve())
 
 
 def test_full_e2e_requires_sound_submission(monkeypatch, tmp_path) -> None:
@@ -121,3 +128,14 @@ def test_production_e2e_rejects_bundle_without_npv_head(tmp_path) -> None:
         assert "NPV head" in str(error)
     else:
         raise AssertionError("physical-only bundle entered production E2E")
+
+
+def test_production_e2e_rejects_missing_density_guard(tmp_path, monkeypatch):
+    import pytest
+    monkeypatch.delenv('AIOS_SCENARIO_OOD_PATH', raising=False)
+    paths = _inputs(tmp_path)
+    args = _argv(paths, '--search-only')
+    at = args.index('--scenario-ood')
+    del args[at:at + 2]
+    with pytest.raises(SystemExit, match='сценарный OOD'):
+        e2e.main(args)
