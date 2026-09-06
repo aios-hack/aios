@@ -100,6 +100,12 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument(
+        "--constraints",
+        type=Path,
+        default=CONSTRAINTS_PATH,
+        help="файл кейса; OPM попадёт в кеш, пересчитается только валидация",
+    )
+    parser.add_argument(
         "--only",
         action="append",
         help="прогнать только названные кандидаты (можно повторять)",
@@ -166,7 +172,8 @@ def main() -> int:
         print(f"\nсухой прогон: {len(candidates)} кандидатов собраны и валидны, OPM не запускался")
         return 0
 
-    constraints = load_constraints_file(CONSTRAINTS_PATH)
+    constraints = load_constraints_file(args.constraints)
+    print(f"кейс: {args.constraints}")
     normatives = load_normatives(NORMATIVES)
     artifacts = resolve_runtime_artifacts()
     env = load_environment(
@@ -264,7 +271,7 @@ def main() -> int:
         "format": FORMAT,
         "anchor_canonical_schedule_hash": anchor_hash,
         "normatives": str(NORMATIVES),
-        "constraints": str(CONSTRAINTS_PATH),
+        "constraints": str(args.constraints),
         "runs": rows,
     }
     (args.out / "doe.json").write_text(

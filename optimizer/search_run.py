@@ -123,6 +123,11 @@ def main() -> int:
         env, env.base_schedule, initial
     )
     evaluator = make_evaluator(env)
+    # Суррогатная оценка самого эталона. Сравнивать ЧДД кандидата (суррогат) с
+    # `baseline_npv` (настоящий OPM) нельзя — это разные источники, и разница
+    # между ними спрячет разницу между расписаниями. Для допуска кандидата к
+    # дорогому прогону сравнение обязано идти в одних единицах.
+    baseline_surrogate_npv = evaluator(env.base_schedule).npv
     provenance = {
         "model_version": env.model.version,
         "lambda_window": f"{env.lambda_.window_start}..{env.lambda_.window_end}",
@@ -141,6 +146,7 @@ def main() -> int:
         "constraints_path": str(CONSTRAINTS_PATH),
         "constraints_hash": constraints_hash,
         "baseline_constraint_violations": str(len(baseline_violations)),
+        "baseline_surrogate_npv_rub": f"{baseline_surrogate_npv:.6f}",
         "surrogate_water_balance_trusted": "false",
     }
     calls = {"n": 0, "best": float("-inf")}
@@ -280,6 +286,22 @@ def main() -> int:
             flush=True,
         )
         return 4
+    # Incumbent-гейт. Без него протокол способен обязательно выбрать
+    # ухудшение: на G10 все 40 кандидатов были хуже эталона на 1.036 млрд, и
+    # поиск всё равно вернул максимум прогноза. Сравнение идёт суррогат против
+    # суррогата; фактическое сравнение делает submission-тракт после OPM.
+    improvement = final_evaluation.npv - baseline_surrogate_npv
+    if improvement <= 0.0:
+        print(
+            f"\nКАНДИДАТ НЕ БЬЁТ ЭТАЛОН: суррогатный ЧДД "
+            f"{final_evaluation.npv / 1e9:.3f} против {baseline_surrogate_npv / 1e9:.3f} "
+            f"млрд у эталона ({improvement / 1e6:+.1f} млн ₽). Сдаётся эталон: "
+            "прогон OPM на заведомо худшем расписании стоит пятнадцать минут и "
+            "ничего не даёт.",
+            flush=True,
+        )
+        return 7
+
     comparison = " (без сравнения: старый baseline недопустим)"
     if not baseline_violations:
         delta = 100.0 * (final_evaluation.npv - baseline_npv) / baseline_npv

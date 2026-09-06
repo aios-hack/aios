@@ -422,3 +422,26 @@ def test_scenario_ood_admits_a_candidate_inside_the_density(monkeypatch) -> None
     module._enforce_scenario_ood(
         SimpleNamespace(), SimpleNamespace(wells=("A",)), domain
     )
+
+
+# --- incumbent-гейт ------------------------------------------------------------
+
+
+def test_incumbent_gate_arithmetic_compares_like_with_like() -> None:
+    """Суррогат кандидата против суррогата эталона, а не против OPM-эталона.
+
+    На G10 все 40 кандидатов были хуже эталона на 1.036 млрд, и поиск всё
+    равно вернул максимум прогноза: сравнения с опорой в протоколе не было.
+    Сравнивать при этом суррогатный ЧДД кандидата с настоящим ЧДД эталона
+    нельзя — разница источников спрячет разницу расписаний.
+    """
+
+    baseline_surrogate = 11.84e9
+    baseline_opm = 11.87e9
+    candidate_surrogate = 11.80e9
+
+    # Правильное сравнение: кандидат хуже эталона, гейт обязан сработать.
+    assert candidate_surrogate - baseline_surrogate < 0.0
+    # Неправильное сравнение дало бы тот же знак здесь, но в общем случае нет:
+    # разрыв источников на manifold оптимизатора достигал 431% (§4.3 карточки).
+    assert abs(baseline_opm - baseline_surrogate) > 0.0

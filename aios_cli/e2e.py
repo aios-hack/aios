@@ -215,6 +215,15 @@ def main(argv: list[str] | None = None) -> int:
     if not args.verify_only:
         print("\n[1/2] surrogate search", flush=True)
         code = _run_stage("optimizer.search_run", env, str(args.budget))
+        if code == 7:
+            # Incumbent-гейт: кандидат не бьёт эталон. Это не сбой тракта, а
+            # его правильный исход — сдаётся проверенный эталон, и прогон OPM
+            # на заведомо худшем расписании не тратится.
+            print(
+                "поиск не нашёл улучшения к эталону; сдаётся эталон",
+                flush=True,
+            )
+            return 7
         if code != 0:
             print(f"surrogate search failed with code {code}", file=sys.stderr)
             return code
