@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { INFRASTRUCTURE_PARAMETERS } from './infrastructureParameters';
 import { useT } from '../../i18n/I18nContext';
 import type { FieldError, PairRow } from './constraints';
 
@@ -50,18 +51,27 @@ export const InfrastructureTable = ({
           </thead>
           <tbody>
             {rows.map((row) => {
-              const nameError = errors.find((e) => e.key === row.key && e.field === 'name');
+              const nameError = errors.find((e) => e.key === row.key);
+              const parameter = INFRASTRUCTURE_PARAMETERS.find((p) => p.key === row.name);
               return (
                 <tr key={row.key} data-row-key={row.key}>
                   <td>
-                    <input
+                    <select
                       className="scenarios-input"
-                      type="text"
                       value={row.name}
                       aria-label={t('scenarios.column.pairName')}
                       aria-invalid={nameError !== undefined}
                       onChange={(event) => onChange(row.key, 'name', event.target.value)}
-                    />
+                    >
+                      <option value="">{t('scenarios.parameter.choose')}</option>
+                      {row.name && !parameter && <option value={row.name}>{t('scenarios.parameter.unknown')}</option>}
+                      {INFRASTRUCTURE_PARAMETERS.map((p) => (
+                        <option key={p.key} value={p.key} disabled={rows.some((other) => other.key !== row.key && other.name === p.key)}>
+                          {t(`scenarios.parameter.${p.key}.label`)}
+                        </option>
+                      ))}
+                    </select>
+                    {parameter && <p className="scenarios-note">{t(`scenarios.parameter.${parameter.key}.hint`)}</p>}
                     {nameError && (
                       <p className="scenarios-field-error" role="alert">
                         {t(`scenarios.${nameError.messageKey}`, nameError.params)}
@@ -69,13 +79,18 @@ export const InfrastructureTable = ({
                     )}
                   </td>
                   <td>
-                    <input
-                      className="scenarios-input"
-                      type="text"
-                      value={row.value}
-                      aria-label={t('scenarios.column.pairValue')}
-                      onChange={(event) => onChange(row.key, 'value', event.target.value)}
-                    />
+                    {parameter && 'choices' in parameter ? (
+                      <select className="scenarios-input" value={row.value}
+                        aria-label={t('scenarios.column.pairValue')}
+                        onChange={(event) => onChange(row.key, 'value', event.target.value)}>
+                        <option value="">{t('scenarios.parameter.choose')}</option>
+                        {parameter.choices.map((choice) => <option key={choice} value={choice}>{t(`scenarios.parameter.${choice}`)}</option>)}
+                      </select>
+                    ) : (
+                      <input className="scenarios-input" type="text" inputMode="decimal"
+                        value={row.value} aria-label={t('scenarios.column.pairValue')}
+                        onChange={(event) => onChange(row.key, 'value', event.target.value)} />
+                    )}
                   </td>
                   <td className="scenarios-cell-action">
                     <button

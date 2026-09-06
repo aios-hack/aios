@@ -66,7 +66,7 @@ RESPONSE = Path("data/base_case/response.json")
 CONSTRAINTS = Path(
     os.environ.get("AIOS_CONSTRAINTS_PATH", "config/competition-constraints.json")
 )
-SEARCH_DIAGNOSTICS = Path("data/lambda-window-2007/cmaes-diagnostics.json")
+SEARCH_DIAGNOSTICS = Path(os.environ.get("AIOS_SEARCH_DIAGNOSTICS_PATH", "data/lambda-window-2007/cmaes-diagnostics.json"))
 BASE_NPV = 11_873_676_459.64
 SEED = 20260816
 SEARCH_CAP = 2

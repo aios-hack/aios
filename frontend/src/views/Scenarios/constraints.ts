@@ -1,3 +1,4 @@
+import { INFRASTRUCTURE_PARAMETERS } from './infrastructureParameters';
 import type { ConstraintsDoc, WellOutageDoc } from '../../api/types';
 
 export type YearSection =
@@ -150,6 +151,15 @@ const validatePairs = (rows: PairRow[], errors: FieldError[]): void => {
       errors.push({ key: row.key, field: 'name', messageKey: 'error.duplicatePair', params: { name } });
     }
     seen.add(name);
+    const parameter = INFRASTRUCTURE_PARAMETERS.find((p) => p.key === name);
+    const number = parseAmount(row.value);
+    const valid = parameter && ('choices' in parameter
+      ? (parameter.choices as readonly string[]).includes(row.value)
+      : number !== null && number >= parameter.min
+        && (!('max' in parameter) || number <= parameter.max)
+        && (!('integer' in parameter) || Number.isInteger(number)));
+    if (!valid) errors.push({ key: row.key, field: 'value', messageKey: 'error.parameterValue' });
+
   }
 };
 

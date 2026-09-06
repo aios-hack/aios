@@ -58,12 +58,15 @@ describe('ConstraintsEditor', () => {
     });
   });
 
-  it('keeps free key-value infrastructure pairs in the document', async () => {
+  it('uses translated parameter selectors while preserving wire keys', async () => {
     render(withProviders(<ConstraintsEditor nIntervals={224} />));
     await flushProviders();
-    fillRow(addRow('infrastructure'), ['kns_limit_m3_per_day', '12000']);
+    const block = addRow('infrastructure');
+    fireEvent.change(within(block).getByRole('combobox'), { target: { value: 'water_reinjection_fraction' } });
+    fireEvent.change(within(block).getByRole('textbox'), { target: { value: '0.8' } });
+    expect(within(block).getByText(/Доля добытой воды/)).toBeTruthy();
     expect(previewDoc()).toMatchObject({
-      infrastructure: { kns_limit_m3_per_day: 12000 }
+      infrastructure: { water_reinjection_fraction: 0.8 }
     });
   });
 
@@ -183,7 +186,8 @@ describe('ConstraintsEditor JSON upload', () => {
     await waitFor(() => expect(screen.getByDisplayValue('5000')).toBeTruthy());
     expect(screen.getByDisplayValue('0.95')).toBeTruthy();
     expect(screen.getByDisplayValue('42')).toBeTruthy();
-    expect(screen.getByDisplayValue('kns')).toBeTruthy();
+    expect(screen.getByText(ru['scenarios.parameter.unknown'])).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Найти план суррогатом' }) as HTMLButtonElement).disabled).toBe(true);
     expect(previewDoc()).toMatchObject({
       injection_limits: { '2007': 5000 },
       watercut_limits: { '2008': 0.95 },

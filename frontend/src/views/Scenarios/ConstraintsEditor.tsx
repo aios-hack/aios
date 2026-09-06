@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useT } from '../../i18n/I18nContext';
 import { InfoHint } from '../../ui/InfoHint';
+import { LiveRuns } from './LiveRuns';
 import { YEAR_SECTIONS } from './constraints';
 import { InfrastructureTable } from './InfrastructureTable';
 import { OutageTable } from './OutageTable';
@@ -143,6 +144,8 @@ export const ConstraintsEditor = ({ nIntervals }: ConstraintsEditorProps) => {
           onRemove={editor.removePair}
         />
       </div>
+
+      <LiveRuns document={editor.document} blocked={blocked} />
 
       <details className="scenarios-preview">
         <summary className="scenarios-preview-summary">{t('scenarios.preview.title')}</summary>

@@ -40,6 +40,7 @@ from backend.application.optimization.runtime_artifacts import (
     validate_runtime_economic_head,
 )
 from backend.application.optimization.search_run import (
+    CONSTRAINTS,
     FINAL_CAP,
     SEED,
     _repair_predicted_water_balance,
@@ -51,7 +52,6 @@ from backend.domain.configuration.constraints_io import constraints_from_json
 
 LAMBDA = Path("data/lambda-window-2007/lambda.json")
 RESPONSE = Path("data/base_case/response.json")
-CONSTRAINTS = Path("config/competition-constraints.json")
 WORK_ROOT = Path("data/g7-submission")
 EXPECTED_HASH = None  # сверяется с cmaes.json; None — принять любой
 BASE_NPV = 11_873_676_459.64
