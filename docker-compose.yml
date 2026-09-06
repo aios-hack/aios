@@ -80,3 +80,15 @@ services:
       timeout: 3s
       retries: 10
       start_period: 3s
+
+  surrogate-check:
+    profiles: ["tools"]
+    image: aios:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "-m", "backend.presentation.cli.surrogate_check", "--output", "/out/surrogate-runtime.json"]
+    volumes:
+      - ${AIOS_DOCS:-./../docs}:/data/docs:ro
+      - ./data:/app/data:ro
+      - ./out:/out

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -21,6 +22,7 @@ class RuntimeArtifacts:
     feature_context: Path
     npv_head: Path | None
     source: str
+    scenario_ood: Path | None = None
     economic_model_version: str | None = None
     economic_target_provenance_hash: str | None = None
 
@@ -73,6 +75,9 @@ def resolve_runtime_artifacts(
     economic_model_version: str | None = None
     economic_target_provenance_hash: str | None = None
 
+    payload = {}
+    scenario_ood = None
+
     if explicit_checkpoint:
         checkpoint = Path(explicit_checkpoint)
         context = Path(explicit_context) if explicit_context else _feature_next_to_checkpoint(checkpoint)
@@ -109,7 +114,22 @@ def resolve_runtime_artifacts(
         head = Path(explicit_head) if explicit_head else default_bundle / "physical" / "npv_head.pt"
         source = "default production bundle"
 
-    missing = [str(path) for path in (checkpoint, context) if not path.is_file()]
+    if source.startswith("production manifest"):
+        guard = payload.get("scenario_ood")
+        if not isinstance(guard, dict) or not guard.get("path") or not guard.get("sha256"):
+            raise RuntimeArtifactError("production manifest requires a versioned scenario_ood artifact")
+        scenario_ood = manifest.parent / guard["path"]
+        if not scenario_ood.is_file():
+            raise RuntimeArtifactError(f"missing runtime artifact: {scenario_ood}")
+        if hashlib.sha256(scenario_ood.read_bytes()).hexdigest() != guard["sha256"]:
+            raise RuntimeArtifactError("scenario OOD checksum differs from production manifest")
+        if not context.is_file() or hashlib.sha256(context.read_bytes()).hexdigest() != guard.get("feature_context_sha256"):
+            raise RuntimeArtifactError("scenario OOD feature context differs from production manifest")
+    elif env.get("AIOS_SCENARIO_OOD_PATH"):
+        scenario_ood = Path(env["AIOS_SCENARIO_OOD_PATH"])
+
+    required = (checkpoint, context) + ((scenario_ood,) if scenario_ood is not None else ())
+    missing = [str(path) for path in required if not path.is_file()]
     if head is not None and not head.is_file():
         if explicit_head or manifest_value or source.startswith("production manifest"):
             missing.append(str(head))
@@ -124,6 +144,7 @@ def resolve_runtime_artifacts(
         feature_context=context,
         npv_head=head,
         source=source,
+        scenario_ood=scenario_ood,
         economic_model_version=economic_model_version,
         economic_target_provenance_hash=economic_target_provenance_hash,
     )

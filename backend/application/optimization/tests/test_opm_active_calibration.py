@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -6,17 +7,14 @@ from backend.application.optimization.opm_active_calibration import (
     OpmActiveCalibrationError,
     WaterFamilyNpvCalibration,
 )
-from backend.application.optimization.runtime_artifacts import resolve_runtime_artifacts
-from backend.ml.surrogate.npv_head import ScenarioNpvHead
 
 
 def _load() -> WaterFamilyNpvCalibration:
     root = Path(__file__).resolve().parents[4]
-    runtime = resolve_runtime_artifacts()
-    head = ScenarioNpvHead.load(runtime.npv_head)
+    payload = json.loads((root / "config" / "opm-active-npv-calibration.json").read_text())
     return WaterFamilyNpvCalibration.load(
         root / "config" / "opm-active-npv-calibration.json",
-        economic_model_version=head.version,
+        economic_model_version=payload["economic_model_version"],
     )
 
 

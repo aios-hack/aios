@@ -41,7 +41,10 @@ from backend.core.contracts import (
     water_supply_policy,
 )
 from backend.domain.economics import load_response_artifact
-from backend.application.optimization.schedule_search import load_environment, make_evaluator, make_policy
+from backend.application.optimization.schedule_search import (
+    load_environment, make_evaluator, make_policy,
+    OutOfDomainScheduleError, PhysicallyImpossibleScheduleError,
+)
 from backend.application.optimization.runtime_artifacts import (
     resolve_runtime_artifacts,
     validate_runtime_economic_head,
@@ -56,7 +59,7 @@ from backend.domain.schedule import (
     validate_static,
 )
 from backend.infrastructure.resources import chdd_python_dir, model_z_dir
-from backend.presentation.ui_export.scenarios import constraints_from_json
+from backend.domain.configuration.constraints_io import constraints_from_json
 
 LAMBDA = Path(os.environ.get("AIOS_LAMBDA_PATH", "data/lambda-window-2007/lambda.json"))
 RESPONSE = Path("data/base_case/response.json")
@@ -214,6 +217,8 @@ def _search_theta(constraints) -> Theta:
 def run_search(*, budget: int = BUDGET) -> SearchOutcome:
     """Run CMA-ES and return the plan instead of deciding where to save it."""
     artifacts = resolve_runtime_artifacts()
+    if artifacts.scenario_ood is None:
+        raise SearchRunError("production search requires a versioned scenario OOD artifact")
     constraints = constraints_from_json(
         json.loads(CONSTRAINTS.read_text(encoding="utf-8"))
     )
@@ -224,6 +229,7 @@ def run_search(*, budget: int = BUDGET) -> SearchOutcome:
         checkpoint_path=artifacts.checkpoint,
         feature_context_path=artifacts.feature_context,
         npv_head_path=artifacts.npv_head,
+        scenario_ood_path=artifacts.scenario_ood,
         lambda_path=LAMBDA,
         constraints=constraints,
         ood_threshold=OOD_THRESHOLD,
@@ -238,6 +244,7 @@ def run_search(*, budget: int = BUDGET) -> SearchOutcome:
         "lambda_stability": f"{env.lambda_.stability:.3f}",
         "seed": str(SEED),
         "runtime_artifact_source": artifacts.source,
+        "scenario_ood_version": env.scenario_ood.version if env.scenario_ood else "none",
         "npv_head_version": env.npv_head.version if env.npv_head else "none",
         "constraints_path": str(CONSTRAINTS),
         "ood_threshold": str(env.ood_threshold),
@@ -245,7 +252,16 @@ def run_search(*, budget: int = BUDGET) -> SearchOutcome:
     calls = {"n": 0, "best": float("-inf")}
 
     def objective(theta) -> OptimizerResult:
-        result = resolve(make_policy(env, theta, {}), evaluator, initial, SEARCH_CAP)
+        try:
+            result = resolve(make_policy(env, theta, {}), evaluator, initial, SEARCH_CAP)
+        except (OutOfDomainScheduleError, PhysicallyImpossibleScheduleError) as error:
+            calls["n"] += 1
+            return OptimizerResult(
+                objective=-math.inf, feasible=False,
+                violations_by_scenario=(ScenarioViolation(
+                    scenario_id="surrogate-rejected", regret=1.0, what=str(error),
+                ),), provenance=provenance,
+            )
         npv = result.npv
         static = validate_static(result.schedule, env.constraints)
         violations: list[ScenarioViolation] = []
@@ -318,7 +334,7 @@ def run_search(*, budget: int = BUDGET) -> SearchOutcome:
                 "evaluations": [
                     {
                         "theta": dict(item.theta.values),
-                        "npv_predicted": item.result.objective,
+                        "npv_predicted": item.result.objective if math.isfinite(item.result.objective) else None,
                         "feasible": item.result.feasible,
                         "violations": [
                             {
@@ -358,14 +374,18 @@ def run_search(*, budget: int = BUDGET) -> SearchOutcome:
         if signature in seen:
             continue
         seen.add(signature)
-        final = resolve(
-            make_policy(env, candidate.theta, {}), evaluator, initial, FINAL_CAP
-        )
-        check = validate_static(final.schedule, env.constraints)
-        repaired_schedule, evaluated, dynamic, repair_rounds = _repair_predicted_water_balance(
-            env, evaluator, final.schedule
-        )
-        check = validate_static(repaired_schedule, env.constraints)
+        try:
+            final = resolve(
+                make_policy(env, candidate.theta, {}), evaluator, initial, FINAL_CAP
+            )
+            check = validate_static(final.schedule, env.constraints)
+            repaired_schedule, evaluated, dynamic, repair_rounds = _repair_predicted_water_balance(
+                env, evaluator, final.schedule
+            )
+            check = validate_static(repaired_schedule, env.constraints)
+        except (OutOfDomainScheduleError, PhysicallyImpossibleScheduleError) as error:
+            print(f"  finalist rejected: {error}", flush=True)
+            continue
         surrogate_blocking = tuple(
             item
             for item in dynamic.blocking_violations

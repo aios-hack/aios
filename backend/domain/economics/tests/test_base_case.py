@@ -131,14 +131,26 @@ def test_cost_structure_reconciles_to_fcf(analysis) -> None:
     assert totals.opex_total > 0.0
 
 
-def test_conversion_count_matches_the_deck(analysis) -> None:
-    """Переводы под закачку — по факту отклика, стоимость ровно 5.0 млн каждый."""
+def test_event_tally_uses_factual_response_not_schedule_intent(analysis) -> None:
+    """Девять schedule-конверсий имеют реальный промежуточный SHUT в OPM.
 
-    events = analysis.events
-    assert events.conversion_count > 0
-    assert events.conversion_cost_rub == pytest.approx(
-        events.conversion_count * NORMATIVES.conversion_base_cost_rub
+    Официальный ``chdd_model.py`` сравнивает соседние фактические строки и на
+    этом exact response также получает stop+start, а не direct conversion.
+    Память последней активной роли через SHUT дала бы ложные 5 млн ₽ и сломала
+    machine-precision reference parity.
+    """
+
+    assert analysis.response_hash == (
+        "85f04c6a74ff575d9fe1b25cf3f8a8adcfab998e27b2184036b48d8cd526423f"
     )
+    events = analysis.events
+    assert events.conversion_count == 0
+    assert events.conversion_cost_rub == pytest.approx(0.0)
+    assert events.stop_start_count == 41
+    assert events.stop_start_cost_rub == pytest.approx(
+        events.stop_start_count * NORMATIVES.event_cost_rub
+    )
+
 
 
 def test_initial_esp_is_not_charged(analysis) -> None:

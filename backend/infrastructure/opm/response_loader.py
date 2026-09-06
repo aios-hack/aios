@@ -33,6 +33,8 @@ contracts/README.md §3, §6; docs/context/08_contracts.md §4.1.1, §4.3.
 
 from __future__ import annotations
 
+from backend.domain.schedule.wcon import CONTROL_ORDER, commissioning_state
+
 import hashlib
 import struct
 from bisect import bisect_right
@@ -350,12 +352,12 @@ class _WellTimeline:
     status_values: tuple[OperatingStatus, ...]
     setpoint_steps: tuple[int, ...]
     setpoint_values: tuple[float, ...]
-    first_open_step: int | None
+    first_commission_step: int | None
 
     def is_commissioned(self, control_step: int) -> bool:
         if self.baseline_available:
             return True
-        return self.first_open_step is not None and self.first_open_step <= control_step
+        return self.first_commission_step is not None and self.first_commission_step <= control_step
 
     def operating_status(self, control_step: int) -> OperatingStatus:
         index = bisect_right(self.status_steps, control_step) - 1
@@ -370,46 +372,58 @@ class _WellTimeline:
         return self.baseline_setpoint
 
 
-def _build_well_timelines(schedule: Schedule) -> dict[str, _WellTimeline]:
-    events_by_well: dict[str, list[ControlEvent]] = {}
-    for event in schedule.control_events:
-        events_by_well.setdefault(event.well, []).append(event)
 
+def _build_well_timelines(schedule: Schedule) -> dict[str, _WellTimeline]:
+    # Fixed commissioning precedes managed controls at the same step.
+    events_by_well: dict[str, list[tuple[int, int, object]]] = {}
+    for event in schedule.fixed_deck_events:
+        if event.operator in {"WCONPROD", "WCONINJE"}:
+            events_by_well.setdefault(event.well, []).append((event.control_step, -1, event))
+    for event in schedule.control_events:
+        events_by_well.setdefault(event.well, []).append(
+            (event.control_step, CONTROL_ORDER[event.kind], event)
+        )
     wells = set(schedule.initial_state) | set(events_by_well)
     timelines: dict[str, _WellTimeline] = {}
     for well in wells:
         baseline = schedule.initial_state.get(well)
-        events = sorted(events_by_well.get(well, ()), key=lambda event: event.control_step)
-        status_steps: list[int] = []
-        status_values: list[OperatingStatus] = []
-        setpoint_steps: list[int] = []
-        setpoint_values: list[float] = []
-        first_open: int | None = None
-        for event in events:
-            if event.kind is EventKind.OPEN:
-                status_steps.append(event.control_step)
-                status_values.append(OperatingStatus.OPEN)
-                if first_open is None:
-                    first_open = event.control_step
-            elif event.kind is EventKind.SHUT:
-                status_steps.append(event.control_step)
-                status_values.append(OperatingStatus.SHUT)
+        status_steps, status_values, setpoint_steps, setpoint_values = [], [], [], []
+        first_commission: int | None = None
+        for step, priority, event in sorted(events_by_well.get(well, ()), key=lambda row: row[:2]):
+            if priority == -1:
+                try:
+                    fixed = commissioning_state(event.operator, event.raw_args)
+                except ValueError as error:
+                    raise ResponseLoaderError(f"{well}, шаг {step}: {error}") from error
+                status_steps.append(step)
+                status_values.append(fixed.operating_status)
+                setpoint_steps.append(step)
+                setpoint_values.append(fixed.setpoint)
+                if first_commission is None:
+                    first_commission = step
+            elif event.kind in (EventKind.OPEN, EventKind.SHUT):
+                status_steps.append(step)
+                status_values.append(
+                    OperatingStatus.OPEN if event.kind is EventKind.OPEN else OperatingStatus.SHUT
+                )
+                # Retain support for schedules representing commissioning by OPEN.
+                if event.kind is EventKind.OPEN and first_commission is None:
+                    first_commission = step
             elif event.kind in (EventKind.SET_LRAT, EventKind.SET_RATE):
-                setpoint_steps.append(event.control_step)
+                setpoint_steps.append(step)
                 setpoint_values.append(event.value if event.value is not None else 0.0)
         timelines[well] = _WellTimeline(
             baseline_available=(baseline is not None and baseline.availability is Availability.AVAILABLE),
             baseline_operating_status=(
                 baseline.operating_status if baseline is not None else OperatingStatus.SHUT
             ),
-            baseline_setpoint=(baseline.setpoint if baseline is not None else 0.0),
-            status_steps=tuple(status_steps),
-            status_values=tuple(status_values),
-            setpoint_steps=tuple(setpoint_steps),
-            setpoint_values=tuple(setpoint_values),
-            first_open_step=first_open,
+            baseline_setpoint=baseline.setpoint if baseline is not None else 0.0,
+            status_steps=tuple(status_steps), status_values=tuple(status_values),
+            setpoint_steps=tuple(setpoint_steps), setpoint_values=tuple(setpoint_values),
+            first_commission_step=first_commission,
         )
     return timelines
+
 
 
 def _control_step_for_date(deck_date_index: int) -> int | None:
