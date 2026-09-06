@@ -682,7 +682,12 @@ def _scenario_money(
             + physical[:, 2] * rub_per_unit[2]
         )
     else:
-        value = (physical * rub_per_unit).sum(dim=1)
+        # Та же дыра, что 8d6415f закрыл со стороны обводнённости, только с
+        # другой: в `absolute` нефть независима от жидкости, и прокси платит
+        # рублями за физически невозможную нефть. Ранговому лоссу этого
+        # достаточно, чтобы поднимать сценарии через неё.
+        oil = torch.minimum(physical[:, 0], physical[:, 1] * oil_density_t_per_m3)
+        value = oil * rub_per_unit[0] + (physical[:, 1:] * rub_per_unit[1:]).sum(dim=1)
     totals = torch.zeros(scenario_count, dtype=value.dtype, device=value.device)
     totals.index_add_(0, scenario_index, value)
     return totals
@@ -764,7 +769,10 @@ def _proxy_value(
         oil = liquid * (1.0 - watercut) * settings.oil_density_t_per_m3
         return (oil * rub_per_unit[0] + liquid * rub_per_unit[1]
                 + physical[:, 2] * rub_per_unit[2])
-    return (physical * rub_per_unit).sum(dim=1)
+    # Тот же предел, что в сценарном прокси: нефть не дороже той, что физически
+    # помещается в предсказанную жидкость.
+    oil = torch.minimum(physical[:, 0], physical[:, 1] * settings.oil_density_t_per_m3)
+    return oil * rub_per_unit[0] + (physical[:, 1:] * rub_per_unit[1:]).sum(dim=1)
 
 
 def _pairwise_ranking_loss(
@@ -1305,6 +1313,16 @@ class TrajectorySurrogate:
                 injection = injection_rate = 0.0
             elif source.role is Role.INJ:
                 oil = liquid = liquid_rate = 0.0
+            # Тождество контракта: в объёме нефти не больше жидкости, то есть
+            # обводнённость не уходит ниже нуля. В режиме `watercut` это верно
+            # по построению и потолок ничего не меняет; в `absolute` нефть —
+            # независимый шестой канал, и она уходит выше жидкости на
+            # 0.009…0.38% массы (замер на восьми прогонах OPM,
+            # `tools/surrogate_physics_report.py`). Предел стоит здесь же, где
+            # `clamp_min(0.0)` и потолок обводнённости, — на декодировании, а
+            # не в лоссе: размен «параметризация против рангового лосса» из
+            # 820345a не переоткрывается, обучение не трогается.
+            oil = min(oil, liquid * self.config.oil_density_t_per_m3)
             nodes.append(
                 RawWellStepPrediction(
                     well=source.well,

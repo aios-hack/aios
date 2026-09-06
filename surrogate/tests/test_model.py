@@ -20,7 +20,7 @@ from contracts import (  # noqa: E402
     StateAtDate,
 )
 from surrogate.features import SurrogateInput, WellStepFeatures  # noqa: E402
-from surrogate.model import (
+from surrogate.model import (  # noqa: E402
     TARGET_NAMES,
     _WATERCUT_CEILING,
     _ScenarioBatches,
@@ -38,7 +38,6 @@ from surrogate.model import (
     SurrogateModelError,
     TrainingExample,
     TrajectorySurrogate,
-    _targets,
     split_examples,
 )
 from surrogate.ood import ScoredPrediction  # noqa: E402
@@ -329,8 +328,14 @@ def test_spearman_matches_known_orderings() -> None:
 
 
 def test_scenario_money_sums_signed_line_items_per_scenario() -> None:
-    """Прокси обязан складывать статьи со знаком внутри каждого сценария."""
-    shifted = torch.tensor([[1.0, 0.0], [0.0, 0.0], [1.0, 0.0]])
+    """Прокси обязан складывать статьи со знаком внутри каждого сценария.
+
+    Жидкости в узле заведомо хватает на предсказанную нефть: прокси в режиме
+    `absolute` держит тождество «нефть не больше жидкости в объёме», и
+    физически невозможная строка проверяла бы уже не сложение статей, а
+    потолок — для него есть свой тест ниже.
+    """
+    shifted = torch.tensor([[1.0, 2.0], [0.0, 0.0], [1.0, 2.0]])
     totals = _scenario_money(
         shifted,
         torch.tensor([0, 0, 1]),
@@ -339,7 +344,7 @@ def test_scenario_money_sums_signed_line_items_per_scenario() -> None:
         mean=torch.tensor([0.0, 0.0]),
         rub_per_unit=torch.tensor([8360.0, -100.0]),
     )
-    unit = math.expm1(1.0) * 8360.0
+    unit = math.expm1(1.0) * 8360.0 + math.expm1(2.0) * -100.0
     assert totals[0].item() == pytest.approx(unit)
     assert totals[1].item() == pytest.approx(unit)
     negative = _scenario_money(
@@ -351,6 +356,29 @@ def test_scenario_money_sums_signed_line_items_per_scenario() -> None:
         rub_per_unit=torch.tensor([8360.0, -100.0]),
     )
     assert negative[0].item() == pytest.approx(-math.expm1(1.0) * 100.0)
+
+
+def test_absolute_proxy_does_not_pay_for_oil_the_liquid_cannot_hold() -> None:
+    """Нефть сверх жидкости не приносит рублей — иначе ранговый лосс её найдёт.
+
+    В `absolute` нефть предсказывается независимым каналом, поэтому прокси без
+    потолка платит за отрицательную обводнённость. Это та же дыра, что 8d6415f
+    закрыл со стороны обводнённости, только с другой; предел должен быть один
+    и тот же во всех путях.
+    """
+    density = 0.9131
+    # Нефти 10 «единиц» при жидкости 1: физически помещается лишь 0.9131.
+    physical = torch.log1p(torch.tensor([[10.0, 1.0]]))
+    totals = _scenario_money(
+        physical,
+        torch.tensor([0]),
+        1,
+        scale=torch.tensor([1.0, 1.0]),
+        mean=torch.tensor([0.0, 0.0]),
+        rub_per_unit=torch.tensor([8360.0, 0.0]),
+        oil_density_t_per_m3=density,
+    )
+    assert totals[0].item() == pytest.approx(1.0 * density * 8360.0, rel=1e-5)
 
 
 def test_watercut_parameterization_round_trips_oil_exactly() -> None:
@@ -666,6 +694,7 @@ def test_measured_defaults_do_not_combine_ranking_loss_with_watercut() -> None:
     )
     assert not (args.ranking_loss_weight > 0.0
                 and args.target_parameterization == "watercut")
+    assert args.ranking_top_weighted is False
 
 
 def test_top_weighted_ranking_cares_about_the_head_not_the_tail() -> None:
