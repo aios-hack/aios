@@ -38,8 +38,10 @@ from backend.core.contracts import (
     EventKind,
     compensation_policy,
     hash_schedule,
+    canonical_bytes,
     water_supply_policy,
 )
+from backend.core.contracts.schedule import MAX_LRAT_M3_PER_DAY
 from backend.domain.economics import load_response_artifact
 from backend.application.optimization.schedule_search import (
     load_environment, make_evaluator, make_policy,
@@ -214,6 +216,71 @@ def _search_theta(constraints) -> Theta:
     return Theta(values=values, bounds=bounds)
 
 
+def _search_near_baseline(env, evaluator, budget: int, provenance: dict[str, str]) -> SearchOutcome:
+    """Bounded fallback, with the same OOD, physics and case gates as finalists.
+
+    This is open-loop schedule search, not a converged multi-agent policy.
+    The baseline competes fairly and may win; constraints are never dropped.
+    """
+    import random
+    rng = random.Random(SEED)
+    from backend.domain.schedule.case_limits import apply_case_limits
+    baseline = apply_case_limits(env.base_schedule, env.constraints, getattr(env, "control_dates", ()))
+    candidates = [baseline]
+    wells = sorted({event.well for event in baseline.control_events
+                    if event.kind in (EventKind.SET_LRAT, EventKind.SET_RATE) and event.value})
+    for index in range(budget - 1):
+        well = wells[index % len(wells)] if index < len(wells) else rng.choice(wells)
+        direction = -1 if index % 2 == 0 else 1
+        events = tuple(
+            replace(event, value=max(0.0, min(MAX_LRAT_M3_PER_DAY if event.kind is EventKind.SET_LRAT else float('inf'),
+                float(event.value) + direction * (1.0 if event.kind is EventKind.SET_LRAT else 5.0))))
+            if event.well == well and event.kind in (EventKind.SET_LRAT, EventKind.SET_RATE)
+               and event.value and event.value > (1 if event.kind is EventKind.SET_LRAT else 5)
+            else event for event in baseline.control_events)
+        candidates.append(canonicalize(replace(baseline, control_events=events)))
+    records = []
+    accepted = []
+    for index, schedule in enumerate(candidates):
+        violations = []
+        npv = None
+        try:
+            static = validate_static(schedule, env.constraints)
+            if not static.ok:
+                violations.append({'scenario_id': 'static-contract', 'regret': len(static.violations),
+                                   'what': f'Нарушений условий плана: {len(static.violations)}'})
+            else:
+                schedule, evaluated, dynamic, _ = _repair_predicted_water_balance(env, evaluator, schedule)
+                static = validate_static(schedule, env.constraints)
+                blocking = [v for v in dynamic.blocking_violations if v.kind not in SURROGATE_NONBLOCKING_KINDS]
+                if not static.ok or blocking:
+                    violations.append({'scenario_id': 'case-constraints', 'regret': len(blocking) + len(static.violations),
+                                       'what': f'Нарушений ограничений: {len(blocking) + len(static.violations)}'})
+                elif evaluated.ood_score is None or evaluated.ood_score > env.ood_threshold:
+                    violations.append({'scenario_id': 'surrogate-domain', 'regret': 1,
+                                       'what': 'План вне области обучения.'})
+                else:
+                    npv = evaluated.npv
+                    accepted.append((npv, schedule, index))
+        except (OutOfDomainScheduleError, PhysicallyImpossibleScheduleError) as error:
+            violations.append({'scenario_id': 'surrogate-rejected', 'regret': 1, 'what': str(error)})
+        records.append({'strategy': 'baseline-neighborhood', 'theta': {}, 'npv_predicted': npv,
+                        'feasible': not violations, 'violations': violations})
+        print(f'локальный вариант {index + 1}/{budget}: допустим={not violations}, ЧДД={npv}', flush=True)
+    diagnostics = json.loads(SEARCH_DIAGNOSTICS.read_text())
+    diagnostics['fallback_budget'] = budget
+    diagnostics['evaluations'].extend(records)
+    SEARCH_DIAGNOSTICS.write_text(json.dumps(diagnostics, ensure_ascii=False, indent=2, allow_nan=False))
+    if not accepted:
+        raise SearchRunError('Ни политика, ни локальные изменения исходного плана не прошли проверки условий и области обучения.')
+    npv, schedule, index = max(accepted, key=lambda item: item[0])
+    provenance = dict(provenance, search_strategy='baseline-neighborhood',
+                      selected_candidate='baseline' if index == 0 else 'local-change',
+                      policy_equilibrium='not-claimed')
+    return SearchOutcome(schedule, default_theta(), npv, hash_schedule(schedule), provenance,
+                         len(diagnostics['evaluations']), False, False)
+
+
 def run_search(*, budget: int = BUDGET) -> SearchOutcome:
     """Run CMA-ES and return the plan instead of deciding where to save it."""
     artifacts = resolve_runtime_artifacts()
@@ -361,10 +428,7 @@ def run_search(*, budget: int = BUDGET) -> SearchOutcome:
         reverse=True,
     )
     if not ranked:
-        raise SearchRunError(
-            "поиск не нашёл ни одной статически допустимой θ; "
-            "проверьте ограничения кейса и политику"
-        )
+        return _search_near_baseline(env, evaluator, budget, provenance)
 
     finalists = []
     seen: set[tuple[tuple[str, float], ...]] = set()
@@ -418,10 +482,7 @@ def run_search(*, budget: int = BUDGET) -> SearchOutcome:
         if len(seen) >= FINALIST_CAP:
             break
     if not finalists:
-        raise SearchRunError(
-            "ни один финалист не прошёл статический/динамический/OOD гейт; "
-            "расписание не экспортировано"
-        )
+        return _search_near_baseline(env, evaluator, budget, provenance)
 
     predicted_npv, best_theta, schedule, final, check, surrogate_blocking = max(
         finalists, key=lambda item: (item[3].self_consistent, item[0])
@@ -454,10 +515,14 @@ def main() -> int:
     budget = int(sys.argv[1]) if len(sys.argv) > 1 else BUDGET
     outcome = run_search(budget=budget)
     out = Path("data/lambda-window-2007/cmaes.json")
+    schedule_path = out.with_name('cmaes-schedule.json')
+    schedule_path.parent.mkdir(parents=True, exist_ok=True)
+    schedule_path.write_bytes(canonical_bytes(outcome.schedule))
     out.write_text(
         json.dumps(
             {
                 "seed": SEED,
+                "schedule_path": str(schedule_path),
                 "budget": budget,
                 "evaluations": outcome.evaluations,
                 "search_cap": SEARCH_CAP,

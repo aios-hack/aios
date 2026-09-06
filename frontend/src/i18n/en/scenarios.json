@@ -122,5 +122,8 @@
   "parameter.compensation_enforcement.label": "Проверка компенсации",
   "parameter.compensation_enforcement.hint": "Наблюдение только фиксирует отклонения. Обязательное условие отклоняет планы за пределами заданного коридора. Нужны обе границы.",
   "parameter.compensation_scope.label": "Где проверять компенсацию",
-  "parameter.compensation_scope.hint": "Проверять баланс всего месторождения, отдельных групп скважин или обоих уровней. Нужны обе границы."
+  "parameter.compensation_scope.hint": "Проверять баланс всего месторождения, отдельных групп скважин или обоих уровней. Нужны обе границы.",
+  "error.waterFractionRequired": "Set the reinjection fraction to define water supply.",
+  "error.compensationBoundsRequired": "Set both minimum and maximum compensation.",
+  "error.compensationBoundsOrder": "Maximum compensation must be at least the minimum."
 }

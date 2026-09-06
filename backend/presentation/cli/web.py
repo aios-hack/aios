@@ -89,6 +89,7 @@ def main(argv: list[str] | None = None) -> int:
     # single-threaded TCPServer makes every request wait for the previous one,
     # which can leave the page blank while a large artifact is being served.
     with http.server.ThreadingHTTPServer((args.host, args.port), handler) as server:
+        SpaRequestHandler.runs.recover_interrupted()
         print(f"веб-интерфейс: http://{args.host}:{args.port} из {args.dist}")
         server.serve_forever()
     return 0

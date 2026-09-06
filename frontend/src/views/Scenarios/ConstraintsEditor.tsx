@@ -145,7 +145,10 @@ export const ConstraintsEditor = ({ nIntervals }: ConstraintsEditorProps) => {
         />
       </div>
 
-      <LiveRuns document={editor.document} blocked={blocked} />
+      <LiveRuns document={editor.document} blocked={blocked} onLoadConditions={(document) => {
+        const parsed = parseJsonText(JSON.stringify(document), nIntervals);
+        if (parsed.ok) editor.setState(parsed.state);
+      }} />
 
       <details className="scenarios-preview">
         <summary className="scenarios-preview-summary">{t('scenarios.preview.title')}</summary>

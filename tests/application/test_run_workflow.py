@@ -67,3 +67,15 @@ def test_full_passes_the_schedule_returned_by_search_to_verification(tmp_path) -
 
     assert seen == [schedule]
     assert result.status is WorkflowStatus.READY_TO_SUBMIT
+
+
+def test_unsound_real_style_result_preserves_diagnostics_without_reading_npv(tmp_path):
+    class Rejected:
+        sound = False
+        @property
+        def npv_methodology(self):
+            raise ValueError('unverified NPV must not be read')
+    result = RunWorkflow(tmp_path).verify(RunRequest('rejected', sample_schedule()), lambda *_: Rejected())
+    assert result.verified_npv is None
+    assert result.sound is False
+    assert (tmp_path / 'rejected/validation/result.json').is_file()

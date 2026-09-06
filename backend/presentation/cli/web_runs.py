@@ -2,6 +2,7 @@
 from __future__ import annotations
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -19,7 +20,9 @@ class WebRuns:
     def __init__(self, root: Path):
         self.root = root.resolve()
         self.lock = threading.Lock()
-        # This adapter runs in one server process. Recover jobs interrupted by a restart.
+
+    def recover_interrupted(self):
+        # Called only after the server successfully binds its port, not at import.
         for path in self.root.glob('*/job.json'):
             data = json.loads(path.read_text())
             if data.get('status') == 'running':
@@ -36,7 +39,7 @@ class WebRuns:
         for path in sorted(self.root.glob('*/job.json'), reverse=True):
             data = json.loads(path.read_text())
             directory = path.parent
-            for name in ('manifest', 'constraints'):
+            for name in ('manifest', 'constraints', 'provenance'):
                 artifact = directory / f'{name}.json'
                 if artifact.is_file():
                     data[name] = json.loads(artifact.read_text())
@@ -50,6 +53,20 @@ class WebRuns:
                 data['feasible_evaluations'] = sum(bool(e['feasible']) for e in evaluations)
                 data['rejection_reasons'] = list(dict.fromkeys(
                     v['what'] for e in evaluations for v in e.get('violations', [])))[:5]
+            if data.get('status') == 'running' and data.get('mode') == 'verify':
+                logs = sorted(directory.glob('opm/runs/*/flow.log'))
+                if logs:
+                    with logs[-1].open('rb') as stream:
+                        stream.seek(0, 2)
+                        stream.seek(max(0, stream.tell() - 65536))
+                        tail = stream.read().decode('utf-8', errors='replace')
+                    steps = re.findall(r'Report step\s+(\d+)/(\d+).*?date = ([^\n]+)', tail)
+                    if steps:
+                        step, total, date = steps[-1]
+                        data['progress'] = {'step': int(step), 'total': int(total), 'date': datetime.strptime(date.strip(), '%d-%b-%Y').strftime('%d.%m.%Y')}
+            economics = directory / 'economics/result.json'
+            if economics.is_file():
+                data['economics'] = json.loads(economics.read_text())
             runs.append(data)
         return runs[:50]
 

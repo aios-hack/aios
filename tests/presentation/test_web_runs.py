@@ -46,3 +46,23 @@ def test_failed_worker_is_not_a_verified_result(tmp_path):
     assert result['status'] == 'failed'
     assert 'manifest' not in result
     assert not jobs.lock.locked()
+
+
+def test_importing_adapter_does_not_mark_active_jobs_failed(tmp_path):
+    directory = tmp_path / 'web-active'
+    directory.mkdir()
+    path = directory / 'job.json'
+    path.write_text(json.dumps({'run_id': 'web-active', 'status': 'running'}))
+    jobs = WebRuns(tmp_path)
+    assert json.loads(path.read_text())['status'] == 'running'
+    jobs.recover_interrupted()
+    assert json.loads(path.read_text())['status'] == 'failed'
+
+
+def test_opm_progress_comes_from_real_log_and_keeps_model_date(tmp_path):
+    directory = tmp_path / 'web-progress'
+    output = directory / 'opm/runs/opm-one'
+    output.mkdir(parents=True)
+    (directory / 'job.json').write_text(json.dumps({'run_id': 'web-progress', 'status': 'running', 'mode': 'verify'}))
+    (output / 'flow.log').write_text('Report step 17/371 at day 400/12511, date = 01-Jan-2007\n')
+    assert WebRuns(tmp_path).list()[0]['progress'] == {'step': 17, 'total': 371, 'date': '01.01.2007'}

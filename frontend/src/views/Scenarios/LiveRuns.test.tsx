@@ -24,3 +24,13 @@ it('verifies the saved run without sending changed form conditions', async () =>
   await screen.findByText('Полный расчёт OPM…');
   expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({ mode: 'verify', run_id: 'web-saved' });
 });
+
+it('shows saved conditions and returns them to the form without starting a run', async () => {
+  const onLoadConditions = vi.fn();
+  const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ runs: [{ run_id: 'web-saved', status: 'completed', constraints: document }] }) });
+  vi.stubGlobal('fetch', fetch);
+  render(<LiveRuns document={{ ...document, injection_limits: {} }} blocked={false} onLoadConditions={onLoadConditions} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Вернуть эти условия в форму' }));
+  expect(onLoadConditions).toHaveBeenCalledWith(document);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});

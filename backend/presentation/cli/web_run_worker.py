@@ -29,9 +29,15 @@ def main():
         # Fail promptly when Docker is unavailable, before preparing an expensive deck.
         subprocess.run(['docker', 'info', '--format', '{{.ServerVersion}}'], check=True, timeout=15)
         from backend.presentation.cli.run import load_run_request
-        from backend.application.optimization.verification_run import verify_schedule
+        from backend.application.optimization.verification_run import verify_schedule, persist_observation
         request = load_run_request(root.parent, root.name)
-        manifest = workflow.verify(request, verify_schedule)
+        def verify_and_record(schedule, work_root):
+            result = verify_schedule(schedule, work_root)
+            persist_observation(schedule, result, predicted_npv=request.predicted_npv,
+                                observation_root=root / 'observation',
+                                metadata={'constraints_path': str(root / 'constraints.json')})
+            return result
+        manifest = workflow.verify(request, verify_and_record)
     print(json.dumps(manifest.as_dict(), ensure_ascii=False), flush=True)
 
 
