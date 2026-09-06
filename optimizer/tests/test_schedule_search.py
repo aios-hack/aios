@@ -445,3 +445,41 @@ def test_incumbent_gate_arithmetic_compares_like_with_like() -> None:
     # Неправильное сравнение дало бы тот же знак здесь, но в общем случае нет:
     # разрыв источников на manifold оптимизатора достигал 431% (§4.3 карточки).
     assert abs(baseline_opm - baseline_surrogate) > 0.0
+
+
+def test_physics_gate_ignores_violations_the_baseline_already_has() -> None:
+    """Кандидат отвечает за то, что внёс он, а не за то, что есть у опоры.
+
+    Замер: на самом базовом расписании прогноз даёт 58 флагов SHUT_WELL_FLOW —
+    признаки на входе модели и таймлайны загрузчика расходятся в моменте ввода
+    скважин. Гейт, считающий это виной кандидата, останавливал поиск на первом
+    же шаге и ломал сквозной тракт.
+    """
+
+    baseline = {Invariant.SHUT_WELL_FLOW.value: 58}
+    same = _physics_report({Invariant.SHUT_WELL_FLOW.value: 58})
+
+    _enforce_physics(same, True, baseline)
+
+
+def test_physics_gate_rejects_violations_beyond_the_baseline() -> None:
+    baseline = {Invariant.SHUT_WELL_FLOW.value: 58}
+    worse = _physics_report({Invariant.SHUT_WELL_FLOW.value: 61})
+
+    with pytest.raises(PhysicallyImpossibleScheduleError) as error:
+        _enforce_physics(worse, True, baseline)
+
+    # В причине названа только добавка, а не полное число.
+    assert error.value.counts == {Invariant.SHUT_WELL_FLOW.value: 3}
+
+
+def test_physics_gate_rejects_a_kind_the_baseline_does_not_have_at_all() -> None:
+    baseline = {Invariant.SHUT_WELL_FLOW.value: 58}
+    new_kind = _physics_report(
+        {Invariant.SHUT_WELL_FLOW.value: 58, Invariant.WATERCUT_RANGE.value: 2}
+    )
+
+    with pytest.raises(PhysicallyImpossibleScheduleError) as error:
+        _enforce_physics(new_kind, True, baseline)
+
+    assert error.value.counts == {Invariant.WATERCUT_RANGE.value: 2}
