@@ -12,6 +12,7 @@ from contracts import (
     Constraints,
     ControlEvent,
     FixedDeckEvent,
+    Groups,
     IntervalResponse,
     OperatingStatus,
     Role,
@@ -35,6 +36,7 @@ from schedule.validate_dynamic import (
     INJECTOR_MAX_BHP_BAR,
     PRODUCER_MIN_BHP_BAR,
     check_interval_signs,
+    check_dynamic_constraints,
     check_response_axes,
     validate_dynamic,
 )
@@ -211,6 +213,19 @@ def test_undershoot_can_be_downgraded_to_diagnostics() -> None:
     assert loud.counts()[ViolationKind.TARGET_UNDERSHOOT] == 1
     assert ViolationKind.TARGET_UNDERSHOOT not in quiet.counts()
     assert len(quiet.undershooting()) == 1
+
+
+def test_diagnostic_violation_does_not_block_submission_gate() -> None:
+    schedule = make_schedule({"P1": producer(50.0)}, n_intervals=1)
+    report = validate_dynamic(
+        schedule,
+        full_states(schedule, liquid_rate=0.0),
+        (interval(0, "P1"),),
+        report_undershoot=False,
+    )
+    assert not report.ok
+    assert report.blocking_ok
+    assert report.blocking_violations == ()
 
 
 def test_bhp_alone_is_not_enough_undershoot_carries_the_signal() -> None:
@@ -393,6 +408,160 @@ def test_injection_limit_is_reported() -> None:
     constraints = Constraints(injection_limits={schedule.meta.t0.year: 10.0})
     report = validate_dynamic(schedule, states, (), constraints)
     assert report.counts()[ViolationKind.INJECTION_LIMIT_EXCEEDED] == 1
+
+
+def test_water_supply_limit_uses_produced_water_volume() -> None:
+    schedule = make_schedule(
+        {"P1": producer(100.0), "I1": injector(80.0)}, n_intervals=1
+    )
+    states = ()
+    responses = (
+        interval(0, "P1", liquid=3100.0, oil=1395.0),
+        interval(0, "I1", injection=2480.0),
+    )
+    constraints = Constraints(
+        infrastructure={"water_reinjection_fraction": 1.0}
+    )
+    violations = check_dynamic_constraints(
+        schedule, states, responses, constraints, oil_density_t_per_m3=0.9
+    )
+    water = [
+        item
+        for item in violations
+        if item.kind is ViolationKind.WATER_SUPPLY_LIMIT_EXCEEDED
+    ]
+    assert len(water) == 1
+    assert water[0].value == 2480.0
+    assert "1550.0 м³" in water[0].detail
+
+
+def test_water_supply_lag_and_external_source_are_applied() -> None:
+    schedule = make_schedule(
+        {"P1": producer(100.0), "I1": injector(100.0)}, n_intervals=2
+    )
+    responses = (
+        interval(0, "P1", liquid=3100.0),
+        interval(0, "I1", injection=310.0),
+        interval(1, "P1", liquid=0.0),
+        interval(1, "I1", injection=3080.0),
+    )
+    constraints = Constraints(
+        infrastructure={
+            "water_reinjection_fraction": 1.0,
+            "water_reinjection_lag_steps": 1,
+            "external_water_m3_per_day": 10.0,
+        }
+    )
+    violations = check_dynamic_constraints(
+        schedule, (), responses, constraints, oil_density_t_per_m3=1.0
+    )
+    assert not [
+        item
+        for item in violations
+        if item.kind is ViolationKind.WATER_SUPPLY_LIMIT_EXCEEDED
+    ]
+
+
+def test_water_supply_limit_requires_density() -> None:
+    schedule = make_schedule({"I1": injector(1.0)}, n_intervals=1)
+    constraints = Constraints(
+        infrastructure={"water_reinjection_fraction": 1.0}
+    )
+    with pytest.raises(ValueError, match="плотность"):
+        check_dynamic_constraints(
+            schedule, (), (interval(0, "I1", injection=1.0),), constraints
+        )
+
+
+def test_compensation_target_is_diagnostic_for_field_and_group() -> None:
+    schedule = make_schedule(
+        {"P1": producer(100.0), "I1": injector(80.0)}, n_intervals=1
+    )
+    constraints = Constraints(
+        infrastructure={
+            "compensation_min": 0.85,
+            "compensation_max": 1.15,
+            "compensation_enforcement": "diagnostic",
+            "compensation_scope": "field_and_groups",
+        }
+    )
+    groups = Groups(
+        groups={"G1": ("P1", "I1")},
+        lambda_hash="a" * 64,
+        group_hash="b" * 64,
+    )
+    report = validate_dynamic(
+        schedule,
+        full_states(schedule),
+        (
+            interval(0, "P1", liquid=100.0),
+            interval(0, "I1", injection=80.0),
+        ),
+        constraints,
+        oil_density_t_per_m3=1.0,
+        groups=groups,
+    )
+    assert report.counts()[ViolationKind.COMPENSATION_BELOW_TARGET] == 2
+    assert report.blocking_ok
+    assert [item.scope for item in report.compensation] == ["поле", "участок G1"]
+    assert [item.ratio for item in report.compensation] == pytest.approx([0.8, 0.8])
+
+
+def test_reachable_hard_compensation_minimum_blocks() -> None:
+    schedule = make_schedule(
+        {"P1": producer(100.0), "I1": injector(80.0)}, n_intervals=1
+    )
+    constraints = Constraints(
+        infrastructure={
+            "water_reinjection_fraction": 1.0,
+            "compensation_min": 0.85,
+            "compensation_max": 1.15,
+            "compensation_enforcement": "hard",
+            "compensation_scope": "field",
+        }
+    )
+    report = validate_dynamic(
+        schedule,
+        full_states(schedule),
+        (
+            interval(0, "P1", liquid=100.0),
+            interval(0, "I1", injection=80.0),
+        ),
+        constraints,
+        oil_density_t_per_m3=1.0,
+    )
+    assert report.counts()[ViolationKind.COMPENSATION_BELOW_HARD_LIMIT] == 1
+    assert not report.blocking_ok
+
+
+def test_unreachable_hard_compensation_minimum_does_not_create_water() -> None:
+    schedule = make_schedule(
+        {"P1": producer(100.0), "I1": injector(10.0)}, n_intervals=1
+    )
+    constraints = Constraints(
+        infrastructure={
+            "water_reinjection_fraction": 1.0,
+            "external_water_m3_per_day": 0.0,
+            "compensation_min": 0.85,
+            "compensation_max": 1.15,
+            "compensation_enforcement": "hard",
+            "compensation_scope": "field",
+        }
+    )
+    report = validate_dynamic(
+        schedule,
+        full_states(schedule),
+        (
+            interval(0, "P1", liquid=100.0, oil=90.0),
+            interval(0, "I1", injection=10.0),
+        ),
+        constraints,
+        oil_density_t_per_m3=1.0,
+    )
+    assert report.counts()[ViolationKind.COMPENSATION_TARGET_UNREACHABLE] == 1
+    assert report.blocking_ok
+    unreachable = report.by_kind()[ViolationKind.COMPENSATION_TARGET_UNREACHABLE]
+    assert "создавать воду запрещено" in unreachable[0].detail
 
 
 def test_watercut_limit_needs_density_and_is_reported() -> None:

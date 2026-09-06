@@ -21,7 +21,21 @@ from .config import (
     QuantizationPolicy,
 )
 from .connectivity import Groups, Lambda
-from .constraints import Constraints, WellOutage
+from .constraints import (
+    COMPENSATION_ENFORCEMENT,
+    COMPENSATION_MAX,
+    COMPENSATION_MIN,
+    COMPENSATION_SCOPE,
+    EXTERNAL_WATER_M3_PER_DAY,
+    WATER_REINJECTION_FRACTION,
+    WATER_REINJECTION_LAG_STEPS,
+    CompensationPolicy,
+    Constraints,
+    WaterSupplyPolicy,
+    WellOutage,
+    compensation_policy,
+    water_supply_policy,
+)
 from .economics import LineItems, NpvTable
 from .hashing import canonical_bytes, canonical_schedule_hash, content_hash, hash_schedule
 from .policy import OptimizerResult, Rule, ScenarioViolation, Theta, TraceEntry
@@ -72,12 +86,19 @@ __all__ = [
     "canonical_schedule_hash",
     "ChargeInitialEsp",
     "Config",
+    "COMPENSATION_ENFORCEMENT",
+    "COMPENSATION_MAX",
+    "COMPENSATION_MIN",
+    "COMPENSATION_SCOPE",
+    "CompensationPolicy",
     "Constraints",
     "content_hash",
+    "compensation_policy",
     "ControlEvent",
     "DEFAULT_NORMATIVES_2007",
     "EspCatalogEntry",
     "EventKind",
+    "EXTERNAL_WATER_M3_PER_DAY",
     "FinalNpvArtifact",
     "FixedDeckEvent",
     "Groups",
@@ -117,6 +138,10 @@ __all__ = [
     "Theta",
     "TraceEntry",
     "watercut",
+    "water_supply_policy",
+    "WATER_REINJECTION_FRACTION",
+    "WATER_REINJECTION_LAG_STEPS",
+    "WaterSupplyPolicy",
     "WellOutage",
     "WellState",
 ]

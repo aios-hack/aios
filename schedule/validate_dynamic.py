@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import date
 
 from contracts import (
     ActiveControlMode,
@@ -9,6 +10,7 @@ from contracts import (
     Constraints,
     ControlEvent,
     EventKind,
+    Groups,
     IntervalResponse,
     N_INTERVALS,
     OperatingStatus,
@@ -16,7 +18,9 @@ from contracts import (
     Schedule,
     StateAtDate,
     WellState,
+    compensation_policy,
     is_excluded_by_negative_rule,
+    water_supply_policy,
 )
 from contracts.response import N_DECK_DATES
 
@@ -43,6 +47,34 @@ DYNAMIC_VIOLATION_KINDS: frozenset[ViolationKind] = frozenset(
         ViolationKind.RESPONSE_AXIS_INCOMPLETE,
         ViolationKind.LIQUID_LIMIT_EXCEEDED,
         ViolationKind.INJECTION_LIMIT_EXCEEDED,
+        ViolationKind.WATER_SUPPLY_LIMIT_EXCEEDED,
+        ViolationKind.COMPENSATION_BELOW_TARGET,
+        ViolationKind.COMPENSATION_ABOVE_TARGET,
+        ViolationKind.COMPENSATION_TARGET_UNREACHABLE,
+        ViolationKind.COMPENSATION_BELOW_HARD_LIMIT,
+        ViolationKind.COMPENSATION_ABOVE_HARD_LIMIT,
+        ViolationKind.PRODUCTION_FLOOR_MISSED,
+        ViolationKind.WATERCUT_LIMIT_EXCEEDED,
+        ViolationKind.OUTAGE_WELL_PRODUCED,
+    }
+)
+
+# Блокируют сдачу только нарушения физического/кейсового контракта и
+# целостности отклика. Остальные виды выше остаются диагностикой: Flow вправе
+# сам закрыть недостижимую открытую цель; отрицательная экспортная строка уже
+# исключается Методикой целиком; недостижение цели не равно нарушению.
+BLOCKING_DYNAMIC_VIOLATION_KINDS: frozenset[ViolationKind] = frozenset(
+    {
+        ViolationKind.BHP_BELOW_PRODUCER_LIMIT,
+        ViolationKind.BHP_ABOVE_INJECTOR_LIMIT,
+        ViolationKind.ROLE_FACT_MISMATCH,
+        ViolationKind.SHUT_WITH_FLOW,
+        ViolationKind.RESPONSE_AXIS_INCOMPLETE,
+        ViolationKind.LIQUID_LIMIT_EXCEEDED,
+        ViolationKind.INJECTION_LIMIT_EXCEEDED,
+        ViolationKind.WATER_SUPPLY_LIMIT_EXCEEDED,
+        ViolationKind.COMPENSATION_BELOW_HARD_LIMIT,
+        ViolationKind.COMPENSATION_ABOVE_HARD_LIMIT,
         ViolationKind.PRODUCTION_FLOOR_MISSED,
         ViolationKind.WATERCUT_LIMIT_EXCEEDED,
         ViolationKind.OUTAGE_WELL_PRODUCED,
@@ -69,16 +101,43 @@ class TargetRatio:
 
 
 @dataclass(frozen=True, slots=True)
+class CompensationMetric:
+    scope: str
+    offtake_volume_m3: float
+    injection_volume_m3: float
+
+    @property
+    def ratio(self) -> float | None:
+        if self.offtake_volume_m3 <= 0.0:
+            return None
+        return self.injection_volume_m3 / self.offtake_volume_m3
+
+
+@dataclass(frozen=True, slots=True)
 class DynamicReport:
     report: ValidationReport
     ratios: tuple[TargetRatio, ...]
     n_states: int
     n_intervals_seen: int
     n_wells: int
+    compensation: tuple[CompensationMetric, ...] = ()
+    maximum_field_compensation_from_supply: float | None = None
 
     @property
     def ok(self) -> bool:
         return self.report.ok
+
+    @property
+    def blocking_violations(self) -> tuple[Violation, ...]:
+        return tuple(
+            item
+            for item in self.report.violations
+            if item.kind in BLOCKING_DYNAMIC_VIOLATION_KINDS
+        )
+
+    @property
+    def blocking_ok(self) -> bool:
+        return not self.blocking_violations
 
     @property
     def violations(self) -> tuple[Violation, ...]:
@@ -614,18 +673,281 @@ def check_dynamic_constraints(
     interval_responses: Sequence[IntervalResponse],
     constraints: Constraints | None,
     oil_density_t_per_m3: float | None = None,
+    groups: Groups | None = None,
 ) -> tuple[Violation, ...]:
     if constraints is None:
         return ()
     found: list[Violation] = []
     found.extend(_check_rate_limits(schedule, states, constraints))
     found.extend(
+        _check_water_supply(
+            schedule,
+            interval_responses,
+            constraints,
+            oil_density_t_per_m3,
+        )
+    )
+    found.extend(
         _check_watercut_limits(
             schedule, interval_responses, constraints, oil_density_t_per_m3
         )
     )
+    found.extend(
+        _check_compensation(
+            schedule,
+            interval_responses,
+            constraints,
+            oil_density_t_per_m3,
+            groups,
+        )
+    )
     found.extend(_check_outages(schedule, states, constraints))
     return tuple(found)
+
+
+def _check_compensation(
+    schedule: Schedule,
+    interval_responses: Sequence[IntervalResponse],
+    constraints: Constraints,
+    oil_density_t_per_m3: float | None,
+    groups: Groups | None,
+) -> tuple[Violation, ...]:
+    """Проверяет интегральную компенсацию поля и участков.
+
+    Источник воды и целевой VRR намеренно независимы. Если нижняя граница
+    физически недостижима при заданном supply, возвращается диагностика, а
+    не hard-нарушение: оптимизатор не имеет права создавать воду из ничего.
+    """
+
+    target = compensation_policy(constraints)
+    if not target.enabled:
+        return ()
+    if oil_density_t_per_m3 is None or oil_density_t_per_m3 <= 0.0:
+        raise ValueError(
+            "compensation corridor задан, но положительная плотность нефти "
+            "не передана"
+        )
+
+    all_metrics = compensation_metrics(interval_responses, groups)
+    field = all_metrics[0]
+    field_reachable = maximum_field_compensation_from_supply(
+        schedule,
+        interval_responses,
+        constraints,
+        oil_density_t_per_m3,
+    )
+
+    scopes: list[CompensationMetric] = []
+    found: list[Violation] = []
+    if target.scope in {"field", "field_and_groups"}:
+        scopes.append(field)
+    if target.scope in {"groups", "field_and_groups"}:
+        if groups is None:
+            found.append(
+                Violation(
+                    kind=ViolationKind.COMPENSATION_TARGET_UNREACHABLE,
+                    control_step=None,
+                    well=None,
+                    value=None,
+                    detail=(
+                        "запрошена зональная компенсация, но Groups не переданы; "
+                        "проверена быть не может"
+                    ),
+                )
+            )
+        else:
+            scopes.extend(all_metrics[1:])
+
+    for metric in scopes:
+        ratio = metric.ratio
+        if ratio is None:
+            continue
+        label = metric.scope
+        if ratio < float(target.minimum):
+            unreachable = (
+                field_reachable is not None
+                and field_reachable < float(target.minimum)
+            )
+            if unreachable:
+                kind = ViolationKind.COMPENSATION_TARGET_UNREACHABLE
+                detail = (
+                    f"{label}: компенсация {ratio:.6f} ниже цели "
+                    f"{target.minimum}, но максимум по доступной воде для поля "
+                    f"только {field_reachable:.6f}; создавать воду запрещено"
+                )
+            else:
+                kind = (
+                    ViolationKind.COMPENSATION_BELOW_HARD_LIMIT
+                    if target.hard
+                    else ViolationKind.COMPENSATION_BELOW_TARGET
+                )
+                detail = (
+                    f"{label}: интегральная компенсация {ratio:.6f} ниже "
+                    f"границы {target.minimum}"
+                )
+            found.append(Violation(kind, None, None, ratio, detail))
+        elif ratio > float(target.maximum):
+            kind = (
+                ViolationKind.COMPENSATION_ABOVE_HARD_LIMIT
+                if target.hard
+                else ViolationKind.COMPENSATION_ABOVE_TARGET
+            )
+            found.append(
+                Violation(
+                    kind,
+                    None,
+                    None,
+                    ratio,
+                    f"{label}: интегральная компенсация {ratio:.6f} выше границы {target.maximum}",
+                )
+            )
+    return tuple(found)
+
+
+def compensation_metrics(
+    interval_responses: Sequence[IntervalResponse],
+    groups: Groups | None = None,
+) -> tuple[CompensationMetric, ...]:
+    """Интегральная операционная компенсация поля и переданных участков."""
+
+    rows_by_well: dict[str, tuple[float, float]] = {}
+    for item in interval_responses:
+        offtake, injection = rows_by_well.get(item.well, (0.0, 0.0))
+        rows_by_well[item.well] = (
+            offtake + max(0.0, item.liquid_volume_delta),
+            injection + max(0.0, item.injection_volume_delta),
+        )
+    field = CompensationMetric(
+        scope="поле",
+        offtake_volume_m3=sum(item[0] for item in rows_by_well.values()),
+        injection_volume_m3=sum(item[1] for item in rows_by_well.values()),
+    )
+    metrics = [field]
+    if groups is not None:
+        for group_id in sorted(groups.groups):
+            metrics.append(
+                CompensationMetric(
+                    scope=f"участок {group_id}",
+                    offtake_volume_m3=sum(
+                        rows_by_well.get(well, (0.0, 0.0))[0]
+                        for well in groups.groups[group_id]
+                    ),
+                    injection_volume_m3=sum(
+                        rows_by_well.get(well, (0.0, 0.0))[1]
+                        for well in groups.groups[group_id]
+                    ),
+                )
+            )
+    return tuple(metrics)
+
+
+def _check_water_supply(
+    schedule: Schedule,
+    interval_responses: Sequence[IntervalResponse],
+    constraints: Constraints,
+    oil_density_t_per_m3: float | None,
+) -> tuple[Violation, ...]:
+    """Закачка не превышает доступную добытую и внешнюю воду.
+
+    Проверка использует месячные объёмы отклика, а не мгновенные дебиты на
+    границе месяца: вода, добытая и закачанная внутри одного интервала, имеет
+    общую физическую размерность. `max` защищает от экспортных перетоков и
+    малых отрицательных численных дельт.
+    """
+
+    policy = water_supply_policy(constraints)
+    if not policy.enabled:
+        return ()
+    if oil_density_t_per_m3 is None or oil_density_t_per_m3 <= 0.0:
+        raise ValueError(
+            "water_reinjection_fraction задан, но положительная плотность "
+            "нефти не передана: объём добытой воды без ρ не определён"
+        )
+
+    totals: dict[int, tuple[float, float]] = {}
+    for item in interval_responses:
+        produced_water, injected = totals.get(item.control_step, (0.0, 0.0))
+        oil_volume = max(0.0, item.oil_mass_delta) / oil_density_t_per_m3
+        produced_water += max(0.0, item.liquid_volume_delta - oil_volume)
+        injected += max(0.0, item.injection_volume_delta)
+        totals[item.control_step] = (produced_water, injected)
+
+    found: list[Violation] = []
+    for control_step in sorted(totals):
+        _, injected = totals[control_step]
+        source_step = control_step - policy.lag_steps
+        source_water = totals.get(source_step, (0.0, 0.0))[0]
+        current_days = _days_in_control_step(schedule, control_step)
+        available = (
+            policy.external_water_m3_per_day * current_days
+            + float(policy.reinjection_fraction) * source_water
+        )
+        tolerance = max(1.0e-6, abs(available) * 1.0e-9)
+        if injected <= available + tolerance:
+            continue
+        found.append(
+            Violation(
+                kind=ViolationKind.WATER_SUPPLY_LIMIT_EXCEEDED,
+                control_step=control_step,
+                well=None,
+                value=injected,
+                detail=(
+                    f"суммарная закачка {injected} м³ выше доступной воды "
+                    f"{available} м³ (добытая вода шага {source_step}: "
+                    f"{source_water} м³, доля реинжекции "
+                    f"{policy.reinjection_fraction}, внешний источник "
+                    f"{policy.external_water_m3_per_day} м³/сут)"
+                ),
+            )
+        )
+    return tuple(found)
+
+
+def _days_in_control_step(schedule: Schedule, control_step: int) -> int:
+    month_index = schedule.meta.t0.month - 1 + control_step
+    year = schedule.meta.t0.year + month_index // 12
+    month = month_index % 12 + 1
+    next_year = year + (1 if month == 12 else 0)
+    next_month = 1 if month == 12 else month + 1
+    return (date(next_year, next_month, 1) - date(year, month, 1)).days
+
+
+def maximum_field_compensation_from_supply(
+    schedule: Schedule,
+    interval_responses: Sequence[IntervalResponse],
+    constraints: Constraints | None,
+    oil_density_t_per_m3: float | None,
+) -> float | None:
+    """Максимальная полевая компенсация, разрешённая доступной водой."""
+
+    if constraints is None:
+        return None
+    supply = water_supply_policy(constraints)
+    if not supply.enabled:
+        return None
+    if oil_density_t_per_m3 is None or oil_density_t_per_m3 <= 0.0:
+        raise ValueError(
+            "water supply задан, но положительная плотность нефти не передана"
+        )
+    produced_water_by_step: dict[int, float] = {}
+    offtake = 0.0
+    for item in interval_responses:
+        liquid = max(0.0, item.liquid_volume_delta)
+        oil_volume = max(0.0, item.oil_mass_delta) / oil_density_t_per_m3
+        offtake += liquid
+        produced_water_by_step[item.control_step] = (
+            produced_water_by_step.get(item.control_step, 0.0)
+            + max(0.0, liquid - oil_volume)
+        )
+    if offtake <= 0.0:
+        return None
+    available = sum(
+        supply.external_water_m3_per_day * _days_in_control_step(schedule, step)
+        + float(supply.reinjection_fraction)
+        * produced_water_by_step.get(step - supply.lag_steps, 0.0)
+        for step in range(schedule.meta.n_intervals)
+    )
+    return available / offtake
 
 
 def _check_rate_limits(
@@ -787,6 +1109,7 @@ def validate_dynamic(
     constraints: Constraints | None = None,
     oil_density_t_per_m3: float | None = None,
     report_undershoot: bool = True,
+    groups: Groups | None = None,
 ) -> DynamicReport:
     violations: list[Violation] = []
     undershoot, ratios = check_target_ratio(schedule, states)
@@ -805,6 +1128,7 @@ def validate_dynamic(
             interval_responses,
             constraints,
             oil_density_t_per_m3,
+            groups,
         )
     )
     violations.sort(
@@ -827,4 +1151,13 @@ def validate_dynamic(
         n_states=len(states),
         n_intervals_seen=len(steps),
         n_wells=len(wells),
+        compensation=compensation_metrics(interval_responses, groups),
+        maximum_field_compensation_from_supply=(
+            maximum_field_compensation_from_supply(
+                schedule,
+                interval_responses,
+                constraints,
+                oil_density_t_per_m3,
+            )
+        ),
     )

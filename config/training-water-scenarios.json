@@ -1,0 +1,49 @@
+{
+  "format": "aios.training-water-scenarios.v1",
+  "scenarios": [
+    {
+      "id": "unrestricted-extremes",
+      "description": "Учебный режим организаторов без лимита источника воды.",
+      "infrastructure": {}
+    },
+    {
+      "id": "no-external-water",
+      "description": "Вся закачка только из добытой воды; 0.85–1.15 — мягкая цель, если достижима.",
+      "infrastructure": {
+        "water_reinjection_fraction": 1.0,
+        "water_reinjection_lag_steps": 0,
+        "external_water_m3_per_day": 0.0,
+        "compensation_min": 0.85,
+        "compensation_max": 1.15,
+        "compensation_enforcement": "diagnostic",
+        "compensation_scope": "field_and_groups"
+      }
+    },
+    {
+      "id": "finite-external-water",
+      "description": "Конечный учебный лимит около потребности текущего constrained-плана; не условие организаторов.",
+      "infrastructure": {
+        "water_reinjection_fraction": 1.0,
+        "water_reinjection_lag_steps": 0,
+        "external_water_m3_per_day": 105.0,
+        "compensation_min": 0.85,
+        "compensation_max": 1.15,
+        "compensation_enforcement": "diagnostic",
+        "compensation_scope": "field_and_groups"
+      }
+    },
+    {
+      "id": "baseline-like-external-water",
+      "description": "Экстремум около 1.8 млн м³ за горизонт (~264 м³/сут) из обсуждения baseline; не тестовый лимит.",
+      "infrastructure": {
+        "water_reinjection_fraction": 1.0,
+        "water_reinjection_lag_steps": 0,
+        "external_water_m3_per_day": 264.0,
+        "compensation_min": 0.85,
+        "compensation_max": 1.15,
+        "compensation_enforcement": "diagnostic",
+        "compensation_scope": "field_and_groups"
+      }
+    }
+  ]
+}

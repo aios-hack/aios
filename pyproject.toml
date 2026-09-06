@@ -18,6 +18,7 @@ dependencies = [
 dev = ["pytest>=8"]
 ml = [
     "numpy>=2.0",
+    "scikit-learn>=1.9,<2",
     "torch>=2.6",
 ]
 

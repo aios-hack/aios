@@ -1,6 +1,14 @@
 from __future__ import annotations
 
-from contracts import ControlEvent, EventKind, Role, Rule, Theta, TraceEntry
+from contracts import (
+    ControlEvent,
+    EventKind,
+    Role,
+    Rule,
+    Theta,
+    TraceEntry,
+    compensation_policy,
+)
 
 from policy.rules.base import RuleOutcome
 from policy.state import PolicyState, RuleContext
@@ -43,8 +51,17 @@ def _group_of(context: RuleContext, well: str) -> str | None:
 
 
 def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome:
-    low = read(theta, "r5_compensation_low")
-    high = read(theta, "r5_compensation_high")
+    case_target = compensation_policy(context.constraints)
+    low = (
+        float(case_target.minimum)
+        if case_target.enabled
+        else read(theta, "r5_compensation_low")
+    )
+    high = (
+        float(case_target.maximum)
+        if case_target.enabled
+        else read(theta, "r5_compensation_high")
+    )
     if low > high:
         raise ValueError(
             f"коридор компенсации пуст: нижняя граница {low} выше верхней {high}"
@@ -108,6 +125,7 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
                         "compensation": current,
                         "theta_r5_compensation_low": low,
                         "theta_r5_compensation_high": high,
+                        "case_compensation_target": float(case_target.enabled),
                         "target_group_injection_m3_per_day": target_total,
                         "target_compensation": target_total / offtake,
                         "share_of_group": share,

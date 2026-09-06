@@ -27,7 +27,11 @@ from bridge.runner import deck_hashes, summary_spec_hash
 from config.schema import default_config
 from contracts import ArtifactHashes, Constraints, Theta
 from contracts.hashing import hash_schedule
-from economics import load_normatives, load_response_artifact
+from economics import (
+    OPM_CONTROL_HORIZON_BASE_NPV_RUB,
+    load_normatives,
+    load_response_artifact,
+)
 from optimizer.schedule_search import load_environment, make_evaluator, make_policy
 from optimizer.search_run import DATASET, FINAL_CAP, LAMBDA, RESPONSE, SEED
 from policy.fixed_point import resolve
@@ -35,7 +39,7 @@ from policy.theta import default_theta
 from schedule.canonical import canonical_part_hash
 
 OUT = Path("data/g10-verification")
-BASE_NPV = 11_873_676_459.64
+BASE_NPV = OPM_CONTROL_HORIZON_BASE_NPV_RUB
 INDEX = int(sys.argv[1])
 
 

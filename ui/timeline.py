@@ -13,6 +13,7 @@ from contracts import (
     RunArtifact,
     Schedule,
     StateAtDate,
+    compensation_policy,
     watercut,
 )
 
@@ -80,7 +81,7 @@ _JSON_DIGITS = 6
 # Коридор нормы компенсации — параметр политики R5, а не наблюдаемая
 # величина: интерфейс рисует по нему полосу на главном графике (F6) и не
 # выводит границы из ряда. Поля нет — полосы нет.
-COMPENSATION_NORM_MIN = 0.95
+COMPENSATION_NORM_MIN = 0.85
 COMPENSATION_NORM_MAX = 1.15
 
 
@@ -98,6 +99,17 @@ def _rounded(value: Any) -> Any:
 
 
 def build_timeline(artifact: RunArtifact, densities: dict[str, float]) -> dict[str, Any]:
+    case_compensation = compensation_policy(artifact.constraints)
+    compensation_min = (
+        float(case_compensation.minimum)
+        if case_compensation.enabled
+        else COMPENSATION_NORM_MIN
+    )
+    compensation_max = (
+        float(case_compensation.maximum)
+        if case_compensation.enabled
+        else COMPENSATION_NORM_MAX
+    )
     schedule = artifact.schedule
     meta = schedule.meta
     wells = list(meta.wells)
@@ -180,8 +192,8 @@ def build_timeline(artifact: RunArtifact, densities: dict[str, float]) -> dict[s
             "wells": wells,
             "field_norms": {
                 "compensation": {
-                    "min": COMPENSATION_NORM_MIN,
-                    "max": COMPENSATION_NORM_MAX,
+                    "min": compensation_min,
+                    "max": compensation_max,
                 }
             },
             "steps": steps,

@@ -72,6 +72,16 @@ cmd_selfcheck() {
     python -m aios_cli.selfcheck
 }
 
+cmd_e2e() {
+    if ! have_docs; then
+        warn_no_docs
+        echo "E2E невозможен без модели и нормативов организаторов." >&2
+        exit 2
+    fi
+    mkdir -p "$OUT_DIR"
+    exec python -m aios_cli.e2e --out "$OUT_DIR" "$@"
+}
+
 usage() {
     cat >&2 <<'USAGE'
 Использование: docker run ... aios <команда> [аргументы]
@@ -82,6 +92,7 @@ usage() {
   emit [аргументы]           эмит wells_schedule.inc из дека организаторов
   web [аргументы]            веб-интерфейс (требует собранного frontend)
   selfcheck                  что найдено в образе и в смонтированных данных
+  e2e [аргументы]            суррогатный поиск → OPM → ЧДД → файл сдачи
   shell                      интерактивная оболочка
 
 Данные организаторов монтируются снаружи:
@@ -104,6 +115,7 @@ main() {
         emit) cmd_emit "$@" ;;
         web) cmd_web "$@" ;;
         selfcheck) cmd_selfcheck "$@" ;;
+        e2e) cmd_e2e "$@" ;;
         shell) exec /bin/bash "$@" ;;
         help | --help | -h) usage ;;
         *) exec "$command" "$@" ;;

@@ -17,6 +17,7 @@ from ui.scenarios import (
     constraints_from_json,
     constraints_to_json,
     export_scenarios_json,
+    load_constraints_file,
 )
 
 ROBUSTNESS_FIELDS: tuple[str, ...] = (
@@ -62,6 +63,111 @@ def test_round_trip_empty_document_stays_empty() -> None:
     assert restored == empty
     assert restored.injection_limits == {}
     assert restored.well_outages == ()
+
+
+def test_water_supply_policy_round_trips() -> None:
+    original = Constraints(
+        infrastructure={
+            "water_reinjection_fraction": 1.0,
+            "water_reinjection_lag_steps": 1,
+            "external_water_m3_per_day": 25.0,
+        }
+    )
+    assert constraints_from_json(constraints_to_json(original)) == original
+
+
+def test_compensation_policy_round_trips() -> None:
+    original = Constraints(
+        infrastructure={
+            "compensation_min": 0.85,
+            "compensation_max": 1.15,
+            "compensation_enforcement": "diagnostic",
+            "compensation_scope": "field_and_groups",
+        }
+    )
+    assert constraints_from_json(constraints_to_json(original)) == original
+
+
+@pytest.mark.parametrize(
+    ("infrastructure", "message"),
+    [
+        ({"compensation_min": 0.85}, "compensation_max"),
+        (
+            {"compensation_min": 1.2, "compensation_max": 1.0},
+            "коридор компенсации пуст",
+        ),
+        (
+            {
+                "compensation_min": 0.85,
+                "compensation_max": 1.15,
+                "compensation_enforcement": "sometimes",
+            },
+            "compensation_enforcement",
+        ),
+    ],
+)
+def test_invalid_compensation_policy_is_rejected(
+    infrastructure: dict[str, object], message: str
+) -> None:
+    document = constraints_to_json(Constraints())
+    document["infrastructure"] = infrastructure
+    with pytest.raises(ValueError, match=message):
+        constraints_from_json(document)
+
+
+def test_training_water_scenario_matrix_contains_distinct_valid_regimes() -> None:
+    matrix = json.loads(
+        Path("config/training-water-scenarios.json").read_text(encoding="utf-8")
+    )
+    scenarios = matrix["scenarios"]
+    assert {item["id"] for item in scenarios} == {
+        "unrestricted-extremes",
+        "no-external-water",
+        "finite-external-water",
+        "baseline-like-external-water",
+    }
+    for item in scenarios:
+        document = constraints_to_json(Constraints())
+        document["infrastructure"] = item["infrastructure"]
+        constraints_from_json(document)
+    external = {
+        item["id"]: item["infrastructure"].get("external_water_m3_per_day")
+        for item in scenarios
+    }
+    assert external == {
+        "unrestricted-extremes": None,
+        "no-external-water": 0.0,
+        "finite-external-water": 105.0,
+        "baseline-like-external-water": 264.0,
+    }
+
+
+@pytest.mark.parametrize(
+    ("infrastructure", "message"),
+    [
+        ({"water_reinjection_fraction": 1.1}, "диапазоне 0..1"),
+        ({"water_reinjection_fraction": -0.1}, "диапазоне 0..1"),
+        ({"water_reinjection_fraction": True}, "ожидается число"),
+        ({"water_reinjection_fraction": 1.0, "water_reinjection_lag_steps": -1}, "неотрицательное"),
+        ({"external_water_m3_per_day": 10.0}, "обязателен"),
+    ],
+)
+def test_invalid_water_supply_policy_is_rejected(
+    infrastructure: dict[str, object], message: str
+) -> None:
+    document = constraints_to_json(Constraints())
+    document["infrastructure"] = infrastructure
+    with pytest.raises(ValueError, match=message):
+        constraints_from_json(document)
+
+
+def test_production_loader_requires_water_supply(tmp_path: Path) -> None:
+    path = tmp_path / "constraints.json"
+    path.write_text(
+        json.dumps(constraints_to_json(Constraints())), encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="water_reinjection_fraction"):
+        load_constraints_file(path, require_water_supply=True)
 
 
 def test_year_keys_are_strings_in_json_and_ints_in_python() -> None:

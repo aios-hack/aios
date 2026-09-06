@@ -62,6 +62,7 @@ from bridge.submission import _run
 from config import default_config, economics_config_hash
 from contracts import (
     ArtifactHashes,
+    Constraints,
     ControlEvent,
     EventKind,
     NormativeSet,
@@ -192,6 +193,18 @@ def test_response_source_run_id_matches_opm_run(run_and_response) -> None:
 # --- Гейт validate_static — до всякого эмита, без Docker вообще --------------
 
 
+def test_production_gate_requires_explicit_water_supply(schedule, config) -> None:
+    with pytest.raises(SubmissionTractError, match="water_reinjection_fraction"):
+        submit_schedule(
+            schedule,
+            MODEL_Z,
+            WORK_ROOT,
+            config,
+            constraints=Constraints(),
+            require_water_supply=True,
+        )
+
+
 def test_validate_static_gate_rejects_before_any_run(schedule, config) -> None:
     """Событие по скважине вне оси `initial_state` — `WELL_NOT_ON_AXIS`.
     Тракт обязан упасть на гейте `validate_static`, не дойдя до эмита/прогона."""
@@ -211,16 +224,20 @@ def test_validate_static_gate_rejects_before_any_run(schedule, config) -> None:
 # --- Гейт validate_dynamic — реальная, задокументированная находка ----------
 
 
-def test_dynamic_gate_rejects_the_real_baseline_over_well_71(schedule, config) -> None:
-    """Тракт целиком: гейт `validate_dynamic` обязан остановить выдачу
-    `FinalNpvArtifact`, пока открытый вопрос №17 не закрыт. Пин регрессии —
-    если это число изменится, значит либо деку организаторов поправили
-    (маловероятно без объявления), либо в `schedule/`/`bridge/` что-то
-    сломалось."""
+def test_dynamic_gate_rejects_real_baseline_on_hard_bhp_limit(schedule, config) -> None:
+    """Диагностические расхождения не маскируют настоящий hard-гейт.
+
+    Базовый OPM-отклик опускает BHP добывающей скважины 97 ниже 50 бар.
+    Именно это нарушение должно блокировать `FinalNpvArtifact`; старый пин
+    «71 нарушение» смешивал hard constraints с диагностикой режима/цели.
+    """
 
     with pytest.raises(SubmissionTractError, match="validate_dynamic") as excinfo:
         submit_schedule(schedule, MODEL_Z, WORK_ROOT, config, use_cache=True)
-    assert "71 нарушени" in str(excinfo.value)
+    message = str(excinfo.value)
+    assert "1 блокирующих нарушений" in message
+    assert "BHP_BELOW_PRODUCER_LIMIT" in message
+    assert "скважина '97'" in message
 
 
 # --- Identity 5/6: сборка FinalNpvArtifact на настоящих opm_run/response ----

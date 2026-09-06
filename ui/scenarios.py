@@ -5,7 +5,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from contracts import Constraints, WellOutage
+from contracts import (
+    Constraints,
+    WellOutage,
+    compensation_policy,
+    water_supply_policy,
+)
 
 from ui.artifact_io import load_bundle
 
@@ -197,7 +202,7 @@ def constraints_from_json(d: dict[str, Any], n_intervals: int = 224) -> Constrai
         raise ValueError(
             f"infrastructure: ожидается объект ключ-значение, получено {type(infrastructure).__name__}"
         )
-    return Constraints(
+    constraints = Constraints(
         injection_limits=_parse_year_map(d, "injection_limits"),
         liquid_limits=_parse_year_map(d, "liquid_limits"),
         production_floors=_parse_year_map(d, "production_floors"),
@@ -205,9 +210,35 @@ def constraints_from_json(d: dict[str, Any], n_intervals: int = 224) -> Constrai
         well_outages=_parse_outages(d, n_intervals),
         infrastructure=dict(infrastructure),
     )
+    water_supply_policy(constraints)
+    compensation_policy(constraints)
+    return constraints
+
+
+def load_constraints_file(
+    path: Path,
+    *,
+    n_intervals: int = 224,
+    require_water_supply: bool = False,
+) -> Constraints:
+    """Читает Constraints с диска и при необходимости запрещает безводный кейс."""
+
+    source = Path(path)
+    if not source.is_file():
+        raise FileNotFoundError(f"файл ограничений кейса не найден: {source}")
+    document = json.loads(source.read_text(encoding="utf-8"))
+    constraints = constraints_from_json(document, n_intervals=n_intervals)
+    if require_water_supply and not water_supply_policy(constraints).enabled:
+        raise ValueError(
+            f"{source}: не задан infrastructure.water_reinjection_fraction; "
+            "production-запуск не имеет права считать источник воды бесконечным"
+        )
+    return constraints
 
 
 def _constraints_summary(c: Constraints) -> dict[str, Any]:
+    water = water_supply_policy(c)
+    compensation = compensation_policy(c)
     years: set[int] = set()
     for section in YEAR_SECTIONS:
         years.update(getattr(c, section))
@@ -218,6 +249,15 @@ def _constraints_summary(c: Constraints) -> dict[str, Any]:
         "watercut_limits": len(c.watercut_limits),
         "well_outages": len(c.well_outages),
         "infrastructure": len(c.infrastructure),
+        "water_supply_enabled": water.enabled,
+        "water_reinjection_fraction": water.reinjection_fraction,
+        "water_reinjection_lag_steps": water.lag_steps,
+        "external_water_m3_per_day": water.external_water_m3_per_day,
+        "compensation_enabled": compensation.enabled,
+        "compensation_min": compensation.minimum,
+        "compensation_max": compensation.maximum,
+        "compensation_enforcement": compensation.enforcement,
+        "compensation_scope": compensation.scope,
         "years": sorted(years),
         "outage_wells": sorted({o.well for o in c.well_outages}),
         "empty": not (years or c.well_outages or c.infrastructure),

@@ -14,10 +14,12 @@ from typing import Any, Sequence
 from bridge.dataset import DatasetBuildReport, DatasetGenerator, DatasetSample
 from bridge.dataset_plan import PlanConfig, PerturbationFamily, build_plan
 from contracts import canonical_bytes
+from economics import load_normatives
 
 from .model import ModelConfig, TrajectorySurrogate
 from .model_z_context import build_model_z_context
-from .train import _examples, evaluate, split_samples
+from .npv_calibration import calibration_metrics, fit_npv_calibration
+from .train import _examples, evaluate, money_rub_per_unit, split_samples
 
 
 PILOT_CONFIG = PlanConfig(
@@ -259,6 +261,13 @@ def _train_combined(
     seed: int,
     epochs: int,
     patience: int,
+    device: str | None,
+    hidden_width: int,
+    hidden_layers: int,
+    batch_size: int,
+    scenario_context: str,
+    ranking_loss_weight: float,
+    ranking_top_weighted: bool,
 ) -> dict[str, Any]:
     samples = tuple(pilot.samples) + tuple(extra.samples)
     dataset_hash = _combined_hash(pilot, extra)
@@ -280,21 +289,36 @@ def _train_combined(
     validation = _examples(split.validation, context)
     test = _examples(split.test, context)
     settings = ModelConfig(
-        hidden_width=128,
-        hidden_layers=3,
-        batch_size=32768,
+        hidden_width=hidden_width,
+        hidden_layers=hidden_layers,
+        batch_size=batch_size,
         max_epochs=epochs,
         patience=patience,
         seed=seed,
+        scenario_context=scenario_context,
+        ranking_loss_weight=ranking_loss_weight,
+        ranking_top_weighted=ranking_top_weighted,
+        money_rub_per_unit=(
+            money_rub_per_unit(load_normatives(normatives))
+            if ranking_loss_weight > 0.0
+            else ()
+        ),
+        money_weight_alpha=0.0,
+        select_by="rank" if ranking_loss_weight > 0.0 else "loss",
     )
 
     best_validation_loss = float("inf")
+    best_validation_rank = float("-inf")
     best_epoch = 0
 
     def on_epoch(item) -> None:
-        nonlocal best_epoch, best_validation_loss
-        if item.validation_loss < best_validation_loss:
-            best_validation_loss = item.validation_loss
+        nonlocal best_epoch, best_validation_loss, best_validation_rank
+        best_validation_loss = min(best_validation_loss, item.validation_loss)
+        if ranking_loss_weight > 0.0:
+            if item.validation_rank > best_validation_rank:
+                best_validation_rank = item.validation_rank
+                best_epoch = item.epoch
+        elif item.validation_loss <= best_validation_loss:
             best_epoch = item.epoch
         state.update_stage(
             "combined-700",
@@ -313,10 +337,26 @@ def _train_combined(
         validation,
         config=settings,
         dataset_hash=dataset_hash,
-        device="cpu",
+        device=device,
         epoch_callback=on_epoch,
     )
     checkpoint = result.model.save(output_dir / "model.pt")
+    state.phase("calibrating_700")
+    validation_metrics = evaluate(
+        result.model,
+        validation,
+        split.validation,
+        context,
+        model_schedule_path=model_dir / "Model_Z_sch.inc",
+        normatives_path=normatives,
+        oil_density_t_per_m3=0.9131,
+    )
+    calibration = fit_npv_calibration(
+        validation_metrics["actual_npv_rub"],
+        validation_metrics["predicted_npv_rub"],
+        model_version=result.model.version,
+    )
+    calibration_path = calibration.save(output_dir / "npv_calibration.json")
     state.phase("evaluating_700")
     metrics = evaluate(
         result.model,
@@ -335,11 +375,39 @@ def _train_combined(
         "model_version": result.model.version,
         "checkpoint": checkpoint.name,
         "feature_context": "feature_context.json",
+        "npv_calibration": {
+            "artifact": calibration_path.name,
+            "intercept_rub": calibration.intercept_rub,
+            "slope": calibration.slope,
+            "fitted_on": calibration.fitted_on,
+            "validation": calibration_metrics(
+                validation_metrics["actual_npv_rub"],
+                validation_metrics["predicted_npv_rub"],
+                calibration,
+            ),
+            "test": calibration_metrics(
+                metrics["actual_npv_rub"],
+                metrics["predicted_npv_rub"],
+                calibration,
+            ),
+        },
         "seed": seed,
+        "training_config": asdict(settings),
         "split": {
             "train": len(split.train),
             "validation": len(split.validation),
             "test": len(split.test),
+        },
+        "split_identity": {
+            bucket: [
+                {
+                    "scenario_id": item.metadata.scenario_id,
+                    "canonical_schedule_hash": item.metadata.canonical_schedule_hash,
+                    "response_hash": item.metadata.response_hash,
+                }
+                for item in getattr(split, bucket)
+            ]
+            for bucket in ("train", "validation", "test")
         },
         "best_epoch": result.best_epoch,
         "history": [asdict(item) for item in result.history],
@@ -400,6 +468,13 @@ def _train_and_finish(
         seed=20260817,
         epochs=args.epochs,
         patience=args.patience,
+        device=args.device,
+        hidden_width=args.hidden_width,
+        hidden_layers=args.hidden_layers,
+        batch_size=args.batch_size,
+        scenario_context=args.scenario_context,
+        ranking_loss_weight=args.ranking_loss_weight,
+        ranking_top_weighted=args.ranking_top_weighted,
     )
     state.update_stage(
         "combined-700",
@@ -509,8 +584,17 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--normatives", type=Path, required=True)
     parser.add_argument("--data-root", type=Path, required=True)
     parser.add_argument("--workers", type=int, default=8)
-    parser.add_argument("--epochs", type=int, default=80)
-    parser.add_argument("--patience", type=int, default=10)
+    parser.add_argument("--epochs", type=int, default=600)
+    parser.add_argument("--patience", type=int, default=100)
+    parser.add_argument("--batch-size", type=int, default=32768)
+    parser.add_argument("--hidden-width", type=int, default=128)
+    parser.add_argument("--hidden-layers", type=int, default=3)
+    parser.add_argument("--device", default=None)
+    parser.add_argument(
+        "--scenario-context", choices=("mean", "rich"), default="mean"
+    )
+    parser.add_argument("--ranking-loss-weight", type=float, default=4.0)
+    parser.add_argument("--ranking-top-weighted", action="store_true")
     parser.add_argument("--poll-seconds", type=int, default=60)
     parser.add_argument("--resume-extra", action="store_true")
     return parser

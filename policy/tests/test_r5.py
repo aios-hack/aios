@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 
-from contracts import EventKind, Rule
+from contracts import Constraints, EventKind, Rule
 
 from policy import RuleContext, RuleFlags, apply_rule, default_theta, make_theta
 from policy.rules import r5
@@ -104,6 +104,24 @@ def test_a_wider_corridor_leaves_more_states_untouched(
     )
     assert outcome_of(context, injection=120.0, theta=narrow).decisions != ()
     assert outcome_of(context, injection=120.0, theta=wide).decisions == ()
+
+
+def test_case_compensation_corridor_overrides_theta(context: RuleContext) -> None:
+    case = replace(
+        context,
+        constraints=Constraints(
+            infrastructure={
+                "compensation_min": 0.85,
+                "compensation_max": 1.15,
+            }
+        ),
+    )
+    very_wide_theta = make_theta(
+        {"r5_compensation_low": 0.5, "r5_compensation_high": 1.6}
+    )
+    outcome = outcome_of(case, injection=80.0, theta=very_wide_theta)
+    assert sum(item.value for item in outcome.decisions) == pytest.approx(85.0)
+    assert all(item.inputs["case_compensation_target"] == 1.0 for item in outcome.trace)
 
 
 def test_compensation_is_a_group_quantity_not_a_well_one(

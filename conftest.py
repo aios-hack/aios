@@ -19,7 +19,14 @@ def _candidate_roots() -> tuple[Path, ...]:
     if from_env:
         return (Path(from_env),)
     here = Path(__file__).resolve()
-    return tuple(parent / "docs" for parent in here.parents[0:3])
+    # ``docs-src`` is the complete organizer source tree used by OPM.  The
+    # sibling ``docs`` tree may contain derived/published fragments (including
+    # a stale terminal control event), so it is only a fallback.
+    return tuple(
+        candidate
+        for parent in here.parents[0:3]
+        for candidate in (parent / "docs-src", parent / "docs")
+    )
 
 
 def docs_root() -> Path | None:

@@ -1,0 +1,16 @@
+{
+  "injection_limits": {},
+  "liquid_limits": {},
+  "production_floors": {},
+  "watercut_limits": {},
+  "well_outages": [],
+  "infrastructure": {
+    "water_reinjection_fraction": 1.0,
+    "water_reinjection_lag_steps": 0,
+    "external_water_m3_per_day": 0.0,
+    "compensation_min": 0.85,
+    "compensation_max": 1.15,
+    "compensation_enforcement": "diagnostic",
+    "compensation_scope": "field_and_groups"
+  }
+}

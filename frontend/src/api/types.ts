@@ -151,6 +151,15 @@ export interface ScenarioConstraintsSummary {
   watercut_limits: number;
   well_outages: number;
   infrastructure: number;
+  water_supply_enabled?: boolean;
+  water_reinjection_fraction?: number | null;
+  water_reinjection_lag_steps?: number;
+  external_water_m3_per_day?: number;
+  compensation_enabled?: boolean;
+  compensation_min?: number | null;
+  compensation_max?: number | null;
+  compensation_enforcement?: 'diagnostic' | 'hard';
+  compensation_scope?: 'field' | 'groups' | 'field_and_groups';
   years: number[];
   outage_wells: string[];
   empty: boolean;

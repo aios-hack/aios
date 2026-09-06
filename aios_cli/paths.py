@@ -18,7 +18,11 @@ def _candidate_roots() -> tuple[Path, ...]:
     if from_env:
         return (Path(from_env),)
     here = Path(__file__).resolve()
-    return tuple(parent / "docs" for parent in here.parents[1:4])
+    return tuple(
+        candidate
+        for parent in here.parents[1:4]
+        for candidate in (parent / "docs-src", parent / "docs")
+    )
 
 
 def docs_root() -> Path | None:
@@ -38,6 +42,10 @@ def _docs_path(relative: Path) -> Path | None:
 
 def model_z_schedule() -> Path | None:
     return _docs_path(MODEL_Z_SCHEDULE_RELATIVE)
+
+
+def model_z_dir() -> Path | None:
+    return _docs_path(Path("models") / "Model_Z")
 
 
 def chdd_python_dir() -> Path | None:

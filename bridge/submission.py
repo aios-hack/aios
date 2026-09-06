@@ -39,11 +39,13 @@ from contracts import (
     Config,
     Constraints,
     FinalNpvArtifact,
+    Groups,
     OpmRunArtifact,
     ResponseArtifact,
     RunStatus,
     Schedule,
     hash_schedule,
+    water_supply_policy,
 )
 from economics import methodology_version_hash
 from economics.base_case import analyze_base_case
@@ -105,7 +107,7 @@ class SubmissionResult:
         return (
             self.static_report.ok
             and self.dynamic_report is not None
-            and self.dynamic_report.ok
+            and self.dynamic_report.blocking_ok
             and self.opm_run.status is RunStatus.OK
             and self.final_npv is not None
             and all(check.holds for check in self.identities)
@@ -134,10 +136,11 @@ def _failure_summary(result: SubmissionResult) -> str:
         )
     if result.dynamic_report is None:
         reasons.append("validate_dynamic не выполнялся: отклик не прочитан")
-    elif not result.dynamic_report.ok:
+    elif not result.dynamic_report.blocking_ok:
+        blocking = result.dynamic_report.blocking_violations
         reasons.append(
-            f"validate_dynamic: {len(result.dynamic_report.report.violations)} "
-            f"нарушений, первое — {result.dynamic_report.report.violations[0]}"
+            f"validate_dynamic: {len(blocking)} блокирующих нарушений, "
+            f"первое — {blocking[0]}"
         )
     reasons.extend(f"{check.name}: {check.detail}" for check in result.failed_identities)
     return "; ".join(reasons)
@@ -306,6 +309,9 @@ def submit_schedule(
     config: Config,
     *,
     constraints: Constraints | None = None,
+    oil_density_t_per_m3: float = 0.9131,
+    require_water_supply: bool = False,
+    groups: Groups | None = None,
     use_cache: bool = True,
     strict: bool = True,
 ) -> SubmissionResult:
@@ -323,6 +329,14 @@ def submit_schedule(
     конкретного `Schedule*`: берутся из `model_dir`, не из вызывающего
     кода, чтобы их нельзя было передать рассинхронизированными.
     """
+
+    if require_water_supply and (
+        constraints is None or not water_supply_policy(constraints).enabled
+    ):
+        raise SubmissionTractError(
+            "production-сдача без явного water_reinjection_fraction запрещена: "
+            "источник воды иначе не ограничен"
+        )
 
     static_report = validate_static(schedule, constraints)
     if not static_report.ok:
@@ -359,7 +373,9 @@ def submit_schedule(
             response.state_at_date,
             response.interval_response,
             constraints,
+            oil_density_t_per_m3,
             report_undershoot=False,
+            groups=groups,
         )
         # ЧДД считается и при грязной динамике: заявлять его нельзя (`sound`
         # будет ложным), но в отчёте видно, какое именно число получилось бы —

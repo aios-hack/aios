@@ -6,7 +6,12 @@ import pytest
 
 pytest.importorskip("torch")
 
-from surrogate.cycle import CycleState, EXTRA_CONFIG, PILOT_CONFIG  # noqa: E402
+from surrogate.cycle import (  # noqa: E402
+    CycleState,
+    EXTRA_CONFIG,
+    PILOT_CONFIG,
+    _parser,
+)
 from surrogate.dashboard import collect_status  # noqa: E402
 
 
@@ -24,6 +29,18 @@ def _size(config) -> int:
 def test_cycle_has_separate_exact_200_and_500_plans() -> None:
     assert _size(PILOT_CONFIG) == 200
     assert _size(EXTRA_CONFIG) == 500
+
+
+def test_cycle_uses_measured_ranking_defaults() -> None:
+    args = _parser().parse_args(
+        ["--model-dir", ".", "--normatives", "n.xlsx", "--data-root", "."]
+    )
+
+    assert args.epochs == 600
+    assert args.patience == 100
+    assert args.scenario_context == "mean"
+    assert args.ranking_loss_weight == 4.0
+    assert args.ranking_top_weighted is False
 
 
 def test_cycle_state_survives_reopen(tmp_path) -> None:

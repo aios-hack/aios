@@ -39,6 +39,11 @@ from .model import (
     target_mae,
 )
 from .model_z_context import ModelZFeatureArtifact, build_model_z_context
+from .npv_calibration import (
+    NpvCalibrationError,
+    calibration_metrics,
+    fit_npv_calibration,
+)
 
 
 class TrainingCommandError(ValueError):
@@ -282,19 +287,13 @@ def npv_calibration(
     `b` выходит 2.48, растягивание разгоняет вместе с сигналом и шум, и ошибка
     не падает, а растёт — 1.27e8 против 1.42e8.
     """
-    if len(actual) != len(predicted) or len(actual) < 2:
-        raise TrainingCommandError("калибровка требует хотя бы две пары значений")
-    mean_predicted = mean(predicted)
-    mean_actual = mean(actual)
-    variance = math.fsum((x - mean_predicted) ** 2 for x in predicted)
-    if variance <= 0.0:
-        raise TrainingCommandError(
-            "предсказания вырождены: разброс нулевой, наклон не определён"
+    try:
+        calibration = fit_npv_calibration(
+            actual, predicted, model_version="unversioned"
         )
-    slope = math.fsum(
-        (x - mean_predicted) * (y - mean_actual) for x, y in zip(predicted, actual)
-    ) / variance
-    return mean_actual - slope * mean_predicted, slope
+    except NpvCalibrationError as error:
+        raise TrainingCommandError(str(error)) from error
+    return calibration.intercept_rub, calibration.slope
 
 
 def money_rub_per_unit(normatives: NormativeSet) -> tuple[float, ...]:
@@ -352,6 +351,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--scenario-context", choices=("none", "mean", "rich"),
                         default="mean")
     parser.add_argument("--ranking-loss-weight", type=float, default=4.0)
+    parser.add_argument(
+        "--ranking-top-weighted",
+        action="store_true",
+        help="взвешивать попарный ранговый loss в пользу верхушки шортлиста",
+    )
     parser.add_argument(
         "--target-parameterization",
         choices=("absolute", "watercut"),
@@ -439,6 +443,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             False if args.scenario_context == "none" else args.scenario_context
         ),
         ranking_loss_weight=args.ranking_loss_weight,
+        ranking_top_weighted=args.ranking_top_weighted,
         money_rub_per_unit=(
             money_rub_per_unit(load_normatives(args.normatives))
             if args.ranking_loss_weight > 0.0
@@ -458,6 +463,25 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
     )
     checkpoint = result.model.save(args.output_dir / "model.pt")
+    print(
+        json.dumps({"phase": "calibrate", "n_validation": len(validation)}),
+        flush=True,
+    )
+    validation_metrics = evaluate(
+        result.model,
+        validation,
+        split.validation,
+        context,
+        model_schedule_path=args.model_dir / "Model_Z_sch.inc",
+        normatives_path=args.normatives,
+        oil_density_t_per_m3=args.oil_density,
+    )
+    calibration = fit_npv_calibration(
+        validation_metrics["actual_npv_rub"],
+        validation_metrics["predicted_npv_rub"],
+        model_version=result.model.version,
+    )
+    calibration_path = calibration.save(args.output_dir / "npv_calibration.json")
     print(json.dumps({"phase": "evaluate", "n_test": len(test)}), flush=True)
     metrics = evaluate(
         result.model,
@@ -479,17 +503,47 @@ def main(argv: Sequence[str] | None = None) -> int:
             "lr_schedule": settings.lr_schedule,
             "select_by": settings.select_by,
             "target_parameterization": settings.target_parameterization,
+            "scenario_context": settings.scenario_context,
+            "ranking_loss_weight": settings.ranking_loss_weight,
+            "ranking_top_weighted": settings.ranking_top_weighted,
         },
         "dataset_hash": dataset.dataset_hash,
         "plan_hash": dataset.plan_hash,
         "model_version": result.model.version,
         "checkpoint": checkpoint.name,
         "feature_context": "feature_context.json",
+        "npv_calibration": {
+            "artifact": calibration_path.name,
+            "intercept_rub": calibration.intercept_rub,
+            "slope": calibration.slope,
+            "fitted_on": calibration.fitted_on,
+            "validation": calibration_metrics(
+                validation_metrics["actual_npv_rub"],
+                validation_metrics["predicted_npv_rub"],
+                calibration,
+            ),
+            "test": calibration_metrics(
+                metrics["actual_npv_rub"],
+                metrics["predicted_npv_rub"],
+                calibration,
+            ),
+        },
         "seed": args.seed,
         "split": {
             "train": [item.metadata.scenario_id for item in split.train],
             "validation": [item.metadata.scenario_id for item in split.validation],
             "test": [item.metadata.scenario_id for item in split.test],
+        },
+        "split_identity": {
+            bucket: [
+                {
+                    "scenario_id": item.metadata.scenario_id,
+                    "canonical_schedule_hash": item.metadata.canonical_schedule_hash,
+                    "response_hash": item.metadata.response_hash,
+                }
+                for item in getattr(split, bucket)
+            ]
+            for bucket in ("train", "validation", "test")
         },
         "families": {
             family.value: sum(item.metadata.family is family for item in samples)

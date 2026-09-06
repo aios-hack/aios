@@ -13,10 +13,12 @@ import math
 import sys
 from pathlib import Path
 
+from economics.baseline import OPM_CONTROL_HORIZON_BASE_NPV_RUB
+
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 OUT = Path("data/g10-verification")
-BASE_NPV = 11_873_676_459.64
+BASE_NPV = OPM_CONTROL_HORIZON_BASE_NPV_RUB
 
 
 def _ranks(values: list[float]) -> list[float]:

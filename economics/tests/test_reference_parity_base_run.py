@@ -25,7 +25,12 @@ from pathlib import Path
 import pytest
 
 from contracts import ChargeInitialEsp, DEFAULT_NORMATIVES_2007, NormativeSet, Policies, QuantizationPolicy
-from economics import ESP_CATALOG_2007, analyze_base_case, load_response_artifact
+from economics import (
+    ESP_CATALOG_2007,
+    OPM_CONTROL_HORIZON_BASE_NPV_RUB,
+    analyze_base_case,
+    load_response_artifact,
+)
 from economics.base_case import responses_by_well_from_artifact, states_by_well_from_artifact
 from economics.reference_parity import build_reference_records, compare_with_reference, run_reference
 from schedule import parse_schedule
@@ -94,4 +99,6 @@ def test_reports_npv_magnitude_for_the_record(report) -> None:
         f"наш ЧДД={report.npv_ours!r}, эталон={report.npv_reference!r}, "
         f"разница={report.npv_absolute!r}, статей расхождения={len(report.discrepancies)}"
     )
-    assert report.npv_ours > 0.0
+    assert report.npv_ours == pytest.approx(
+        OPM_CONTROL_HORIZON_BASE_NPV_RUB, rel=0.0, abs=1e-6
+    )

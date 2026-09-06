@@ -31,7 +31,11 @@ from bridge.runner import deck_hashes, summary_spec_hash
 from config.schema import default_config
 from contracts import ArtifactHashes, Constraints, EventKind, Theta
 from contracts.hashing import hash_schedule
-from economics import load_normatives, load_response_artifact
+from economics import (
+    OPM_CONTROL_HORIZON_BASE_NPV_RUB,
+    load_normatives,
+    load_response_artifact,
+)
 from economics.base_case import analyze_base_case
 from optimizer.schedule_search import load_environment, make_evaluator, make_policy
 from optimizer.search_run import DATASET, FINAL_CAP, LAMBDA, RESPONSE, SEED
@@ -42,7 +46,7 @@ from schedule.canonical import canonical_part_hash
 sys.argv = _ARGV
 LABEL = sys.argv[1] if len(sys.argv) > 1 else "run"
 OUT = Path("data/r1-checks")
-BASE_NPV = 11_873_676_459.64
+BASE_NPV = OPM_CONTROL_HORIZON_BASE_NPV_RUB
 
 
 def injection_by_step(schedule) -> dict[int, float]:

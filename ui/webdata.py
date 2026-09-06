@@ -17,7 +17,9 @@ def default_deck_path() -> Path:
         (Path(from_env),)
         if from_env
         else tuple(
-            parent / "docs" for parent in Path(__file__).resolve().parents[1:4]
+            candidate
+            for parent in Path(__file__).resolve().parents[1:4]
+            for candidate in (parent / "docs-src", parent / "docs")
         )
     )
     for root in roots:

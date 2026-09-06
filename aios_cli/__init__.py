@@ -6,6 +6,7 @@ from .paths import (
     default_seed,
     docs_root,
     example_input_xlsx,
+    model_z_dir,
     model_z_schedule,
     normatives_xlsx,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "default_seed",
     "docs_root",
     "example_input_xlsx",
+    "model_z_dir",
     "model_z_schedule",
     "normatives_xlsx",
 ]

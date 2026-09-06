@@ -1,0 +1,101 @@
+from __future__ import annotations
+
+import json
+from types import SimpleNamespace
+
+import pytest
+
+from optimizer.runtime_artifacts import (
+    RuntimeArtifactError,
+    RuntimeArtifacts,
+    resolve_runtime_artifacts,
+    validate_runtime_economic_head,
+)
+
+
+def test_bundle_resolves_ensemble_and_bundle_context(tmp_path) -> None:
+    bundle = tmp_path / "bundle"
+    (bundle / "physical").mkdir(parents=True)
+    (bundle / "physical" / "trajectory_ensemble.json").write_text(
+        json.dumps({"format": "test"})
+    )
+    (bundle / "physical" / "npv_head.pt").write_text("head")
+    (bundle / "feature_context.json").write_text("{}")
+
+    result = resolve_runtime_artifacts({"AIOS_SURROGATE_BUNDLE": str(bundle)})
+
+    assert result.checkpoint == bundle / "physical" / "trajectory_ensemble.json"
+    assert result.feature_context == bundle / "feature_context.json"
+    assert result.npv_head == bundle / "physical" / "npv_head.pt"
+
+
+def test_explicit_ensemble_finds_context_at_bundle_level(tmp_path) -> None:
+    bundle = tmp_path / "bundle"
+    (bundle / "physical").mkdir(parents=True)
+    checkpoint = bundle / "physical" / "trajectory_ensemble.json"
+    checkpoint.write_text("{}")
+    context = bundle / "feature_context.json"
+    context.write_text("{}")
+
+    result = resolve_runtime_artifacts({"AIOS_CHECKPOINT_PATH": str(checkpoint)})
+
+    assert result.feature_context == context
+    assert result.source == "explicit checkpoint"
+
+
+def test_missing_bundle_fails_instead_of_using_an_old_model(tmp_path) -> None:
+    with pytest.raises(RuntimeArtifactError, match="missing runtime artifact"):
+        resolve_runtime_artifacts({"AIOS_SURROGATE_BUNDLE": str(tmp_path / "absent")})
+
+
+def test_manifest_can_switch_only_the_economic_head(tmp_path) -> None:
+    data = tmp_path / "data"
+    physical = data / "physical"
+    physical.mkdir(parents=True)
+    checkpoint = physical / "trajectory.json"
+    context = data / "context.json"
+    head = data / "candidate.pt"
+    for path in (checkpoint, context, head):
+        path.write_text("artifact")
+    manifest = data / "production.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "format": "aios.surrogate-production-pointer.v1",
+                "trajectory_checkpoint": "physical/trajectory.json",
+                "feature_context": "context.json",
+                "npv_head": "candidate.pt",
+                "active_economic_model_version": "candidate-v1",
+                "active_economic_target_provenance_hash": "t" * 64,
+            }
+        )
+    )
+
+    result = resolve_runtime_artifacts({"AIOS_SURROGATE_MANIFEST": str(manifest)})
+
+    assert result.checkpoint == checkpoint
+    assert result.feature_context == context
+    assert result.npv_head == head
+    assert result.economic_model_version == "candidate-v1"
+    assert result.economic_target_provenance_hash == "t" * 64
+    validate_runtime_economic_head(
+        result,
+        SimpleNamespace(version="candidate-v1", target_provenance_hash="t" * 64),
+    )
+
+
+def test_manifest_target_provenance_mismatch_is_rejected(tmp_path) -> None:
+    artifacts = RuntimeArtifacts(
+        checkpoint=tmp_path / "trajectory.json",
+        feature_context=tmp_path / "context.json",
+        npv_head=tmp_path / "head.pt",
+        source="test",
+        economic_model_version="v4",
+        economic_target_provenance_hash="a" * 64,
+    )
+
+    with pytest.raises(RuntimeArtifactError, match="target provenance"):
+        validate_runtime_economic_head(
+            artifacts,
+            SimpleNamespace(version="v4", target_provenance_hash="b" * 64),
+        )

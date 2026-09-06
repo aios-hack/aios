@@ -550,7 +550,11 @@ def _dense_index(
 
 
 def materialize(
-    base: Schedule, spec: PerturbationSpec, *, provenance: str | None = None
+    base: Schedule,
+    spec: PerturbationSpec,
+    *,
+    provenance: str | None = None,
+    profile: BaselineProfile | None = None,
 ) -> MaterializedSchedule:
     """Плотный `Schedule` сценария: возмущается управление, фиксированный слой — нет.
 
@@ -563,7 +567,9 @@ def materialize(
     §9.1 запрещает возмущать программу ввода.
     """
 
-    profile = baseline_profile(base)
+    profile = baseline_profile(base) if profile is None else profile
+    if profile.wells != tuple(base.meta.wells) or profile.n_intervals != base.meta.n_intervals:
+        raise DatasetPlanError("предрассчитанный baseline profile относится к другому Schedule")
     levels = {item.well: item for item in spec.levels}
     unreachable = {item.well: item for item in spec.unreachable}
     shutdowns: dict[str, list[ShutdownWindow]] = {}

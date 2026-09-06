@@ -88,20 +88,30 @@ def test_watercut_increases_as_a_rule_not_as_hard_oracle(report) -> None:
     )
 
 
-def test_thirty_injection_conversions_land_on_their_dates(report) -> None:
-    """§4.7: 30 переводов под закачку — физическое подтверждение по отклику.
+def test_thirty_schedule_conversions_preserve_observed_flow_timing(report) -> None:
+    """§4.7: schedule intent и фактический OPM transition не смешиваются.
 
-    Не только по расписанию (это уже проверяет `OpmDeckEmitter`, задача 2):
-    здесь — что настоящий OPM на дату перевода действительно показывает
-    injection_rate > 0 для этой скважины (`docs/context/tools/check_deck_facts.py` §6 —
-    источник дат, независимый от `schedule.parse_schedule`).
+    Из 30 переводов девять в Model_Z физически дают нулевой первый шаг и
+    начинают закачку шагом позже. Это не артефакт эмиттера: минимальный Flow
+    A/B для прямого WCONINJE и явного WCONPROD SHUT + WCONINJE совпадает.
+    Экономика обязана сравнивать фактические соседние строки, как официальный
+    ``chdd_model.py``, а не переписывать эти девять событий по намерению дека.
     """
 
     assert len(report.conversions) == 30, sorted(c.transition.well for c in report.conversions)
-    failed = [c for c in report.conversions if not c.verified]
-    assert not failed, [
-        (c.transition.well, str(c.transition.event_date), c.injection_rate_at_date) for c in failed
-    ]
+    delayed = [c for c in report.conversions if not c.verified]
+    assert {(c.transition.well, c.transition.deck_date_index) for c in delayed} == {
+        ("102", 146),
+        ("24", 150),
+        ("10", 158),
+        ("2", 190),
+        ("94", 202),
+        ("52", 206),
+        ("68", 214),
+        ("51", 218),
+        ("48", 326),
+    }
+    assert all(c.injection_rate_at_date == pytest.approx(0.0) for c in delayed)
 
 
 def test_twenty_two_wells_commissioned_on_their_dates(report) -> None:

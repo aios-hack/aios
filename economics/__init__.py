@@ -73,6 +73,14 @@ from .base_case import (
     tally_events,
     volume_totals,
 )
+from .baseline import (
+    OPM_CONTROL_HORIZON_BASE_NPV_RUB,
+    TNAV_CONTROL_HORIZON_BASE_NPV_RUB,
+    TNAV_CONTROL_START_DISCOUNT_FACTOR,
+    TNAV_FULL_PROJECT_BASE_NPV_RUB,
+    TNAV_HISTORY_THROUGH_2006_NPV_RUB,
+    rebase_control_horizon_to_published_full_project,
+)
 from .normatives_io import (
     ESP_SHEET,
     NORMATIVES_SHEET,
@@ -130,6 +138,12 @@ __all__ = [
     "states_by_well_from_artifact",
     "tally_events",
     "volume_totals",
+    "OPM_CONTROL_HORIZON_BASE_NPV_RUB",
+    "TNAV_CONTROL_HORIZON_BASE_NPV_RUB",
+    "TNAV_CONTROL_START_DISCOUNT_FACTOR",
+    "TNAV_FULL_PROJECT_BASE_NPV_RUB",
+    "TNAV_HISTORY_THROUGH_2006_NPV_RUB",
+    "rebase_control_horizon_to_published_full_project",
     "BalanceSheetInputs",
     "CellFlows",
     "DISCOUNT_BASE_YEAR",

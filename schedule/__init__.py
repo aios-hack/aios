@@ -58,6 +58,8 @@ from .replay import (
 )
 from .validate_dynamic import (
     ACHIEVEMENT_THRESHOLD,
+    BLOCKING_DYNAMIC_VIOLATION_KINDS,
+    CompensationMetric,
     DYNAMIC_VIOLATION_KINDS,
     DynamicReport,
     DynamicValidationError,
@@ -66,6 +68,8 @@ from .validate_dynamic import (
     TargetRatio,
     check_bhp_limits,
     check_control_modes,
+    compensation_metrics,
+    maximum_field_compensation_from_supply,
     check_dynamic_constraints,
     check_intent_versus_fact,
     check_interval_signs,
@@ -96,6 +100,8 @@ from .validate import (
 
 __all__ = [
     "ACHIEVEMENT_THRESHOLD",
+    "BLOCKING_DYNAMIC_VIOLATION_KINDS",
+    "CompensationMetric",
     "DYNAMIC_VIOLATION_KINDS",
     "DynamicReport",
     "DynamicValidationError",
@@ -104,6 +110,8 @@ __all__ = [
     "TargetRatio",
     "check_bhp_limits",
     "check_control_modes",
+    "compensation_metrics",
+    "maximum_field_compensation_from_supply",
     "check_dynamic_constraints",
     "check_intent_versus_fact",
     "check_interval_signs",
