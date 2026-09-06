@@ -34,3 +34,16 @@ it('shows saved conditions and returns them to the form without starting a run',
   expect(onLoadConditions).toHaveBeenCalledWith(document);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+it('shows temporal errors and does not turn an unmeasured error into zero', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ runs: [{
+    run_id: 'web-unseen', status: 'completed', unseen_result: {
+      focus_year: '2017', fitted_schedule_hashes_count: 833, exact_fit_overlap: false,
+      yearly: { '2017': { oil_mass_delta: { absolute_error_pct: null }, liquid_volume_delta: { absolute_error_pct: 5.48 }, injection_volume_delta: { absolute_error_pct: .53 } } },
+      paired_comparison: { predicted_npv_change_rub: -240749, opm_npv_change_rub: -11121249 }
+    }
+  }] }) }));
+  render(<LiveRuns document={document} blocked={false} />);
+  await screen.findByText('Нефть: не измерено');
+  expect(screen.getByText('Жидкость: 5,48%')).toBeTruthy();
+  expect(screen.getByText(/Изменение ЧДД к предыдущему проверенному плану/).textContent).toContain('11');
+});

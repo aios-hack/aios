@@ -7,6 +7,11 @@ type Run = {
   run_id: string; status: string; mode: string; message: string; budget: number;
   evaluations?: number; feasible_evaluations?: number; rejection_reasons?: string[];
   manifest?: { predicted_npv: number | null; verified_npv: number | null; sound: boolean | null };
+  unseen_result?: {
+    focus_year: string; fitted_schedule_hashes_count: number; exact_fit_overlap: boolean;
+    yearly: Record<string, Record<string, { absolute_error_pct: number | null }>>;
+    paired_comparison?: { predicted_npv_change_rub: number; opm_npv_change_rub: number };
+  };
   constraints?: ConstraintsDoc;
   progress?: { step: number; total: number; date: string };
   economics?: { measured_npv?: number | null; sound?: boolean };
@@ -14,6 +19,8 @@ type Run = {
   validation?: { dynamic_violations: number; blocking_dynamic_violations?: number; failed_identities: string[] };
 };
 const money = (value: number | null | undefined) => value == null ? 'Ещё не рассчитан' : `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(value)} ₽`;
+
+const percent = (value: number | null | undefined) => value == null ? 'не измерено' : `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(value)}%`;
 
 export const LiveRuns = ({ document, blocked, onLoadConditions }: { document: ConstraintsDoc; blocked: boolean; onLoadConditions?: (document: ConstraintsDoc) => void }) => {
   const t = useFallbackT();
@@ -73,6 +80,14 @@ export const LiveRuns = ({ document, blocked, onLoadConditions }: { document: Co
       {run.validation && <p>Блокирующих нарушений: {run.validation.blocking_dynamic_violations ?? (run.manifest?.sound ? 0 : run.validation.dynamic_violations)}. Диагностических замечаний всего: {run.validation.dynamic_violations}. Невыполненных контрольных равенств: {run.validation.failed_identities.length}.</p>}
       {run.rejection_reasons && run.rejection_reasons.length > 0 && <details><summary>Почему отклонялись варианты</summary><ul>{run.rejection_reasons.map((reason) => <li key={reason}>{reason.replaceAll('ood_score', 'отклонение от области обучения').replaceAll('OOD', 'область обучения')}</li>)}</ul></details>}
       {run.manifest && <button className="scenarios-button" disabled={busy} onClick={() => void start(run.run_id)}>Проверить план в OPM</button>}
+      {run.unseen_result && <section aria-label="Проверка нового кейса">
+        <h4>Проверка нового кейса</h4>
+        {!run.unseen_result.exact_fit_overlap && <p>Точного повтора этого плана нет среди {run.unseen_result.fitted_schedule_hashes_count} обучающих расписаний.</p>}
+        <p>Ошибки прогноза за {run.unseen_result.focus_year} год:</p>
+        <ul>{[['oil_mass_delta', 'Нефть'], ['liquid_volume_delta', 'Жидкость'], ['injection_volume_delta', 'Закачка']].map(([key, label]) => <li key={key}>{label}: {percent(run.unseen_result!.yearly[run.unseen_result!.focus_year][key].absolute_error_pct)}</li>)}</ul>
+        {run.unseen_result.paired_comparison && <p>Изменение ЧДД к предыдущему проверенному плану: прогноз {money(run.unseen_result.paired_comparison.predicted_npv_change_rub)}, OPM {money(run.unseen_result.paired_comparison.opm_npv_change_rub)}.</p>}
+        <p className="scenarios-note">Малая ошибка общего ЧДД не гарантирует точной оценки небольшого улучшения или потери. Подтверждение OPM относится к выполнению условий выбранным планом, а не к его оптимальности.</p>
+      </section>}
       {run.constraints && <details><summary>Условия этого прогона</summary>
         {YEAR_SECTIONS.map((section) => <p key={section}>{t(`scenarios.section.${section}`)}: {Object.entries(run.constraints![section]).map(([year, value]) => `${year}: ${value}`).join('; ') || 'не заданы'}. {t(`scenarios.unit.${section}`)}</p>)}
         <p>Простои: {run.constraints.well_outages.map((outage) => `скважина ${outage.well}, шаги ${outage.control_step_from}–${outage.control_step_to}`).join('; ') || 'не заданы'}</p>

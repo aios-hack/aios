@@ -39,10 +39,10 @@ class WebRuns:
         for path in sorted(self.root.glob('*/job.json'), reverse=True):
             data = json.loads(path.read_text())
             directory = path.parent
-            for name in ('manifest', 'constraints', 'provenance'):
+            for name in ('manifest', 'constraints', 'provenance', 'unseen-result'):
                 artifact = directory / f'{name}.json'
                 if artifact.is_file():
-                    data[name] = json.loads(artifact.read_text())
+                    data[name.replace('-', '_')] = json.loads(artifact.read_text())
             validation = directory / 'validation/result.json'
             if validation.is_file():
                 data['validation'] = json.loads(validation.read_text())
