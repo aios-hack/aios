@@ -1,3 +1,4 @@
+import { INFRASTRUCTURE_PARAMETERS } from './infrastructureParameters';
 import type { ConstraintsDoc, WellOutageDoc } from '../../api/types';
 
 export type YearSection =
@@ -150,7 +151,32 @@ const validatePairs = (rows: PairRow[], errors: FieldError[]): void => {
       errors.push({ key: row.key, field: 'name', messageKey: 'error.duplicatePair', params: { name } });
     }
     seen.add(name);
+    const parameter = INFRASTRUCTURE_PARAMETERS.find((p) => p.key === name);
+    const number = parseAmount(row.value);
+    const valid = parameter && ('choices' in parameter
+      ? (parameter.choices as readonly string[]).includes(row.value)
+      : number !== null && number >= parameter.min
+        && (!('max' in parameter) || number <= parameter.max)
+        && (!('integer' in parameter) || Number.isInteger(number)));
+    if (!valid) errors.push({ key: row.key, field: 'value', messageKey: 'error.parameterValue' });
+
   }
+  const byName = new Map(rows.map((row) => [row.name.trim(), row]));
+  for (const key of ['external_water_m3_per_day', 'water_reinjection_lag_steps']) {
+    const row = byName.get(key);
+    if (row && !byName.has('water_reinjection_fraction')) {
+      errors.push({ key: row.key, field: 'value', messageKey: 'error.waterFractionRequired' });
+    }
+  }
+  const lower = byName.get('compensation_min');
+  const upper = byName.get('compensation_max');
+  for (const row of rows.filter((row) => row.name.startsWith('compensation_'))) {
+    if (!lower || !upper) errors.push({ key: row.key, field: 'value', messageKey: 'error.compensationBoundsRequired' });
+  }
+  if (lower && upper && Number(lower.value.replace(',', '.')) > Number(upper.value.replace(',', '.'))) {
+    errors.push({ key: upper.key, field: 'value', messageKey: 'error.compensationBoundsOrder' });
+  }
+
 };
 
 export const validateEditor = (state: EditorState, nIntervals: number): FieldError[] => {

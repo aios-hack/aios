@@ -7,7 +7,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from backend.application.cases import _load_schedule, load_schedule_json
 from backend.core.contracts import (
     ActiveControlMode,
     Constraints,
@@ -50,6 +49,9 @@ def dump_bundle(artifact: RunArtifact, path: str | Path) -> None:
         _to_jsonable(artifact), ensure_ascii=False, sort_keys=True, indent=2
     )
     Path(path).write_text(text, encoding="utf-8")
+
+
+from backend.domain.schedule.json_io import _load_schedule, load_schedule_json
 
 
 def _load_state_at_date(data: dict[str, Any]) -> StateAtDate:

@@ -505,3 +505,41 @@ def test_check_no_nan_accepts_clean_data() -> None:
     state = _build_state_at_date(rows, ("W1",), _EMPTY_SCHEDULE)
     interval = _build_interval_response(rows, ("W1",))
     _check_no_nan(state, interval)  # не должно бросать
+
+
+@pytest.mark.parametrize('operator,args,expected_status,target', [
+    ('WCONPROD', ('OPEN', 'LRAT', '1*', '1*', '1*', '120'), OperatingStatus.OPEN, 120.),
+    ('WCONINJE', ('WATER', 'SHUT', 'RATE', '80'), OperatingStatus.SHUT, 80.),
+])
+def test_fixed_commissioning_controls_availability_status_and_target(operator, args, expected_status, target):
+    from backend.core.contracts import FixedDeckEvent
+    from backend.infrastructure.opm.response_loader import _build_well_timelines
+    schedule = Schedule(
+        meta=ScheduleMeta(wells=('NEW',)), initial_state={},
+        fixed_deck_events=(FixedDeckEvent(14, 'NEW', operator, args),),
+        control_events=(),
+    )
+    timeline = _build_well_timelines(schedule)['NEW']
+    assert not timeline.is_commissioned(13)
+    assert timeline.is_commissioned(14)
+    assert timeline.operating_status(14) is expected_status
+    assert timeline.setpoint(14) == target
+
+
+def test_managed_controls_override_fixed_commissioning_at_same_step():
+    from backend.core.contracts import FixedDeckEvent
+    from backend.infrastructure.opm.response_loader import _build_well_timelines
+    schedule = Schedule(
+        meta=ScheduleMeta(wells=('NEW',)), initial_state={},
+        fixed_deck_events=(FixedDeckEvent(14, 'NEW', 'WCONPROD', ('OPEN', 'LRAT', '1*', '1*', '1*', '120')),),
+        control_events=(
+            ControlEvent(14, 'NEW', EventKind.SET_RATE, 80.),
+            ControlEvent(14, 'NEW', EventKind.CONVERT_INJ),
+            ControlEvent(14, 'NEW', EventKind.SET_LRAT, 0.),
+            ControlEvent(14, 'NEW', EventKind.SHUT),
+        ),
+    )
+    timeline = _build_well_timelines(schedule)['NEW']
+    assert timeline.is_commissioned(14)
+    assert timeline.operating_status(14) is OperatingStatus.SHUT
+    assert timeline.setpoint(14) == 80.

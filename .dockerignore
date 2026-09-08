@@ -32,3 +32,6 @@ Dockerfile
 .dockerignore
 docker-compose.yml
 frontend/public/data/
+
+# Generated evaluation reports and release outputs are mounted separately.
+out/

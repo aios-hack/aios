@@ -6,7 +6,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from backend.application.cases import YEAR_SECTIONS, constraints_from_json
+from backend.domain.configuration.constraints_io import (
+    YEAR_SECTIONS,
+    constraints_from_json,
+    constraints_to_json,
+)
 from backend.core.contracts import Constraints
 
 from backend.presentation.ui_export.artifact_io import load_bundle
@@ -105,24 +109,6 @@ def _robustness_json(robustness: ScenarioRobustness) -> dict[str, Any]:
         "predicted_npv_rub": robustness.predicted_npv_rub,
         "calibrated_npv_rub": robustness.calibrated_npv_rub,
         "run_validation_clean": robustness.run_validation_clean,
-    }
-
-
-def constraints_to_json(c: Constraints) -> dict[str, Any]:
-    return {
-        "injection_limits": {str(y): float(v) for y, v in sorted(c.injection_limits.items())},
-        "liquid_limits": {str(y): float(v) for y, v in sorted(c.liquid_limits.items())},
-        "production_floors": {str(y): float(v) for y, v in sorted(c.production_floors.items())},
-        "watercut_limits": {str(y): float(v) for y, v in sorted(c.watercut_limits.items())},
-        "well_outages": [
-            {
-                "well": o.well,
-                "control_step_from": o.control_step_from,
-                "control_step_to": o.control_step_to,
-            }
-            for o in c.well_outages
-        ],
-        "infrastructure": dict(c.infrastructure),
     }
 
 

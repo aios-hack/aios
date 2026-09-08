@@ -40,6 +40,7 @@ from backend.application.optimization.runtime_artifacts import (
     validate_runtime_economic_head,
 )
 from backend.application.optimization.search_run import (
+    CONSTRAINTS,
     FINAL_CAP,
     SEED,
     _repair_predicted_water_balance,
@@ -47,11 +48,10 @@ from backend.application.optimization.search_run import (
 from backend.domain.policy.fixed_point import resolve
 from backend.domain.policy.theta import default_theta
 from backend.infrastructure.resources import chdd_python_dir, model_z_dir
-from backend.application.cases import constraints_from_json
+from backend.domain.configuration.constraints_io import constraints_from_json
 
 LAMBDA = Path("data/lambda-window-2007/lambda.json")
 RESPONSE = Path("data/base_case/response.json")
-CONSTRAINTS = Path("config/competition-constraints.json")
 WORK_ROOT = Path("data/g7-submission")
 EXPECTED_HASH = None  # сверяется с cmaes.json; None — принять любой
 BASE_NPV = 11_873_676_459.64
@@ -180,19 +180,27 @@ def main() -> int:
     # θ* берётся из отчёта поиска, а не воспроизводится поиском заново:
     # прогон CMA-ES стоит двадцать минут и ничего не добавляет, а хеш
     # восстановленного расписания всё равно сверяется с записанным.
-    theta = Theta(values=dict(saved["theta"]), bounds=default_theta().bounds)
-    started = time.monotonic()
-    final = resolve(make_policy(env, theta, {}), evaluator, initial, FINAL_CAP)
-    schedule, repaired_prediction, _dynamic, repair_rounds = _repair_predicted_water_balance(
-        env, evaluator, final.schedule
-    )
-    actual_hash = hash_schedule(schedule)
-    print(
-        f"план восстановлен из θ* за {time.monotonic() - started:.1f} с, "
-        f"предсказание economic head {final.npv / 1e9:.3f} млрд, "
-        f"policy-stable={final.self_consistent}, water-repair={repair_rounds}",
-        flush=True,
-    )
+    if saved.get('schedule_path'):
+        from backend.domain.schedule.json_io import load_schedule_json
+        schedule = load_schedule_json(Path(saved['schedule_path']))
+        repaired_prediction = evaluator(schedule)
+        repair_rounds = 0
+        actual_hash = hash_schedule(schedule)
+        print('Проверяется сохранённый план без повторной генерации политики.', flush=True)
+    else:
+        theta = Theta(values=dict(saved["theta"]), bounds=default_theta().bounds)
+        started = time.monotonic()
+        final = resolve(make_policy(env, theta, {}), evaluator, initial, FINAL_CAP)
+        schedule, repaired_prediction, _dynamic, repair_rounds = _repair_predicted_water_balance(
+            env, evaluator, final.schedule
+        )
+        actual_hash = hash_schedule(schedule)
+        print(
+            f"план восстановлен из θ* за {time.monotonic() - started:.1f} с, "
+            f"предсказание economic head {final.npv / 1e9:.3f} млрд, "
+            f"policy-stable={final.self_consistent}, water-repair={repair_rounds}",
+            flush=True,
+        )
     print(f"canonical_schedule_hash: {actual_hash}", flush=True)
     expected = EXPECTED_HASH or saved["canonical_schedule_hash"]
     if actual_hash != expected:

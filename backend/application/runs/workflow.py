@@ -80,12 +80,17 @@ class RunWorkflow:
         run_dir = self._prepare(request)
         result = verify(request.schedule, run_dir / "opm")
         sound = result.sound
+        # The real submission tract deliberately raises when an unsound result
+        # is accessed as a verified NPV. Persist rejection diagnostics instead.
+        verified_npv = result.npv_methodology if sound else None
+        calculated = getattr(result, 'final_npv', None)
+        measured_npv = calculated.npv_methodology if calculated is not None else verified_npv
         manifest = RunManifest(
             run_id=request.run_id,
             status=WorkflowStatus.READY_TO_SUBMIT if sound else WorkflowStatus.REJECTED,
             schedule_hash=hash_schedule(request.schedule),
             predicted_npv=request.predicted_npv,
-            verified_npv=result.npv_methodology,
+            verified_npv=verified_npv,
             sound=sound,
         )
         (run_dir / "validation").mkdir(exist_ok=True)
@@ -97,6 +102,7 @@ class RunWorkflow:
                     if getattr(getattr(result, "opm_run", None), "status", None) is not None
                     else None,
                     "dynamic_violations": len(getattr(getattr(result, "dynamic_report", None), "violations", ())),
+                    "blocking_dynamic_violations": len(getattr(getattr(result, "dynamic_report", None), "blocking_violations", ())),
                     "failed_identities": [item.name for item in getattr(result, "failed_identities", ())],
                 },
                 indent=2,
@@ -105,7 +111,7 @@ class RunWorkflow:
             encoding="utf-8",
         )
         (run_dir / "economics" / "result.json").write_text(
-            json.dumps({"npv_methodology": result.npv_methodology}, indent=2) + "\n",
+            json.dumps({"npv_methodology": verified_npv, "measured_npv": measured_npv, "sound": sound}, indent=2) + "\n",
             encoding="utf-8",
         )
         self._write_manifest(run_dir, manifest)

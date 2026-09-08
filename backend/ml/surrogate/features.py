@@ -8,6 +8,8 @@ static data) and measured, date-scoped ``Lambda`` matrices.
 
 from __future__ import annotations
 
+from backend.domain.schedule.wcon import commissioning_state
+
 import math
 import re
 from dataclasses import dataclass
@@ -340,11 +342,11 @@ def history_targets_from_deck(
 
 
 def _commissioning_state(event_operator: str, raw_args: tuple[str, ...]) -> _MutableState:
-    if event_operator == "WCONPROD":
-        return _state_from_wcon(event_operator, ("<fixed>", *raw_args))[1]
-    if event_operator == "WCONINJE":
-        return _state_from_wcon(event_operator, ("<fixed>", *raw_args))[1]
-    raise FeatureError(f"{event_operator}: не является событием ввода")
+    try:
+        return _MutableState.from_contract(commissioning_state(event_operator, raw_args))
+    except ValueError as error:
+        raise FeatureError(str(error)) from error
+
 
 
 def _apply_control(state: _MutableState, event: ControlEvent) -> None:

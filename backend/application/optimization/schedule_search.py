@@ -62,6 +62,15 @@
 
 from __future__ import annotations
 
+from backend.ml.surrogate.npv_block_head import BlockKernelNpvHead, load_direct_npv_head
+from backend.ml.surrogate.npv_economic_features import scenario_feature_vector
+from backend.ml.surrogate.model import _features
+from backend.ml.surrogate.ood import OodScore
+from backend.ml.surrogate.physics_checks import PhysicsReport, Severity, severity_of, check_prediction
+from backend.ml.surrogate.scenario_ood import ScenarioDensityDomain
+from backend.ml.surrogate.npv_calibration import NpvCalibration
+
+
 import hashlib
 import math
 from dataclasses import dataclass, replace
@@ -135,22 +144,141 @@ class ScheduleSearchError(ValueError):
 
 
 def _validate_npv_head_compatibility(
-    npv_head: ScenarioNpvHead,
-    model: TrajectorySurrogate | TrajectoryEnsemble,
-    feature_context_path: Path | str,
+    npv_head: object, model: object, feature_context_path: Path | str
 ) -> None:
-    if npv_head.feature_context_sha256:
+    context_hash = getattr(npv_head, "feature_context_sha256", "")
+    if context_hash:
         actual = hashlib.sha256(Path(feature_context_path).read_bytes()).hexdigest()
-        if npv_head.feature_context_sha256 != actual:
+        if context_hash != actual:
             raise ScheduleSearchError("NPV head обучен на другом feature context")
-    elif npv_head.dataset_hash != model.dataset_hash:
+    elif getattr(npv_head, "dataset_hash", None) != getattr(
+        model, "dataset_hash", None
+    ):
         raise ScheduleSearchError(
             "NPV head и trajectory model обучены на разных данных"
         )
-    if npv_head.wells != model.wells:
-        raise ScheduleSearchError("NPV head и trajectory model имеют разный фонд")
-    if npv_head.static_feature_names != model.static_feature_names:
+    if getattr(npv_head, "wells", None) != getattr(model, "wells", None):
+        raise ScheduleSearchError(
+            "NPV head и trajectory model имеют разный фонд скважин"
+        )
+    if getattr(npv_head, "static_feature_names", None) != getattr(
+        model, "static_feature_names", None
+    ):
         raise ScheduleSearchError("NPV head и trajectory model имеют разную статику")
+    physical_weight = float(getattr(npv_head, "physical_npv_weight", 0.0))
+    if physical_weight > 0.0 and getattr(
+        npv_head, "physical_ensemble_version", ""
+    ) != getattr(model, "version", None):
+        raise ScheduleSearchError(
+            "NPV blend заморожен под другую trajectory ensemble"
+        )
+
+
+
+class OutOfDomainScheduleError(ScheduleSearchError):
+    """A candidate left the training trust region and must not be optimized."""
+
+    def __init__(self, score: float, description: str) -> None:
+        self.score = float(score)
+        self.description = description
+        super().__init__(
+            f"кандидат вне области обучения: ood_score={score:.6g}; {description}"
+        )
+
+
+class PhysicallyImpossibleScheduleError(ScheduleSearchError):
+    """Прогноз кандидата нарушает физический инвариант — S-04.
+
+    Отдельный тип, а не общая ошибка поиска: причина отказа обязана дойти до
+    трассы выбора неизменной. Нарушение физики — не штраф в ЧДД, который
+    оптимизатор мог бы «окупить» другими статьями, а запрет: кандидат не
+    оценивается и в OPM-пакет не попадает.
+    """
+
+    def __init__(self, counts: Mapping[str, int], description: str) -> None:
+        self.counts = dict(counts)
+        self.description = description
+        super().__init__(f"кандидат физически невозможен: {description}")
+
+
+def _enforce_physics(
+    report: PhysicsReport,
+    enabled: bool,
+    baseline: Mapping[str, int] | None = None,
+) -> None:
+    """Block every impossible prediction, including violations shared with an anchor.
+
+    ``baseline`` is retained for callers of the old API, but counts never
+    excuse a violation on a different well/step. Fixed commissioning is now
+    interpreted consistently by features and response timelines.
+    """
+
+    if not enabled or report.blocking_count == 0:
+        return
+    blocking = {
+        name: count
+        for name, count in sorted(report.counts.items())
+        if severity_of(name) is Severity.BLOCKING
+    }
+    if not blocking:
+        return
+    description = ", ".join(f"{name}×{count}" for name, count in blocking.items())
+    example = next(
+        (flag for flag in report.examples if flag.severity is Severity.BLOCKING), None
+    )
+    if example is not None:
+        description += (
+            f"; например скважина {example.well}, шаг {example.control_step}: "
+            f"{example.detail}"
+        )
+    raise PhysicallyImpossibleScheduleError(blocking, description)
+
+
+def _enforce_scenario_ood(
+    model_input, model, domain: ScenarioDensityDomain | None
+) -> None:
+    """Совместная плотность расписания — S-06.
+
+    Покомпонентный `OodScore` спрашивает про каждый признак по отдельности и
+    поэтому пропускает совместный сдвиг: на восьми кандидатах контура он даёт
+    ровно 0.0000, тогда как относительная ошибка ЧДД на них — 431% по медиане.
+    Сценарная плотность на тех же восьми даёт 87…146 при пороге 11.42, то есть
+    отвергает все с запасом от 7.6 до 12.8 раз. Проверки дополняют друг друга,
+    а не заменяют: первая ловит выход одного признака, вторая — режим целиком.
+    """
+
+    if domain is None:
+        return
+    x, well_index = _features(model_input, model.wells, scenario_context=False)
+    vector = scenario_feature_vector(
+        x, well_index, n_wells=len(model.wells), feature_set="economic"
+    )
+    score = domain.score(vector[: domain.feature_width])
+    if score <= domain.threshold:
+        return
+    raise OutOfDomainScheduleError(
+        score,
+        f"совместная плотность расписания {score:.4g} выше порога "
+        f"{domain.threshold:.4g} (квантиль {domain.threshold_quantile} по валидации)",
+    )
+
+
+def _enforce_ood_threshold(ood: OodScore, threshold: float | None) -> None:
+    """Reject an extrapolating candidate before adapting or valuing its output."""
+
+    if threshold is None or ood.inside(threshold):
+        return
+    worst = ood.worst
+    description = (
+        "неизвестное превышение"
+        if worst is None
+        else (
+            f"{worst.feature}, скважина {worst.well}, "
+            f"шаг {worst.control_step}, значение {worst.value:.6g}, "
+            f"train [{worst.low:.6g}, {worst.high:.6g}]"
+        )
+    )
+    raise OutOfDomainScheduleError(ood.score, description)
 
 
 def _trivial_connectivity(schedule: Schedule) -> tuple[Lambda, Groups]:
@@ -201,7 +329,10 @@ class SearchEnvironment:
     lambda_: Lambda
     constraints: Constraints
     flags: RuleFlags
-    npv_head: ScenarioNpvHead | None = None
+    npv_head: ScenarioNpvHead | BlockKernelNpvHead | None = None
+    scenario_ood: ScenarioDensityDomain | None = None
+    npv_calibration: NpvCalibration | None = None
+    physics_gate: bool = True
     ood_threshold: float = 0.0
 
 
@@ -223,6 +354,8 @@ def load_environment(
     oil_density_t_per_m3: float = 0.9131,
     lambda_path: Path | None = None,
     npv_head_path: Path | None = None,
+    scenario_ood_path: Path | None = None,
+    physics_gate: bool = True,
     constraints: Constraints | None = None,
     ood_threshold: float = 0.0,
 ) -> SearchEnvironment:
@@ -254,11 +387,14 @@ def load_environment(
         if Path(checkpoint_path).suffix == ".json"
         else TrajectorySurrogate.load(checkpoint_path)
     )
+    scenario_ood = ScenarioDensityDomain.load(scenario_ood_path) if scenario_ood_path is not None else None
+    if scenario_ood is not None and scenario_ood.dataset_hash != model.dataset_hash:
+        raise ScheduleSearchError("scenario OOD dataset differs from trajectory checkpoint")
     head_path = npv_head_path
     if head_path is None:
         adjacent_head = Path(checkpoint_path).parent / "npv_head.pt"
         head_path = adjacent_head if adjacent_head.is_file() else None
-    npv_head = ScenarioNpvHead.load(head_path) if head_path is not None else None
+    npv_head = load_direct_npv_head(head_path) if head_path is not None else None
     if npv_head is not None:
         _validate_npv_head_compatibility(npv_head, model, feature_context_path)
     if lambda_path is None:
@@ -288,6 +424,8 @@ def load_environment(
         constraints=case_constraints,
         flags=flags,
         npv_head=npv_head,
+        scenario_ood=scenario_ood,
+        physics_gate=physics_gate,
         ood_threshold=ood_threshold,
     )
 
@@ -1050,6 +1188,19 @@ def make_policy(
     return policy
 
 
+def predict_economics(env: SearchEnvironment, model_input, response: ResponseArtifact) -> dict[str, float]:
+    """One economic path shared by search and diagnostic component reports."""
+    physical = analyze_base_case(
+        response, env.deck_dates, env.t0_deck_date_index, env.normatives, env.policies,
+    ).npv_methodology
+    if env.npv_head is None:
+        blended = env.npv_calibration.apply(physical) if env.npv_calibration is not None else physical
+        return {"physical": physical, "blended": blended}
+    direct = env.npv_head.predict(model_input)
+    weight = float(getattr(env.npv_head, "physical_npv_weight", 0.0))
+    return {"direct": direct, "physical": physical, "blended": (1.0 - weight) * direct + weight * physical}
+
+
 def make_evaluator(env: SearchEnvironment):
     featureizer = ScheduleFeatureizer()
     adapter = ResponseAdapter()
@@ -1059,7 +1210,10 @@ def make_evaluator(env: SearchEnvironment):
             featureizer.transform(schedule, env.feature_context.context),
             lambda_edges=(),
         )
+        _enforce_scenario_ood(model_input, env.model, env.scenario_ood)
         scored = env.model.predict(model_input)
+        _enforce_ood_threshold(scored.ood, env.ood_threshold)
+        _enforce_physics(check_prediction(scored.output, schedule=schedule, oil_density_t_per_m3=env.oil_density_t_per_m3), env.physics_gate)
         states, intervals = adapter.adapt(
             scored.output, schedule, env.real_history, env.control_dates
         )
@@ -1070,18 +1224,12 @@ def make_evaluator(env: SearchEnvironment):
             state_at_date=states,
             interval_response=intervals,
         )
-        if env.npv_head is not None:
-            npv, economic_ood = env.npv_head.predict_with_domain(model_input)
-            ood_score = max(scored.ood.score, economic_ood)
-        else:
-            npv = analyze_base_case(
-                response,
-                env.deck_dates,
-                env.t0_deck_date_index,
-                env.normatives,
-                env.policies,
-            ).npv_methodology
-            ood_score = scored.ood.score
+        npv = predict_economics(env, model_input, response)["blended"]
+        economic_ood = (
+            env.npv_head.predict_with_domain(model_input)[1]
+            if isinstance(env.npv_head, ScenarioNpvHead) else 0.0
+        )
+        ood_score = max(scored.ood.score, economic_ood)
         return Evaluation(
             npv=npv,
             state=PolicyFeedback(response=response, schedule=schedule),

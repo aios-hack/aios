@@ -54,10 +54,11 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*
 
 # Зависимости ставятся отдельным слоем от кода: правка кода не пересобирает pip.
-COPY pyproject.toml /app/
+COPY pyproject.toml requirements-ml.txt /app/
 RUN set -eux; \
     python -m pip install --upgrade "pip==24.3.1" "setuptools==75.6.0" "wheel==0.45.1"; \
-    python -m pip install "openpyxl==3.1.5" "pytest==8.3.4" "anthropic==0.40.0"
+    python -m pip install "openpyxl==3.1.5" "pytest==8.3.4" "anthropic==0.40.0"; \
+    python -m pip install -r /app/requirements-ml.txt
 
 COPY . /app/
 
