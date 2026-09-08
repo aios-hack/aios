@@ -40,6 +40,20 @@ EXPLICIT_EXCLUSIONS: dict[tuple[str, str], str] = {
         "README.md",
         "public/data/demo-script.json",
     ): "путь внутри frontend/public/, генерируется отдельной командой; в git и в образе отсутствует (README §9)",
+    **{
+        (document, artifact): (
+            "артефакт прогона суррогата или OPM: создаётся запуском на машине автора, "
+            "в git не хранится (веса и выгрузки вне репозитория)"
+        )
+        for document, artifact in (
+            ("RELEASE_SURROGATE_20260906.md", "out/opm-release-tests.json"),
+            ("RELEASE_SURROGATE_20260906.md", "out/metrics-full-pipeline.json"),
+            ("RELEASE_SURROGATE_20260906.md", "out/production-ood-check.json"),
+            ("RELEASE_SURROGATE_20260906.md", "out/surrogate-runtime.json"),
+            ("SURROGATE_DEFENSE.md", "data/npv-v6/direct-refit-locked/lock_report.json"),
+            ("UNSEEN_CASE_2017.md", "prediction/response.json"),
+        )
+    },
 }
 
 
