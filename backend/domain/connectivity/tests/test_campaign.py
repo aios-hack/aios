@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -206,7 +207,12 @@ def test_measured_lambda_survives_a_round_trip(prepared, baseline, tmp_path) -> 
     report = measure(
         prepared, _samples(prepared, baseline), baseline, n_steps=DEFAULT_WINDOW_STEPS
     )
-    path = save_lambda(report, tmp_path / "lambda.json")
+    path = save_lambda(
+        report,
+        tmp_path / "lambda.json",
+        measured_at=date(2026, 8, 16),
+        source_run_ids=("lambda-b0-0000", "lambda-b1-0000"),
+    )
     restored = load_lambda(path)
     assert restored.matrix == report.influence.matrix
     assert restored.injectors == report.influence.injectors

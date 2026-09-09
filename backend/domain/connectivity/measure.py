@@ -1,27 +1,3 @@
-"""Вторая половина кампании: из прогонов OPM — матрица влияния λ и группы.
-
-`campaign.py` гонит план через симулятор, этот модуль читает результат и
-считает по нему λ. Разделение не косметическое: прогоны стоят часы и живут в
-кеше, а разбор и регрессия — секунды и переигрываются сколько угодно раз, в
-том числе на другом лаге и другом допуске недобора.
-
-Три вещи здесь сделаны так, как требует контракт (§8.2), и ни одна из них не
-подгоняется под красивый результат:
-
-* **Регрессия идёт на фактическую приёмистость, а не на проектные уровни
-  плана.** Скважина, которая не приняла заказанную воду, входит в матрицу
-  воздействий тем, что реально приняла; проектный уровень остаётся только в
-  сверке достижимости.
-* **Отклик — накопленная добыча жидкости в окне, с перебором лага.** Лаг
-  выбирается по максимуму пулированного `R²`, а не назначается.
-* **Устойчивость меряется двумя независимыми партиями плана.** Одной партии
-  мало по построению: `estimate_lambda` её и не примет.
-
-Базовая линия берётся из настоящего базового прогона (`data/base_case/
-response.json`, задача G1) — того же дека без перекладки, поэтому отдельного
-прогона под неё кампания не тратит.
-"""
-
 from __future__ import annotations
 
 import json
@@ -53,24 +29,30 @@ from backend.domain.configuration.schema import (
     DEFAULT_CONNECTIVITY_MEASUREMENT,
     ConnectivityMeasurementParams,
 )
-from backend.domain.connectivity.groups import GroupingParams, build_groups
+from backend.domain.connectivity.groups import GroupingParams, build_groups, lambda_hash
 from backend.domain.connectivity.sweep import WindowSteps, cumulative_liquid, mean_injection_rate
 
-#: Сетка лагов отклика в месяцах. Верх — половина окна: лаг длиннее половины
-#: измеряемого хвоста нечем подтвердить внутри того же окна.
 DEFAULT_LAGS = (0, 1, 2, 3, 4, 5, 6)
 
-#: Регуляризация нормального уравнения. Не подгонка: план ортогонален, ridge
-#: страхует от вырождения при выпавшем прогоне.
 DEFAULT_RIDGE = 1e-6
 
 DEFAULT_MEASUREMENT_PARAMS = DEFAULT_CONNECTIVITY_MEASUREMENT
 
+MEASURE_CODE_VERSION = "connectivity.measure/1"
+
+ARTIFACT_FORMAT = "lambda/1"
+
+PROVENANCE_FIELDS: tuple[str, ...] = (
+    "artifact_id",
+    "measured_at",
+    "n_runs",
+    "source_run_ids",
+    "code_version",
+)
+
 
 @dataclass(frozen=True, slots=True)
 class MeasurementReport:
-    """Что получилось: сама λ и диагностика, по которой её можно оспорить."""
-
     influence: Lambda
     lag_scan: tuple[tuple[int, float], ...]
     n_runs_by_batch: tuple[int, ...]
@@ -89,8 +71,6 @@ class CampaignMetadata(Protocol):
 
 
 class CampaignSample(Protocol):
-    """The small read-only view of an OPM result needed by the domain."""
-
     response: ResponseArtifact | None
     metadata: CampaignMetadata
 
@@ -146,17 +126,6 @@ def _baseline_injection(
 def _targets_by_run(
     plan: DoEPlan, baseline_by_well: Mapping[str, float]
 ) -> tuple[dict[str, float], ...]:
-    """Цель прогона — та же, что реально заказана деку.
-
-    `Amplitude.target` двигает уставку на абсолютный шаг (медиана ±10
-    м³/сут), а кампания задаёт возмущение множителем от собственной уставки
-    скважины (`campaign.level_factor`), потому что материализация датасета
-    работает множителями. На скважине с медианным уровнем это одно и то же,
-    на слабой — расходится вдвое, и сверка объявляла недостижимой скважину,
-    у которой никто и не просил столько воды. Цель считается тем же
-    множителем, иначе сверяется не с тем, что заказано.
-    """
-
     return tuple(
         {
             well: baseline_by_well[well] * level_factor(level, plan.amplitude)
@@ -201,17 +170,6 @@ def _movable(
     steps: WindowSteps,
     separation_floor_share: float,
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """Разделить фонд окна на сдвинувшиеся и не сдвинувшиеся столбцы.
-
-    Скважина, у которой средняя фактическая приёмистость на уровне HIGH не
-    отличается от уровня LOW, в эксперименте не участвовала: дек просил
-    больше воды, а симулятор её не принял — упор в забойное давление или в
-    приёмистость пласта. Её коэффициент в регрессии определяется шумом, а
-    вырожденный столбец рушит обусловленность всей матрицы, вместе с
-    коэффициентами соседей. Такие столбцы исключаются из оценки и
-    называются поимённо: «не измерено» — честный ответ, «0.0» — нет.
-    """
-
     floor = prepared.amplitude.step_m3_per_day * separation_floor_share
     by_id = _samples_by_scenario(samples)
     high: dict[str, list[float]] = {well: [] for well in injectors}
@@ -249,8 +207,6 @@ def measure(
     ridge: float = DEFAULT_RIDGE,
     params: ConnectivityMeasurementParams = DEFAULT_MEASUREMENT_PARAMS,
 ) -> MeasurementReport:
-    """λ по двум партиям плана, с выбранным лагом и сверкой достижимости."""
-
     steps = WindowSteps(first=0, last=n_steps - 1)
     all_injectors = prepared.fund.injectors
     producers = prepared.fund.producers
@@ -270,11 +226,6 @@ def measure(
             f"измерять связность нечем"
         )
 
-    # Партии сливаются по BATCHES_PER_HALF в половину, и оценка строится на
-    # половинах, а не на партиях. Причина арифметическая: строк плана 27, а
-    # параметров регрессии с интерцептом 28 — одна партия недоопределена,
-    # R² выходит единицей на любом лаге, коэффициенты определены с точностью
-    # до ядра. Две партии в половине дают 54 наблюдения на 28 параметров.
     half_drives = []
     half_samples = []
     unreachable: set[str] = set()
@@ -285,10 +236,6 @@ def measure(
         for batch in chunk:
             plan = prepared.plans[batch]
             ordered = _batch_samples(samples, batch, plan)
-            # Сверка достижимости идёт по всему фонду окна, включая
-            # столбцы, выброшенные из оценки: недобор — это диагностика
-            # эксперимента, и умалчивать о нём нельзя. В матрицу воздействий
-            # попадают только сдвинувшиеся.
             actual_all = _injection_by_run(ordered, all_injectors, steps)
             report = achievability(
                 plan,
@@ -363,20 +310,69 @@ def measure(
     )
 
 
-def save_lambda(measured: MeasurementReport, path: Path) -> Path:
-    """Записать измеренную λ рядом с прогонами, из которых она получена.
+def artifact_id(influence: Lambda) -> str:
+    return lambda_hash(influence)
 
-    Формат — тот же JSON, что читает `load_lambda`: матрица вместе с окном
-    применимости, лагом, диагностикой обусловленности и устойчивости и
-    развёрткой по лагам. Диагностика лежит в одном файле с матрицей
-    намеренно — λ без ранга, обусловленности и устойчивости невозможно ни
-    оспорить, ни защитить.
-    """
 
+@dataclass(frozen=True, slots=True)
+class LambdaProvenance:
+    artifact_id: str | None
+    measured_at: date | None
+    n_runs: int | None
+    source_run_ids: tuple[str, ...] | None
+    code_version: str | None
+
+    @property
+    def missing_fields(self) -> tuple[str, ...]:
+        return tuple(
+            name
+            for name in PROVENANCE_FIELDS
+            if getattr(self, name) is None
+        )
+
+    @property
+    def is_recorded(self) -> bool:
+        return not self.missing_fields
+
+
+UNRECORDED_PROVENANCE = LambdaProvenance(
+    artifact_id=None,
+    measured_at=None,
+    n_runs=None,
+    source_run_ids=None,
+    code_version=None,
+)
+
+
+def save_lambda(
+    measured: MeasurementReport,
+    path: Path,
+    *,
+    measured_at: date,
+    source_run_ids: Sequence[str],
+    code_version: str = MEASURE_CODE_VERSION,
+) -> Path:
     influence = measured.influence
+    runs = tuple(str(run_id) for run_id in source_run_ids)
+    if not runs:
+        raise CampaignError(
+            f"{path}: происхождение λ без единого идентификатора прогона — "
+            f"артефакт, чьё происхождение нечем подтвердить, не записывается"
+        )
+    if len(set(runs)) != len(runs):
+        raise CampaignError(
+            f"{path}: идентификаторы прогонов повторяются, число прогонов "
+            f"нельзя посчитать по этому списку"
+        )
     path.write_text(
         json.dumps(
             {
+                "artifact_format": ARTIFACT_FORMAT,
+                "artifact_id": artifact_id(influence),
+                "measured_at": measured_at.isoformat(),
+                "n_runs": len(runs),
+                "source_run_ids": list(runs),
+                "code_version": code_version,
                 "window_start": influence.window_start.isoformat(),
                 "window_end": influence.window_end.isoformat(),
                 "lag_months": influence.lag_months,
@@ -400,14 +396,7 @@ def save_lambda(measured: MeasurementReport, path: Path) -> Path:
     return path
 
 
-def load_lambda(path: Path | str) -> Lambda:
-    """Прочитать измеренную λ. Отсутствие файла — не повод подставить нули.
-
-    Нулевая матрица правильной формы выглядит как измерение и таковым не
-    является: правило 3 репозитория запрещает подменять несчитанное
-    правдоподобным. Поэтому здесь исключение, а не заглушка.
-    """
-
+def _read_lambda_payload(path: Path | str) -> tuple[Path, dict]:
     resolved = Path(path)
     if not resolved.is_file():
         raise CampaignError(
@@ -415,10 +404,13 @@ def load_lambda(path: Path | str) -> Lambda:
             "(application connectivity campaign) ещё не отрабатывала, "
             f"подставлять нулевую матрицу вместо измерения запрещено"
         )
-    data = json.loads(resolved.read_text(encoding="utf-8"))
+    return resolved, json.loads(resolved.read_text(encoding="utf-8"))
+
+
+def _lambda_from_payload(data: Mapping[str, object]) -> Lambda:
     return Lambda(
-        window_start=date.fromisoformat(data["window_start"]),
-        window_end=date.fromisoformat(data["window_end"]),
+        window_start=date.fromisoformat(str(data["window_start"])),
+        window_end=date.fromisoformat(str(data["window_end"])),
         producers=tuple(data["producers"]),
         injectors=tuple(data["injectors"]),
         matrix=tuple(tuple(float(value) for value in row) for row in data["matrix"]),
@@ -427,6 +419,78 @@ def load_lambda(path: Path | str) -> Lambda:
         stability=float(data["stability"]),
         rank=int(data["rank"]),
         condition_number=float(data["condition_number"]),
-        achievability_ok={well: bool(ok) for well, ok in data["achievability_ok"].items()},
+        achievability_ok={
+            well: bool(ok) for well, ok in data["achievability_ok"].items()
+        },
     )
 
+
+def _provenance_from_payload(
+    resolved: Path, data: Mapping[str, object]
+) -> LambdaProvenance:
+    raw_measured_at = data.get("measured_at")
+    measured_at: date | None = None
+    if raw_measured_at is not None:
+        try:
+            measured_at = date.fromisoformat(str(raw_measured_at))
+        except ValueError as error:
+            raise CampaignError(
+                f"{resolved}: поле measured_at «{raw_measured_at}» не читается "
+                f"как дата — происхождение артефакта нельзя ни подтвердить, "
+                f"ни заменить сегодняшним числом"
+            ) from error
+
+    raw_runs = data.get("source_run_ids")
+    source_run_ids: tuple[str, ...] | None = None
+    if raw_runs is not None:
+        if not isinstance(raw_runs, (list, tuple)):
+            raise CampaignError(
+                f"{resolved}: поле source_run_ids не список идентификаторов"
+            )
+        source_run_ids = tuple(str(run_id) for run_id in raw_runs)
+
+    raw_n_runs = data.get("n_runs")
+    n_runs: int | None = None
+    if raw_n_runs is not None:
+        n_runs = int(raw_n_runs)
+        if source_run_ids is not None and n_runs != len(source_run_ids):
+            raise CampaignError(
+                f"{resolved}: записано n_runs={n_runs} при "
+                f"{len(source_run_ids)} идентификаторах прогонов — счёт "
+                f"прогонов расходится со списком, доверять нечему"
+            )
+
+    raw_artifact_id = data.get("artifact_id")
+    raw_code_version = data.get("code_version")
+    return LambdaProvenance(
+        artifact_id=None if raw_artifact_id is None else str(raw_artifact_id),
+        measured_at=measured_at,
+        n_runs=n_runs,
+        source_run_ids=source_run_ids,
+        code_version=None if raw_code_version is None else str(raw_code_version),
+    )
+
+
+def load_lambda(path: Path | str) -> Lambda:
+    resolved, data = _read_lambda_payload(path)
+    return _lambda_from_payload(data)
+
+
+def load_lambda_provenance(path: Path | str) -> LambdaProvenance:
+    resolved, data = _read_lambda_payload(path)
+    return _provenance_from_payload(resolved, data)
+
+
+def load_lambda_with_provenance(path: Path | str) -> tuple[Lambda, LambdaProvenance]:
+    resolved, data = _read_lambda_payload(path)
+    return _lambda_from_payload(data), _provenance_from_payload(resolved, data)
+
+
+def verify_artifact_id(path: Path | str) -> bool:
+    influence, provenance = load_lambda_with_provenance(path)
+    if provenance.artifact_id is None:
+        raise CampaignError(
+            f"{Path(path)}: artifact_id не записан, сверять нечего — "
+            f"метаданные происхождения в этот артефакт ещё не дописаны"
+        )
+    return provenance.artifact_id == artifact_id(influence)
