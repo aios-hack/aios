@@ -60,6 +60,15 @@ TITLES: Mapping[str, Mapping[str, str]] = {
     "patterns_well": {"ru": "Находки по скважине {well}", "en": "Findings for well {well}"},
     "patterns_field": {"ru": "Диагностические находки", "en": "Diagnostic findings"},
     "tool_failed": {"ru": "Не удалось: {tool}", "en": "Tool failed: {tool}"},
+    "run_status": {"ru": "Прогон {run_id}", "en": "Run {run_id}"},
+    "submission": {"ru": "Пакет сдачи — прогон {run_id}", "en": "Submission package — run {run_id}"},
+}
+
+RUN_STATUS_LABELS: Mapping[str, Mapping[str, str]] = {
+    "searched": {"ru": "поиск выполнен", "en": "searched"},
+    "verified": {"ru": "проверен на OPM", "en": "verified"},
+    "rejected": {"ru": "отклонён", "en": "rejected"},
+    "ready_to_submit": {"ru": "готов к сдаче", "en": "ready to submit"},
 }
 
 

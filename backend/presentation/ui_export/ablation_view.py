@@ -1,17 +1,3 @@
-"""Разложение ЧДД по правилам политики для вида «Итог» (F15).
-
-`delta_npv: null` — правило не измерялось; `delta_npv: 0.0` — измеренный
-ноль, правило работало и вклада не дало. Это разные утверждения, и
-интерфейс обязан их различать, поэтому демо-набор содержит оба случая и
-выключенное правило с причиной: рендер обоих веток не должен зависеть от
-того, повезло ли генератору.
-
-Источник настоящих величин — `policy/trace.py::ablation_delta` на паре
-прогонов «с правилом / без правила»; такой пары нет, поэтому здесь
-правдоподобные доли от ЧДД артефакта с фиксированным seed. Формулировки
-правил в данные не кладутся — они в i18n интерфейса.
-"""
-
 from __future__ import annotations
 
 import json
@@ -20,18 +6,34 @@ from typing import Any
 
 from backend.core.contracts import Rule, RunArtifact
 
-from backend.presentation.ui_export.demo_rng import Rng
 from backend.presentation.ui_export.timeline import _JSON_DIGITS
 
 UPLIFT_NOT_MEASURED = "UPLIFT_NOT_MEASURED"
+ABLATION_NOT_RUN = "ABLATION_NOT_RUN"
 
-MEASURED_RULES: tuple[str, ...] = ("R0", "R1", "R3", "R4")
-ZERO_RULES: tuple[str, ...] = ("R5",)
-UNMEASURED_RULES: tuple[str, ...] = ("R2", "R6")
 DISABLED_RULES: dict[str, str] = {"R7": UPLIFT_NOT_MEASURED}
 
-_SHARE_LOW: float = 0.02
-_SHARE_HIGH: float = 0.13
+ABLATION_PROVENANCE = "ablation-not-run"
+ABLATION_NOTICE_RU = (
+    "Абляция не запускалась: вклад правил в ЧДД не измерен. Показан только "
+    "факт включения правила, денежных величин в файле нет"
+)
+ABLATION_NOTICE_EN = (
+    "No ablation was run: the NPV contribution of each rule is not measured. "
+    "Only the enabled flag is reported, the file carries no money values"
+)
+
+
+def ablation_meta() -> dict[str, Any]:
+    return {
+        "provenance": ABLATION_PROVENANCE,
+        "synthetic": False,
+        "kind": "ablation",
+        "uplift_measured": False,
+        "uplift_reason": ABLATION_NOT_RUN,
+        "notice_ru": ABLATION_NOTICE_RU,
+        "notice_en": ABLATION_NOTICE_EN,
+    }
 
 
 def _round(value: float) -> float:
@@ -41,46 +43,26 @@ def _round(value: float) -> float:
 
 def build_ablation(artifact: RunArtifact, seed: int) -> dict[str, Any]:
     npv_total = artifact.npv_table.npv_methodology
-    rng = Rng(seed)
     rules: list[dict[str, Any]] = []
     for rule in sorted(Rule, key=lambda item: item.value):
         name = rule.value
+        row: dict[str, Any] = {
+            "rule": name,
+            "enabled": name not in DISABLED_RULES,
+            "delta_npv": None,
+            "share": None,
+            "delta_npv_status": ABLATION_NOT_RUN,
+        }
         if name in DISABLED_RULES:
-            rules.append(
-                {
-                    "rule": name,
-                    "enabled": False,
-                    "delta_npv": None,
-                    "share": None,
-                    "disabled_reason": DISABLED_RULES[name],
-                }
-            )
-            continue
-        if name in UNMEASURED_RULES:
-            rules.append(
-                {"rule": name, "enabled": True, "delta_npv": None, "share": None}
-            )
-            continue
-        if name in ZERO_RULES:
-            rules.append(
-                {"rule": name, "enabled": True, "delta_npv": 0.0, "share": 0.0}
-            )
-            continue
-        if name not in MEASURED_RULES:
-            raise ValueError(
-                f"{name} не отнесено ни к измеренным, ни к неизмеренным, ни к "
-                f"выключенным: молчаливо пропустить правило нельзя"
-            )
-        share = _round(rng.between(_SHARE_LOW, _SHARE_HIGH))
-        rules.append(
-            {
-                "rule": name,
-                "enabled": True,
-                "delta_npv": _round(npv_total * share),
-                "share": share,
-            }
-        )
-    return {"npv_total": _round(npv_total), "rules": rules}
+            row["disabled_reason"] = DISABLED_RULES[name]
+        rules.append(row)
+    return {
+        "npv_total": _round(npv_total),
+        "rules": rules,
+        "uplift_measured": False,
+        "uplift_reason": ABLATION_NOT_RUN,
+        "meta": ablation_meta(),
+    }
 
 
 def export_ablation_json(

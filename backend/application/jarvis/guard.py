@@ -129,12 +129,21 @@ def _strip(text: str, raw: str) -> str:
     return stripped.strip()
 
 
-def guard_caption(
-    text: str, tool_payloads: Sequence[Any]
-) -> GuardResult:
+def allowed_numbers(
+    tool_payloads: Sequence[Any], evidence: Sequence[Any] = ()
+) -> set[float]:
     allowed: set[float] = set()
     for payload in tool_payloads:
         collect_numbers(payload, allowed)
+    for document in evidence:
+        collect_numbers(document, allowed)
+    return allowed
+
+
+def guard_caption(
+    text: str, tool_payloads: Sequence[Any], evidence: Sequence[Any] = ()
+) -> GuardResult:
+    allowed = allowed_numbers(tool_payloads, evidence)
     unsupported = unsupported_numbers(text, allowed)
     if not unsupported:
         return GuardResult(text=text.strip(), ok=True, dropped=())

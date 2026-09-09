@@ -2,6 +2,7 @@ import { useDataset } from '../../data';
 import { useT } from '../../i18n/I18nContext';
 import { ViewStatus } from '../../ui/ViewStatus';
 import { AblationTable } from '../NpvRank/AblationTable';
+import './Rules.css';
 
 export const Rules = () => {
   const t = useT();
@@ -20,5 +21,17 @@ export const Rules = () => {
     );
   }
 
-  return <AblationTable data={ablation.data} standalone />;
+  const measured = ablation.data.rules.some((rule) => rule.delta_npv !== null);
+
+  return (
+    <div className="rules">
+      {!measured && (
+        <p className="rules-notice" role="note" data-testid="rules-not-measured">
+          <span className="rules-notice-title">{t('npv.ablation.notRun.title')}</span>
+          <span className="rules-notice-body">{t('npv.ablation.notRun.body')}</span>
+        </p>
+      )}
+      <AblationTable data={ablation.data} standalone />
+    </div>
+  );
 };

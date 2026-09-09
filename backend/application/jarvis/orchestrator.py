@@ -5,7 +5,11 @@ import time
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator
 
-from backend.application.jarvis.artifacts import ArtifactStore
+from backend.application.jarvis.artifacts import (
+    ArtifactStore,
+    RunError,
+    RunStore,
+)
 from backend.application.jarvis.caption import guard_with_retry
 from backend.application.jarvis.knowledge import Knowledge
 from backend.application.jarvis.prompt import build_system_prompt
@@ -59,10 +63,12 @@ class Orchestrator:
         max_rounds: int = MAX_TOOL_ROUNDS,
         timeout: float = DEFAULT_TIMEOUT,
         clock: Callable[[], float] = time.monotonic,
+        runs: RunStore | None = None,
     ) -> None:
         self._client = client
         self._store = store
         self._knowledge = knowledge
+        self._runs = runs
         self._sessions = sessions if sessions is not None else SessionStore()
         self._max_rounds = max_rounds
         self._timeout = timeout
@@ -140,7 +146,10 @@ class Orchestrator:
             },
         )
         context = ToolContext(
-            store=self._store, console=console, knowledge=self._knowledge
+            store=self._store,
+            console=console,
+            knowledge=self._knowledge,
+            runs=self._runs,
         )
         system = build_system_prompt(console, console.lang)
         messages = self._messages(session, question)
@@ -197,7 +206,12 @@ class Orchestrator:
         yield Event("status", {"state": "composing"})
         payloads = [dict(card.payload) for card in cards]
         guarded = guard_with_retry(
-            self._client, messages, system, "".join(deltas).strip(), payloads
+            self._client,
+            messages,
+            system,
+            "".join(deltas).strip(),
+            payloads,
+            self._evidence(context),
         )
         if guarded.warning is not None:
             yield Event("warning", guarded.warning)
@@ -223,6 +237,13 @@ class Orchestrator:
                 "elapsed_ms": int((self._clock() - started) * 1000),
             },
         )
+
+    def _evidence(self, context: ToolContext) -> tuple[Any, ...]:
+        try:
+            record = context.run_store().read()
+        except (ToolFailure, RunError):
+            return ()
+        return record.documents()
 
     def _call(self, context: ToolContext, call: ToolCall) -> tuple[Card, Any]:
         try:

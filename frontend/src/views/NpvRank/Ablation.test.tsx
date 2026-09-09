@@ -128,35 +128,29 @@ describe('shipped ablation artifact', () => {
     expect(isAblationFile(shipped)).toBe(true);
   });
 
-  it('keeps every measured share consistent with its delta and the run total', () => {
+  it('ships no money contribution, because no ablation was ever run', () => {
     const file = shipped as AblationFile;
-    const measured = file.rules.filter((rule) => rule.delta_npv !== null);
-    expect(measured.length).toBeGreaterThan(0);
-    for (const rule of measured) {
-      expect(rule.share, rule.rule).not.toBeNull();
-      expect(rule.share as number, rule.rule).toBeCloseTo(
-        (rule.delta_npv as number) / file.npv_total,
-        6
-      );
+    for (const rule of file.rules) {
+      expect(rule.delta_npv, rule.rule).toBeNull();
+      expect(rule.share, rule.rule).toBeNull();
     }
   });
 
-  it('keeps the sum of measured shares inside the run total', () => {
+  it('never reports an unmeasured contribution as a measured zero', () => {
     const file = shipped as AblationFile;
-    const sum = file.rules.reduce((acc, rule) => acc + (rule.share ?? 0), 0);
-    const deltas = file.rules.reduce((acc, rule) => acc + (rule.delta_npv ?? 0), 0);
-    expect(sum).toBeGreaterThan(0);
-    expect(sum).toBeLessThanOrEqual(1);
-    expect(sum).toBeCloseTo(deltas / file.npv_total, 5);
+    for (const rule of file.rules) {
+      expect(rule.delta_npv, rule.rule).not.toBe(0);
+      expect(rule.share, rule.rule).not.toBe(0);
+    }
   });
 
-  it('carries all three cases: measured, measured zero, unmeasured and disabled', () => {
+  it('still reports whether each rule was enabled in the run', () => {
     const file = shipped as AblationFile;
     const states = new Set(file.rules.map(stateOf));
-    expect(states.has('measured')).toBe(true);
-    expect(states.has('zero')).toBe(true);
     expect(states.has('unmeasured')).toBe(true);
     expect(states.has('disabled')).toBe(true);
+    expect(states.has('measured')).toBe(false);
+    expect(states.has('zero')).toBe(false);
   });
 });
 

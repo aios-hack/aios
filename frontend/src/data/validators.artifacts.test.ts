@@ -124,11 +124,8 @@ describe('shipped artifacts', () => {
 
   it('keeps the synthetic debt visible instead of letting it grow quietly', () => {
     const known = [
-      'ablation.json',
-      'base/ablation.json',
       'bundles/whatif-injection-cut.json',
       'demo-script.json',
-      'whatif-injection-cut/ablation.json',
       'whatif-injection-cut/graph.json',
       'whatif-injection-cut/hierarchy.json',
       'whatif-injection-cut/npv.json',
@@ -136,6 +133,18 @@ describe('shipped artifacts', () => {
       'whatif-injection-cut/trace.json'
     ];
     expect(syntheticArtifacts().sort()).toEqual(known);
+  });
+
+  it('ships no invented money in any ablation artifact', () => {
+    const ablations = walk(root).filter((name) => name.endsWith('ablation.json'));
+    expect(ablations.length).toBeGreaterThan(0);
+    for (const name of ablations) {
+      const file = read(name) as { rules: { delta_npv: unknown; share: unknown }[] };
+      for (const rule of file.rules) {
+        expect(rule.delta_npv, name).toBeNull();
+        expect(rule.share, name).toBeNull();
+      }
+    }
   });
 
   it('keeps the screens the curator opens off synthetic data', () => {

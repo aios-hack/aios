@@ -11,7 +11,6 @@ from backend.application.jarvis.tools.context import (
 )
 
 WORST_NPV = ["76", "6", "65", "13", "8", "17", "83", "102", "53", "25"]
-R0_DELTA = 1161713780.758579
 
 
 def make(store: ArtifactStore, **console: object) -> ToolContext:
@@ -49,13 +48,12 @@ def test_rule_impact_marks_unmeasured(store: ArtifactStore) -> None:
     card = run_tool("rule_impact", make(store), {})
     assert card.type == "rule"
     by_rule = {row["rule"]: row for row in card.payload["rules"]}
-    assert by_rule["R0"]["delta"] == pytest.approx(R0_DELTA)
-    assert by_rule["R0"]["measured"] is True
-    assert by_rule["R2"]["delta"] is None
-    assert by_rule["R2"]["measured"] is False
+    for row in by_rule.values():
+        assert row["delta"] is None
+        assert row["measured"] is False
     assert by_rule["R7"]["enabled"] is False
     assert by_rule["R7"]["disabled_reason"] == "UPLIFT_NOT_MEASURED"
-    assert card.provenance == "synthetic-demo"
+    assert card.provenance == "ablation-not-run"
 
 
 def test_rule_impact_statement_comes_from_policy(store: ArtifactStore) -> None:

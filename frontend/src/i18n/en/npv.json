@@ -20,6 +20,8 @@
   "ablation.legend.unmeasured": "“not measured” means no measurement was run: the contribution is unknown, it is not a zero.",
   "ablation.legend.zero": "“0” means the measurement ran and there was no drop: the rule does not affect the total.",
   "ablation.loading": "Loading ablation measurements…",
+  "ablation.notRun.body": "No ablation was run: a rouble contribution needs a separate OPM run with that rule switched off. Below is only whether each rule was enabled in the run.",
+  "ablation.notRun.title": "The money contribution of the rules is not measured",
   "ablation.rule.R0.name": "Profitability threshold",
   "ablation.rule.R0.statement": "Keep a well running while it pays for its own upkeep.",
   "ablation.rule.R1.name": "Injection split by marginal value",

@@ -10,6 +10,7 @@ from backend.application.jarvis.tools import (
     patterns,
     ranking,
     rules,
+    runs,
     scenarios,
     wells,
 )
@@ -42,6 +43,8 @@ HANDLERS: Mapping[str, ToolFn] = {
     "find_patterns": patterns.find_patterns,
     "explain_term": knowledge_module.explain_term,
     "platform_guide": knowledge_module.platform_guide,
+    "run_status": runs.run_status,
+    "submission_summary": runs.submission_summary,
 }
 
 

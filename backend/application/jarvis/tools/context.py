@@ -3,7 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
-from backend.application.jarvis.artifacts import ArtifactStore, ScenarioIndex
+from backend.application.jarvis.artifacts import (
+    ArtifactStore,
+    RunError,
+    RunStore,
+    ScenarioIndex,
+)
 
 DEFAULT_LANG = "ru"
 
@@ -38,6 +43,15 @@ class ToolContext:
     store: ArtifactStore
     console: ConsoleContext = field(default_factory=ConsoleContext)
     knowledge: Any = None
+    runs: RunStore | None = None
+
+    def run_store(self) -> RunStore:
+        if self.runs is not None:
+            return self.runs
+        try:
+            return RunStore()
+        except RunError as error:
+            raise ToolFailure(str(error)) from error
 
     @property
     def scenario_name(self) -> str:

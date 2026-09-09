@@ -65,14 +65,15 @@ def guard_with_retry(
     system: str,
     caption: str,
     payloads: Sequence[Any],
+    evidence: Sequence[Any] = (),
 ) -> GuardedCaption:
-    result = guard_caption(caption, payloads)
+    result = guard_caption(caption, payloads, evidence)
     if result.ok:
         return GuardedCaption(result=result, warning=None)
     retry = _retry(client, messages, system, result.dropped, caption)
     if retry is None:
         return GuardedCaption(result=result, warning=_warning(result.dropped))
-    second = guard_caption(retry, payloads)
+    second = guard_caption(retry, payloads, evidence)
     if second.ok:
         return GuardedCaption(result=second, warning=None)
     return GuardedCaption(result=second, warning=_warning(second.dropped))

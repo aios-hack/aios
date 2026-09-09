@@ -22,7 +22,7 @@ from backend.core.paths import project_root
 from backend.domain.economics import ESP_CATALOG_2007
 from backend.domain.policy.agents.registry import DEFAULT_REGISTRY
 
-from backend.presentation.ui_export.ablation_view import export_ablation_json
+from backend.presentation.ui_export.ablation_view import ablation_meta, export_ablation_json
 from backend.presentation.ui_export.artifact_io import dump_bundle
 from backend.presentation.ui_export.base_artifact import build_base_artifact, real_meta
 from backend.presentation.ui_export.deck import load_wellheads
@@ -187,7 +187,7 @@ def export_scenario(
     ablation_path = export_ablation_json(
         artifact, out_dir / "ablation.json", DEMO_SEED
     )
-    _stamp(ablation_path, meta_by_kind.get("ablation", demo_meta("ablation")))
+    _stamp(ablation_path, meta_by_kind.get("ablation", ablation_meta()))
     written.append(ablation_path)
     return written
 

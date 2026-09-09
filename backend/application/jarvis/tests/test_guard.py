@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from backend.application.jarvis.guard import (
+    allowed_numbers,
     collect_numbers,
     guard_caption,
     unsupported_numbers,
@@ -89,3 +90,64 @@ def test_collect_numbers_walks_nested_structures() -> None:
 
 def test_booleans_are_not_numbers() -> None:
     assert collect_numbers({"flag": True}) == set()
+
+
+MANIFEST = {
+    "run_id": "jarvis-run",
+    "status": "ready_to_submit",
+    "schedule_hash": "0" * 64,
+    "predicted_npv": 12345678.5,
+    "verified_npv": 11873676459.64,
+    "sound": True,
+    "iterations": 240,
+    "search_strategy": "cmaes-restart",
+    "model_version": None,
+}
+CLAIMED = {
+    "canonical_schedule_hash": "0" * 64,
+    "claimed_npv_rub": 11873676459.64,
+    "source_run_id": "jarvis-run",
+    "created_at": "2026-09-09T10:00:00+00:00",
+}
+
+
+def test_claimed_npv_of_the_package_is_not_cut() -> None:
+    result = guard_caption(
+        "Заявленный ЧДД пакета — 11 873 676 460 руб.", [], [MANIFEST, CLAIMED]
+    )
+    assert result.ok is True
+    assert result.dropped == ()
+    assert "11 873 676 460" in result.text
+
+
+def test_manifest_prediction_is_not_cut() -> None:
+    result = guard_caption("Прогноз суррогата — 12 345 679 руб.", [], [MANIFEST])
+    assert result.ok is True
+
+
+def test_manifest_iteration_count_is_not_cut() -> None:
+    result = guard_caption("Поиск занял 240 итераций.", [], [MANIFEST])
+    assert result.ok is True
+
+
+def test_invented_number_is_still_cut_next_to_the_package() -> None:
+    result = guard_caption(
+        "Заявленный ЧДД — 11 873 676 460 руб., а запас 777 555 руб.",
+        [],
+        [MANIFEST, CLAIMED],
+    )
+    assert result.ok is False
+    assert result.dropped == ("777 555",)
+    assert "11 873 676 460" in result.text
+    assert "777 555" not in result.text
+
+
+def test_package_numbers_are_not_allowed_without_the_evidence() -> None:
+    result = guard_caption("Заявленный ЧДД — 11 873 676 460 руб.", [])
+    assert result.ok is False
+
+
+def test_allowed_numbers_merges_payloads_and_evidence() -> None:
+    allowed = allowed_numbers(PAYLOADS, [CLAIMED])
+    assert 11873676459.64 in allowed
+    assert 1161713780.758579 in allowed
