@@ -69,11 +69,15 @@ def main(argv=None):
     parser.add_argument("--global-search", action="store_true", help="добавить CMA-ES в каждом раунде")
     parser.add_argument("--resume", action="store_true", help="продолжить кампанию и использовать сохранённый кэш OPM")
     parser.add_argument("--direct-only", action="store_true", help="OPM-поиск по измеренной воде без весов и ранжирования суррогатом")
+    parser.add_argument("--water-margins", nargs="+", type=float, default=[0.0, 0.85, 0.95],
+                        help="резервные пробы: 0 — закрытая закачка, затем доли измеренной доступной воды")
     args = parser.parse_args(argv)
     if min(args.evaluations, args.opm_budget, args.rounds) < 1:
         parser.error("budgets must be positive")
     if args.direct_only and args.global_search:
         parser.error("--direct-only cannot be combined with --global-search")
+    if any(not 0 <= margin < 1 for margin in args.water_margins):
+        parser.error("water margins must be in [0,1)")
     if args.root.exists() and not args.resume:
         parser.error("root already exists; use a new campaign directory")
     require_docker()
@@ -248,9 +252,20 @@ def main(argv=None):
                         else env.real_history)
             if observed is None:
                 raise RuntimeError("No measured baseline response for direct repair")
-            for margin in (0.70, 0.85, 0.95)[:slots]:
-                proposal = repair_from_observation(baseline, observed, env.control_dates, constraints,
-                                                  water_margin=margin, density=env.oil_density_t_per_m3)
+            round_stop = min(args.opm_budget, attempted + slots)
+            for margin in args.water_margins:
+                if attempted >= round_stop:
+                    break
+                anchor = baseline
+                if incumbent is not None and champion_path.is_file():
+                    champion = json.loads(champion_path.read_text())
+                    measured = args.root / "runs" / champion["run_id"] / "response.json"
+                    if measured.is_file():
+                        anchor = incumbent
+                        observed = load_response_artifact(measured)
+                proposal = repair_from_observation(anchor, observed, env.control_dates, constraints,
+                                                  water_margin=margin, density=env.oil_density_t_per_m3,
+                                                  injection_reference=baseline)
                 verify(expressible(proposal), None, f"observed-water-margin-{margin}")
         for score, candidate in sorted(ranked.values(), key=lambda item: item[0], reverse=True)[:slots]:
             verify(candidate, score, f"local-round-{round_index + 1}")

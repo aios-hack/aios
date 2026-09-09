@@ -29,3 +29,12 @@ def test_observed_water_caps_targets_and_bad_pressure_reduces_only_the_affected_
     assert production[0].value == pytest.approx(80.0)
     assert repaired.initial_state == schedule.initial_state
     assert repaired.fixed_deck_events == schedule.fixed_deck_events
+    zero = repair_from_observation(schedule, response, dates,
+                                    load_case(Path("config/competition-constraints.json")), water_margin=0)
+    assert all(e.value == 0 for e in zero.control_events if e.kind is EventKind.SET_RATE)
+    assert all(e.kind is EventKind.SHUT for e in zero.control_events if e.well == "W2" and e.kind in (EventKind.OPEN, EventKind.SHUT))
+    grown = repair_from_observation(zero, response, dates,
+                                    load_case(Path("config/competition-constraints.json")),
+                                    water_margin=0.8, injection_reference=schedule)
+    assert sum(e.value for e in grown.control_events if e.kind is EventKind.SET_RATE and e.control_step == 0) == pytest.approx(40.0)
+    assert any(e.kind is EventKind.OPEN and e.well == "W2" for e in grown.control_events)
