@@ -4,7 +4,7 @@ import pytest
 
 from backend.core.contracts import ControlEvent, EventKind
 from backend.presentation.cli.surrogate_audit import ranking_metrics
-from backend.presentation.cli.surrogate_screen import choose_pair, transfer_fraction, water_margins, known_schedule_hashes
+from backend.presentation.cli.surrogate_screen import choose_model_comparison, choose_pair, transfer_fraction, water_margins, known_schedule_hashes
 from tests.application.test_run_workflow import historical_schedule
 
 
@@ -25,6 +25,15 @@ def test_duplicate_schedules_cannot_form_two_experimental_arms():
     row = dict(schedule_hash="same", ranking_score=1., ood_score=0., inside_domain=True)
     with pytest.raises(ValueError):
         choose_pair([row, row], 42)
+
+
+def test_model_comparison_uses_physical_top_and_direct_head_control():
+    rows = [dict(schedule_hash="physical", ranking_score=1., physical_npv=3., ood_score=0., inside_domain=True),
+            dict(schedule_hash="direct", ranking_score=4., physical_npv=2., ood_score=0., inside_domain=True),
+            dict(schedule_hash="other", ranking_score=0., physical_npv=1., ood_score=0., inside_domain=True)]
+    physical, direct = choose_model_comparison(rows, 42)
+    assert physical["schedule_hash"] == "physical"
+    assert direct["schedule_hash"] == "direct"
 
 
 def test_transfer_conserves_each_interval_even_when_donor_rate_is_tiny():

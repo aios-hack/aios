@@ -19,7 +19,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--experiment", type=Path, required=True)
     parser.add_argument("--runs-root", type=Path, required=True)
-    parser.add_argument("--arm", choices=("model-top", "unranked-control"), required=True)
+    parser.add_argument("--arm", choices=("model-top", "unranked-control",
+                                          "trajectory-top", "direct-head-control"), required=True)
     args = parser.parse_args(argv)
     report_path = args.experiment / "results" / f"{args.arm}.json"
     if report_path.exists():

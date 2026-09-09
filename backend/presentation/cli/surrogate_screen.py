@@ -18,14 +18,16 @@ from backend.application.optimization.runtime_artifacts import resolve_runtime_a
 from backend.application.optimization.observed_repair import repair_from_observation
 from backend.application.runs import RunRequest, RunWorkflow
 from backend.core.provenance import git_commit
-from backend.core.contracts import EventKind, canonical_bytes, hash_schedule
+from backend.core.contracts import EventKind, ResponseArtifact, canonical_bytes, hash_schedule
+from backend.domain.configuration.schema import default_policies
 from backend.domain.connectivity.groups_artifact import load as load_groups, save as save_groups
-from backend.domain.economics import load_response_artifact
+from backend.domain.economics import analyze_base_case, load_normatives, load_response_artifact
 from backend.domain.schedule import canonicalize, build_schedule, parse_schedule, validate_static
 from backend.infrastructure.opm.opm_deck import render_schedule_include
-from backend.infrastructure.resources import model_z_dir
+from backend.infrastructure.resources import model_z_dir, normatives_xlsx
+from backend.ml.surrogate.adapter import ResponseAdapter
 from backend.ml.surrogate.features import ScheduleFeatureizer
-from backend.ml.surrogate.model import _features
+from backend.ml.surrogate.model import TrajectorySurrogate, _features
 from backend.ml.surrogate.model_z_context import ModelZFeatureArtifact
 from backend.ml.surrogate.npv_block_head import load_direct_npv_head
 from backend.ml.surrogate.npv_economic_features import scenario_feature_vector
@@ -86,6 +88,20 @@ def choose_pair(rows, seed, allow_ood=False):
     return top, control
 
 
+def choose_model_comparison(rows, seed, allow_ood=False):
+    eligible = [r for r in rows if all(math.isfinite(r[key]) for key in
+                ("ranking_score", "physical_npv", "ood_score")) and
+                (r["inside_domain"] or allow_ood)]
+    eligible = list({r["schedule_hash"]: r for r in eligible}.values())
+    if len(eligible) < 2:
+        raise ValueError("At least two eligible candidates required; OOD gate was not relaxed")
+    physical = max(eligible, key=lambda row: row["physical_npv"])
+    direct = max(eligible, key=lambda row: row["ranking_score"])
+    if direct["schedule_hash"] == physical["schedule_hash"]:
+        direct = random.Random(seed).choice([r for r in eligible if r["schedule_hash"] != physical["schedule_hash"]])
+    return physical, direct
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--campaign", type=Path, required=True)
@@ -95,6 +111,8 @@ def main(argv=None):
     parser.add_argument("--max-water-margin", type=float, default=.95,
                         help="верхняя доля измеренной воды; >0.95 — явная агрессивная проба, не гарантия допустимости")
     parser.add_argument("--allow-ood-experiment", action="store_true")
+    parser.add_argument("--trajectory-model", type=Path,
+                        help="research checkpoint: choose its physical-NPV top against direct-head control")
     args = parser.parse_args(argv)
     if args.out.exists() or args.count < 6:
         parser.error("new output directory and at least six candidates required")
@@ -119,6 +137,9 @@ def main(argv=None):
     artifacts = resolve_runtime_artifacts()
     context = ModelZFeatureArtifact.load(artifacts.feature_context)
     head = load_direct_npv_head(artifacts.npv_head)
+    trajectory = TrajectorySurrogate.load(args.trajectory_model) if args.trajectory_model else None
+    adapter = ResponseAdapter() if trajectory else None
+    normatives = load_normatives(normatives_xlsx()) if trajectory else None
     domain = ScenarioDensityDomain.load(artifacts.scenario_ood)
     parsed = parse_schedule((model_z_dir() / "Model_Z_sch.inc").read_bytes())
     dates = parsed.dates[parsed.t0_deck_date_index:]
@@ -158,10 +179,23 @@ def main(argv=None):
             vector = scenario_feature_vector(x, indices, n_wells=len(head.wells), feature_set="economic")
             score = head.predict_vector(vector)
             ood = domain.score(vector[:domain.feature_width])
+            physical_npv = None
+            if trajectory is not None:
+                trajectory_input = replace(model_input, lambda_edges=())
+                output = trajectory.predict(trajectory_input).output
+                states, intervals = adapter.adapt(output, schedule, observed, dates)
+                identity = {"model_version": trajectory.version, "schedule_hash": digest}
+                response = ResponseArtifact(
+                    source_run_id=f"research-surrogate:{trajectory.version[:12]}",
+                    response_hash=hashlib.sha256(canonical_bytes(identity)).hexdigest(),
+                    state_at_date=states, interval_response=intervals)
+                physical_npv = analyze_base_case(response, parsed.dates,
+                    parsed.t0_deck_date_index, normatives, default_policies()).npv_methodology
         if not math.isfinite(score) or not math.isfinite(ood):
             rejected.append({"label": label, "reason": "non-finite model score"})
             continue
         row = dict(label=label, schedule_hash=digest, ranking_score=score,
+                   physical_npv=physical_npv,
                    ood_score=ood, inside_domain=ood <= domain.threshold,
                    inference_seconds=time.perf_counter() - tick)
         rows.append(row)
@@ -172,13 +206,16 @@ def main(argv=None):
     selection = []
     reason = None
     try:
-        top, control = choose_pair(rows, args.seed, args.allow_ood_experiment)
+        top, control = (choose_model_comparison(rows, args.seed, args.allow_ood_experiment)
+                        if trajectory else choose_pair(rows, args.seed, args.allow_ood_experiment))
     except ValueError as error:
         reason = str(error)
     else:
         next_id = max(int(p.name.split("-")[-1]) for p in runs.glob("candidate-*")) + 1
         workflow = RunWorkflow(runs)
-        for offset, (arm, row) in enumerate((("model-top", top), ("unranked-control", control))):
+        arms = (("trajectory-top", top), ("direct-head-control", control)) if trajectory else (
+            ("model-top", top), ("unranked-control", control))
+        for offset, (arm, row) in enumerate(arms):
             run_id = f"candidate-{next_id + offset:03d}"
             if (runs / run_id).exists():
                 raise ValueError("refusing to overwrite a run")
@@ -186,13 +223,15 @@ def main(argv=None):
             # tag when Docker is unavailable. Verification enforces this digest.
             provenance = replace(anchor.provenance, deck_hash=None, git_commit=git_commit(),
                                  search_strategy=f"experimental-screen-{arm}", seed=str(args.seed),
-                                 npv_head_version=head.version)
+                                 npv_head_version=head.version,
+                                 model_version=trajectory.version if trajectory else anchor.provenance.model_version)
             workflow.search(RunRequest(run_id, schedules[row["schedule_hash"]], None, anchor.constraints, provenance))
             save_groups(grouping, runs / run_id / "inputs/groups.json")
             selection.append(dict(row, arm=arm, run_id=run_id))
     payload = {"kind": "prospective-screening-experiment", "anchor": champion,
                "anchor_response_sha256": hashlib.sha256(measured_path.read_bytes()).hexdigest(),
                "head_version": head.version, "domain_version": domain.version,
+               "trajectory_model_version": trajectory.version if trajectory else None,
                "domain_threshold": domain.threshold, "seed": args.seed,
                "allow_ood_experiment": args.allow_ood_experiment,
                "max_water_margin": args.max_water_margin,
