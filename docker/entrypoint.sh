@@ -115,7 +115,7 @@ cmd_webdata() {
 }
 
 cmd_selfcheck() {
-    python -m backend.presentation.cli.selfcheck
+    python -m backend.presentation.cli.selfcheck "$@"
 }
 
 usage() {
@@ -129,7 +129,8 @@ usage() {
   web [аргументы]            веб-интерфейс (требует собранного frontend)
   jarvis [аргументы]         сервис Джарвиса: HTTP и SSE на порту 8010
   webdata                    собрать полный JSON-набор для интерфейса
-  selfcheck                  что найдено в образе и в смонтированных данных
+  selfcheck [--submission D] что найдено в образе и в смонтированных данных;
+                             с --submission сверяет пакет сдачи с заявленными хешами
   shell                      интерактивная оболочка
 
 Данные организаторов монтируются снаружи:
