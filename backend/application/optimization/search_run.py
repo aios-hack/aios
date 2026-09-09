@@ -8,6 +8,7 @@ import sys
 import time
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Mapping, Sequence
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -35,7 +36,7 @@ from backend.application.optimization.runtime_artifacts import (
     validate_runtime_economic_head,
 )
 from backend.application.optimization.search import optimize
-from backend.domain.policy.fixed_point import resolve
+from backend.domain.policy.fixed_point import FixedPointResult, resolve
 from backend.domain.policy.theta import default_theta
 from backend.domain.schedule.case_limits import YearlyProduction, apply_case_limits
 from backend.domain.schedule import (
@@ -106,6 +107,192 @@ SURROGATE_NONBLOCKING_KINDS = frozenset(
 
 
 @dataclass(frozen=True, slots=True)
+class IncumbentRecord:
+
+    sequence: int
+    stage: str
+    schedule_hash: str
+    npv_predicted: float
+    theta: dict[str, float]
+    ood_score: float | None
+    ood_worst: str | None
+    static_violations: int
+    dynamic_blocking_violations: int
+    physics_admissible: bool
+    self_consistent: bool
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "sequence": self.sequence,
+            "stage": self.stage,
+            "schedule_hash": self.schedule_hash,
+            "npv_predicted": self.npv_predicted,
+            "theta": dict(self.theta),
+            "ood_score": self.ood_score,
+            "ood_worst": self.ood_worst,
+            "static_violations": self.static_violations,
+            "dynamic_blocking_violations": self.dynamic_blocking_violations,
+            "physics_admissible": self.physics_admissible,
+            "self_consistent": self.self_consistent,
+        }
+
+
+class IncumbentRegistry:
+
+    def __init__(self) -> None:
+        self._records: list[IncumbentRecord] = []
+
+    def promote(
+        self,
+        *,
+        stage: str,
+        schedule_hash: str,
+        npv_predicted: float,
+        theta: Mapping[str, float],
+        ood_score: float | None,
+        ood_worst: str | None,
+        static_violations: int,
+        dynamic_blocking_violations: int,
+        physics_admissible: bool,
+        self_consistent: bool,
+    ) -> IncumbentRecord:
+        record = IncumbentRecord(
+            sequence=len(self._records),
+            stage=stage,
+            schedule_hash=schedule_hash,
+            npv_predicted=float(npv_predicted),
+            theta={name: float(value) for name, value in theta.items()},
+            ood_score=None if ood_score is None else float(ood_score),
+            ood_worst=ood_worst,
+            static_violations=int(static_violations),
+            dynamic_blocking_violations=int(dynamic_blocking_violations),
+            physics_admissible=bool(physics_admissible),
+            self_consistent=bool(self_consistent),
+        )
+        self._records.append(record)
+        return record
+
+    @property
+    def records(self) -> tuple[IncumbentRecord, ...]:
+        return tuple(self._records)
+
+    @property
+    def current(self) -> IncumbentRecord | None:
+        return self._records[-1] if self._records else None
+
+    def as_list(self) -> list[dict[str, object]]:
+        return [record.as_dict() for record in self._records]
+
+
+def incumbent_gate_passed(
+    *,
+    static_violations: int,
+    dynamic_blocking_violations: int,
+    ood_score: float | None,
+    ood_threshold: float,
+    physics_admissible: bool,
+) -> bool:
+    if static_violations > 0:
+        return False
+    if dynamic_blocking_violations > 0:
+        return False
+    if not physics_admissible:
+        return False
+    if ood_score is None:
+        return False
+    return ood_score <= ood_threshold
+
+
+def _physics_admissible(physics: Mapping[str, int]) -> bool:
+    if not physics:
+        return False
+    return bool(physics.get("admissible", 0))
+
+
+def candidate_card(
+    *,
+    schedule_hash: str,
+    theta: Mapping[str, float],
+    npv_predicted: float | None,
+    npv_parts: Mapping[str, float],
+    ood_score: float | None,
+    ood_worst: str | None,
+    scenario_ood: float | None,
+    physics: Mapping[str, int],
+    static_violations: int | None,
+    dynamic_blocking_violations: int | None,
+    feasible: bool,
+    violations: Sequence[Mapping[str, object]],
+    strategy: str,
+) -> dict[str, object]:
+    counts = {name: int(value) for name, value in sorted(physics.items())}
+    return {
+        "strategy": strategy,
+        "schedule_hash": schedule_hash,
+        "theta": {name: float(value) for name, value in theta.items()},
+        "npv_predicted": npv_predicted,
+        "npv_parts": {
+            name: float(value) for name, value in sorted(npv_parts.items())
+        },
+        "ood_score": ood_score,
+        "ood_worst": ood_worst,
+        "scenario_ood": scenario_ood,
+        "physics_counts": counts,
+        "physics_complete": bool(counts.get("complete", 0)),
+        "physics_admissible": bool(counts.get("admissible", 0)),
+        "static_violations": static_violations,
+        "dynamic_blocking_violations": dynamic_blocking_violations,
+        "feasible": feasible,
+        "violations": [dict(item) for item in violations],
+    }
+
+
+def _write_diagnostics_tail(
+    finalist_cards: Sequence[Mapping[str, object]],
+    registry: "IncumbentRegistry",
+) -> None:
+    if not SEARCH_DIAGNOSTICS.is_file():
+        raise SearchRunError(
+            f"диагностика поиска {SEARCH_DIAGNOSTICS} не записана: "
+            "дописывать финалистов и реестр incumbent некуда"
+        )
+    diagnostics = json.loads(SEARCH_DIAGNOSTICS.read_text(encoding="utf-8"))
+    diagnostics["finalists"] = [dict(card) for card in finalist_cards]
+    diagnostics["incumbents"] = registry.as_list()
+    SEARCH_DIAGNOSTICS.write_text(
+        json.dumps(diagnostics, ensure_ascii=False, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+
+def _evaluation_cards(
+    history: Sequence[object], cards: Sequence[Mapping[str, object]]
+) -> list[dict[str, object]]:
+    if len(cards) != len(history):
+        raise SearchRunError(
+            f"диагностика кандидатов рассинхронизирована с историей поиска: "
+            f"карточек {len(cards)}, оценок {len(history)} — сводить нечего"
+        )
+    merged: list[dict[str, object]] = []
+    for item, card in zip(history, cards):
+        objective = float(item.result.objective)
+        entry = dict(card)
+        entry["theta"] = dict(item.theta.values)
+        entry["npv_predicted"] = objective if math.isfinite(objective) else None
+        entry["feasible"] = item.result.feasible
+        entry["violations"] = [
+            {
+                "scenario_id": violation.scenario_id,
+                "regret": violation.regret,
+                "what": violation.what,
+            }
+            for violation in item.result.violations_by_scenario
+        ]
+        merged.append(entry)
+    return merged
+
+
+@dataclass(frozen=True, slots=True)
 class SearchOutcome:
 
     schedule: Schedule
@@ -118,6 +305,7 @@ class SearchOutcome:
     self_consistent: bool
     static_violations: int | None = None
     dynamic_blocking_violations: int | None = None
+    incumbent_history: tuple[IncumbentRecord, ...] = ()
 
 
 def _repair_predicted_water_balance(
@@ -285,7 +473,14 @@ def _peak_step_production(env, evaluator):
     return forecast
 
 
-def _search_near_baseline(env, evaluator, budget: int, provenance: dict[str, str]) -> SearchOutcome:
+def _search_near_baseline(
+    env,
+    evaluator,
+    budget: int,
+    provenance: dict[str, str],
+    registry: "IncumbentRegistry | None" = None,
+) -> SearchOutcome:
+    registry = IncumbentRegistry() if registry is None else registry
     rng = random.Random(SEED)
     baseline = apply_case_limits(
         env.base_schedule,
@@ -306,38 +501,95 @@ def _search_near_baseline(env, evaluator, budget: int, provenance: dict[str, str
                and event.value and event.value > (1 if event.kind is EventKind.SET_LRAT else 5)
             else event for event in baseline.control_events)
         candidates.append(canonicalize(replace(baseline, control_events=events)))
+    scenario_ood_threshold = (
+        float(env.scenario_ood.threshold) if env.scenario_ood is not None else None
+    )
     records = []
     accepted = []
     for index, schedule in enumerate(candidates):
         violations = []
         npv = None
+        npv_parts: Mapping[str, float] = {}
+        physics: Mapping[str, int] = {}
+        ood_score = None
+        ood_worst = None
+        static_count = None
+        blocking_count = None
+        schedule_hash = hash_schedule(schedule)
         try:
             static = validate_static(schedule, env.constraints)
+            static_count = len(static.violations)
             if not static.ok:
                 violations.append({'scenario_id': 'static-contract', 'regret': len(static.violations),
                                    'what': f'Нарушений условий плана: {len(static.violations)}'})
             else:
                 schedule, evaluated, dynamic, _ = _repair_predicted_water_balance(env, evaluator, schedule)
+                schedule_hash = hash_schedule(schedule)
                 static = validate_static(schedule, env.constraints)
                 blocking = [v for v in dynamic.blocking_violations if v.kind not in SURROGATE_NONBLOCKING_KINDS]
+                static_count = len(static.violations)
+                blocking_count = len(blocking)
+                npv_parts = evaluated.npv_parts
+                physics = evaluated.physics
+                ood_score = evaluated.ood_score
+                ood_worst = evaluated.ood_worst
+                admissible = _physics_admissible(physics)
                 if not static.ok or blocking:
                     violations.append({'scenario_id': 'case-constraints', 'regret': len(blocking) + len(static.violations),
                                        'what': f'Нарушений ограничений: {len(blocking) + len(static.violations)}'})
-                elif evaluated.ood_score is None or evaluated.ood_score > env.ood_threshold:
+                elif not admissible:
+                    violations.append({'scenario_id': 'surrogate-physics', 'regret': 1,
+                                       'what': 'Физическая проверка не пройдена или неполна.'})
+                elif ood_score is None or ood_score > env.ood_threshold:
                     violations.append({'scenario_id': 'surrogate-domain', 'regret': 1,
                                        'what': 'План вне области обучения.'})
                 else:
                     npv = evaluated.npv
-                    accepted.append((npv, schedule, index, len(static.violations), len(blocking)))
+                    accepted.append((npv, schedule, index, static_count, blocking_count))
+                    best = registry.current
+                    if best is None or npv > best.npv_predicted:
+                        registry.promote(
+                            stage='baseline-neighborhood',
+                            schedule_hash=schedule_hash,
+                            npv_predicted=npv,
+                            theta={},
+                            ood_score=ood_score,
+                            ood_worst=ood_worst,
+                            static_violations=static_count,
+                            dynamic_blocking_violations=blocking_count,
+                            physics_admissible=admissible,
+                            self_consistent=False,
+                        )
         except (OutOfDomainScheduleError, PhysicallyImpossibleScheduleError) as error:
+            ood_score = getattr(error, 'score', None)
+            physics = getattr(error, 'counts', {}) or {}
             violations.append({'scenario_id': 'surrogate-rejected', 'regret': 1, 'what': str(error)})
-        records.append({'strategy': 'baseline-neighborhood', 'theta': {}, 'npv_predicted': npv,
-                        'feasible': not violations, 'violations': violations})
+        records.append(
+            candidate_card(
+                schedule_hash=schedule_hash,
+                theta={},
+                npv_predicted=npv,
+                npv_parts=npv_parts,
+                ood_score=ood_score,
+                ood_worst=ood_worst,
+                scenario_ood=scenario_ood_threshold,
+                physics=physics,
+                static_violations=static_count,
+                dynamic_blocking_violations=blocking_count,
+                feasible=not violations,
+                violations=violations,
+                strategy='baseline-neighborhood',
+            )
+        )
         print(f'локальный вариант {index + 1}/{budget}: допустим={not violations}, ЧДД={npv}', flush=True)
-    diagnostics = json.loads(SEARCH_DIAGNOSTICS.read_text())
+    diagnostics = json.loads(SEARCH_DIAGNOSTICS.read_text(encoding='utf-8'))
     diagnostics['fallback_budget'] = budget
     diagnostics['evaluations'].extend(records)
-    SEARCH_DIAGNOSTICS.write_text(json.dumps(diagnostics, ensure_ascii=False, indent=2, allow_nan=False))
+    diagnostics['incumbents'] = registry.as_list()
+    SEARCH_DIAGNOSTICS.write_text(
+        json.dumps(diagnostics, ensure_ascii=False, indent=2, allow_nan=False),
+        encoding='utf-8',
+    )
     if not accepted:
         raise SearchRunError('Ни политика, ни локальные изменения исходного плана не прошли проверки условий и области обучения.')
     npv, schedule, index, static_count, blocking_count = max(accepted, key=lambda item: item[0])
@@ -346,7 +598,7 @@ def _search_near_baseline(env, evaluator, budget: int, provenance: dict[str, str
                       policy_equilibrium='not-claimed')
     return SearchOutcome(schedule, default_theta(), npv, hash_schedule(schedule), provenance,
                          len(diagnostics['evaluations']), False, False,
-                         static_count, blocking_count)
+                         static_count, blocking_count, registry.records)
 
 
 def run_search(
@@ -399,12 +651,39 @@ def run_search(
         "policy_equilibrium": "not-claimed",
     }
     calls = {"n": 0, "best": float("-inf")}
+    cards: list[dict[str, object]] = []
+    registry = IncumbentRegistry()
+    scenario_ood_threshold = (
+        float(env.scenario_ood.threshold) if env.scenario_ood is not None else None
+    )
 
     def objective(theta) -> OptimizerResult:
         try:
             result = resolve(make_policy(env, theta, {}), evaluator, initial, search_cap)
         except (OutOfDomainScheduleError, PhysicallyImpossibleScheduleError) as error:
             calls["n"] += 1
+            rejection = {
+                "scenario_id": "surrogate-rejected",
+                "regret": 1.0,
+                "what": str(error),
+            }
+            cards.append(
+                candidate_card(
+                    schedule_hash="",
+                    theta=dict(theta.values),
+                    npv_predicted=None,
+                    npv_parts={},
+                    ood_score=getattr(error, "score", None),
+                    ood_worst=None,
+                    scenario_ood=scenario_ood_threshold,
+                    physics=getattr(error, "counts", {}) or {},
+                    static_violations=None,
+                    dynamic_blocking_violations=None,
+                    feasible=False,
+                    violations=[rejection],
+                    strategy="cma-es",
+                )
+            )
             return OptimizerResult(
                 objective=-math.inf, feasible=False,
                 violations_by_scenario=(ScenarioViolation(
@@ -441,6 +720,30 @@ def run_search(
                 )
             )
         calls["n"] += 1
+        cards.append(
+            candidate_card(
+                schedule_hash=result.schedule_hash,
+                theta=dict(theta.values),
+                npv_predicted=npv if math.isfinite(npv) else None,
+                npv_parts=result.npv_parts,
+                ood_score=result.ood_score,
+                ood_worst=result.ood_worst,
+                scenario_ood=scenario_ood_threshold,
+                physics=result.physics,
+                static_violations=len(static.violations),
+                dynamic_blocking_violations=None,
+                feasible=not violations,
+                violations=[
+                    {
+                        "scenario_id": item.scenario_id,
+                        "regret": item.regret,
+                        "what": item.what,
+                    }
+                    for item in violations
+                ],
+                strategy="cma-es",
+            )
+        )
         if npv > calls["best"]:
             calls["best"] = npv
             print(
@@ -481,22 +784,8 @@ def run_search(
                 "model_version": env.model.version,
                 "npv_head_version": env.npv_head.version if env.npv_head else None,
                 "ood_threshold": env.ood_threshold,
-                "evaluations": [
-                    {
-                        "theta": dict(item.theta.values),
-                        "npv_predicted": item.result.objective if math.isfinite(item.result.objective) else None,
-                        "feasible": item.result.feasible,
-                        "violations": [
-                            {
-                                "scenario_id": violation.scenario_id,
-                                "regret": violation.regret,
-                                "what": violation.what,
-                            }
-                            for violation in item.result.violations_by_scenario
-                        ],
-                    }
-                    for item in report.history
-                ],
+                "evaluations": _evaluation_cards(report.history, cards),
+                "incumbents": registry.as_list(),
             },
             ensure_ascii=False,
             indent=2,
@@ -511,9 +800,10 @@ def run_search(
         reverse=True,
     )
     if not ranked:
-        return _search_near_baseline(env, evaluator, budget, provenance)
+        return _search_near_baseline(env, evaluator, budget, provenance, registry)
 
     finalists = []
+    finalist_cards: list[dict[str, object]] = []
     seen: set[tuple[tuple[str, float], ...]] = set()
     print("\nполный пересчёт лучших допустимых θ:", flush=True)
     for candidate in ranked:
@@ -538,20 +828,42 @@ def run_search(
             for item in dynamic.blocking_violations
             if item.kind not in SURROGATE_NONBLOCKING_KINDS
         )
+        repaired_hash = hash_schedule(repaired_schedule)
+        admissible = _physics_admissible(evaluated.physics)
+        passed = incumbent_gate_passed(
+            static_violations=len(check.violations),
+            dynamic_blocking_violations=len(surrogate_blocking),
+            ood_score=evaluated.ood_score,
+            ood_threshold=env.ood_threshold,
+            physics_admissible=admissible,
+        )
+        finalist_cards.append(
+            candidate_card(
+                schedule_hash=repaired_hash,
+                theta=dict(candidate.theta.values),
+                npv_predicted=evaluated.npv,
+                npv_parts=evaluated.npv_parts,
+                ood_score=evaluated.ood_score,
+                ood_worst=evaluated.ood_worst,
+                scenario_ood=scenario_ood_threshold,
+                physics=evaluated.physics,
+                static_violations=len(check.violations),
+                dynamic_blocking_violations=len(surrogate_blocking),
+                feasible=passed,
+                violations=[],
+                strategy="finalist",
+            )
+        )
         print(
             f"  ЧДД {final.npv / 1e9:8.3f} млрд, итераций {final.iterations:2d}, "
-            f"self-consistent={final.self_consistent}, OOD={final.ood_score}, "
+            f"self-consistent={final.self_consistent}, OOD={evaluated.ood_score}, "
             f"water-repair={repair_rounds}, static={len(check.violations)}, "
             f"dynamic-blocking={len(surrogate_blocking)}, "
+            f"physics-admissible={admissible}, "
             f"BHP-to-OPM={len(dynamic.blocking_violations) - len(surrogate_blocking)}",
             flush=True,
         )
-        if (
-            check.ok
-            and not surrogate_blocking
-            and final.ood_score is not None
-            and final.ood_score <= env.ood_threshold
-        ):
+        if passed:
             finalists.append(
                 (
                     evaluated.npv,
@@ -560,17 +872,38 @@ def run_search(
                     final,
                     check,
                     surrogate_blocking,
+                    repaired_hash,
                 )
             )
+            best = registry.current
+            if best is None or evaluated.npv > best.npv_predicted:
+                registry.promote(
+                    stage="finalist",
+                    schedule_hash=repaired_hash,
+                    npv_predicted=evaluated.npv,
+                    theta=dict(candidate.theta.values),
+                    ood_score=evaluated.ood_score,
+                    ood_worst=evaluated.ood_worst,
+                    static_violations=len(check.violations),
+                    dynamic_blocking_violations=len(surrogate_blocking),
+                    physics_admissible=admissible,
+                    self_consistent=final.self_consistent,
+                )
         if len(seen) >= FINALIST_CAP:
             break
+    _write_diagnostics_tail(finalist_cards, registry)
     if not finalists:
-        return _search_near_baseline(env, evaluator, budget, provenance)
+        return _search_near_baseline(env, evaluator, budget, provenance, registry)
 
-    predicted_npv, best_theta, schedule, final, check, surrogate_blocking = max(
-        finalists, key=lambda item: (item[3].self_consistent, item[0])
-    )
-    schedule_hash = hash_schedule(schedule)
+    (
+        predicted_npv,
+        best_theta,
+        schedule,
+        final,
+        check,
+        surrogate_blocking,
+        schedule_hash,
+    ) = max(finalists, key=lambda item: (item[3].self_consistent, item[0]))
     delta = 100.0 * (predicted_npv - BASE_NPV) / BASE_NPV
     print(
         f"\nθ*: ЧДД {predicted_npv / 1e9:.3f} млрд ({delta:+.1f}% к базовому), "
@@ -600,6 +933,7 @@ def run_search(
         self_consistent=final.self_consistent,
         static_violations=len(check.violations),
         dynamic_blocking_violations=len(surrogate_blocking),
+        incumbent_history=registry.records,
     )
 
 
@@ -632,6 +966,9 @@ def main() -> int:
                 "dynamic_blocking_violations": outcome.dynamic_blocking_violations,
                 "converged": outcome.converged,
                 "self_consistent": outcome.self_consistent,
+                "incumbents": [
+                    record.as_dict() for record in outcome.incumbent_history
+                ],
                 "provenance": outcome.provenance,
             },
             ensure_ascii=False,

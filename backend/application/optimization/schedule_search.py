@@ -1260,6 +1260,22 @@ def full_physics_report(
     )
 
 
+def format_ood_worst(ood: OodScore) -> str | None:
+    worst = ood.worst
+    if worst is None:
+        return None
+    return f"{worst.feature}@{worst.well}:{worst.control_step}"
+
+
+def physics_counters(report: PhysicsReport) -> dict[str, int]:
+    counters = {name: int(count) for name, count in sorted(report.counts.items())}
+    counters["blocking_count"] = int(report.blocking_count)
+    counters["warning_count"] = int(report.warning_count)
+    counters["complete"] = int(report.complete)
+    counters["admissible"] = int(report.admissible)
+    return counters
+
+
 def make_evaluator(env: SearchEnvironment):
     featureizer = ScheduleFeatureizer()
     adapter = ResponseAdapter()
@@ -1285,7 +1301,8 @@ def make_evaluator(env: SearchEnvironment):
             state_at_date=states,
             interval_response=intervals,
         )
-        npv = predict_economics(env, model_input, response)["blended"]
+        npv_parts = predict_economics(env, model_input, response)
+        npv = npv_parts["blended"]
         economic_ood = (
             env.npv_head.predict_with_domain(model_input)[1]
             if isinstance(env.npv_head, ScenarioNpvHead) else 0.0
@@ -1295,6 +1312,12 @@ def make_evaluator(env: SearchEnvironment):
             npv=npv,
             state=PolicyFeedback(response=response, schedule=schedule),
             ood_score=ood_score,
+            npv_parts=MappingProxyType({
+                name: float(value) for name, value in npv_parts.items()
+            }),
+            sigma=None,
+            physics=MappingProxyType(physics_counters(physics)),
+            ood_worst=format_ood_worst(scored.ood),
         )
 
     evaluator.reference_schedule = env.reference_schedule  # type: ignore[attr-defined]

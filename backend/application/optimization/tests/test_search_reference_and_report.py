@@ -162,6 +162,7 @@ class _Outcome:
     self_consistent: bool
     static_violations: int | None
     dynamic_blocking_violations: int | None
+    incumbent_history: tuple[object, ...] = ()
 
 
 def _run_real_main(out: Path, outcome: _Outcome) -> dict[str, object]:

@@ -4,15 +4,21 @@ import ast
 import importlib
 import importlib.abc
 import importlib.machinery
+import importlib
 import io
 import json
+import math
 import os
+import random
 import sys
+import time
 import tokenize
 import types
 from pathlib import Path
+from dataclasses import dataclass, replace
+from backend.core.contracts import canonical_bytes
 from types import SimpleNamespace
-from typing import Any, Iterator
+from typing import Any, Iterator, Mapping, Sequence
 
 import pytest
 
@@ -360,28 +366,20 @@ def test_both_return_paths_carry_the_strategy_and_the_equilibrium() -> None:
     assert "policy_equilibrium='not-claimed'" in fallback
 
 
-def _provenance_from(path: str) -> dict[str, str]:
-    module = _module_ast(RUN_SOURCE)
-    run_search = _function_def(module, "run_search")
-    fallback = _function_def(module, "_search_near_baseline")
-    namespace: dict[str, object] = {
-        "os": os,
-        "Path": Path,
-        "SEARCH_CAP": 2,
-        "FINAL_CAP": 8,
-        "BUDGET": 120,
-        "SEED": 20260816,
-        "CONSTRAINTS": Path("config/competition-constraints.json"),
-        "RESPONSE": Path("data/base_case/response.json"),
-        "LAMBDA": Path("data/lambda/lambda.json"),
-        "OOD_THRESHOLD": 0.0,
-        "SearchRunError": RuntimeError,
-        "SearchOutcome": _outcome_factory,
-        "print": lambda *args, **kwargs: None,
-    }
+def _provenance_from(path: str, tmp_path: Path) -> dict[str, str]:
     captured: dict[str, dict[str, str]] = {}
+    diagnostics = tmp_path / "cmaes-diagnostics.json"
+    diagnostics.write_text(
+        json.dumps({"evaluations": []}, ensure_ascii=False), encoding="utf-8"
+    )
 
-    def _fallback(env: object, evaluator: object, budget: int, provenance: dict) -> object:
+    def _fallback(
+        env: object,
+        evaluator: object,
+        budget: int,
+        provenance: dict,
+        registry: object | None = None,
+    ) -> object:
         captured["seeded"] = dict(provenance)
         return _outcome_factory(
             None,
@@ -401,14 +399,11 @@ def _provenance_from(path: str) -> dict[str, str]:
             0,
         )
 
-    namespace["_search_near_baseline"] = _fallback
-    namespace.update(_run_search_stubs(path, captured))
-    exec(
-        compile(
-            ast.Module(body=[run_search], type_ignores=[]), str(RUN_SOURCE), "exec"
-        ),
-        namespace,
-    )
+    overrides = dict(_run_search_stubs(path, captured))
+    overrides["_search_near_baseline"] = _fallback
+    overrides["SEARCH_DIAGNOSTICS"] = diagnostics
+    overrides["print"] = lambda *args, **kwargs: None
+    namespace = _run_search_module(overrides)
     outcome = namespace["run_search"]()
     return dict(outcome.provenance)
 
@@ -431,11 +426,111 @@ def _outcome_factory(*args: Any, **kwargs: Any) -> SimpleNamespace:
     return SimpleNamespace(**values)
 
 
+_RUN_SEARCH_TORCH_BACKED = (
+    "SOURCE_WATER_BALANCE_REPAIR",
+    "injection_budget_for_step",
+    "load_environment",
+    "make_evaluator",
+    "make_policy",
+    "OutOfDomainScheduleError",
+    "PhysicallyImpossibleScheduleError",
+)
+
+
+def _run_search_import_namespace() -> dict[str, object]:
+    namespace: dict[str, object] = {
+        "json": json,
+        "math": math,
+        "os": os,
+        "random": random,
+        "sys": SimpleNamespace(argv=["search_run"]),
+        "time": time,
+        "dataclass": dataclass,
+        "replace": replace,
+        "Path": Path,
+        "Mapping": Mapping,
+        "Sequence": Sequence,
+    }
+    for dotted, names in _RUN_SEARCH_IMPORT_SOURCES:
+        module = importlib.import_module(dotted)
+        for name in names:
+            namespace[name] = getattr(module, name)
+    for name in _RUN_SEARCH_TORCH_BACKED:
+        namespace.setdefault(name, _AnyObject)
+    return namespace
+
+
+_RUN_SEARCH_IMPORT_SOURCES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "backend.core.contracts",
+        (
+            "OptimizerResult",
+            "ScenarioViolation",
+            "Schedule",
+            "Theta",
+            "EventKind",
+            "compensation_policy",
+            "hash_schedule",
+            "canonical_bytes",
+            "water_supply_policy",
+        ),
+    ),
+    ("backend.core.contracts.schedule", ("MAX_LRAT_M3_PER_DAY",)),
+    ("backend.domain.economics", ("load_response_artifact",)),
+    (
+        "backend.application.optimization.runtime_artifacts",
+        ("resolve_runtime_artifacts", "validate_runtime_economic_head"),
+    ),
+    ("backend.application.optimization.search", ("optimize",)),
+    ("backend.domain.policy.fixed_point", ("FixedPointResult", "resolve")),
+    ("backend.domain.policy.theta", ("default_theta",)),
+    ("backend.domain.schedule.case_limits", ("YearlyProduction", "apply_case_limits")),
+    (
+        "backend.domain.schedule",
+        ("ViolationKind", "canonicalize", "validate_dynamic", "validate_static"),
+    ),
+    (
+        "backend.domain.schedule.validate_dynamic",
+        ("FIRST_CONTROL_DECK_DATE_INDEX", "year_of_step"),
+    ),
+    ("backend.infrastructure.resources", ("chdd_python_dir", "model_z_dir")),
+    ("backend.application.cases", ("load_case",)),
+)
+
+
+def _run_search_module(overrides: Mapping[str, object]) -> dict[str, object]:
+    module = _module_ast(RUN_SOURCE)
+    body = [
+        node
+        for node in module.body
+        if not isinstance(node, (ast.Import, ast.ImportFrom))
+        and not (
+            isinstance(node, ast.Expr)
+            and isinstance(node.value, ast.Call)
+            and ast.unparse(node.value).startswith("sys.stdout")
+        )
+    ]
+    holder = types.ModuleType("search_run_under_test")
+    namespace = holder.__dict__
+    namespace.update(_run_search_import_namespace())
+    namespace.update(overrides)
+    sys.modules["search_run_under_test"] = holder
+    try:
+        exec(
+            compile(ast.Module(body=body, type_ignores=[]), str(RUN_SOURCE), "exec"),
+            namespace,
+        )
+    finally:
+        sys.modules.pop("search_run_under_test", None)
+    namespace.update(overrides)
+    return namespace
+
+
 def _run_search_stubs(path: str, captured: dict) -> dict[str, object]:
     env = SimpleNamespace(
         model=SimpleNamespace(version="model-1"),
         lambda_=SimpleNamespace(window_start="a", window_end="b", stability=1.0),
-        scenario_ood=SimpleNamespace(version="ood-1"),
+        scenario_ood=SimpleNamespace(version="ood-1", threshold=0.0),
         npv_head=SimpleNamespace(version="head-1"),
         ood_threshold=0.0,
         constraints=object(),
@@ -453,7 +548,14 @@ def _run_search_stubs(path: str, captured: dict) -> dict[str, object]:
     )
     check = SimpleNamespace(ok=True, violations=(), n_control_events=1)
     dynamic = SimpleNamespace(blocking_violations=())
-    evaluated = SimpleNamespace(npv=1.0)
+    evaluated = SimpleNamespace(
+        npv=1.0,
+        npv_parts={},
+        sigma=None,
+        physics={"complete": 1, "admissible": 1, "blocking_count": 0},
+        ood_worst=None,
+        ood_score=0.0,
+    )
     history = (
         ()
         if path == "fallback"
@@ -498,14 +600,6 @@ def _run_search_stubs(path: str, captured: dict) -> dict[str, object]:
             dynamic,
             0,
         ),
-        "SEARCH_DIAGNOSTICS": SimpleNamespace(
-            parent=SimpleNamespace(mkdir=lambda **_: None),
-            write_text=lambda *args, **kwargs: None,
-        ),
-        "json": json,
-        "math": __import__("math"),
-        "time": __import__("time"),
-        "FINALIST_CAP": 4,
         "BASE_NPV": 1.0,
         "SURROGATE_NONBLOCKING_KINDS": frozenset(),
         "OutOfDomainScheduleError": ValueError,
@@ -517,18 +611,22 @@ def _run_search_stubs(path: str, captured: dict) -> dict[str, object]:
     }
 
 
-def test_main_path_claims_the_equilibrium_only_when_it_was_reached() -> None:
-    reached = _provenance_from("converged")
+def test_main_path_claims_the_equilibrium_only_when_it_was_reached(
+    tmp_path: Path,
+) -> None:
+    reached = _provenance_from("converged", tmp_path)
     assert reached["search_strategy"] == "cma-es"
     assert reached["policy_equilibrium"] == "reached"
 
-    unreached = _provenance_from("unconverged")
+    unreached = _provenance_from("unconverged", tmp_path)
     assert unreached["search_strategy"] == "cma-es"
     assert unreached["policy_equilibrium"] == "not-claimed"
 
 
-def test_fallback_path_marks_the_equilibrium_as_not_claimed() -> None:
-    provenance = _provenance_from("fallback")
+def test_fallback_path_marks_the_equilibrium_as_not_claimed(
+    tmp_path: Path,
+) -> None:
+    provenance = _provenance_from("fallback", tmp_path)
 
     assert provenance["search_strategy"] == "baseline-neighborhood"
     assert provenance["policy_equilibrium"] == "not-claimed"
