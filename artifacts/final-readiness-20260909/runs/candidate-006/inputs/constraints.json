@@ -1,0 +1,26 @@
+{
+  "infrastructure": {
+    "bhp_injector_max_bar": 300.0,
+    "bhp_injector_max_bar_source": "organizer",
+    "bhp_producer_min_bar": 50.0,
+    "bhp_producer_min_bar_source": "organizer",
+    "compensation_enforcement": "diagnostic",
+    "compensation_max": 1.15,
+    "compensation_max_source": "diagnostic",
+    "compensation_min": 0.85,
+    "compensation_min_source": "diagnostic",
+    "compensation_scope": "field_and_groups",
+    "external_water_m3_per_day": 0.0,
+    "external_water_m3_per_day_source": "organizer",
+    "water_reinjection_fraction": 1.0,
+    "water_reinjection_fraction_source": "assumption",
+    "water_reinjection_lag_steps": 0,
+    "water_reinjection_lag_steps_source": "assumption"
+  },
+  "injection_limits": {},
+  "liquid_limits": {},
+  "oil_limits": {},
+  "production_floors": {},
+  "watercut_limits": {},
+  "well_outages": []
+}

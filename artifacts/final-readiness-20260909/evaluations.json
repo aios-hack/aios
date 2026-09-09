@@ -1,0 +1,566 @@
+[
+  {
+    "run_id": "candidate-001",
+    "label": "original-baseline",
+    "schedule_hash": "80d1a91e6f57394b1b58c09d17a44b058c1f4d9ca4157b709a602877d03fbb6c",
+    "sound": false,
+    "verified_npv_rub": null,
+    "predicted_npv_rub": null,
+    "constraints_hash": "0e09608eff6103696c4dc05759db25b4121d66afeeda447e5c9df9e4c5a2ef84",
+    "deck_hash": "2e7741d9bdf151920c15dcf99f0def62b75ceb47c5021e88d53264e00e62273e",
+    "opm_image": "openporousmedia/opmreleases@sha256:18c497f6a918c160cd290081d4163abf6e2c349797e18e3b5669c9095044adff",
+    "economics_config_hash": "44a24e2ac0c700ad50228a414c56235c948a4edea30a0cca34d0a2d6186ef2af",
+    "methodology_version_hash": "74f2872e1d1e52b0774454e92ebcf0030701c6fe21845de01a1b33e6917f984c"
+  },
+  {
+    "round": 0,
+    "candidate": 0,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 1,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 2,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 3,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 4,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 5,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 6,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 7,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 8,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 9,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 10,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 11,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 12,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 13,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 14,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 15,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 16,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 17,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 18,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 19,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 20,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 21,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 22,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 23,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 24,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 25,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 26,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 27,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 28,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 29,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 30,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 31,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 0,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 1,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 2,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 3,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 4,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 5,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 6,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 7,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 8,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 9,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 10,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 11,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 12,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 13,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 14,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 15,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 16,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 17,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 18,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 19,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 20,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 21,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 22,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 23,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 24,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 25,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 26,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 27,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 28,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 29,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 30,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 1,
+    "candidate": 31,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат физически невозможен: physics_complete=false: проверка неполная, не посчитаны инварианты: INJECTION_RESPONSE (кандидат меняет не только закачку: SET_LRAT); MATERIAL_BALANCE (кандидат меняет не только закачку: SET_LRAT)"
+  },
+  {
+    "round": 0,
+    "candidate": 0,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат вне области обучения: ood_score=47.8415; совместная плотность расписания 47.84 выше порога 11.42 (квантиль 0.95 по валидации)"
+  },
+  {
+    "round": 0,
+    "candidate": 1,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат вне области обучения: ood_score=47.8873; совместная плотность расписания 47.89 выше порога 11.42 (квантиль 0.95 по валидации)"
+  },
+  {
+    "round": 0,
+    "candidate": 2,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат вне области обучения: ood_score=46.4176; совместная плотность расписания 46.42 выше порога 11.42 (квантиль 0.95 по валидации)"
+  },
+  {
+    "round": 0,
+    "candidate": 3,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат вне области обучения: ood_score=47.9673; совместная плотность расписания 47.97 выше порога 11.42 (квантиль 0.95 по валидации)"
+  },
+  {
+    "round": 0,
+    "candidate": 4,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат вне области обучения: ood_score=47.8446; совместная плотность расписания 47.84 выше порога 11.42 (квантиль 0.95 по валидации)"
+  },
+  {
+    "round": 0,
+    "candidate": 5,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат вне области обучения: ood_score=47.8413; совместная плотность расписания 47.84 выше порога 11.42 (квантиль 0.95 по валидации)"
+  },
+  {
+    "round": 0,
+    "candidate": 6,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат вне области обучения: ood_score=47.8442; совместная плотность расписания 47.84 выше порога 11.42 (квантиль 0.95 по валидации)"
+  },
+  {
+    "round": 0,
+    "candidate": 7,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат вне области обучения: ood_score=47.8377; совместная плотность расписания 47.84 выше порога 11.42 (квантиль 0.95 по валидации)"
+  },
+  {
+    "round": 0,
+    "candidate": 8,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат вне области обучения: ood_score=47.8452; совместная плотность расписания 47.85 выше порога 11.42 (квантиль 0.95 по валидации)"
+  },
+  {
+    "round": 0,
+    "candidate": 9,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат вне области обучения: ood_score=47.8389; совместная плотность расписания 47.84 выше порога 11.42 (квантиль 0.95 по валидации)"
+  },
+  {
+    "round": 0,
+    "candidate": 10,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат вне области обучения: ood_score=47.8515; совместная плотность расписания 47.85 выше порога 11.42 (квантиль 0.95 по валидации)"
+  },
+  {
+    "round": 0,
+    "candidate": 11,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат вне области обучения: ood_score=47.8285; совместная плотность расписания 47.83 выше порога 11.42 (квантиль 0.95 по валидации)"
+  },
+  {
+    "round": 0,
+    "candidate": 12,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат вне области обучения: ood_score=47.7949; совместная плотность расписания 47.79 выше порога 11.42 (квантиль 0.95 по валидации)"
+  },
+  {
+    "round": 0,
+    "candidate": 13,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат вне области обучения: ood_score=47.8556; совместная плотность расписания 47.86 выше порога 11.42 (квантиль 0.95 по валидации)"
+  },
+  {
+    "round": 0,
+    "candidate": 14,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат вне области обучения: ood_score=47.8422; совместная плотность расписания 47.84 выше порога 11.42 (квантиль 0.95 по валидации)"
+  },
+  {
+    "round": 0,
+    "candidate": 15,
+    "stage": "surrogate-rejected",
+    "reason": "кандидат вне области обучения: ood_score=47.8411; совместная плотность расписания 47.84 выше порога 11.42 (квантиль 0.95 по валидации)"
+  },
+  {
+    "run_id": "candidate-002",
+    "label": "observed-water-margin-0.7",
+    "schedule_hash": "74f73190f77983626620f3dc786952c49eac09c258f9d25f37aba6657378f832",
+    "sound": false,
+    "verified_npv_rub": null,
+    "predicted_npv_rub": null,
+    "constraints_hash": "0e09608eff6103696c4dc05759db25b4121d66afeeda447e5c9df9e4c5a2ef84",
+    "deck_hash": "2e7741d9bdf151920c15dcf99f0def62b75ceb47c5021e88d53264e00e62273e",
+    "opm_image": "openporousmedia/opmreleases@sha256:18c497f6a918c160cd290081d4163abf6e2c349797e18e3b5669c9095044adff",
+    "groups_hash": "cf41ef7f9b79301a6f98f6f5dec9a67050e361fad2f73021352bcc268dc87e49",
+    "economics_config_hash": "44a24e2ac0c700ad50228a414c56235c948a4edea30a0cca34d0a2d6186ef2af",
+    "methodology_version_hash": "74f2872e1d1e52b0774454e92ebcf0030701c6fe21845de01a1b33e6917f984c"
+  },
+  {
+    "run_id": "candidate-003",
+    "label": "observed-water-margin-0.85",
+    "schedule_hash": "82055a3ffbbab8fe675f8e37af4252de6e84cf3ef7d6b1e348533194f0d7a95a",
+    "sound": false,
+    "verified_npv_rub": null,
+    "predicted_npv_rub": null,
+    "constraints_hash": "0e09608eff6103696c4dc05759db25b4121d66afeeda447e5c9df9e4c5a2ef84",
+    "deck_hash": "2e7741d9bdf151920c15dcf99f0def62b75ceb47c5021e88d53264e00e62273e",
+    "opm_image": "openporousmedia/opmreleases@sha256:18c497f6a918c160cd290081d4163abf6e2c349797e18e3b5669c9095044adff",
+    "groups_hash": "cf41ef7f9b79301a6f98f6f5dec9a67050e361fad2f73021352bcc268dc87e49",
+    "economics_config_hash": "44a24e2ac0c700ad50228a414c56235c948a4edea30a0cca34d0a2d6186ef2af",
+    "methodology_version_hash": "74f2872e1d1e52b0774454e92ebcf0030701c6fe21845de01a1b33e6917f984c"
+  },
+  {
+    "run_id": "candidate-004",
+    "label": "recovered-completed-run",
+    "schedule_hash": "dceab740a7d160df1f4828bcb2ac35cbaec7f28ad2c94d866d4cf2a88a86aa5c",
+    "sound": false,
+    "verified_npv_rub": null,
+    "constraints_hash": "0e09608eff6103696c4dc05759db25b4121d66afeeda447e5c9df9e4c5a2ef84",
+    "deck_hash": "2e7741d9bdf151920c15dcf99f0def62b75ceb47c5021e88d53264e00e62273e",
+    "opm_image": "openporousmedia/opmreleases@sha256:18c497f6a918c160cd290081d4163abf6e2c349797e18e3b5669c9095044adff",
+    "groups_hash": "cf41ef7f9b79301a6f98f6f5dec9a67050e361fad2f73021352bcc268dc87e49",
+    "economics_config_hash": "44a24e2ac0c700ad50228a414c56235c948a4edea30a0cca34d0a2d6186ef2af",
+    "methodology_version_hash": "74f2872e1d1e52b0774454e92ebcf0030701c6fe21845de01a1b33e6917f984c"
+  },
+  {
+    "run_id": "candidate-005",
+    "label": "observed-water-margin-0.0",
+    "schedule_hash": "5217da21f2f5629c1f5001ec8ac81b6061492182c04384885729128940340033",
+    "sound": true,
+    "verified_npv_rub": 1464123030.4381707,
+    "predicted_npv_rub": null,
+    "constraints_hash": "0e09608eff6103696c4dc05759db25b4121d66afeeda447e5c9df9e4c5a2ef84",
+    "deck_hash": "2e7741d9bdf151920c15dcf99f0def62b75ceb47c5021e88d53264e00e62273e",
+    "opm_image": "openporousmedia/opmreleases@sha256:18c497f6a918c160cd290081d4163abf6e2c349797e18e3b5669c9095044adff",
+    "groups_hash": "cf41ef7f9b79301a6f98f6f5dec9a67050e361fad2f73021352bcc268dc87e49",
+    "economics_config_hash": "44a24e2ac0c700ad50228a414c56235c948a4edea30a0cca34d0a2d6186ef2af",
+    "methodology_version_hash": "74f2872e1d1e52b0774454e92ebcf0030701c6fe21845de01a1b33e6917f984c",
+    "submission": "/Users/andreykuronskin/PycharmProjects/aios/aios-final-audit/out/final-campaign-20260909-01/runs/candidate-005/submission"
+  },
+  {
+    "run_id": "candidate-006",
+    "label": "observed-water-margin-0.85",
+    "schedule_hash": "9857c8dabbd36f552589a939969b70e565e807c715d98cdeeb67b5c5aa407bda",
+    "sound": true,
+    "verified_npv_rub": 2572738950.6450777,
+    "predicted_npv_rub": null,
+    "constraints_hash": "0e09608eff6103696c4dc05759db25b4121d66afeeda447e5c9df9e4c5a2ef84",
+    "deck_hash": "2e7741d9bdf151920c15dcf99f0def62b75ceb47c5021e88d53264e00e62273e",
+    "opm_image": "openporousmedia/opmreleases@sha256:18c497f6a918c160cd290081d4163abf6e2c349797e18e3b5669c9095044adff",
+    "groups_hash": "cf41ef7f9b79301a6f98f6f5dec9a67050e361fad2f73021352bcc268dc87e49",
+    "economics_config_hash": "44a24e2ac0c700ad50228a414c56235c948a4edea30a0cca34d0a2d6186ef2af",
+    "methodology_version_hash": "74f2872e1d1e52b0774454e92ebcf0030701c6fe21845de01a1b33e6917f984c",
+    "submission": "/Users/andreykuronskin/PycharmProjects/aios/aios-final-audit/out/final-campaign-20260909-01/runs/candidate-006/submission"
+  }
+]

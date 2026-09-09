@@ -1,0 +1,22 @@
+{
+  "constraints_hash": "0e09608eff6103696c4dc05759db25b4121d66afeeda447e5c9df9e4c5a2ef84",
+  "deck_hash": "2e7741d9bdf151920c15dcf99f0def62b75ceb47c5021e88d53264e00e62273e",
+  "feature_context_sha256": null,
+  "git_commit": "050ef1ef10954606ac8b773cbbf3a30fdb5cba37",
+  "iterations": null,
+  "model_version": null,
+  "normatives_sha256": "4f96a304db486f158994173be6e86b45d63858b8d851470cab8168c86b366358",
+  "npv_head_version": null,
+  "opm_image": "openporousmedia/opmreleases@sha256:18c497f6a918c160cd290081d4163abf6e2c349797e18e3b5669c9095044adff",
+  "policy_equilibrium": null,
+  "predicted_npv": null,
+  "run_id": "candidate-006",
+  "scenario_ood_version": null,
+  "schedule_hash": "9857c8dabbd36f552589a939969b70e565e807c715d98cdeeb67b5c5aa407bda",
+  "search_strategy": "observed-water-margin-0.85",
+  "seed": "20260911",
+  "self_consistent": null,
+  "sound": true,
+  "status": "ready_to_submit",
+  "verified_npv": 2572738950.6450777
+}
