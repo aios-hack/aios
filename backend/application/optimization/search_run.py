@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
@@ -51,6 +52,7 @@ from backend.domain.schedule.validate_dynamic import (
 )
 from backend.infrastructure.resources import chdd_python_dir, model_z_dir
 from backend.application.cases import load_case
+from backend.domain.configuration.constraints_io import constraints_hash
 
 LAMBDA = Path(os.environ.get("AIOS_LAMBDA_PATH", "data/lambda-window-2007/lambda.json"))
 RESPONSE = Path("data/base_case/response.json")
@@ -65,6 +67,17 @@ SEED = 20260816
 
 class SearchRunError(RuntimeError):
     pass
+
+
+def _artifact_sha256(path: Path, name: str) -> str:
+    try:
+        raw = Path(path).read_bytes()
+    except OSError as error:
+        raise SearchRunError(
+            f"провенанс поиска не собран: артефакт {name} по пути {path} "
+            f"не читается — {error}"
+        ) from error
+    return hashlib.sha256(raw).hexdigest()
 
 
 DEFAULT_SEARCH_CAP = 2
@@ -641,6 +654,10 @@ def run_search(
         "lambda_stability": f"{env.lambda_.stability:.3f}",
         "seed": str(SEED),
         "runtime_artifact_source": artifacts.source,
+        "feature_context_sha256": _artifact_sha256(
+            artifacts.feature_context, "feature_context"
+        ),
+        "constraints_hash": constraints_hash(constraints),
         "scenario_ood_version": env.scenario_ood.version if env.scenario_ood else "none",
         "npv_head_version": env.npv_head.version if env.npv_head else "none",
         "constraints_path": str(constraints_path),

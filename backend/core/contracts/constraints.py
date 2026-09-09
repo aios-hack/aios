@@ -86,6 +86,7 @@ class Constraints:
     injection_limits: dict[int, float] = field(default_factory=dict)
     liquid_limits: dict[int, float] = field(default_factory=dict)
     production_floors: dict[int, float] = field(default_factory=dict)
+    oil_limits: dict[int, float] = field(default_factory=dict)
     watercut_limits: dict[int, float] = field(default_factory=dict)
     well_outages: tuple[WellOutage, ...] = field(default_factory=tuple)
     infrastructure: dict[str, object] = field(default_factory=dict)

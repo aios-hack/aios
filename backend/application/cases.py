@@ -48,6 +48,7 @@ YEAR_SECTIONS: tuple[str, ...] = (
     "injection_limits",
     "liquid_limits",
     "production_floors",
+    "oil_limits",
     "watercut_limits",
 )
 
@@ -82,10 +83,6 @@ REFUSED_SECTIONS: dict[str, str] = {
         "бурение новых скважин, которых нет в деке, не поддерживается: "
         "фонд Model_Z фиксирован, и оптимизатор управляет только режимами "
         "существующих скважин. Остановку скважины задавайте через well_outages"
-    ),
-    "oil_limits": (
-        "потолок по нефти (квота) пока не реализован в валидаторе; "
-        "ограничение отбора задавайте через liquid_limits"
     ),
     "commissioning_shifts": (
         "перенос плановых сроков ввода скважин пока не реализован: "
@@ -241,6 +238,7 @@ def constraints_from_json(d: dict[str, Any], n_intervals: int = N_INTERVALS) -> 
         injection_limits=_parse_year_map(d, "injection_limits"),
         liquid_limits=_parse_year_map(d, "liquid_limits"),
         production_floors=_parse_year_map(d, "production_floors"),
+        oil_limits=_parse_year_map(d, "oil_limits"),
         watercut_limits=_parse_year_map(d, "watercut_limits"),
         well_outages=_parse_outages(d, n_intervals),
         infrastructure=dict(infrastructure),

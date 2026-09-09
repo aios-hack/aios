@@ -2,6 +2,7 @@
   "injection_limits": {},
   "liquid_limits": {},
   "production_floors": {},
+  "oil_limits": {},
   "watercut_limits": {},
   "well_outages": [],
   "infrastructure": {

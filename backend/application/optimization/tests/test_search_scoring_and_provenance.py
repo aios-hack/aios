@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import importlib
 import importlib.abc
 import importlib.machinery
@@ -16,7 +17,7 @@ import tokenize
 import types
 from pathlib import Path
 from dataclasses import dataclass, replace
-from backend.core.contracts import canonical_bytes
+from backend.core.contracts import Constraints, canonical_bytes
 from types import SimpleNamespace
 from typing import Any, Iterator, Mapping, Sequence
 
@@ -399,7 +400,9 @@ def _provenance_from(path: str, tmp_path: Path) -> dict[str, str]:
             0,
         )
 
-    overrides = dict(_run_search_stubs(path, captured))
+    context = tmp_path / "feature_context.json"
+    context.write_bytes(b"feature-context")
+    overrides = dict(_run_search_stubs(path, captured, feature_context=context))
     overrides["_search_near_baseline"] = _fallback
     overrides["SEARCH_DIAGNOSTICS"] = diagnostics
     overrides["print"] = lambda *args, **kwargs: None
@@ -439,6 +442,7 @@ _RUN_SEARCH_TORCH_BACKED = (
 
 def _run_search_import_namespace() -> dict[str, object]:
     namespace: dict[str, object] = {
+        "hashlib": hashlib,
         "json": json,
         "math": math,
         "os": os,
@@ -495,6 +499,7 @@ _RUN_SEARCH_IMPORT_SOURCES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ),
     ("backend.infrastructure.resources", ("chdd_python_dir", "model_z_dir")),
     ("backend.application.cases", ("load_case",)),
+    ("backend.domain.configuration.constraints_io", ("constraints_hash",)),
 )
 
 
@@ -526,7 +531,9 @@ def _run_search_module(overrides: Mapping[str, object]) -> dict[str, object]:
     return namespace
 
 
-def _run_search_stubs(path: str, captured: dict) -> dict[str, object]:
+def _run_search_stubs(
+    path: str, captured: dict, feature_context: Path = Path("f.json")
+) -> dict[str, object]:
     env = SimpleNamespace(
         model=SimpleNamespace(version="model-1"),
         lambda_=SimpleNamespace(window_start="a", window_end="b", stability=1.0),
@@ -578,12 +585,12 @@ def _run_search_stubs(path: str, captured: dict) -> dict[str, object]:
         "resolve_runtime_artifacts": lambda: SimpleNamespace(
             scenario_ood=Path("ood.pt"),
             checkpoint=Path("c.json"),
-            feature_context=Path("f.json"),
+            feature_context=feature_context,
             npv_head=Path("h.pt"),
             npv_calibration=None,
             source="test",
         ),
-        "load_case": lambda _: object(),
+        "load_case": lambda _: Constraints(),
         "load_environment": lambda **_: env,
         "validate_runtime_economic_head": lambda *_: None,
         "load_response_artifact": lambda _: object(),

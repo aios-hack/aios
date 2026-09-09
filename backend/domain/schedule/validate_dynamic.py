@@ -56,6 +56,7 @@ from .validate import (
     CONSTRAINT_COMPENSATION_SCOPE,
     CONSTRAINT_INJECTION_LIMITS,
     CONSTRAINT_LIQUID_LIMITS,
+    CONSTRAINT_OIL_LIMITS,
     CONSTRAINT_PRODUCTION_FLOORS,
     CONSTRAINT_WATER_SUPPLY,
     CONSTRAINT_WATERCUT_LIMITS,
@@ -130,6 +131,7 @@ DYNAMIC_VIOLATION_KINDS: frozenset[ViolationKind] = frozenset(
         ViolationKind.LIQUID_LIMIT_EXCEEDED,
         ViolationKind.INJECTION_LIMIT_EXCEEDED,
         ViolationKind.PRODUCTION_FLOOR_MISSED,
+        ViolationKind.OIL_LIMIT_EXCEEDED,
         ViolationKind.WATERCUT_LIMIT_EXCEEDED,
         ViolationKind.OUTAGE_WELL_PRODUCED,
         ViolationKind.WATER_SUPPLY_LIMIT_EXCEEDED,
@@ -152,6 +154,7 @@ BLOCKING_DYNAMIC_VIOLATION_KINDS: frozenset[ViolationKind] = frozenset(
         ViolationKind.INJECTION_LIMIT_EXCEEDED,
         ViolationKind.WATER_SUPPLY_LIMIT_EXCEEDED,
         ViolationKind.PRODUCTION_FLOOR_MISSED,
+        ViolationKind.OIL_LIMIT_EXCEEDED,
         ViolationKind.WATERCUT_LIMIT_EXCEEDED,
         ViolationKind.OUTAGE_WELL_PRODUCED,
         ViolationKind.FIELD_PRESSURE_BELOW_FLOOR,
@@ -180,6 +183,12 @@ def blocking_kinds_for_compensation(
     }
 
 
+def ordered_violation_kinds(
+    kinds: frozenset[ViolationKind] | Iterable[ViolationKind],
+) -> tuple[ViolationKind, ...]:
+    return tuple(sorted(kinds, key=lambda kind: kind.value))
+
+
 @dataclass(frozen=True, slots=True)
 class TargetRatio:
     control_step: int
@@ -205,7 +214,9 @@ class DynamicReport:
     n_states: int
     n_intervals_seen: int
     n_wells: int
-    blocking_kinds: frozenset[ViolationKind] = BLOCKING_DYNAMIC_VIOLATION_KINDS
+    blocking_kinds: tuple[ViolationKind, ...] = ordered_violation_kinds(
+        BLOCKING_DYNAMIC_VIOLATION_KINDS
+    )
     constraint_checks: tuple[ConstraintCheck, ...] = ()
 
     @property
@@ -820,6 +831,7 @@ DYNAMIC_CONSTRAINT_NAMES: tuple[str, ...] = (
     CONSTRAINT_LIQUID_LIMITS,
     CONSTRAINT_INJECTION_LIMITS,
     CONSTRAINT_PRODUCTION_FLOORS,
+    CONSTRAINT_OIL_LIMITS,
     CONSTRAINT_WATERCUT_LIMITS,
     CONSTRAINT_WATER_SUPPLY,
     CONSTRAINT_WELL_OUTAGES,
@@ -837,6 +849,7 @@ _CONSTRAINT_KINDS: dict[str, tuple[ViolationKind, ...]] = {
     CONSTRAINT_LIQUID_LIMITS: (ViolationKind.LIQUID_LIMIT_EXCEEDED,),
     CONSTRAINT_INJECTION_LIMITS: (ViolationKind.INJECTION_LIMIT_EXCEEDED,),
     CONSTRAINT_PRODUCTION_FLOORS: (ViolationKind.PRODUCTION_FLOOR_MISSED,),
+    CONSTRAINT_OIL_LIMITS: (ViolationKind.OIL_LIMIT_EXCEEDED,),
     CONSTRAINT_WATERCUT_LIMITS: (ViolationKind.WATERCUT_LIMIT_EXCEEDED,),
     CONSTRAINT_WATER_SUPPLY: (ViolationKind.WATER_SUPPLY_LIMIT_EXCEEDED,),
     CONSTRAINT_WELL_OUTAGES: (ViolationKind.OUTAGE_WELL_PRODUCED,),
@@ -871,6 +884,7 @@ CONSTRAINT_FIELD_COVERAGE: dict[str, tuple[str, ...]] = {
     "liquid_limits": (CONSTRAINT_LIQUID_LIMITS,),
     "injection_limits": (CONSTRAINT_INJECTION_LIMITS,),
     "production_floors": (CONSTRAINT_PRODUCTION_FLOORS,),
+    "oil_limits": (CONSTRAINT_OIL_LIMITS,),
     "watercut_limits": (CONSTRAINT_WATERCUT_LIMITS,),
     "well_outages": (CONSTRAINT_WELL_OUTAGES, CONSTRAINT_WELL_OUTAGES_STATIC),
     WATER_SUPPLY_UNLIMITED: (CONSTRAINT_WATER_SUPPLY,),
@@ -1560,6 +1574,7 @@ def _check_rate_limits(
         constraints.liquid_limits
         or constraints.injection_limits
         or constraints.production_floors
+        or constraints.oil_limits
     )
     if empty:
         return (), _rate_limit_checks(constraints, ())
@@ -1620,6 +1635,20 @@ def _check_rate_limits(
                     ),
                 )
             )
+        oil_limit = constraints.oil_limits.get(year)
+        if oil_limit is not None and oil > oil_limit:
+            found.append(
+                Violation(
+                    kind=ViolationKind.OIL_LIMIT_EXCEEDED,
+                    control_step=control_step,
+                    well=None,
+                    value=oil,
+                    detail=(
+                        f"суммарная добыча нефти {oil} т/сут выше потолка "
+                        f"{oil_limit} т/сут на {year} год"
+                    ),
+                )
+            )
     return tuple(found), _rate_limit_checks(constraints, found)
 
 
@@ -1641,6 +1670,11 @@ def _rate_limit_checks(
             CONSTRAINT_PRODUCTION_FLOORS,
             constraints.production_floors,
             "нижняя граница суммарной добычи нефти по годам",
+        ),
+        (
+            CONSTRAINT_OIL_LIMITS,
+            constraints.oil_limits,
+            "верхний предел суммарной добычи нефти по годам",
         ),
     )
     records: list[ConstraintCheck] = []
@@ -1836,6 +1870,8 @@ def validate_dynamic(
         n_states=len(states),
         n_intervals_seen=len(steps),
         n_wells=len(wells),
-        blocking_kinds=blocking_dynamic_violation_kinds(constraints),
+        blocking_kinds=ordered_violation_kinds(
+            blocking_dynamic_violation_kinds(constraints)
+        ),
         constraint_checks=checks,
     )
