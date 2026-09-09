@@ -145,5 +145,7 @@ economics/        Verified NPV when the tract reached Economics.
 inputs/, ui/      Reserved inputs and presentation output for this run.
 ```
 
-`ready_to_submit` is written only when OPM reports `sound=true`; otherwise the
-same evidence is retained but the manifest is `rejected`.
+Verification writes `verified` when OPM reports `sound=true` and `rejected`
+otherwise, retaining the same evidence either way. `ready_to_submit` is written
+only by `submit`, after the submission package is emitted and its round trip
+checks out: the status promises a package that exists, not merely a sound run.

@@ -4,8 +4,9 @@ from pathlib import Path
 import pytest
 
 from backend.application.cases import CaseError, load_case
-from backend.application.runs import RunRequest, RunWorkflow
-from backend.core.contracts import water_supply_policy
+from backend.application.runs import RunProvenance, RunRequest, RunWorkflow
+from backend.application.runs.workflow import SUBMISSION_BUNDLE_FIELDS
+from backend.core.contracts import SubmissionBundle, water_supply_policy
 from backend.core.provenance import DEFAULT_OPM_IMAGE
 from backend.domain.configuration.constraints_io import constraints_hash, constraints_to_json
 from backend.presentation.cli.run import (
@@ -17,7 +18,7 @@ from backend.presentation.cli.run import (
     resolve_case,
     resolve_constraints,
 )
-from tests.application.test_run_workflow import sample_schedule
+from tests.application.test_run_workflow import prepare_submittable_run, sample_schedule
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BASE_CASE = REPO_ROOT / "config" / "cases" / "base.json"
@@ -289,3 +290,113 @@ def test_provenance_without_a_case_leaves_the_case_hash_empty() -> None:
         provenance: dict[str, str] = {}
 
     assert build_provenance(Outcome(), None).constraints_hash is None
+
+
+def test_run_cli_exposes_the_submit_mode() -> None:
+    parser = build_parser()
+    assert parser.parse_args(["submit", "--run-id", "r1"]).mode == "submit"
+    assert parser.parse_args(["submit", "--run-id", "r1"]).model_dir is None
+    assert parser.parse_args(
+        ["submit", "--run-id", "r1", "--model-dir", "m"]
+    ).model_dir == Path("m")
+
+
+def test_submit_without_a_run_id_is_refused() -> None:
+    with pytest.raises(SystemExit, match="--run-id"):
+        main(["submit"])
+
+
+def test_submit_refuses_a_case_instead_of_ignoring_it() -> None:
+    with pytest.raises(SystemExit, match="--case"):
+        main(["submit", "--run-id", "saved", "--case", str(BASE_CASE)])
+
+
+def test_submit_prints_the_package_the_claimed_number_and_every_hash(
+    tmp_path, capsys
+) -> None:
+    _workflow, model_dir = prepare_submittable_run(tmp_path)
+
+    assert main(
+        ["submit", "--run-id", "submittable", "--runs-root", str(tmp_path / "runs"),
+         "--model-dir", str(model_dir)]
+    ) == 0
+
+    printed = capsys.readouterr().out
+    bundle = SubmissionBundle(
+        **json.loads(
+            (tmp_path / "runs" / "submittable" / "submission" / "claimed_npv.json")
+            .read_text(encoding="utf-8")
+        )
+    )
+    assert str(tmp_path / "runs" / "submittable" / "submission") in printed
+    assert "wells_schedule.inc" in printed
+    assert f"{bundle.claimed_npv_rub:.2f}" in printed
+    for name in SUBMISSION_BUNDLE_FIELDS:
+        if name == "claimed_npv_rub":
+            continue
+        assert f"{name}: {getattr(bundle, name)}" in printed
+
+
+def test_submit_through_the_cli_is_idempotent(tmp_path, capsys) -> None:
+    _workflow, model_dir = prepare_submittable_run(tmp_path)
+    argv = [
+        "submit", "--run-id", "submittable",
+        "--runs-root", str(tmp_path / "runs"), "--model-dir", str(model_dir),
+    ]
+
+    assert main(argv) == 0
+    first = capsys.readouterr().out
+    package = tmp_path / "runs" / "submittable" / "submission"
+    names = sorted(path.name for path in package.iterdir())
+    schedule_bytes = (package / "wells_schedule.inc").read_bytes()
+
+    assert main(argv) == 0
+    assert capsys.readouterr().out == first
+    assert sorted(path.name for path in package.iterdir()) == names
+    assert (package / "wells_schedule.inc").read_bytes() == schedule_bytes
+
+
+def test_the_cli_reports_the_reason_a_package_was_not_built(tmp_path) -> None:
+    _workflow, model_dir = prepare_submittable_run(tmp_path, "unsound", sound=False)
+
+    with pytest.raises(SystemExit) as error:
+        main(["submit", "--run-id", "unsound", "--runs-root", str(tmp_path / "runs"),
+              "--model-dir", str(model_dir)])
+
+    assert "пакет сдачи не собран" in str(error.value)
+    assert "sound" in str(error.value)
+
+
+def test_the_cli_writes_the_ready_status_only_after_the_package(tmp_path) -> None:
+    _workflow, model_dir = prepare_submittable_run(tmp_path)
+    manifest_path = tmp_path / "runs" / "submittable" / "manifest.json"
+
+    assert json.loads(manifest_path.read_text(encoding="utf-8"))["status"] == "verified"
+
+    main(["submit", "--run-id", "submittable", "--runs-root", str(tmp_path / "runs"),
+          "--model-dir", str(model_dir)])
+
+    assert json.loads(manifest_path.read_text(encoding="utf-8"))["status"] == "ready_to_submit"
+    summary = tmp_path / "runs" / "submittable" / "ui" / "run.json"
+    assert json.loads(summary.read_text(encoding="utf-8"))["status"] == "ready_to_submit"
+
+
+def test_a_reloaded_run_keeps_the_provenance_the_search_recorded(tmp_path) -> None:
+    provenance = RunProvenance(
+        constraints_hash="b" * 64,
+        opm_image=DEFAULT_OPM_IMAGE,
+        git_commit="e" * 40,
+        seed="20260816",
+    )
+    RunWorkflow(tmp_path).search(
+        RunRequest("traced", sample_schedule(), provenance=provenance)
+    )
+
+    assert load_run_request(tmp_path, "traced").provenance == provenance
+
+
+def test_a_run_without_a_manifest_reloads_with_empty_provenance(tmp_path) -> None:
+    RunWorkflow(tmp_path).search(RunRequest("plain", sample_schedule()))
+    (tmp_path / "plain" / "manifest.json").unlink()
+
+    assert load_run_request(tmp_path, "plain").provenance == RunProvenance()

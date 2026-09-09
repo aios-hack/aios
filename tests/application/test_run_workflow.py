@@ -1,5 +1,6 @@
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from pathlib import Path
 
 import pytest
 
@@ -12,6 +13,7 @@ from backend.application.runs import (
     RunWorkflow,
     WorkflowStatus,
 )
+from backend.application.runs.workflow import SubmissionError
 from backend.core.contracts import (
     Availability,
     Constraints,
@@ -19,14 +21,21 @@ from backend.core.contracts import (
     Role,
     Schedule,
     ScheduleMeta,
+    SubmissionBundle,
     WellOutage,
     WellState,
+    content_hash,
+    hash_schedule,
 )
 from backend.domain.configuration.constraints_io import (
     constraints_from_json,
     constraints_hash,
     constraints_to_json,
 )
+from backend.domain.schedule import parse_schedule
+from backend.domain.schedule.build import build_schedule
+from backend.domain.schedule.emit import ScheduleEmitError, verify_schedule_round_trip
+from backend.infrastructure.opm.opm_deck import render_schedule_include
 
 
 @dataclass(frozen=True)
@@ -46,13 +55,13 @@ def sample_schedule() -> Schedule:
     )
 
 
-def test_verified_run_has_complete_layout_and_ready_status(tmp_path) -> None:
+def test_verified_run_has_complete_layout_and_verified_status(tmp_path) -> None:
     workflow = RunWorkflow(tmp_path / "runs")
     request = RunRequest("good-plan", sample_schedule(), predicted_npv=12.5)
 
     result = workflow.verify(request, lambda _schedule, _opm: FakeVerification(True, 11.0))
 
-    assert result.status is WorkflowStatus.READY_TO_SUBMIT
+    assert result.status is WorkflowStatus.VERIFIED
     assert result.sound is True
     run_dir = tmp_path / "runs" / "good-plan"
     assert (run_dir / "manifest.json").is_file()
@@ -83,7 +92,7 @@ def test_full_passes_the_schedule_returned_by_search_to_verification(tmp_path) -
     )
 
     assert seen == [schedule]
-    assert result.status is WorkflowStatus.READY_TO_SUBMIT
+    assert result.status is WorkflowStatus.VERIFIED
 
 
 def test_unsound_real_style_result_preserves_diagnostics_without_reading_npv(tmp_path):
@@ -286,3 +295,235 @@ def test_a_verification_without_an_opm_run_keeps_the_declared_deck_hash(tmp_path
     )
 
     assert manifest.deck_hash == "c" * 64
+
+
+MONTHS = (
+    "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+    "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
+)
+SYNTHETIC_STEPS = 4
+
+
+def synthetic_schedule_include() -> bytes:
+    parts = [
+        b"RPTSCHED\n 'WELLS=1' 'SUMMARY=1' 'RESTART=0' /\n\n"
+        b"WELSPECS\n 'W1' 'GROUP' 23 17 1* 'OIL' /\n"
+        b" 'W2' 'GROUP' 47 40 1* 'OIL' /\n/\n\n"
+    ]
+    for step in range(SYNTHETIC_STEPS + 1):
+        month = MONTHS[step % 12]
+        year = 2007 + step // 12
+        parts.append(f"DATES\n 01 {month} {year} /\n/\n\n".encode())
+        if step < SYNTHETIC_STEPS:
+            parts.append(
+                f"WCONPROD\n 'W1' 'OPEN' 'LRAT' 1* 1* 1* {100.0 + step} 1* 50 1* 1* /\n/\n\n"
+                f"WCONINJE\n 'W2' 'WATER' 'OPEN' 'RATE' {200.0 + step} 1* 300 1* 1* /\n/\n\n".encode()
+            )
+    return b"".join(parts)
+
+
+def synthetic_model_dir(root: Path) -> Path:
+    model_dir = root / "Model_Z"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    (model_dir / "Model_Z_sch.inc").write_bytes(synthetic_schedule_include())
+    (model_dir / "Model_Z.data").write_bytes(
+        b"RUNSPEC\nDIMENS\n 10 10 3 /\nSCHEDULE\nINCLUDE\n 'Model_Z_sch.inc' /\n"
+    )
+    return model_dir
+
+
+def emittable_schedule() -> Schedule:
+    raw = synthetic_schedule_include()
+    return build_schedule(
+        parse_schedule(raw), raw, model="Model_Z", provenance="synthetic"
+    )
+
+
+@dataclass(frozen=True)
+class FakeFinalNpv:
+    npv_methodology: float
+    source_run_id: str = "opm-run-1"
+    source_response_hash: str = "1" * 64
+    economics_config_hash: str = "2" * 64
+    methodology_version_hash: str = "3" * 64
+
+
+@dataclass(frozen=True)
+class FakeOpmRun:
+    deck_hash: str = "4" * 64
+
+
+@dataclass(frozen=True)
+class FakeSubmittableVerification:
+    sound: bool
+    npv_methodology: float | None
+    final_npv: FakeFinalNpv | None
+    opm_run: FakeOpmRun = FakeOpmRun()
+
+
+def submittable_provenance() -> RunProvenance:
+    return RunProvenance(
+        constraints_hash="b" * 64,
+        deck_hash="c" * 64,
+        opm_image="openporousmedia/opmreleases:latest",
+        git_commit="e" * 40,
+    )
+
+
+CLAIMED_NPV = 11_873_676_459.64
+
+
+def prepare_submittable_run(
+    tmp_path: Path, run_id: str = "submittable", *, sound: bool = True
+) -> tuple[RunWorkflow, Path]:
+    workflow = RunWorkflow(tmp_path / "runs")
+    workflow.verify(
+        RunRequest(
+            run_id,
+            emittable_schedule(),
+            predicted_npv=12.0,
+            provenance=submittable_provenance(),
+        ),
+        lambda _schedule, _opm: FakeSubmittableVerification(
+            sound, CLAIMED_NPV if sound else None, FakeFinalNpv(CLAIMED_NPV)
+        ),
+    )
+    return workflow, synthetic_model_dir(tmp_path / "model")
+
+
+def test_verify_stops_at_verified_and_does_not_promise_submission(tmp_path) -> None:
+    prepare_submittable_run(tmp_path)
+
+    manifest = RunManifest.from_dict(
+        json.loads(
+            (tmp_path / "runs" / "submittable" / "manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+    )
+
+    assert manifest.status is WorkflowStatus.VERIFIED
+    assert not (tmp_path / "runs" / "submittable" / "submission").exists()
+
+
+def test_submit_builds_the_package_of_a_sound_run(tmp_path) -> None:
+    workflow, model_dir = prepare_submittable_run(tmp_path)
+
+    report = workflow.submit("submittable", model_dir)
+
+    assert report.schedule_path.is_file()
+    assert report.schedule_path.name == "wells_schedule.inc"
+    assert report.manifest.status is WorkflowStatus.READY_TO_SUBMIT
+    document = json.loads(
+        (report.directory / "claimed_npv.json").read_text(encoding="utf-8")
+    )
+    restored = SubmissionBundle(**document)
+    assert restored == report.bundle
+    assert restored.claimed_npv_rub == CLAIMED_NPV
+    assert restored.canonical_schedule_hash == hash_schedule(emittable_schedule())
+
+
+def test_the_package_bytes_are_the_ones_that_were_hashed(tmp_path) -> None:
+    workflow, model_dir = prepare_submittable_run(tmp_path)
+
+    report = workflow.submit("submittable", model_dir)
+
+    raw = report.schedule_path.read_bytes()
+    assert content_hash(raw) == report.bundle.content_hash_submission
+    verify_schedule_round_trip(emittable_schedule(), raw).raise_if_broken()
+
+
+def test_submit_copies_the_evidence_next_to_the_claimed_number(tmp_path) -> None:
+    workflow, model_dir = prepare_submittable_run(tmp_path)
+    (tmp_path / "runs" / "submittable" / "provenance.json").write_text(
+        json.dumps({"seed": "20260816"}), encoding="utf-8"
+    )
+
+    report = workflow.submit("submittable", model_dir)
+
+    assert (report.directory / "validation" / "result.json").is_file()
+    copied = report.directory / "provenance.json"
+    assert json.loads(copied.read_text(encoding="utf-8")) == {"seed": "20260816"}
+
+
+def test_an_unsound_run_gets_no_package(tmp_path) -> None:
+    workflow, model_dir = prepare_submittable_run(tmp_path, "unsound", sound=False)
+
+    with pytest.raises(SubmissionError, match="sound"):
+        workflow.submit("unsound", model_dir)
+
+    assert not (tmp_path / "runs" / "unsound" / "submission").exists()
+
+
+def test_a_run_without_an_opm_npv_gets_no_package_and_no_forecast(tmp_path) -> None:
+    workflow = RunWorkflow(tmp_path / "runs")
+    workflow.verify(
+        RunRequest(
+            "npv-less",
+            emittable_schedule(),
+            predicted_npv=99.0,
+            provenance=submittable_provenance(),
+        ),
+        lambda _schedule, _opm: FakeSubmittableVerification(True, None, None),
+    )
+    model_dir = synthetic_model_dir(tmp_path / "model")
+
+    with pytest.raises(SubmissionError, match="npv_methodology"):
+        workflow.submit("npv-less", model_dir)
+
+    assert not (tmp_path / "runs" / "npv-less" / "submission").exists()
+
+
+def test_a_run_without_a_deck_hash_is_refused_instead_of_invented(tmp_path) -> None:
+    workflow = RunWorkflow(tmp_path / "runs")
+    workflow.verify(
+        RunRequest(
+            "hashless",
+            emittable_schedule(),
+            provenance=RunProvenance(constraints_hash="b" * 64, git_commit="e" * 40),
+        ),
+        lambda _schedule, _opm: FakeSubmittableVerification(
+            True, CLAIMED_NPV, FakeFinalNpv(CLAIMED_NPV), None
+        ),
+    )
+    model_dir = synthetic_model_dir(tmp_path / "model")
+
+    with pytest.raises(SubmissionError, match="deck_hash"):
+        workflow.submit("hashless", model_dir)
+
+    assert not (tmp_path / "runs" / "hashless" / "submission").exists()
+
+
+def test_submit_is_idempotent(tmp_path) -> None:
+    workflow, model_dir = prepare_submittable_run(tmp_path)
+
+    first = workflow.submit("submittable", model_dir)
+    first_names = sorted(path.name for path in first.directory.iterdir())
+    second = workflow.submit("submittable", model_dir)
+
+    assert second.bundle == first.bundle
+    assert sorted(path.name for path in second.directory.iterdir()) == first_names
+    assert second.schedule_path.read_bytes() == first.schedule_path.read_bytes()
+
+
+def test_a_broken_round_trip_gives_no_package(tmp_path, monkeypatch) -> None:
+    workflow, model_dir = prepare_submittable_run(tmp_path, "tampered")
+    genuine = render_schedule_include(emittable_schedule(), model_dir)
+    tampered = genuine.raw.replace(b"'W1' 'OPEN' 'LRAT'", b"'W1' 'SHUT' 'LRAT'", 1)
+    assert tampered != genuine.raw
+    monkeypatch.setattr(
+        "backend.application.runs.workflow.render_schedule_include",
+        lambda schedule, directory: replace(genuine, raw=tampered),
+    )
+
+    with pytest.raises(ScheduleEmitError):
+        workflow.submit("tampered", model_dir)
+
+    assert not (tmp_path / "runs" / "tampered" / "submission").exists()
+
+
+def test_submit_refuses_a_run_that_does_not_exist(tmp_path) -> None:
+    workflow = RunWorkflow(tmp_path / "runs")
+
+    with pytest.raises(SubmissionError, match="absent"):
+        workflow.submit("absent", synthetic_model_dir(tmp_path / "model"))

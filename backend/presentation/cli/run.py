@@ -7,22 +7,30 @@ from datetime import datetime
 from pathlib import Path
 
 from backend.application.cases import CaseError, load_case
-from backend.application.runs import RunProvenance, RunRequest, RunWorkflow
+from backend.application.runs import (
+    MANIFEST_PROVENANCE_FIELDS,
+    RunProvenance,
+    RunRequest,
+    RunWorkflow,
+)
+from backend.application.runs.workflow import SUBMISSION_BUNDLE_FIELDS, SubmissionError
 from backend.core.contracts import Constraints
 from backend.core.paths import out_root
 from backend.core.provenance import git_commit, opm_image
 from backend.domain.configuration.constraints_io import constraints_from_json, constraints_hash
 from backend.domain.economics.normatives_io import NormativesError, normatives_sha256
-from backend.infrastructure.resources import normatives_xlsx
+from backend.domain.schedule.emit import ScheduleEmitError
+from backend.infrastructure.resources import model_z_dir, normatives_xlsx
 from backend.presentation.ui_export.run_summary import export_run_summary
 from backend.presentation.ui_export.artifact_io import load_schedule_json
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="AIOS optimisation workflow")
-    parser.add_argument("mode", choices=("search", "verify", "full"))
+    parser.add_argument("mode", choices=("search", "verify", "full", "submit"))
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--runs-root", type=Path, default=out_root() / "runs")
+    parser.add_argument("--model-dir", type=Path, default=None)
     parser.add_argument(
         "--case",
         type=Path,
@@ -104,6 +112,17 @@ def load_run_request(runs_root: Path, run_id: str) -> RunRequest:
         schedule=load_schedule_json(run_dir / "schedule" / "schedule.json"),
         predicted_npv=data.get("predicted_npv"),
         constraints=load_saved_constraints(run_dir),
+        provenance=load_saved_provenance(run_dir),
+    )
+
+
+def load_saved_provenance(run_dir: Path) -> RunProvenance:
+    manifest = run_dir / "manifest.json"
+    if not manifest.is_file():
+        return RunProvenance()
+    document = json.loads(manifest.read_text(encoding="utf-8"))
+    return RunProvenance(
+        **{name: document.get(name) for name in MANIFEST_PROVENANCE_FIELDS}
     )
 
 
@@ -158,6 +177,43 @@ def main(argv: list[str] | None = None) -> int:
         manifest = workflow.verify(request, verify_schedule)
         export_run_summary(manifest, args.runs_root / args.run_id / "ui")
         return 0
+    if mode == "submit":
+        if not args.run_id:
+            raise SystemExit("submit требует --run-id проверенного прогона")
+        if args.case is not None:
+            raise SystemExit(
+                "submit не принимает --case: пакет собирается из уже "
+                "проверенного прогона вместе с кейсом, на котором он найден"
+            )
+        return submit(args.runs_root, args.run_id, args.model_dir)
+    return 0
+
+
+def resolve_model_dir(model_dir: Path | None) -> Path:
+    if model_dir is not None:
+        return model_dir
+    try:
+        return model_z_dir()
+    except FileNotFoundError as error:
+        raise SystemExit(
+            f"пакет сдачи не собран — каталог модели не найден: {error}"
+        ) from error
+
+
+def submit(runs_root: Path, run_id: str, model_dir: Path | None) -> int:
+    workflow = RunWorkflow(runs_root)
+    try:
+        report = workflow.submit(run_id, resolve_model_dir(model_dir))
+    except (SubmissionError, ScheduleEmitError, FileNotFoundError) as error:
+        raise SystemExit(f"пакет сдачи не собран — {error}") from error
+    export_run_summary(report.manifest, runs_root / run_id / "ui")
+    print(f"пакет сдачи: {report.directory}")
+    print(f"расписание: {report.schedule_path}")
+    print(f"заявленный ЧДД, руб: {report.bundle.claimed_npv_rub:.2f}")
+    for name in SUBMISSION_BUNDLE_FIELDS:
+        if name == "claimed_npv_rub":
+            continue
+        print(f"{name}: {getattr(report.bundle, name)}")
     return 0
 
 

@@ -803,8 +803,8 @@ limit(добытая вода) = external_water_m3_per_day + reinjection_fractio
 |---|---|---|
 | Канонизация расписания и хеш | `backend/core/contracts`, функции `canonical_bytes`, `hash_schedule` | одно расписание — один хеш, независимо от форматирования |
 | Эмиссия `wells_schedule.inc` с хешем содержимого | `backend/domain/schedule/emit.py`, `EmittedSchedule.content_hash` | сдаваемый файл имеет собственную подпись |
-| **Round-trip** | там же, функция `round_trip` и `RoundTripReport` | сданный файл перечитывается обратно и сравнивается байт в байт; `_first_difference` показывает позицию первого расхождения |
-| Статусы прогона | `backend/application/runs/workflow.py`, `WorkflowStatus`: `searched` / `rejected` / `ready_to_submit` | `ready_to_submit` ставится **только** при `sound = true` после верификации |
+| **Round-trip** | там же: `round_trip`/`RoundTripReport` для дека организаторов (побайтово, `_first_difference`) и `verify_schedule_round_trip`/`ScheduleRoundTripReport` для нашего плана (канонический хеш, `_first_control_divergence`) | сданный файл перечитывается обратно и сверяется. Для нашего плана сверка идёт по каноническому хешу, а не побайтово: базовый дек организаторов побайтовый round-trip не проходит и не должен — на шаге с `CONVERT_INJ` он несёт пять событий, а include-формат выражает только последнюю уставку и последний статус |
+| Статусы прогона | `backend/application/runs/workflow.py`, `WorkflowStatus`: `searched` / `verified` / `rejected` / `ready_to_submit` | верификация ставит `verified` при `sound = true`; `ready_to_submit` ставит **только** `submit` — после сборки пакета и успешного round-trip |
 | Манифест прогона | там же, `RunManifest` | `run_id`, статус, хеш расписания, прогноз, проверенный ЧДД, признак `sound` — рядом, в одном файле |
 | Самопроверка окружения | `backend/presentation/cli/selfcheck.py` | что есть в этом клоне или образе: Python, CLI-модули, дек, нормативы, эталонный расчётчик |
 | Фиксация конфигурации | `config/competition-constraints.json`, `config/cases/base.json` | кейс — файл, а не аргументы в голове |

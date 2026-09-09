@@ -1,19 +1,39 @@
 from __future__ import annotations
 
 import json
+import shutil
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Callable, Protocol
 
-from backend.core.contracts import Constraints, Schedule, canonical_bytes, hash_schedule
+from backend.core.contracts import (
+    Constraints,
+    Schedule,
+    SubmissionBundle,
+    canonical_bytes,
+    hash_schedule,
+)
+from backend.core.provenance import git_commit, opm_image
 from backend.domain.configuration.constraints_io import constraints_to_json
+from backend.domain.schedule.emit import (
+    WELLS_SCHEDULE_FILE_NAME,
+    verify_schedule_round_trip,
+)
+from backend.domain.schedule.json_io import load_schedule_json
+from backend.infrastructure.opm.opm_deck import render_schedule_include
 
 
 class WorkflowStatus(Enum):
     SEARCHED = "searched"
+    VERIFIED = "verified"
     REJECTED = "rejected"
     READY_TO_SUBMIT = "ready_to_submit"
+
+
+class SubmissionError(RuntimeError):
+    pass
 
 
 class Verification(Protocol):
@@ -131,6 +151,30 @@ class RunManifest:
         return document
 
 
+SUBMISSION_BUNDLE_FIELDS: tuple[str, ...] = (
+    "canonical_schedule_hash",
+    "content_hash_submission",
+    "claimed_npv_rub",
+    "source_run_id",
+    "response_hash",
+    "deck_hash",
+    "economics_config_hash",
+    "methodology_version_hash",
+    "constraints_hash",
+    "opm_image",
+    "git_commit",
+    "created_at",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class SubmissionReport:
+    manifest: RunManifest
+    bundle: SubmissionBundle
+    directory: Path
+    schedule_path: Path
+
+
 class RunWorkflow:
 
     def __init__(self, runs_root: Path) -> None:
@@ -165,7 +209,7 @@ class RunWorkflow:
             fields["deck_hash"] = observed_deck_hash
         manifest = RunManifest(
             run_id=request.run_id,
-            status=WorkflowStatus.READY_TO_SUBMIT if sound else WorkflowStatus.REJECTED,
+            status=WorkflowStatus.VERIFIED if sound else WorkflowStatus.REJECTED,
             schedule_hash=hash_schedule(request.schedule),
             predicted_npv=request.predicted_npv,
             verified_npv=verified_npv,
@@ -190,7 +234,20 @@ class RunWorkflow:
             encoding="utf-8",
         )
         (run_dir / "economics" / "result.json").write_text(
-            json.dumps({"npv_methodology": verified_npv, "measured_npv": measured_npv, "sound": sound}, indent=2) + "\n",
+            json.dumps(
+                {
+                    "npv_methodology": verified_npv,
+                    "measured_npv": measured_npv,
+                    "sound": sound,
+                    "source_run_id": getattr(calculated, "source_run_id", None),
+                    "source_response_hash": getattr(calculated, "source_response_hash", None),
+                    "economics_config_hash": getattr(calculated, "economics_config_hash", None),
+                    "methodology_version_hash": getattr(calculated, "methodology_version_hash", None),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
             encoding="utf-8",
         )
         self._write_manifest(run_dir, manifest)
@@ -204,6 +261,125 @@ class RunWorkflow:
         request = search()
         self.search(request)
         return self.verify(request, verify)
+
+    def submit(self, run_id: str, model_dir: Path) -> SubmissionReport:
+        run_dir = self.runs_root / run_id
+        if not run_dir.is_dir():
+            raise SubmissionError(f"прогон {run_id!r} не найден: {run_dir}")
+        manifest = self._read_manifest(run_dir)
+        if manifest.sound is not True:
+            raise SubmissionError(
+                f"пакет сдачи не собирается: прогон {run_id!r} не прошёл "
+                f"верификацию, sound={manifest.sound!r}"
+            )
+        economics = self._read_economics(run_dir)
+        claimed_npv = economics.get("npv_methodology")
+        if not isinstance(claimed_npv, (int, float)) or isinstance(claimed_npv, bool):
+            raise SubmissionError(
+                f"пакет сдачи не собирается: у прогона {run_id!r} нет ЧДД OPM в "
+                f"economics/result.json, заявлять нечего "
+                f"(npv_methodology={claimed_npv!r}); прогноз суррогата не "
+                "подставляется"
+            )
+        schedule = self._read_schedule(run_dir)
+        emitted = render_schedule_include(schedule, model_dir)
+        verify_schedule_round_trip(schedule, emitted.raw).raise_if_broken()
+        submission_dir = run_dir / "submission"
+        schedule_path = submission_dir / WELLS_SCHEDULE_FILE_NAME
+        bundle = SubmissionBundle(
+            canonical_schedule_hash=hash_schedule(schedule),
+            content_hash_submission=emitted.content_hash,
+            claimed_npv_rub=float(claimed_npv),
+            source_run_id=_required_text(
+                economics.get("source_run_id"), "source_run_id", run_id
+            ),
+            response_hash=_required_text(
+                economics.get("source_response_hash"), "response_hash", run_id
+            ),
+            deck_hash=_required_text(manifest.deck_hash, "deck_hash", run_id),
+            economics_config_hash=_required_text(
+                economics.get("economics_config_hash"), "economics_config_hash", run_id
+            ),
+            methodology_version_hash=_required_text(
+                economics.get("methodology_version_hash"),
+                "methodology_version_hash",
+                run_id,
+            ),
+            constraints_hash=_required_text(
+                manifest.constraints_hash, "constraints_hash", run_id
+            ),
+            opm_image=manifest.opm_image or opm_image(),
+            git_commit=_required_text(
+                manifest.git_commit or git_commit(), "git_commit", run_id
+            ),
+            created_at=_created_at(submission_dir / "claimed_npv.json"),
+        )
+        submission_dir.mkdir(parents=True, exist_ok=True)
+        schedule_path.write_bytes(emitted.raw)
+        (submission_dir / "claimed_npv.json").write_text(
+            json.dumps(
+                _bundle_to_json(bundle), ensure_ascii=False, indent=2, sort_keys=True
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        self._copy_evidence(run_dir, submission_dir)
+        submitted = RunManifest(
+            **{
+                **{
+                    name: getattr(manifest, name)
+                    for name in MANIFEST_FIELDS
+                    if name != "status"
+                },
+                "status": WorkflowStatus.READY_TO_SUBMIT,
+            }
+        )
+        self._write_manifest(run_dir, submitted)
+        return SubmissionReport(
+            manifest=submitted,
+            bundle=bundle,
+            directory=submission_dir,
+            schedule_path=schedule_path,
+        )
+
+    @staticmethod
+    def _read_manifest(run_dir: Path) -> RunManifest:
+        path = run_dir / "manifest.json"
+        if not path.is_file():
+            raise SubmissionError(f"манифест прогона не найден: {path}")
+        return RunManifest.from_dict(json.loads(path.read_text(encoding="utf-8")))
+
+    @staticmethod
+    def _read_economics(run_dir: Path) -> dict[str, object]:
+        path = run_dir / "economics" / "result.json"
+        if not path.is_file():
+            raise SubmissionError(
+                f"результат экономики не найден: {path}; ЧДД OPM не заявляется "
+                "без него"
+            )
+        document = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(document, dict):
+            raise SubmissionError(f"результат экономики не объект JSON: {path}")
+        return document
+
+    @staticmethod
+    def _read_schedule(run_dir: Path) -> Schedule:
+        path = run_dir / "schedule" / "schedule.json"
+        if not path.is_file():
+            raise SubmissionError(f"расписание прогона не найдено: {path}")
+        return load_schedule_json(path)
+
+    @staticmethod
+    def _copy_evidence(run_dir: Path, submission_dir: Path) -> None:
+        validation = run_dir / "validation"
+        if validation.is_dir():
+            target = submission_dir / "validation"
+            if target.exists():
+                shutil.rmtree(target)
+            shutil.copytree(validation, target)
+        provenance = run_dir / "provenance.json"
+        if provenance.is_file():
+            shutil.copy2(provenance, submission_dir / "provenance.json")
 
     def _prepare(self, request: RunRequest) -> Path:
         if not request.run_id or Path(request.run_id).name != request.run_id:
@@ -251,3 +427,29 @@ class RunWorkflow:
 
 def _provenance_fields(provenance: RunProvenance) -> dict[str, object]:
     return {name: getattr(provenance, name) for name in MANIFEST_PROVENANCE_FIELDS}
+
+
+def _required_text(value: object, name: str, run_id: str) -> str:
+    if isinstance(value, str) and value.strip():
+        return value
+    raise SubmissionError(
+        f"пакет сдачи не собирается: у прогона {run_id!r} нет {name}, "
+        f"получено {value!r}; подставлять правдоподобное значение запрещено"
+    )
+
+
+def _bundle_to_json(bundle: SubmissionBundle) -> dict[str, object]:
+    return {name: getattr(bundle, name) for name in SUBMISSION_BUNDLE_FIELDS}
+
+
+def _created_at(existing: Path) -> str:
+    if existing.is_file():
+        try:
+            recorded = json.loads(existing.read_text(encoding="utf-8"))
+        except ValueError:
+            recorded = None
+        if isinstance(recorded, dict):
+            stamp = recorded.get("created_at")
+            if isinstance(stamp, str) and stamp.strip():
+                return stamp
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
