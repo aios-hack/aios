@@ -9,8 +9,10 @@ from backend.core.contracts import (
     OPM_CONNECTION_SUMMARY_KEYS,
     OPM_WELL_SUMMARY_KEYS,
     SUMMARY_EXPORT_KEYS,
+    SubmissionBundle,
     SummarySpec,
 )
+from backend.core.contracts.simulation import SUBMISSION_BUNDLE_REQUIRED_TEXT_FIELDS
 
 
 def _empty_line() -> LineItems:
@@ -77,3 +79,51 @@ def test_final_npv_artifact_rejects_mismatched_methodology_value() -> None:
         economics_config_hash="deadbeef",
         methodology_version_hash="deadbeef",
     )
+
+
+SUBMISSION_BUNDLE_VALID: dict[str, object] = {
+    "canonical_schedule_hash": "a" * 64,
+    "content_hash_submission": "b" * 64,
+    "claimed_npv_rub": 1_234_567.5,
+    "source_run_id": "run-1",
+    "response_hash": "c" * 64,
+    "deck_hash": "d" * 64,
+    "economics_config_hash": "e" * 64,
+    "methodology_version_hash": "f" * 64,
+    "constraints_hash": "0" * 64,
+    "opm_image": "openporousmedia/opmreleases:latest",
+    "git_commit": "1" * 40,
+    "created_at": "2026-09-09T12:00:00+00:00",
+}
+
+
+def test_submission_bundle_accepts_valid_payload() -> None:
+    bundle = SubmissionBundle(**SUBMISSION_BUNDLE_VALID)
+
+    assert bundle.claimed_npv_rub == 1_234_567.5
+    assert bundle.constraints_hash == "0" * 64
+    assert bundle.opm_image == "openporousmedia/opmreleases:latest"
+
+
+@pytest.mark.parametrize("field", SUBMISSION_BUNDLE_REQUIRED_TEXT_FIELDS)
+@pytest.mark.parametrize("blank", ["", "   ", "\t\n"])
+def test_submission_bundle_rejects_blank_text_field(field: str, blank: str) -> None:
+    payload = dict(SUBMISSION_BUNDLE_VALID)
+    payload[field] = blank
+    with pytest.raises(ValueError, match=field):
+        SubmissionBundle(**payload)
+
+
+@pytest.mark.parametrize("claimed", [0.0, -0.0, -1.0, -1_000_000.0])
+def test_submission_bundle_rejects_non_positive_npv(claimed: float) -> None:
+    payload = dict(SUBMISSION_BUNDLE_VALID)
+    payload["claimed_npv_rub"] = claimed
+    with pytest.raises(ValueError, match="claimed_npv_rub"):
+        SubmissionBundle(**payload)
+
+
+def test_submission_bundle_rejects_nan_npv() -> None:
+    payload = dict(SUBMISSION_BUNDLE_VALID)
+    payload["claimed_npv_rub"] = float("nan")
+    with pytest.raises(ValueError, match="claimed_npv_rub"):
+        SubmissionBundle(**payload)

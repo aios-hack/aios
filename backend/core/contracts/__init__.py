@@ -67,6 +67,7 @@ from .simulation import (
     RunStatus,
     SUMMARY_EXPORT_KEYS,
     SubmissionArtifact,
+    SubmissionBundle,
     SummarySpec,
 )
 
@@ -120,6 +121,7 @@ __all__ = [
     "StateAtDate",
     "StatePair",
     "SubmissionArtifact",
+    "SubmissionBundle",
     "SummarySpec",
     "T0",
     "Theta",

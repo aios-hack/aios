@@ -1,8 +1,9 @@
 """Validated case constraint serialization shared by UI and workflows."""
 from __future__ import annotations
+import hashlib
 import math
 from typing import Any
-from backend.core.contracts import Constraints, WellOutage, N_INTERVALS
+from backend.core.contracts import Constraints, WellOutage, N_INTERVALS, canonical_bytes
 YEAR_SECTIONS = ("injection_limits", "liquid_limits", "production_floors", "watercut_limits")
 
 def constraints_to_json(c: Constraints) -> dict[str, Any]:
@@ -126,3 +127,7 @@ def constraints_from_json(d: dict[str, Any], n_intervals: int = N_INTERVALS) -> 
         well_outages=_parse_outages(d, n_intervals),
         infrastructure=dict(infrastructure),
     )
+
+
+def constraints_hash(constraints: Constraints) -> str:
+    return hashlib.sha256(canonical_bytes(constraints_to_json(constraints))).hexdigest()

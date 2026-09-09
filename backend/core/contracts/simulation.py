@@ -8,9 +8,6 @@ from enum import Enum
 from .economics import NpvTable
 from .response import IntervalResponse, StateAtDate
 
-# Девять логических выходов заданы форматом входа эталонного расчётчика ЧДД:
-# REQUIRED_COLUMNS в ../models/CHDD_PYTHON/chdd_model.py. Это не буквальный
-# список ключей OPM: Flow 2026.04 не поддерживает массовые WOMT/WOMR.
 SUMMARY_EXPORT_KEYS = (
     "WLPT", "WOMT", "WWIT",  # накопленные
     "WLPR", "WOMR", "WWIR",  # мгновенные дебиты и приёмистость
@@ -18,8 +15,6 @@ SUMMARY_EXPORT_KEYS = (
     "WEFF",  # в экономику не входит, но колонка входного файла обязательна
 )
 
-# Прямые well-level векторы, которые реально запрашиваются у OPM. WMCTL
-# подтверждён настоящим прогоном Flow 2026.04 и поэтому больше не опционален.
 OPM_WELL_SUMMARY_KEYS = (
     "WLPT", "WWIT",
     "WLPR", "WWIR",
@@ -27,13 +22,8 @@ OPM_WELL_SUMMARY_KEYS = (
     "WMCTL",
 )
 
-# Масса нефти собирается из объёмов подключений с плотностью PVT-региона
-# каждой ячейки. Одна плотность на скважину неверна: 23 скважины Model_Z
-# вскрывают оба PVTNUM.
 OPM_CONNECTION_SUMMARY_KEYS = ("COPT", "COPR")
 
-# Временный псевдоним для веток, начатых до разведения экспортных и OPM-ключей.
-# Новый код должен использовать SUMMARY_EXPORT_KEYS.
 REQUIRED_SUMMARY_KEYS = SUMMARY_EXPORT_KEYS
 
 
@@ -142,3 +132,53 @@ class SubmissionArtifact:
 
     canonical_schedule_hash: str
     content_hash_submission: str
+
+
+SUBMISSION_BUNDLE_REQUIRED_TEXT_FIELDS = (
+    "canonical_schedule_hash",
+    "content_hash_submission",
+    "source_run_id",
+    "response_hash",
+    "deck_hash",
+    "economics_config_hash",
+    "methodology_version_hash",
+    "constraints_hash",
+    "opm_image",
+    "git_commit",
+    "created_at",
+)
+
+
+@dataclass(frozen=True, slots=True)
+class SubmissionBundle:
+    canonical_schedule_hash: str
+    content_hash_submission: str
+    claimed_npv_rub: float
+    source_run_id: str
+    response_hash: str
+    deck_hash: str
+    economics_config_hash: str
+    methodology_version_hash: str
+    constraints_hash: str
+    opm_image: str
+    git_commit: str
+    created_at: str
+
+    def __post_init__(self) -> None:
+        for name in SUBMISSION_BUNDLE_REQUIRED_TEXT_FIELDS:
+            value = getattr(self, name)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(
+                    f"SubmissionBundle.{name}: обязательное поле — непустая "
+                    f"строка, получено {value!r}"
+                )
+        if self.claimed_npv_rub != self.claimed_npv_rub:
+            raise ValueError(
+                "SubmissionBundle.claimed_npv_rub: NaN не допускается — "
+                "заявляемое число обязано быть определено"
+            )
+        if self.claimed_npv_rub <= 0.0:
+            raise ValueError(
+                "SubmissionBundle.claimed_npv_rub: заявляемый ЧДД обязан быть "
+                f"строго положительным, получено {self.claimed_npv_rub}"
+            )
