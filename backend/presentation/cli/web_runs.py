@@ -1,4 +1,3 @@
-"""Local UI job adapter. Inputs are immutable per run; one calculation at a time."""
 from __future__ import annotations
 import json
 import os
@@ -22,9 +21,8 @@ class WebRuns:
         self.lock = threading.Lock()
 
     def recover_interrupted(self):
-        # Called only after the server successfully binds its port, not at import.
         for path in self.root.glob('*/job.json'):
-            data = json.loads(path.read_text())
+            data = json.loads(path.read_text(encoding='utf-8'))
             if data.get('status') == 'running':
                 data.update(status='failed', message='Сервер был перезапущен. Расчёт не подтверждён; запустите его снова.')
                 self._write(path.parent, data)
@@ -37,18 +35,18 @@ class WebRuns:
     def list(self):
         runs = []
         for path in sorted(self.root.glob('*/job.json'), reverse=True):
-            data = json.loads(path.read_text())
+            data = json.loads(path.read_text(encoding='utf-8'))
             directory = path.parent
             for name in ('manifest', 'constraints', 'provenance', 'unseen-result'):
                 artifact = directory / f'{name}.json'
                 if artifact.is_file():
-                    data[name.replace('-', '_')] = json.loads(artifact.read_text())
+                    data[name.replace('-', '_')] = json.loads(artifact.read_text(encoding='utf-8'))
             validation = directory / 'validation/result.json'
             if validation.is_file():
-                data['validation'] = json.loads(validation.read_text())
+                data['validation'] = json.loads(validation.read_text(encoding='utf-8'))
             diagnostic = directory / 'diagnostics.json'
             if diagnostic.is_file():
-                evaluations = json.loads(diagnostic.read_text()).get('evaluations', [])
+                evaluations = json.loads(diagnostic.read_text(encoding='utf-8')).get('evaluations', [])
                 data['evaluations'] = len(evaluations)
                 data['feasible_evaluations'] = sum(bool(e['feasible']) for e in evaluations)
                 data['rejection_reasons'] = list(dict.fromkeys(
@@ -66,7 +64,7 @@ class WebRuns:
                         data['progress'] = {'step': int(step), 'total': int(total), 'date': datetime.strptime(date.strip(), '%d-%b-%Y').strftime('%d.%m.%Y')}
             economics = directory / 'economics/result.json'
             if economics.is_file():
-                data['economics'] = json.loads(economics.read_text())
+                data['economics'] = json.loads(economics.read_text(encoding='utf-8'))
             runs.append(data)
         return runs[:50]
 
@@ -90,7 +88,7 @@ class WebRuns:
                 run_id = datetime.now(timezone.utc).strftime('web-%Y%m%d-%H%M%S-') + uuid.uuid4().hex[:8]
                 directory = self.root / run_id
                 directory.mkdir(parents=True)
-                (directory / 'constraints.json').write_text(json.dumps(constraints_to_json(constraints), ensure_ascii=False, indent=2))
+                (directory / 'constraints.json').write_text(json.dumps(constraints_to_json(constraints), ensure_ascii=False, indent=2), encoding='utf-8')
                 data = {'run_id': run_id, 'created_at': datetime.now(timezone.utc).isoformat(), 'budget': budget}
             else:
                 run_id = payload.get('run_id', '')
@@ -99,7 +97,7 @@ class WebRuns:
                 directory = self.root / run_id
                 if not (directory / 'manifest.json').is_file() or not (directory / 'constraints.json').is_file():
                     raise ValueError('Сначала найдите план суррогатом.')
-                data = json.loads((directory / 'job.json').read_text())
+                data = json.loads((directory / 'job.json').read_text(encoding='utf-8'))
             data.update(status='running', mode=mode, message='Поиск плана суррогатом…' if mode == 'search' else 'Полный расчёт OPM…')
             self._write(directory, data)
             threading.Thread(target=self._execute, args=(directory, data, mode, budget), daemon=True).start()
@@ -111,7 +109,7 @@ class WebRuns:
     def _execute(self, directory, data, mode, budget):
         try:
             env = dict(os.environ, OMP_NUM_THREADS='2', MKL_NUM_THREADS='2')
-            with (directory / f'{mode}.log').open('w') as log:
+            with (directory / f'{mode}.log').open('w', encoding='utf-8') as log:
                 result = subprocess.run([sys.executable, '-m', 'backend.presentation.cli.web_run_worker', mode,
                     '--directory', str(directory), '--budget', str(budget)], stdout=log, stderr=subprocess.STDOUT,
                     env=env, timeout=7200, check=False)
@@ -119,7 +117,7 @@ class WebRuns:
                 data.update(status='failed', message=('Допустимый план не найден или расчёт завершился ошибкой. См. причины отклонения ниже.'
                     if mode == 'search' else 'Проверка OPM не завершена. Проверьте доступность Docker и образа OPM.'))
             else:
-                manifest = json.loads((directory / 'manifest.json').read_text())
+                manifest = json.loads((directory / 'manifest.json').read_text(encoding='utf-8'))
                 data.update(status='completed', message=('Прогноз готов. Для подтверждения запустите OPM.' if mode == 'search'
                     else 'OPM завершён. Все проверки пройдены.' if manifest['sound'] else 'OPM завершён: план не прошёл проверку.'))
         except Exception:

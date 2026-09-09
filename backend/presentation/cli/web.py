@@ -36,7 +36,10 @@ class SpaRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def do_GET(self):
+    def do_GET(self):  # type: ignore[override]
+        if is_jarvis_path(self.path):
+            forward(self)
+            return
         if urlsplit(self.path).path == '/api/runs':
             self._json(200, {'runs': self.runs.list()})
         elif self.path.startswith('/api/'):
@@ -44,8 +47,11 @@ class SpaRequestHandler(http.server.SimpleHTTPRequestHandler):
         else:
             super().do_GET()
 
-    def do_POST(self):
-        if self.path != '/api/runs':
+    def do_POST(self):  # type: ignore[override]
+        if is_jarvis_path(self.path):
+            forward(self)
+            return
+        if urlsplit(self.path).path != '/api/runs':
             self._json(404, {'error': 'Неизвестный запрос.'})
             return
         origin = self.headers.get('Origin')
@@ -64,7 +70,6 @@ class SpaRequestHandler(http.server.SimpleHTTPRequestHandler):
                 raise ValueError('Ожидается документ с условиями.')
             self._json(202, self.runs.start(payload))
         except (ValueError, TypeError) as error:
-            # Do not expose internal wire keys or server paths in the user flow.
             self._json(400, {'error': 'Проверьте условия: диапазоны значений, долю возврата воды и обе границы компенсации.'})
         except RuntimeError as error:
             self._json(409, {'error': str(error)})
@@ -74,18 +79,6 @@ class SpaRequestHandler(http.server.SimpleHTTPRequestHandler):
         if not Path(path).exists() and "." not in Path(path).name:
             self.path = "/index.html"
         return super().send_head()
-
-    def do_GET(self):  # type: ignore[override]
-        if is_jarvis_path(self.path):
-            forward(self)
-            return
-        return super().do_GET()
-
-    def do_POST(self):  # type: ignore[override]
-        if is_jarvis_path(self.path):
-            forward(self)
-            return
-        self.send_error(405, "POST is only accepted on /api/jarvis/*")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -99,9 +92,6 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     handler = functools.partial(SpaRequestHandler, directory=str(args.dist))
-    # The UI loads several multi-megabyte JSON files at the same time.  A
-    # single-threaded TCPServer makes every request wait for the previous one,
-    # which can leave the page blank while a large artifact is being served.
     with http.server.ThreadingHTTPServer((args.host, args.port), handler) as server:
         SpaRequestHandler.runs.recover_interrupted()
         print(f"веб-интерфейс: http://{args.host}:{args.port} из {args.dist}")
