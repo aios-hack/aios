@@ -1,5 +1,3 @@
-"""Resolve production surrogate artifacts without silent fallback."""
-
 from __future__ import annotations
 
 import json
@@ -25,6 +23,20 @@ class RuntimeArtifacts:
     scenario_ood: Path | None = None
     economic_model_version: str | None = None
     economic_target_provenance_hash: str | None = None
+    npv_calibration: Path | None = None
+
+
+def validate_npv_scoring_is_unambiguous(artifacts: RuntimeArtifacts) -> None:
+    if artifacts.npv_calibration is None or artifacts.npv_head is None:
+        return
+    raise RuntimeArtifactError(
+        "одновременно заданы аффинная калибровка ЧДД "
+        f"({artifacts.npv_calibration}) и голова прямого прогноза "
+        f"({artifacts.npv_head}): калибровка подобрана на сыром физическом "
+        "ЧДД и к бленду головы неприменима, поэтому итоговое число было бы "
+        "посчитано не тем, чем заявлено; оставьте один механизм — уберите "
+        "AIOS_NPV_CALIBRATION_PATH или AIOS_NPV_HEAD_PATH"
+    )
 
 
 def validate_runtime_economic_head(
@@ -67,6 +79,7 @@ def resolve_runtime_artifacts(
     explicit_checkpoint = env.get("AIOS_CHECKPOINT_PATH")
     explicit_context = env.get("AIOS_FEATURE_CONTEXT_PATH")
     explicit_head = env.get("AIOS_NPV_HEAD_PATH")
+    explicit_calibration = env.get("AIOS_NPV_CALIBRATION_PATH")
     manifest_value = env.get("AIOS_SURROGATE_MANIFEST")
     bundle_value = env.get("AIOS_SURROGATE_BUNDLE")
     legacy_dir = env.get("AIOS_CHECKPOINT_DIR")
@@ -128,6 +141,12 @@ def resolve_runtime_artifacts(
     elif env.get("AIOS_SCENARIO_OOD_PATH"):
         scenario_ood = Path(env["AIOS_SCENARIO_OOD_PATH"])
 
+    calibration: Path | None = None
+    if explicit_calibration:
+        calibration = Path(explicit_calibration)
+    elif payload.get("npv_calibration"):
+        calibration = manifest.parent / payload["npv_calibration"]
+
     required = (checkpoint, context) + ((scenario_ood,) if scenario_ood is not None else ())
     missing = [str(path) for path in required if not path.is_file()]
     if head is not None and not head.is_file():
@@ -135,11 +154,13 @@ def resolve_runtime_artifacts(
             missing.append(str(head))
         else:
             head = None
+    if calibration is not None and not calibration.is_file():
+        missing.append(str(calibration))
     if missing:
         raise RuntimeArtifactError(
             f"{source}: missing runtime artifact(s): {', '.join(missing)}"
         )
-    return RuntimeArtifacts(
+    artifacts = RuntimeArtifacts(
         checkpoint=checkpoint,
         feature_context=context,
         npv_head=head,
@@ -147,4 +168,7 @@ def resolve_runtime_artifacts(
         scenario_ood=scenario_ood,
         economic_model_version=economic_model_version,
         economic_target_provenance_hash=economic_target_provenance_hash,
+        npv_calibration=calibration,
     )
+    validate_npv_scoring_is_unambiguous(artifacts)
+    return artifacts

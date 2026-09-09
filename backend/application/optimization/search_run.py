@@ -60,8 +60,36 @@ SEARCH_DIAGNOSTICS = Path(os.environ.get("AIOS_SEARCH_DIAGNOSTICS_PATH", "data/l
 SEARCH_RESULT = Path(os.environ.get("AIOS_SEARCH_RESULT_PATH", "data/lambda-window-2007/cmaes.json"))
 BASE_NPV = 11_873_676_459.64
 SEED = 20260816
-SEARCH_CAP = 2
-FINAL_CAP = 8
+
+
+class SearchRunError(RuntimeError):
+    pass
+
+
+DEFAULT_SEARCH_CAP = 2
+DEFAULT_FINAL_CAP = 8
+
+
+def _positive_cap(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except ValueError as error:
+        raise SearchRunError(
+            f"{name}={raw!r} — потолок неподвижной точки задаётся целым числом"
+        ) from error
+    if value <= 0:
+        raise SearchRunError(
+            f"{name}={value} не положителен: потолок неподвижной точки "
+            f"берётся снаружи, но обязан допускать хотя бы одну итерацию"
+        )
+    return value
+
+
+SEARCH_CAP = _positive_cap("AIOS_SEARCH_FIXED_POINT_CAP", DEFAULT_SEARCH_CAP)
+FINAL_CAP = _positive_cap("AIOS_FINAL_FIXED_POINT_CAP", DEFAULT_FINAL_CAP)
 FINALIST_CAP = 4
 OOD_THRESHOLD = float(os.environ.get("AIOS_OOD_THRESHOLD", "0.0"))
 BUDGET = 120
@@ -90,10 +118,6 @@ class SearchOutcome:
     self_consistent: bool
     static_violations: int | None = None
     dynamic_blocking_violations: int | None = None
-
-
-class SearchRunError(RuntimeError):
-    pass
 
 
 def _repair_predicted_water_balance(
@@ -324,8 +348,17 @@ def _search_near_baseline(env, evaluator, budget: int, provenance: dict[str, str
 
 
 def run_search(
-    *, budget: int = BUDGET, case_path: Path | None = None
+    *,
+    budget: int = BUDGET,
+    case_path: Path | None = None,
+    search_cap: int = SEARCH_CAP,
+    final_cap: int = FINAL_CAP,
 ) -> SearchOutcome:
+    if search_cap <= 0 or final_cap <= 0:
+        raise SearchRunError(
+            f"потолок неподвижной точки должен быть положительным: "
+            f"поиск {search_cap}, финал {final_cap}"
+        )
     artifacts = resolve_runtime_artifacts()
     if artifacts.scenario_ood is None:
         raise SearchRunError("production search requires a versioned scenario OOD artifact")
@@ -338,6 +371,7 @@ def run_search(
         checkpoint_path=artifacts.checkpoint,
         feature_context_path=artifacts.feature_context,
         npv_head_path=artifacts.npv_head,
+        npv_calibration_path=artifacts.npv_calibration,
         scenario_ood_path=artifacts.scenario_ood,
         lambda_path=LAMBDA,
         constraints=constraints,
@@ -357,12 +391,16 @@ def run_search(
         "npv_head_version": env.npv_head.version if env.npv_head else "none",
         "constraints_path": str(constraints_path),
         "ood_threshold": str(env.ood_threshold),
+        "search_fixed_point_cap": str(search_cap),
+        "final_fixed_point_cap": str(final_cap),
+        "search_strategy": "cma-es",
+        "policy_equilibrium": "not-claimed",
     }
     calls = {"n": 0, "best": float("-inf")}
 
     def objective(theta) -> OptimizerResult:
         try:
-            result = resolve(make_policy(env, theta, {}), evaluator, initial, SEARCH_CAP)
+            result = resolve(make_policy(env, theta, {}), evaluator, initial, search_cap)
         except (OutOfDomainScheduleError, PhysicallyImpossibleScheduleError) as error:
             calls["n"] += 1
             return OptimizerResult(
@@ -416,7 +454,7 @@ def run_search(
 
     print(
         f"CMA-ES: параметров 10, бюджет {budget} оценок, потолок неподвижной "
-        f"точки в поиске {SEARCH_CAP}, seed {SEED}",
+        f"точки в поиске {search_cap}, seed {SEED}",
         flush=True,
     )
     started = time.monotonic()
@@ -436,7 +474,8 @@ def run_search(
             {
                 "seed": SEED,
                 "budget": budget,
-                "search_cap": SEARCH_CAP,
+                "search_cap": search_cap,
+                "final_cap": final_cap,
                 "model_version": env.model.version,
                 "npv_head_version": env.npv_head.version if env.npv_head else None,
                 "ood_threshold": env.ood_threshold,
@@ -482,7 +521,7 @@ def run_search(
         seen.add(signature)
         try:
             final = resolve(
-                make_policy(env, candidate.theta, {}), evaluator, initial, FINAL_CAP
+                make_policy(env, candidate.theta, {}), evaluator, initial, final_cap
             )
             check = validate_static(final.schedule, env.constraints)
             repaired_schedule, evaluated, dynamic, repair_rounds = _repair_predicted_water_balance(
@@ -546,7 +585,14 @@ def run_search(
         theta=best_theta,
         predicted_npv=predicted_npv,
         schedule_hash=schedule_hash,
-        provenance=provenance,
+        provenance=dict(
+            provenance,
+            search_strategy="cma-es",
+            selected_candidate="finalist",
+            policy_equilibrium=(
+                "reached" if final.self_consistent else "not-claimed"
+            ),
+        ),
         evaluations=report.evaluations,
         converged=final.converged,
         self_consistent=final.self_consistent,
@@ -570,8 +616,12 @@ def main() -> int:
                 "schedule_path": str(schedule_path),
                 "budget": budget,
                 "evaluations": outcome.evaluations,
-                "search_cap": SEARCH_CAP,
-                "final_cap": FINAL_CAP,
+                "search_cap": int(
+                    outcome.provenance.get("search_fixed_point_cap", SEARCH_CAP)
+                ),
+                "final_cap": int(
+                    outcome.provenance.get("final_fixed_point_cap", FINAL_CAP)
+                ),
                 "theta": dict(outcome.theta.values),
                 "npv_predicted": outcome.predicted_npv,
                 "npv_baseline": BASE_NPV,

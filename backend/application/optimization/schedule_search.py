@@ -122,6 +122,20 @@ def _validate_npv_head_compatibility(
         )
 
 
+_AMBIGUOUS_NPV_SCORING = (
+    "одновременно заданы аффинная калибровка ЧДД и голова прямого прогноза: "
+    "калибровка подобрана на сыром физическом ЧДД и к бленду головы "
+    "неприменима — итоговое число было бы посчитано не тем, чем заявлено; "
+    "оставьте один механизм"
+)
+
+
+def _validate_npv_scoring_is_unambiguous(
+    npv_head: object | None, npv_calibration: object | None
+) -> None:
+    if npv_head is not None and npv_calibration is not None:
+        raise ScheduleSearchError(_AMBIGUOUS_NPV_SCORING)
+
 
 class OutOfDomainScheduleError(ScheduleSearchError):
 
@@ -338,6 +352,7 @@ def load_environment(
     oil_density_t_per_m3: float = 0.9131,
     lambda_path: Path | None = None,
     npv_head_path: Path | None = None,
+    npv_calibration_path: Path | None = None,
     scenario_ood_path: Path | None = None,
     physics_gate: bool = True,
     constraints: Constraints | None = None,
@@ -371,6 +386,12 @@ def load_environment(
     npv_head = load_direct_npv_head(head_path) if head_path is not None else None
     if npv_head is not None:
         _validate_npv_head_compatibility(npv_head, model, feature_context_path)
+    npv_calibration = (
+        NpvCalibration.load(npv_calibration_path, model_version=model.version)
+        if npv_calibration_path is not None
+        else None
+    )
+    _validate_npv_scoring_is_unambiguous(npv_head, npv_calibration)
     if lambda_path is None:
         lambda_, groups = _trivial_connectivity(base_schedule)
     else:
@@ -408,6 +429,7 @@ def load_environment(
         constraints=case_constraints,
         flags=flags,
         npv_head=npv_head,
+        npv_calibration=npv_calibration,
         scenario_ood=scenario_ood,
         physics_gate=physics_gate,
         ood_threshold=ood_threshold,
@@ -1179,6 +1201,7 @@ def predict_economics(env: SearchEnvironment, model_input, response: ResponseArt
     if env.npv_head is None:
         blended = env.npv_calibration.apply(physical) if env.npv_calibration is not None else physical
         return {"physical": physical, "blended": blended}
+    _validate_npv_scoring_is_unambiguous(env.npv_head, env.npv_calibration)
     direct = env.npv_head.predict(model_input)
     weight = float(getattr(env.npv_head, "physical_npv_weight", 0.0))
     return {"direct": direct, "physical": physical, "blended": (1.0 - weight) * direct + weight * physical}
