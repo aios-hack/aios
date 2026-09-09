@@ -68,9 +68,22 @@ const CouncilReady = ({ data }: { data: HierarchyFile }) => {
     );
   }
 
+  const synthetic = data.meta?.synthetic === true;
+  const provenance = data.meta?.provenance ?? null;
+
   return (
     <section className="council" data-step={step.control_step}>
       <CouncilControls />
+      {synthetic && (
+        <p className="council-notice" role="note" data-testid="council-synthetic">
+          <span className="council-notice-title">{t('council.synthetic.title')}</span>
+          <span className="council-notice-body">
+            {provenance === null
+              ? t('council.synthetic.bodyUnknown')
+              : t('council.synthetic.body', { provenance })}
+          </span>
+        </p>
+      )}
       <GroupLevel
         step={step}
         segments={segments}

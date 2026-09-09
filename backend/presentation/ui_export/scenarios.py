@@ -14,11 +14,20 @@ from backend.domain.configuration.constraints_io import (
 from backend.core.contracts import Constraints
 
 from backend.presentation.ui_export.artifact_io import load_bundle
+from backend.presentation.ui_export.physics_view import (
+    PHYSICS_INVARIANTS,
+    PHYSICS_TOTAL,
+    ScenarioPhysics,
+    physics_json,
+)
 
 __all__ = [
     "YEAR_SECTIONS",
     "REGRET_PARTS",
+    "PHYSICS_INVARIANTS",
+    "PHYSICS_TOTAL",
     "WorstRegret",
+    "ScenarioPhysics",
     "ScenarioRobustness",
     "constraints_to_json",
     "constraints_from_json",
@@ -47,9 +56,6 @@ class WorstRegret:
 
 @dataclass(frozen=True, slots=True)
 class ScenarioRobustness:
-    """Показатели F8 по одному сценарию. `None` — «не измерено», и это не
-    то же самое, что измеренный ноль: интерфейс их различает."""
-
     ood_score: float | None = None
     ood_threshold: float | None = None
     worst_regret: WorstRegret | None = None
@@ -58,6 +64,7 @@ class ScenarioRobustness:
     predicted_npv_rub: float | None = None
     calibrated_npv_rub: float | None = None
     run_validation_clean: bool | None = None
+    physics: ScenarioPhysics | None = None
 
     def __post_init__(self) -> None:
         if (self.final_npv_rub is None) != (self.final_npv_run_id is None):
@@ -109,6 +116,7 @@ def _robustness_json(robustness: ScenarioRobustness) -> dict[str, Any]:
         "predicted_npv_rub": robustness.predicted_npv_rub,
         "calibrated_npv_rub": robustness.calibrated_npv_rub,
         "run_validation_clean": robustness.run_validation_clean,
+        "physics": physics_json(robustness.physics),
     }
 
 
@@ -133,10 +141,6 @@ def build_scenario_index(
     artifact_paths: list[Path],
     robustness: dict[str, ScenarioRobustness] | None = None,
 ) -> dict[str, Any]:
-    """`robustness` — показатели F8 по идентификатору сценария. Сценарий, о
-    котором ничего не измерено, получает `null` во всех четырёх полях: их
-    отсутствие в записи и измеренный ноль — разные утверждения."""
-
     robustness = robustness or {}
     scenarios: list[dict[str, Any]] = []
     submitted: list[str] = []
@@ -159,8 +163,6 @@ def build_scenario_index(
                 "converged": artifact.converged,
                 "self_consistent": artifact.self_consistent,
                 "is_submitted": is_submitted,
-                # Подтверждённый полный прогон не обязан быть сдаваемым
-                # сценарием. Base измерен OPM, но is_submitted остаётся false.
                 "npv_methodology": (
                     artifact_npv
                     if artifact_npv is not None

@@ -316,7 +316,7 @@ def collect_status(root: Path) -> dict[str, Any]:
     memory_total, memory_used = _memory()
     disk = shutil.disk_usage(root)
     cores = os.cpu_count() or 1
-    load1 = os.getloadavg()[0]
+    load1 = os.getloadavg()[0] if hasattr(os, "getloadavg") else None
     gib = 1024**3
     return {
         "now": datetime.now(timezone.utc).isoformat(),

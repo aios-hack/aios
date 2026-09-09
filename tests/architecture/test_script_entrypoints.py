@@ -1,5 +1,3 @@
-"""Root scripts are production entry points, not pytest consumers."""
-
 from __future__ import annotations
 
 import ast
@@ -7,28 +5,48 @@ from pathlib import Path
 
 from backend.core.paths import project_root
 
+SCRIPT_DIRECTORIES: tuple[str, ...] = ("tools", "scripts")
 
-SCRIPTS = (
-    Path("build_dataset.py"),
-    Path("tools/g10_pool.py"),
-    Path("tools/g10_run.py"),
-    Path("tools/g10_violations.py"),
-    Path("tools/g9_diff.py"),
-    Path("tools/r1_check.py"),
-)
+
+def discovered_scripts() -> tuple[Path, ...]:
+    root = project_root()
+    found: list[Path] = [Path("build_dataset.py")]
+    for directory in SCRIPT_DIRECTORIES:
+        base = root / directory
+        if not base.is_dir():
+            continue
+        for path in sorted(base.rglob("*.py")):
+            if "__pycache__" in path.parts or "tests" in path.parts:
+                continue
+            found.append(path.relative_to(root))
+    return tuple(found)
+
+
+def imported_modules(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module is not None:
+            modules.add(node.module)
+    return modules
+
+
+def test_scripts_are_discovered_automatically() -> None:
+    scripts = discovered_scripts()
+    assert scripts, "не найдено ни одного скрипта-точки входа"
+    names = {path.as_posix() for path in scripts}
+    assert "tools/lambda_compare.py" in names, sorted(names)
 
 
 def test_production_scripts_do_not_import_pytest_configuration() -> None:
     root = project_root()
-    for relative in SCRIPTS:
+    offenders: list[str] = []
+    for relative in discovered_scripts():
         path = root / relative
         source = path.read_text(encoding="utf-8")
-        tree = ast.parse(source, filename=str(path))
-        imported = {
-            alias.name
-            for node in ast.walk(tree)
-            for alias in getattr(node, "names", ())
-            if isinstance(node, (ast.Import, ast.ImportFrom))
-        }
-        assert "conftest" not in imported, relative
         compile(source, str(path), "exec")
+        if "conftest" in imported_modules(path):
+            offenders.append(relative.as_posix())
+    assert not offenders, f"скрипты импортируют конфигурацию тестов: {offenders}"

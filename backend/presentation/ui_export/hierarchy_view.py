@@ -39,7 +39,6 @@ from backend.presentation.ui_export.timeline import _JSON_DIGITS
 HISTORY_DECK_OFFSET: int = 146
 SETPOINT_STEP_M3_PER_DAY: float = 1.0
 DEFAULT_OIL_DENSITY_T_PER_M3: float = 0.86
-HEADROOM: float = 1.12
 
 
 def _normatives() -> NormativeSet:
@@ -213,9 +212,7 @@ def _field_level(result: HierarchyResult) -> dict[str, Any]:
     limit = _round(allocation.field_limit_m3_per_day)
     return {
         "injection_limit_m3_per_day": limit,
-        "water_available_m3_per_day": _round(
-            allocation.field_limit_m3_per_day * HEADROOM
-        ),
+        "water_available_m3_per_day": None,
         "allocated_m3_per_day": _round(allocation.allocated_m3_per_day()),
         "allocations": [
             {

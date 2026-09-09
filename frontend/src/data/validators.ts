@@ -59,6 +59,7 @@ const isArtifactMeta = (value: unknown): boolean =>
   (isRecord(value) &&
     isStr(value.kind) &&
     isStr(value.provenance) &&
+    (isAbsent(value.synthetic) || isBool(value.synthetic)) &&
     (isAbsent(value.seed) || isNum(value.seed)) &&
     isOptionalStr(value.notice_ru) &&
     isOptionalStr(value.notice_en));
@@ -76,6 +77,9 @@ const isFieldStats = (data: unknown): boolean =>
   isNumOrNull(data.production) &&
   isNumOrNull(data.injection) &&
   isNumOrNull(data.compensation) &&
+  (isAbsent(data.compensation_surface) || isNumOrNull(data.compensation_surface)) &&
+  (isAbsent(data.compensation_reservoir) || isNumOrNull(data.compensation_reservoir)) &&
+  (isAbsent(data.compensation_defined) || isBoolOrNull(data.compensation_defined)) &&
   isNum(data.npv_cumulative) &&
   isNum(data.active_wells);
 
@@ -104,7 +108,14 @@ const isStep = (data: unknown): boolean =>
   data.wells.every(isWellRow);
 
 const isNormBand = (value: unknown): boolean =>
-  isAbsent(value) || (isRecord(value) && isNum(value.min) && isNum(value.max));
+  isAbsent(value) ||
+  (isRecord(value) &&
+    isNum(value.min) &&
+    isNum(value.max) &&
+    (isAbsent(value.source) || isStr(value.source)) &&
+    (isAbsent(value.enforcement) || isStr(value.enforcement)) &&
+    (isAbsent(value.scope) || isStr(value.scope)) &&
+    (isAbsent(value.basis) || isStr(value.basis)));
 
 const isFieldNorms = (value: unknown): boolean =>
   isAbsent(value) || (isRecord(value) && isNormBand(value.compensation));
@@ -253,6 +264,26 @@ const isConstraintsSummary = (data: unknown): boolean =>
   isStrArray(data.outage_wells) &&
   isBool(data.empty);
 
+const isPhysicsSkip = (data: unknown): boolean =>
+  isRecord(data) &&
+  isStr(data.invariant) &&
+  isStr(data.reason) &&
+  isStr(data.severity);
+
+const isScenarioPhysics = (value: unknown): boolean =>
+  isAbsent(value) ||
+  (isRecord(value) &&
+    isNum(value.total) &&
+    isNum(value.evaluated_count) &&
+    isStrArray(value.evaluated) &&
+    isSafeArray(value.skipped) &&
+    value.skipped.every(isPhysicsSkip) &&
+    isNum(value.blocking_count) &&
+    isNum(value.warning_count) &&
+    isBool(value.complete) &&
+    isBool(value.admissible) &&
+    isStrArray(value.warning_invariants));
+
 const isScenarioEntry = (data: unknown): boolean =>
   isRecord(data) &&
   isStr(data.id) &&
@@ -268,6 +299,7 @@ const isScenarioEntry = (data: unknown): boolean =>
   isOptionalNum(data.predicted_npv_rub) &&
   isOptionalNum(data.calibrated_npv_rub) &&
   isWorstRegret(data.worst_regret) &&
+  isScenarioPhysics(data.physics) &&
   isFinalNpv(data.final_npv);
 
 export const isScenariosFile = (data: unknown): data is ScenariosFile =>
@@ -328,7 +360,8 @@ const isFieldAllocation = (data: unknown): boolean =>
 const isHierarchyFieldLevel = (data: unknown): boolean =>
   isRecord(data) &&
   isNum(data.injection_limit_m3_per_day) &&
-  isNum(data.water_available_m3_per_day) &&
+  (data.water_available_m3_per_day === null ||
+    isNum(data.water_available_m3_per_day)) &&
   isSafeArray(data.allocations) &&
   data.allocations.every(isFieldAllocation);
 

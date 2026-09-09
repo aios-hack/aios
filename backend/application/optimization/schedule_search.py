@@ -211,30 +211,39 @@ def _enforce_physics(
     raise PhysicallyImpossibleScheduleError(blocking, description)
 
 
-def _enforce_scenario_ood(
+def _scenario_ood_excess(
     model_input, model, domain: ScenarioDensityDomain | None
-) -> None:
-
+) -> tuple[float, str] | None:
     if domain is None:
-        return
+        return None
     x, well_index = _features(model_input, model.wells, scenario_context=False)
     vector = scenario_feature_vector(
         x, well_index, n_wells=len(model.wells), feature_set="economic"
     )
     score = domain.score(vector[: domain.feature_width])
     if score <= domain.threshold:
-        return
-    raise OutOfDomainScheduleError(
-        score,
+        return None
+    return score, (
         f"совместная плотность расписания {score:.4g} выше порога "
-        f"{domain.threshold:.4g} (квантиль {domain.threshold_quantile} по валидации)",
+        f"{domain.threshold:.4g} (квантиль {domain.threshold_quantile} по валидации)"
     )
 
 
-def _enforce_ood_threshold(ood: OodScore, threshold: float | None) -> None:
+def _enforce_scenario_ood(
+    model_input, model, domain: ScenarioDensityDomain | None
+) -> None:
 
-    if threshold is None or ood.inside(threshold):
+    exceeded = _scenario_ood_excess(model_input, model, domain)
+    if exceeded is None:
         return
+    raise OutOfDomainScheduleError(*exceeded)
+
+
+def _ood_threshold_excess(
+    ood: OodScore, threshold: float | None
+) -> tuple[float, str] | None:
+    if threshold is None or ood.inside(threshold):
+        return None
     worst = ood.worst
     description = (
         "неизвестное превышение"
@@ -245,7 +254,43 @@ def _enforce_ood_threshold(ood: OodScore, threshold: float | None) -> None:
             f"train [{worst.low:.6g}, {worst.high:.6g}]"
         )
     )
-    raise OutOfDomainScheduleError(ood.score, description)
+    return ood.score, description
+
+
+def _enforce_ood_threshold(ood: OodScore, threshold: float | None) -> None:
+
+    exceeded = _ood_threshold_excess(ood, threshold)
+    if exceeded is None:
+        return
+    raise OutOfDomainScheduleError(*exceeded)
+
+
+def ood_penalty_factor(excess: float, penalty_per_unit: float) -> float:
+    if not math.isfinite(excess) or excess < 0.0:
+        raise ScheduleSearchError(
+            f"превышение области применимости {excess!r} не конечно или отрицательно: "
+            "мягкий штраф посчитать не по чему"
+        )
+    if not math.isfinite(penalty_per_unit) or penalty_per_unit < 0.0:
+        raise ScheduleSearchError(
+            f"ставка мягкого штрафа {penalty_per_unit!r} не конечна или отрицательна"
+        )
+    return math.exp(-penalty_per_unit * excess)
+
+
+def apply_ood_penalty(npv: float, excess: float, penalty_per_unit: float) -> float:
+    if not math.isfinite(npv):
+        raise ScheduleSearchError(
+            f"ЧДД {npv!r} не конечен: мягкий штраф области применимости неприменим"
+        )
+    factor = ood_penalty_factor(excess, penalty_per_unit)
+    penalized = npv * factor if npv >= 0.0 else npv / factor
+    if not math.isfinite(penalized):
+        raise ScheduleSearchError(
+            f"мягкий штраф дал неконечный ЧДД: npv={npv!r}, excess={excess!r}, "
+            f"ставка={penalty_per_unit!r}"
+        )
+    return penalized
 
 
 def _trivial_connectivity(schedule: Schedule) -> tuple[Lambda, Groups]:
@@ -299,6 +344,8 @@ class SearchEnvironment:
     npv_calibration: NpvCalibration | None = None
     physics_gate: bool = True
     ood_threshold: float = 0.0
+    ood_soft_penalty: bool = False
+    ood_penalty_per_unit: float = 0.0
     reference_schedule: Schedule | None = None
     reference_response: RawModelOutput | None = None
     provenance: Mapping[str, str] = MappingProxyType({})
@@ -357,6 +404,8 @@ def load_environment(
     physics_gate: bool = True,
     constraints: Constraints | None = None,
     ood_threshold: float = 0.0,
+    ood_soft_penalty: bool = False,
+    ood_penalty_per_unit: float = 0.0,
 ) -> SearchEnvironment:
 
     case_constraints = Constraints() if constraints is None else constraints
@@ -364,6 +413,11 @@ def load_environment(
     compensation_policy(case_constraints)
     if ood_threshold < 0.0:
         raise ScheduleSearchError("OOD threshold не может быть отрицательным")
+    if ood_soft_penalty and ood_penalty_per_unit <= 0.0:
+        raise ScheduleSearchError(
+            f"мягкий штраф включён, а ставка {ood_penalty_per_unit} не положительна: "
+            "штраф, не наказывающий за выход, ничем не отличается от снятой охраны"
+        )
     raw = (Path(model_dir) / _SCHEDULE_INCLUDE).read_bytes()
     parsed = parse_schedule(raw)
     base_schedule = build_schedule(parsed, raw, provenance="policy-search-base")
@@ -433,6 +487,8 @@ def load_environment(
         scenario_ood=scenario_ood,
         physics_gate=physics_gate,
         ood_threshold=ood_threshold,
+        ood_soft_penalty=ood_soft_penalty,
+        ood_penalty_per_unit=ood_penalty_per_unit,
         reference_schedule=reference_schedule,
         reference_response=reference_response,
         provenance=provenance,
@@ -1373,9 +1429,23 @@ def make_evaluator(env: SearchEnvironment, *, with_sigma: bool = False):
             featureizer.transform(schedule, env.feature_context.context),
             lambda_edges=(),
         )
-        _enforce_scenario_ood(model_input, env.model, env.scenario_ood)
-        scored = env.model.predict(model_input)
-        _enforce_ood_threshold(scored.ood, env.ood_threshold)
+        if env.ood_soft_penalty:
+            scenario_excess = _scenario_ood_excess(
+                model_input, env.model, env.scenario_ood
+            )
+            scored = env.model.predict(model_input)
+            node_excess = _ood_threshold_excess(scored.ood, env.ood_threshold)
+            penalty_excess = max(
+                0.0
+                if scenario_excess is None
+                else scenario_excess[0] - float(env.scenario_ood.threshold),
+                0.0 if node_excess is None else node_excess[0] - env.ood_threshold,
+            )
+        else:
+            _enforce_scenario_ood(model_input, env.model, env.scenario_ood)
+            scored = env.model.predict(model_input)
+            _enforce_ood_threshold(scored.ood, env.ood_threshold)
+            penalty_excess = 0.0
         physics = full_physics_report(env, schedule, scored.output)
         _enforce_physics(physics, env.physics_gate)
         evaluator.physics_report = physics  # type: ignore[attr-defined]
@@ -1390,12 +1460,23 @@ def make_evaluator(env: SearchEnvironment, *, with_sigma: bool = False):
             interval_response=intervals,
         )
         npv_parts = predict_economics(env, model_input, response)
-        npv = npv_parts["blended"]
+        npv = npv_parts['blended']
         economic_ood = (
             env.npv_head.predict_with_domain(model_input)[1]
             if isinstance(env.npv_head, ScenarioNpvHead) else 0.0
         )
         ood_score = max(scored.ood.score, economic_ood)
+        if env.ood_soft_penalty and penalty_excess > 0.0:
+            penalized = apply_ood_penalty(
+                npv, penalty_excess, env.ood_penalty_per_unit
+            )
+            npv_parts = dict(
+                npv_parts,
+                blended=penalized,
+                unpenalized_blended=float(npv),
+                ood_penalty_excess=float(penalty_excess),
+            )
+            npv = penalized
         return Evaluation(
             npv=npv,
             state=PolicyFeedback(response=response, schedule=schedule),

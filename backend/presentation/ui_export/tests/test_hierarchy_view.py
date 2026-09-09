@@ -15,7 +15,6 @@ from backend.domain.policy.agents.registry import DEFAULT_REGISTRY
 from backend.domain.policy.levels import Level
 from backend.presentation.ui_export.fixtures import make_synthetic_artifact
 from backend.presentation.ui_export.hierarchy_view import (
-    HEADROOM,
     build_hierarchy,
     export_hierarchy_json,
     run_hierarchy_steps,
@@ -102,9 +101,7 @@ def test_group_limits_sum_to_the_field_limit() -> None:
         assert total == pytest.approx(
             field["allocated_m3_per_day"], abs=1e-3
         )
-        assert field["water_available_m3_per_day"] == pytest.approx(
-            field["injection_limit_m3_per_day"] * HEADROOM, abs=1e-3
-        )
+        assert field["water_available_m3_per_day"] is None
 
 
 def test_field_allocation_names_match_the_group_level() -> None:

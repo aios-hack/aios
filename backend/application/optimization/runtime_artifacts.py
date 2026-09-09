@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+import math
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -12,6 +13,134 @@ from backend.core.paths import project_root
 
 class RuntimeArtifactError(ValueError):
     pass
+
+
+CONSERVATIVE_OOD_THRESHOLD = 0.0
+OOD_CALIBRATION_FORMAT = "aios.ood-calibration.v1"
+DEFAULT_OOD_CALIBRATION = "out/ood-calibration.json"
+
+
+@dataclass(frozen=True, slots=True)
+class OodThresholdDecision:
+    value: float
+    origin: str
+    calibrated: bool
+    calibration_path: Path | None
+    point_count: int
+    detail: str
+
+    def as_provenance(self) -> dict[str, str]:
+        return {
+            "ood_threshold": repr(self.value),
+            "ood_threshold_origin": self.origin,
+            "ood_threshold_calibrated": "true" if self.calibrated else "false",
+            "ood_threshold_source": (
+                "none" if self.calibration_path is None else str(self.calibration_path)
+            ),
+            "ood_threshold_point_count": str(self.point_count),
+            "ood_threshold_detail": self.detail,
+        }
+
+
+def _parse_threshold_override(raw: str) -> float:
+    try:
+        value = float(raw)
+    except ValueError as error:
+        raise RuntimeArtifactError(
+            f"AIOS_OOD_THRESHOLD={raw!r} — порог области применимости задаётся числом"
+        ) from error
+    if not math.isfinite(value) or value < 0.0:
+        raise RuntimeArtifactError(
+            f"AIOS_OOD_THRESHOLD={raw!r} — порог обязан быть конечным и неотрицательным"
+        )
+    return value
+
+
+def _read_calibration(path: Path) -> tuple[float, int, bool]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise RuntimeArtifactError(
+            f"артефакт калибровки OOD {path} не читается: {error}"
+        ) from error
+    if not isinstance(payload, dict) or payload.get("format") != OOD_CALIBRATION_FORMAT:
+        raise RuntimeArtifactError(f"неподдерживаемый артефакт калибровки OOD: {path}")
+    threshold = payload.get("threshold")
+    if not isinstance(threshold, (int, float)) or isinstance(threshold, bool):
+        raise RuntimeArtifactError(f"{path}: порог калибровки не число")
+    value = float(threshold)
+    if not math.isfinite(value) or value < 0.0:
+        raise RuntimeArtifactError(
+            f"{path}: порог калибровки {value} не конечен или отрицателен"
+        )
+    count = payload.get("point_count")
+    if not isinstance(count, int) or isinstance(count, bool) or count < 1:
+        raise RuntimeArtifactError(
+            f"{path}: калибровка без единой измеренной точки не задаёт порог"
+        )
+    return value, count, bool(payload.get("curve_is_reliable", False))
+
+
+def resolve_ood_threshold(
+    environ: Mapping[str, str] | None = None,
+) -> OodThresholdDecision:
+    env = os.environ if environ is None else environ
+    override = env.get("AIOS_OOD_THRESHOLD")
+    configured = env.get("AIOS_OOD_CALIBRATION_PATH")
+    root_override = env.get("AIOS_PROJECT_ROOT")
+    root = Path(root_override).expanduser().resolve() if root_override else project_root()
+    calibration_path = (
+        Path(configured) if configured else root / DEFAULT_OOD_CALIBRATION
+    )
+    if override is not None:
+        value = _parse_threshold_override(override)
+        return OodThresholdDecision(
+            value=value,
+            origin="environment-override",
+            calibrated=False,
+            calibration_path=calibration_path if calibration_path.is_file() else None,
+            point_count=0,
+            detail=(
+                f"AIOS_OOD_THRESHOLD={override!r} перекрывает артефакт калибровки; "
+                "происхождение порога — явное переопределение оператором"
+            ),
+        )
+    if configured and not calibration_path.is_file():
+        raise RuntimeArtifactError(
+            f"AIOS_OOD_CALIBRATION_PATH={configured} указывает на отсутствующий "
+            "артефакт калибровки"
+        )
+    if not calibration_path.is_file():
+        return OodThresholdDecision(
+            value=CONSERVATIVE_OOD_THRESHOLD,
+            origin="uncalibrated-conservative-default",
+            calibrated=False,
+            calibration_path=None,
+            point_count=0,
+            detail=(
+                f"артефакт калибровки {calibration_path} отсутствует: порог "
+                f"{CONSERVATIVE_OOD_THRESHOLD} взят как консервативный, "
+                "НЕ ОТКАЛИБРОВАН — отвергается любой кандидат хоть с одним "
+                "узлом вне обучающего диапазона"
+            ),
+        )
+    value, count, reliable = _read_calibration(calibration_path)
+    return OodThresholdDecision(
+        value=value,
+        origin=(
+            "calibration-artifact"
+            if reliable
+            else "calibration-artifact/insufficient-points"
+        ),
+        calibrated=True,
+        calibration_path=calibration_path,
+        point_count=count,
+        detail=(
+            f"порог {value} взят из {calibration_path} по {count} измеренным "
+            f"точкам «ошибка против OOD»"
+            + ("" if reliable else "; точек мало, кривая ненадёжна")
+        ),
+    )
 
 
 @dataclass(frozen=True, slots=True)

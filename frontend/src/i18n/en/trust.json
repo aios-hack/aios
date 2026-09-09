@@ -48,5 +48,13 @@
   "group.checks": "Checks",
   "group.risk": "Risk",
   "flaggedOne": "Confirm with a full run before deciding.",
-  "allClear": "Every check passed."
+  "allClear": "Every check passed.",
+  "label.physics": "Forecast physics",
+  "physics.counted": "{done} of {total}",
+  "physics.partial": "{done} of {total} invariants computed — the check is incomplete",
+  "physics.skipped": "Not recorded: {invariants}",
+  "physics.clean": "All {total} invariants computed, no violations",
+  "physics.blocking": "Blocking violations: {count}",
+  "physics.warnings": "Warnings (bottomhole pressure limit): {count}",
+  "physics.unrecorded": "Physics checks are not recorded in the artifact"
 }

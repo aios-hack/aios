@@ -59,7 +59,7 @@ export const GroupLevel = ({
   const { t, lang } = useI18n();
   const limit = step.field.injection_limit_m3_per_day;
   const available = step.field.water_available_m3_per_day;
-  const usage = available > 0 ? limit / available : null;
+  const usage = available !== null && available > 0 ? limit / available : null;
 
   return (
     <section

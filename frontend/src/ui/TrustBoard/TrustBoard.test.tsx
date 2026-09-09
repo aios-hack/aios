@@ -244,9 +244,9 @@ describe('TrustBoard indicator statuses', () => {
     expect(provenance.getAttribute('data-status')).toBe('unmeasured');
   });
 
-  it('renders exactly six indicators', async () => {
+  it('renders exactly seven indicators', async () => {
     const board = await renderBoard([scenario()]);
-    expect(board.querySelectorAll('.trust-item')).toHaveLength(6);
+    expect(board.querySelectorAll('.trust-item')).toHaveLength(7);
   });
 });
 

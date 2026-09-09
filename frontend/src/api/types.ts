@@ -1,6 +1,7 @@
 export interface ArtifactMeta {
   kind: string;
   provenance: string;
+  synthetic?: boolean;
   seed?: number;
   notice_ru?: string;
   notice_en?: string;
@@ -64,6 +65,9 @@ export interface TimelineFieldStats {
   production: number | null;
   injection: number | null;
   compensation: number | null;
+  compensation_surface?: number | null;
+  compensation_reservoir?: number | null;
+  compensation_defined?: boolean | null;
   npv_cumulative: number;
   active_wells: number;
 }
@@ -76,9 +80,15 @@ export interface TimelineStep {
   wells: TimelineWellRow[];
 }
 
+export type CompensationBasis = 'surface' | 'reservoir';
+
 export interface FieldNormBand {
   min: number;
   max: number;
+  source?: string;
+  enforcement?: string;
+  scope?: string;
+  basis?: CompensationBasis;
 }
 
 export interface TimelineFieldNorms {
@@ -168,6 +178,24 @@ export interface ScenarioFinalNpv {
   run_id: string;
 }
 
+export interface ScenarioPhysicsSkip {
+  invariant: string;
+  reason: string;
+  severity: string;
+}
+
+export interface ScenarioPhysics {
+  total: number;
+  evaluated_count: number;
+  evaluated: string[];
+  skipped: ScenarioPhysicsSkip[];
+  blocking_count: number;
+  warning_count: number;
+  complete: boolean;
+  admissible: boolean;
+  warning_invariants: string[];
+}
+
 export interface ScenarioEntry {
   id: string;
   config_hash: string;
@@ -183,6 +211,7 @@ export interface ScenarioEntry {
   predicted_npv_rub?: number | null;
   calibrated_npv_rub?: number | null;
   run_validation_clean?: boolean | null;
+  physics?: ScenarioPhysics | null;
 }
 
 export interface ScenariosFile {
@@ -240,7 +269,7 @@ export interface HierarchyFieldAllocation {
 
 export interface HierarchyFieldLevel {
   injection_limit_m3_per_day: number;
-  water_available_m3_per_day: number;
+  water_available_m3_per_day: number | null;
   allocations: HierarchyFieldAllocation[];
 }
 

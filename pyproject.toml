@@ -34,6 +34,12 @@ exclude = ["*.tests", "tests*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+addopts = "-m 'not slow'"
+markers = [
+    "slow: тяжёлые тесты — настоящий OPM/Flow в Docker, многомегабайтные бандлы витрины, длинные разборы деков",
+    "opm: требует настоящего OPM Flow в контейнере",
+    "showcase: читает многомегабайтные бандлы витрины из frontend/public/data",
+]
 testpaths = [
     "tests",
     "backend/infrastructure/opm/tests",

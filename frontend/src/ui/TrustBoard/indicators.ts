@@ -8,6 +8,7 @@ export type TrustIndicatorId =
   | 'domain'
   | 'regret'
   | 'number'
+  | 'physics'
   | 'provenance';
 
 export interface TrustIndicator {
@@ -142,6 +143,58 @@ const numberIndicator = (scenario: ScenarioEntry): TrustIndicator => {
   };
 };
 
+const physicsIndicator = (scenario: ScenarioEntry): TrustIndicator => {
+  const physics = scenario.physics;
+  if (!physics || !isMeasured(physics.total) || !isMeasured(physics.evaluated_count)) {
+    return unmeasured('physics', 'trust.label.physics');
+  }
+  const { evaluated_count: done, total } = physics;
+  const skipped = physics.skipped ?? [];
+  const missing = skipped
+    .map((item) => item.invariant)
+    .join(', ');
+  const counted = { done, total };
+  if (!physics.complete) {
+    return {
+      id: 'physics',
+      status: 'unmeasured',
+      labelKey: 'trust.label.physics',
+      valueKey: 'trust.physics.partial',
+      valueParams: counted,
+      briefKey: 'trust.physics.counted',
+      briefParams: counted,
+      detailKey: missing.length > 0 ? 'trust.physics.skipped' : undefined,
+      detailParams: missing.length > 0 ? { invariants: missing } : undefined,
+      spoken: true
+    };
+  }
+  const blocking = isMeasured(physics.blocking_count) ? physics.blocking_count : 0;
+  const warnings = isMeasured(physics.warning_count) ? physics.warning_count : 0;
+  if (blocking > 0) {
+    return {
+      id: 'physics',
+      status: 'danger',
+      labelKey: 'trust.label.physics',
+      valueKey: 'trust.physics.blocking',
+      valueParams: { count: blocking },
+      briefKey: 'trust.physics.counted',
+      briefParams: counted,
+      spoken: true
+    };
+  }
+  return {
+    id: 'physics',
+    status: 'neutral',
+    labelKey: 'trust.label.physics',
+    valueKey: 'trust.physics.clean',
+    valueParams: counted,
+    briefKey: 'trust.physics.counted',
+    briefParams: counted,
+    detailKey: warnings > 0 ? 'trust.physics.warnings' : undefined,
+    detailParams: warnings > 0 ? { count: warnings } : undefined
+  };
+};
+
 const SYNTHETIC_PROVENANCE = /^(synthetic|demo|mock|sample|fixture)/i;
 
 export const isSyntheticProvenance = (provenance: string): boolean =>
@@ -190,5 +243,6 @@ export const buildIndicators = (
   domainIndicator(scenario),
   regretIndicator(scenario),
   numberIndicator(scenario),
+  physicsIndicator(scenario),
   provenanceIndicator(source)
 ];

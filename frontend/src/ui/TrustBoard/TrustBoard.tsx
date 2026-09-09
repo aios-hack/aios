@@ -95,7 +95,7 @@ export const TrustBoard = () => {
   const byId = (id: string) => indicators.find((indicator) => indicator.id === id);
   const groups: { key: string; ids: string[] }[] = [
     { key: 'source', ids: ['number', 'provenance'] },
-    { key: 'checks', ids: ['converged', 'selfConsistent', 'domain'] },
+    { key: 'checks', ids: ['converged', 'selfConsistent', 'domain', 'physics'] },
     { key: 'risk', ids: ['regret'] }
   ];
   const estimate = byId('number')?.status === 'unmeasured';

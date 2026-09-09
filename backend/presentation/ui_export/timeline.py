@@ -6,15 +6,21 @@ from pathlib import Path
 from typing import Any
 
 from backend.core.contracts import (
-    ControlEvent,
-    EventKind,
-    FixedDeckEvent,
-    IntervalResponse,
-    RunArtifact,
-    Schedule,
-    StateAtDate,
-    watercut,
+    ControlEvent, EventKind, FixedDeckEvent, IntervalResponse, RunArtifact,
+    Schedule, StateAtDate, compensation_policy, watercut,
 )
+from backend.presentation.ui_export.compensation_view import (
+    COMPENSATION_BASIS_RESERVOIR, COMPENSATION_BASIS_SURFACE,
+    COMPENSATION_NORM_MAX, COMPENSATION_NORM_MIN,
+    COMPENSATION_SOURCE_DIAGNOSTIC, compensation_norm, reservoir_compensation,
+)
+
+__all__ = [
+    "COMPENSATION_BASIS_RESERVOIR", "COMPENSATION_BASIS_SURFACE",
+    "COMPENSATION_NORM_MAX", "COMPENSATION_NORM_MIN",
+    "COMPENSATION_SOURCE_DIAGNOSTIC", "build_timeline", "build_trace",
+    "export_timeline_json", "export_trace_json",
+]
 
 
 def _step_date(t0: date, control_step: int) -> str:
@@ -77,13 +83,6 @@ def _interval_watercut(
 
 _JSON_DIGITS = 6
 
-# Коридор нормы компенсации — параметр политики R5, а не наблюдаемая
-# величина: интерфейс рисует по нему полосу на главном графике (F6) и не
-# выводит границы из ряда. Поля нет — полосы нет.
-COMPENSATION_NORM_MIN = 0.95
-COMPENSATION_NORM_MAX = 1.15
-
-
 def _rounded(value: Any) -> Any:
     if isinstance(value, bool) or value is None:
         return value
@@ -97,8 +96,14 @@ def _rounded(value: Any) -> Any:
     return value
 
 
-def build_timeline(artifact: RunArtifact, densities: dict[str, float]) -> dict[str, Any]:
+def build_timeline(
+    artifact: RunArtifact,
+    densities: dict[str, float],
+    reservoir_factors: dict[str, float] | None = None,
+) -> dict[str, Any]:
     schedule = artifact.schedule
+    policy = compensation_policy(artifact.constraints)
+    norm = compensation_norm(policy)
     meta = schedule.meta
     wells = list(meta.wells)
     n_control_dates = meta.n_control_dates
@@ -156,6 +161,9 @@ def build_timeline(artifact: RunArtifact, densities: dict[str, float]) -> dict[s
             entry["cumulative_liquid"] = cumulative[well]
             well_rows.append(entry)
         compensation = injection / production if production > 0 else None
+        compensation_reservoir = reservoir_compensation(
+            production, injection, reservoir_factors
+        )
         steps.append(
             {
                 "control_step": control_step,
@@ -165,6 +173,11 @@ def build_timeline(artifact: RunArtifact, densities: dict[str, float]) -> dict[s
                     "production": None if terminal else production,
                     "injection": None if terminal else injection,
                     "compensation": None if terminal else compensation,
+                    "compensation_surface": None if terminal else compensation,
+                    "compensation_reservoir": (
+                        None if terminal else compensation_reservoir
+                    ),
+                    "compensation_defined": None if terminal else production > 0,
                     "npv_cumulative": npv_cumulative,
                     "active_wells": active_wells,
                 },
@@ -178,12 +191,7 @@ def build_timeline(artifact: RunArtifact, densities: dict[str, float]) -> dict[s
             "n_control_dates": n_control_dates,
             "n_intervals": meta.n_intervals,
             "wells": wells,
-            "field_norms": {
-                "compensation": {
-                    "min": COMPENSATION_NORM_MIN,
-                    "max": COMPENSATION_NORM_MAX,
-                }
-            },
+            "field_norms": {"compensation": norm},
             "steps": steps,
         }
     )
@@ -219,9 +227,14 @@ def _write_json(data: dict[str, Any], out_path: str | Path) -> Path:
 
 
 def export_timeline_json(
-    artifact: RunArtifact, densities: dict[str, float], out_path: str | Path
+    artifact: RunArtifact,
+    densities: dict[str, float],
+    out_path: str | Path,
+    reservoir_factors: dict[str, float] | None = None,
 ) -> Path:
-    return _write_json(build_timeline(artifact, densities), out_path)
+    return _write_json(
+        build_timeline(artifact, densities, reservoir_factors), out_path
+    )
 
 
 def export_trace_json(artifact: RunArtifact, out_path: str | Path) -> Path:

@@ -105,8 +105,162 @@ def _positive_cap(name: str, default: int) -> int:
 SEARCH_CAP = _positive_cap("AIOS_SEARCH_FIXED_POINT_CAP", DEFAULT_SEARCH_CAP)
 FINAL_CAP = _positive_cap("AIOS_FINAL_FIXED_POINT_CAP", DEFAULT_FINAL_CAP)
 FINALIST_CAP = 4
-OOD_THRESHOLD = float(os.environ.get("AIOS_OOD_THRESHOLD", "0.0"))
 RISK_AVERSION_BETA = float(os.environ.get("AIOS_RISK_AVERSION_BETA", "0.0"))
+OOD_CALIBRATION_FORMAT = "aios.ood-calibration.v1"
+DEFAULT_OOD_CALIBRATION = "out/ood-calibration.json"
+CONSERVATIVE_OOD_THRESHOLD = 0.0
+
+
+@dataclass(frozen=True, slots=True)
+class OodThreshold:
+
+    value: float
+    origin: str
+    calibrated: bool
+    source: str
+    point_count: int
+    detail: str
+
+    def as_provenance(self) -> dict[str, str]:
+        return {
+            "ood_threshold": repr(self.value),
+            "ood_threshold_origin": self.origin,
+            "ood_threshold_calibrated": "true" if self.calibrated else "false",
+            "ood_threshold_source": self.source,
+            "ood_threshold_point_count": str(self.point_count),
+            "ood_threshold_detail": self.detail,
+        }
+
+
+def _ood_threshold_decision(
+    environ: Mapping[str, str] | None = None,
+) -> OodThreshold:
+    env = os.environ if environ is None else environ
+    override = env.get("AIOS_OOD_THRESHOLD")
+    configured = env.get("AIOS_OOD_CALIBRATION_PATH")
+    root = env.get("AIOS_PROJECT_ROOT")
+    calibration_path = (
+        Path(configured)
+        if configured
+        else (Path(root) if root else Path.cwd()) / DEFAULT_OOD_CALIBRATION
+    )
+    if override is not None:
+        try:
+            value = float(override)
+        except ValueError as error:
+            raise SearchRunError(
+                f"AIOS_OOD_THRESHOLD={override!r} — порог области применимости "
+                "задаётся числом"
+            ) from error
+        if not math.isfinite(value) or value < 0.0:
+            raise SearchRunError(
+                f"AIOS_OOD_THRESHOLD={override!r} — порог обязан быть конечным "
+                "и неотрицательным"
+            )
+        return OodThreshold(
+            value=value,
+            origin="environment-override",
+            calibrated=False,
+            source="none" if not calibration_path.is_file() else str(calibration_path),
+            point_count=0,
+            detail=(
+                f"AIOS_OOD_THRESHOLD={override!r} перекрывает артефакт калибровки; "
+                "происхождение порога — явное переопределение оператором"
+            ),
+        )
+    if configured and not calibration_path.is_file():
+        raise SearchRunError(
+            f"AIOS_OOD_CALIBRATION_PATH={configured} указывает на отсутствующий "
+            "артефакт калибровки"
+        )
+    if not calibration_path.is_file():
+        return OodThreshold(
+            value=CONSERVATIVE_OOD_THRESHOLD,
+            origin="uncalibrated-conservative-default",
+            calibrated=False,
+            source="none",
+            point_count=0,
+            detail=(
+                f"артефакт калибровки {calibration_path} отсутствует: порог "
+                f"{CONSERVATIVE_OOD_THRESHOLD} взят как консервативный, "
+                "НЕ ОТКАЛИБРОВАН — отвергается любой кандидат хоть с одним узлом "
+                "вне обучающего диапазона"
+            ),
+        )
+    try:
+        payload = json.loads(calibration_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise SearchRunError(
+            f"артефакт калибровки OOD {calibration_path} не читается: {error}"
+        ) from error
+    if not isinstance(payload, dict) or payload.get("format") != OOD_CALIBRATION_FORMAT:
+        raise SearchRunError(
+            f"неподдерживаемый артефакт калибровки OOD: {calibration_path}"
+        )
+    threshold = payload.get("threshold")
+    if isinstance(threshold, bool) or not isinstance(threshold, (int, float)):
+        raise SearchRunError(f"{calibration_path}: порог калибровки не число")
+    value = float(threshold)
+    if not math.isfinite(value) or value < 0.0:
+        raise SearchRunError(
+            f"{calibration_path}: порог калибровки {value} не конечен или отрицателен"
+        )
+    count = payload.get("point_count")
+    if isinstance(count, bool) or not isinstance(count, int) or count < 1:
+        raise SearchRunError(
+            f"{calibration_path}: калибровка без единой измеренной точки "
+            "не задаёт порог"
+        )
+    reliable = bool(payload.get("curve_is_reliable", False))
+    return OodThreshold(
+        value=value,
+        origin=(
+            "calibration-artifact"
+            if reliable
+            else "calibration-artifact/insufficient-points"
+        ),
+        calibrated=True,
+        source=str(calibration_path),
+        point_count=count,
+        detail=(
+            f"порог {value} взят из {calibration_path} по {count} измеренным "
+            f"точкам «ошибка против OOD»"
+            + ("" if reliable else "; точек мало, кривая ненадёжна")
+        ),
+    )
+
+
+def _soft_penalty_enabled(environ: Mapping[str, str] | None = None) -> bool:
+    env = os.environ if environ is None else environ
+    raw = env.get("AIOS_OOD_SOFT_PENALTY")
+    if raw is None:
+        return False
+    normalized = raw.strip().lower()
+    if normalized in ("1", "true", "yes", "on"):
+        return True
+    if normalized in ("", "0", "false", "no", "off"):
+        return False
+    raise SearchRunError(
+        f"AIOS_OOD_SOFT_PENALTY={raw!r} — включение мягкого штрафа задаётся "
+        "булевым значением (1/0, true/false, yes/no, on/off)"
+    )
+
+
+def _soft_penalty_rate(environ: Mapping[str, str] | None = None) -> float:
+    env = os.environ if environ is None else environ
+    raw = env.get("AIOS_OOD_PENALTY_PER_UNIT", "1.0")
+    try:
+        value = float(raw)
+    except ValueError as error:
+        raise SearchRunError(
+            f"AIOS_OOD_PENALTY_PER_UNIT={raw!r} — ставка мягкого штрафа задаётся числом"
+        ) from error
+    if not math.isfinite(value) or value <= 0.0:
+        raise SearchRunError(
+            f"AIOS_OOD_PENALTY_PER_UNIT={raw!r} — ставка обязана быть конечной "
+            "и положительной"
+        )
+    return value
 BUDGET = 120
 
 MISSING_SIGMA = (
@@ -209,6 +363,7 @@ def incumbent_gate_passed(
     ood_score: float | None,
     ood_threshold: float,
     physics_admissible: bool,
+    ood_soft_penalty: bool = False,
 ) -> bool:
     if static_violations > 0:
         return False
@@ -218,6 +373,8 @@ def incumbent_gate_passed(
         return False
     if ood_score is None:
         return False
+    if ood_soft_penalty:
+        return True
     return ood_score <= ood_threshold
 
 
@@ -558,7 +715,9 @@ def _search_near_baseline(
                 elif not admissible:
                     violations.append({'scenario_id': 'surrogate-physics', 'regret': 1,
                                        'what': 'Физическая проверка не пройдена или неполна.'})
-                elif ood_score is None or ood_score > env.ood_threshold:
+                elif ood_score is None or (
+                    not env.ood_soft_penalty and ood_score > env.ood_threshold
+                ):
                     violations.append({'scenario_id': 'surrogate-domain', 'regret': 1,
                                        'what': 'План вне области обучения.'})
                 else:
@@ -665,6 +824,9 @@ def run_search(
         raise SearchRunError("production search requires a versioned scenario OOD artifact")
     constraints_path = Path(case_path) if case_path is not None else CONSTRAINTS
     constraints = load_case(constraints_path)
+    threshold_decision = _ood_threshold_decision()
+    soft_penalty = _soft_penalty_enabled()
+    penalty_rate = _soft_penalty_rate() if soft_penalty else 0.0
     env = load_environment(
         model_dir=model_z_dir(),
         normatives_path=chdd_python_dir() / "input" / "Нормативы_ЧДД.xlsx",
@@ -676,7 +838,9 @@ def run_search(
         scenario_ood_path=artifacts.scenario_ood,
         lambda_path=LAMBDA,
         constraints=constraints,
-        ood_threshold=OOD_THRESHOLD,
+        ood_threshold=threshold_decision.value,
+        ood_soft_penalty=soft_penalty,
+        ood_penalty_per_unit=penalty_rate,
     )
     validate_runtime_economic_head(artifacts, env.npv_head)
     initial = load_response_artifact(RESPONSE)
@@ -700,7 +864,9 @@ def run_search(
         "scenario_ood_version": env.scenario_ood.version if env.scenario_ood else "none",
         "npv_head_version": env.npv_head.version if env.npv_head else "none",
         "constraints_path": str(constraints_path),
-        "ood_threshold": str(env.ood_threshold),
+        **threshold_decision.as_provenance(),
+        "ood_soft_penalty": "true" if soft_penalty else "false",
+        "ood_penalty_per_unit": repr(penalty_rate),
         "search_fixed_point_cap": str(search_cap),
         "final_fixed_point_cap": str(final_cap),
         "search_strategy": "cma-es",
@@ -757,7 +923,9 @@ def run_search(
                     what=f"{len(static.violations)} нарушений статического контракта",
                 )
             )
-        if result.ood_score is None or result.ood_score > env.ood_threshold:
+        if result.ood_score is None or (
+            not soft_penalty and result.ood_score > env.ood_threshold
+        ):
             score = result.ood_score
             excess = (
                 1.0
@@ -840,6 +1008,10 @@ def run_search(
                 "model_version": env.model.version,
                 "npv_head_version": env.npv_head.version if env.npv_head else None,
                 "ood_threshold": env.ood_threshold,
+                "ood_threshold_origin": threshold_decision.origin,
+                "ood_threshold_calibrated": threshold_decision.calibrated,
+                "ood_soft_penalty": soft_penalty,
+                "ood_penalty_per_unit": penalty_rate,
                 "evaluations": _evaluation_cards(report.history, cards),
                 "incumbents": registry.as_list(),
             },
@@ -892,6 +1064,7 @@ def run_search(
             ood_score=evaluated.ood_score,
             ood_threshold=env.ood_threshold,
             physics_admissible=admissible,
+            ood_soft_penalty=soft_penalty,
         )
         finalist_cards.append(
             candidate_card(

@@ -48,5 +48,13 @@
   "group.checks": "Проверки",
   "group.risk": "Риск",
   "flaggedOne": "Перед решением подтвердите полным прогоном.",
-  "allClear": "Все проверки пройдены."
+  "allClear": "Все проверки пройдены.",
+  "label.physics": "Физика прогноза",
+  "physics.counted": "{done} из {total}",
+  "physics.partial": "Посчитано {done} инвариантов из {total} — проверка неполная",
+  "physics.skipped": "Не записаны: {invariants}",
+  "physics.clean": "Все {total} инвариантов посчитаны, нарушений нет",
+  "physics.blocking": "Блокирующих нарушений: {count}",
+  "physics.warnings": "Предупреждений (предел забойного давления): {count}",
+  "physics.unrecorded": "Физпроверки не записаны в артефакт"
 }
