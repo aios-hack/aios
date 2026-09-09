@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Callable, Protocol
+from dataclasses import dataclass, field
+from types import MappingProxyType
+from typing import Callable, Mapping, Protocol
 
 from backend.core.contracts import Schedule, hash_schedule
+
+_EMPTY_FLOATS: Mapping[str, float] = MappingProxyType({})
+_EMPTY_COUNTS: Mapping[str, int] = MappingProxyType({})
 
 
 class Evaluator(Protocol):
@@ -15,6 +19,10 @@ class Evaluation:
     npv: float
     state: object
     ood_score: float | None = None
+    npv_parts: Mapping[str, float] = field(default=_EMPTY_FLOATS)
+    sigma: float | None = None
+    physics: Mapping[str, int] = field(default=_EMPTY_COUNTS)
+    ood_worst: str | None = None
 
 
 Policy = Callable[[object], Schedule]
@@ -27,6 +35,10 @@ class Visited:
     schedule_hash: str
     npv: float
     ood_score: float | None = None
+    npv_parts: Mapping[str, float] = field(default=_EMPTY_FLOATS)
+    sigma: float | None = None
+    physics: Mapping[str, int] = field(default=_EMPTY_COUNTS)
+    ood_worst: str | None = None
 
     def __post_init__(self) -> None:
         if self.iteration < 0:
@@ -43,6 +55,10 @@ class FixedPointResult:
     iterations: int
     visited: tuple[Visited, ...]
     ood_score: float | None = None
+    npv_parts: Mapping[str, float] = field(default=_EMPTY_FLOATS)
+    sigma: float | None = None
+    physics: Mapping[str, int] = field(default=_EMPTY_COUNTS)
+    ood_worst: str | None = None
 
     def __post_init__(self) -> None:
         if self.iterations < 0:
@@ -88,6 +104,10 @@ def resolve(
                 schedule_hash=current_hash,
                 npv=evaluation.npv,
                 ood_score=evaluation.ood_score,
+                npv_parts=evaluation.npv_parts,
+                sigma=evaluation.sigma,
+                physics=evaluation.physics,
+                ood_worst=evaluation.ood_worst,
             )
         )
         proposed = policy(evaluation.state)
@@ -102,12 +122,12 @@ def resolve(
                 iterations=iteration + 1,
                 visited=tuple(visited),
                 ood_score=evaluation.ood_score,
+                npv_parts=evaluation.npv_parts,
+                sigma=evaluation.sigma,
+                physics=evaluation.physics,
+                ood_worst=evaluation.ood_worst,
             )
         if proposed_hash in seen_hashes:
-            # Deterministic policy/evaluator pair has entered a strict cycle.
-            # More iterations can only replay the same schedules and cannot
-            # produce a fixed point, so reevaluate the best visited candidate
-            # once and stop wasting expensive surrogate/OPM calls.
             return _reevaluated_best(
                 policy, evaluator, tuple(visited), iteration + 1
             )
@@ -135,4 +155,8 @@ def _reevaluated_best(
         iterations=iterations,
         visited=visited,
         ood_score=final.ood_score,
+        npv_parts=final.npv_parts,
+        sigma=final.sigma,
+        physics=final.physics,
+        ood_worst=final.ood_worst,
     )
