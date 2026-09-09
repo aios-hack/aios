@@ -5,6 +5,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
 from backend.core.contracts import (
+    MATERIAL_BALANCE_RELATIVE_TOLERANCE,
     ActiveControlMode,
     Availability,
     CompensationPolicy,
@@ -32,10 +33,14 @@ from backend.core.contracts.constraints import (
     DEFAULT_BHP_INJECTOR_MAX_BAR,
     DEFAULT_BHP_PRODUCER_MIN_BAR,
     EXTERNAL_WATER_M3_PER_DAY,
+    PRESSURE_CEILING_BAR,
+    PRESSURE_FLOOR_BAR,
     WATER_REINJECTION_FRACTION,
     WATER_REINJECTION_LAG_STEPS,
     WATER_SUPPLY_UNLIMITED,
+    FieldPressureLimits,
     bhp_limits,
+    field_pressure_limits,
     limit_origin,
 )
 from backend.core.contracts.response import N_DECK_DATES
@@ -55,6 +60,8 @@ from .validate import (
     CONSTRAINT_WATERCUT_LIMITS,
     CONSTRAINT_WELL_OUTAGES,
     CONSTRAINT_BHP_LIMITS,
+    CONSTRAINT_FIELD_PRESSURE,
+    CONSTRAINT_MATERIAL_BALANCE,
     ConstraintCheck,
     ValidationReport,
     Violation,
@@ -68,6 +75,35 @@ PRODUCER_MIN_BHP_BAR: float = DEFAULT_BHP_PRODUCER_MIN_BAR
 INJECTOR_MAX_BHP_BAR: float = DEFAULT_BHP_INJECTOR_MAX_BAR
 ACHIEVEMENT_THRESHOLD: float = 0.999
 FIRST_CONTROL_DECK_DATE_INDEX: int = N_DECK_DATES - N_INTERVALS - 1
+FIRST_CONTROL_LEVEL_DECK_DATE_INDEX: int = FIRST_CONTROL_DECK_DATE_INDEX + 1
+
+
+@dataclass(frozen=True, slots=True)
+class FieldSeries:
+    field_pressure_bar: tuple[float, ...]
+    oil_produced_cum_m3: tuple[float, ...] = ()
+    water_produced_cum_m3: tuple[float, ...] = ()
+    water_injected_cum_m3: tuple[float, ...] = ()
+    oil_in_place_m3: tuple[float, ...] = ()
+    water_in_place_m3: tuple[float, ...] = ()
+
+    @property
+    def has_material_balance(self) -> bool:
+        return bool(
+            self.oil_produced_cum_m3
+            and self.water_produced_cum_m3
+            and self.water_injected_cum_m3
+            and self.oil_in_place_m3
+            and self.water_in_place_m3
+        )
+
+
+def level_deck_date_index(control_step: int) -> int:
+    return FIRST_CONTROL_LEVEL_DECK_DATE_INDEX + control_step
+
+
+def control_step_of_level(deck_date_index: int) -> int:
+    return deck_date_index - FIRST_CONTROL_LEVEL_DECK_DATE_INDEX
 
 
 DYNAMIC_VIOLATION_KINDS: frozenset[ViolationKind] = frozenset(
@@ -91,6 +127,9 @@ DYNAMIC_VIOLATION_KINDS: frozenset[ViolationKind] = frozenset(
         ViolationKind.WATER_SUPPLY_LIMIT_EXCEEDED,
         ViolationKind.COMPENSATION_OUT_OF_CORRIDOR,
         ViolationKind.COMPENSATION_UNDEFINED,
+        ViolationKind.FIELD_PRESSURE_BELOW_FLOOR,
+        ViolationKind.FIELD_PRESSURE_ABOVE_CEILING,
+        ViolationKind.MATERIAL_BALANCE_BROKEN,
     }
 )
 
@@ -107,6 +146,8 @@ BLOCKING_DYNAMIC_VIOLATION_KINDS: frozenset[ViolationKind] = frozenset(
         ViolationKind.PRODUCTION_FLOOR_MISSED,
         ViolationKind.WATERCUT_LIMIT_EXCEEDED,
         ViolationKind.OUTAGE_WELL_PRODUCED,
+        ViolationKind.FIELD_PRESSURE_BELOW_FLOOR,
+        ViolationKind.FIELD_PRESSURE_ABOVE_CEILING,
     }
 )
 
@@ -742,9 +783,10 @@ def check_dynamic_constraints(
     interval_responses: Sequence[IntervalResponse],
     constraints: Constraints | None,
     oil_density_t_per_m3: float | None = None,
+    field_series: FieldSeries | None = None,
 ) -> tuple[tuple[Violation, ...], tuple[ConstraintCheck, ...]]:
     if constraints is None:
-        return (), _absent_constraint_checks()
+        return (), _absent_constraint_checks(field_series)
     found: list[Violation] = []
     checks: list[ConstraintCheck] = []
     for violations, records in (
@@ -757,6 +799,8 @@ def check_dynamic_constraints(
         ),
         _check_outages(schedule, states, constraints),
         _check_compensation(schedule, interval_responses, constraints),
+        check_field_pressure(schedule, constraints, field_series),
+        check_material_balance(field_series),
     ):
         found.extend(violations)
         checks.extend(records)
@@ -772,6 +816,8 @@ DYNAMIC_CONSTRAINT_NAMES: tuple[str, ...] = (
     CONSTRAINT_WELL_OUTAGES,
     CONSTRAINT_COMPENSATION,
     CONSTRAINT_COMPENSATION_SCOPE,
+    CONSTRAINT_FIELD_PRESSURE,
+    CONSTRAINT_MATERIAL_BALANCE,
 )
 
 _CONSTRAINT_KINDS: dict[str, tuple[ViolationKind, ...]] = {
@@ -790,6 +836,11 @@ _CONSTRAINT_KINDS: dict[str, tuple[ViolationKind, ...]] = {
         ViolationKind.COMPENSATION_UNDEFINED,
     ),
     CONSTRAINT_COMPENSATION_SCOPE: (),
+    CONSTRAINT_FIELD_PRESSURE: (
+        ViolationKind.FIELD_PRESSURE_BELOW_FLOOR,
+        ViolationKind.FIELD_PRESSURE_ABOVE_CEILING,
+    ),
+    CONSTRAINT_MATERIAL_BALANCE: (ViolationKind.MATERIAL_BALANCE_BROKEN,),
 }
 
 
@@ -820,7 +871,11 @@ CONSTRAINT_FIELD_COVERAGE: dict[str, tuple[str, ...]] = {
     COMPENSATION_SCOPE: (CONSTRAINT_COMPENSATION_SCOPE,),
     BHP_PRODUCER_MIN_BAR: (CONSTRAINT_BHP_LIMITS,),
     BHP_INJECTOR_MAX_BAR: (CONSTRAINT_BHP_LIMITS,),
+    PRESSURE_FLOOR_BAR: (CONSTRAINT_FIELD_PRESSURE,),
+    PRESSURE_CEILING_BAR: (CONSTRAINT_FIELD_PRESSURE,),
 }
+
+PHYSICS_CONSTRAINT_NAMES: tuple[str, ...] = (CONSTRAINT_MATERIAL_BALANCE,)
 
 PROVENANCE_FIELDS: frozenset[str] = frozenset({"infrastructure", "case_path"})
 
@@ -842,6 +897,8 @@ def constraint_fields_to_cover() -> tuple[str, ...]:
         COMPENSATION_SCOPE,
         BHP_PRODUCER_MIN_BAR,
         BHP_INJECTOR_MAX_BAR,
+        PRESSURE_FLOOR_BAR,
+        PRESSURE_CEILING_BAR,
     )
 
 
@@ -853,6 +910,16 @@ def verified_constraint_checks(
         raise ValueError(
             "отчёт о применённых ограничениях содержит повторяющиеся записи: "
             "одно ограничение обязано давать ровно один статус"
+        )
+    missing_physics = [
+        name for name in PHYSICS_CONSTRAINT_NAMES if name not in present
+    ]
+    if missing_physics:
+        raise ValueError(
+            "отчёт о применённых ограничениях не содержит записей о "
+            f"физических проверках: {', '.join(sorted(missing_physics))}; "
+            "проверка, не зависящая от кейса, всё равно обязана назвать "
+            "свой статус"
         )
     uncovered: list[str] = []
     for field_name in constraint_fields_to_cover():
@@ -906,11 +973,16 @@ def _checked(
     )
 
 
-def _absent_constraint_checks() -> tuple[ConstraintCheck, ...]:
+def _absent_constraint_checks(
+    field_series: FieldSeries | None = None,
+) -> tuple[ConstraintCheck, ...]:
     detail = "ограничения кейса не переданы: динамические проверки не запускались"
-    return tuple(
-        _not_set(name, detail) for name in DYNAMIC_CONSTRAINT_NAMES
+    names = tuple(
+        name for name in DYNAMIC_CONSTRAINT_NAMES
+        if name != CONSTRAINT_MATERIAL_BALANCE
     )
+    _, balance_checks = check_material_balance(field_series)
+    return tuple(_not_set(name, detail) for name in names) + balance_checks
 
 
 def _check_compensation(
@@ -1132,6 +1204,192 @@ def _check_water_supply(
                 f"{policy.lag_steps} шагов, внешний приток "
                 f"{policy.external_water_m3_per_day} м³/сут: закачка сверена "
                 f"с балансом воды на {schedule.meta.n_intervals} шагах"
+            ),
+            blocking_kinds=BLOCKING_DYNAMIC_VIOLATION_KINDS,
+        ),
+    )
+
+
+def _pressure_source(constraints: Constraints, limits: FieldPressureLimits) -> str:
+    parts: list[str] = []
+    if limits.floor_bar is not None:
+        parts.append(
+            f"пол infrastructure.{PRESSURE_FLOOR_BAR} = {limits.floor_bar} бар, "
+            f"{limit_origin(constraints, PRESSURE_FLOOR_BAR)}"
+        )
+    if limits.ceiling_bar is not None:
+        parts.append(
+            f"потолок infrastructure.{PRESSURE_CEILING_BAR} = "
+            f"{limits.ceiling_bar} бар, "
+            f"{limit_origin(constraints, PRESSURE_CEILING_BAR)}"
+        )
+    return "; ".join(parts)
+
+
+def check_field_pressure(
+    schedule: Schedule,
+    constraints: Constraints,
+    field_series: FieldSeries | None,
+) -> tuple[tuple[Violation, ...], tuple[ConstraintCheck, ...]]:
+    limits = field_pressure_limits(constraints)
+    if not limits.enabled:
+        return (), (
+            _not_set(
+                CONSTRAINT_FIELD_PRESSURE,
+                (
+                    f"ни infrastructure.{PRESSURE_FLOOR_BAR}, ни "
+                    f"infrastructure.{PRESSURE_CEILING_BAR} в кейсе не заданы: "
+                    "пластовое давление не проверялось, предел назначать "
+                    "за организаторов нельзя"
+                ),
+            ),
+        )
+    if field_series is None:
+        raise ValueError(
+            f"infrastructure.{PRESSURE_FLOOR_BAR}/{PRESSURE_CEILING_BAR} "
+            "заданы, но серия пластового давления не передана: политика "
+            "давления включена, а проверять нечего. Давление известно только "
+            "после прогона OPM, поэтому валидатор обязан получить FPR "
+            "или сообщить об ошибке, а не признать расписание допустимым"
+        )
+    pressures = field_series.field_pressure_bar
+    if not pressures:
+        raise ValueError(
+            f"infrastructure.{PRESSURE_FLOOR_BAR}/{PRESSURE_CEILING_BAR} "
+            "заданы, но серия FPR пуста: сравнивать с пределом нечего"
+        )
+    n_intervals = schedule.meta.n_intervals
+    required = level_deck_date_index(n_intervals - 1) + 1
+    if len(pressures) < required:
+        raise ValueError(
+            f"серия FPR короче горизонта: {len(pressures)} значений при "
+            f"необходимых {required} = {FIRST_CONTROL_LEVEL_DECK_DATE_INDEX} + "
+            f"{n_intervals}; уровень давления шага управления "
+            f"{n_intervals - 1} читается по индексу дека "
+            f"{level_deck_date_index(n_intervals - 1)}"
+        )
+    source = _pressure_source(constraints, limits)
+    found: list[Violation] = []
+    for control_step in range(n_intervals):
+        value = pressures[level_deck_date_index(control_step)]
+        if limits.floor_bar is not None and value < limits.floor_bar:
+            found.append(
+                Violation(
+                    kind=ViolationKind.FIELD_PRESSURE_BELOW_FLOOR,
+                    control_step=control_step,
+                    well=None,
+                    value=value,
+                    detail=(
+                        f"среднее пластовое давление {value:.3f} бар ниже пола "
+                        f"{limits.floor_bar} бар; {source}"
+                    ),
+                )
+            )
+        if limits.ceiling_bar is not None and value > limits.ceiling_bar:
+            found.append(
+                Violation(
+                    kind=ViolationKind.FIELD_PRESSURE_ABOVE_CEILING,
+                    control_step=control_step,
+                    well=None,
+                    value=value,
+                    detail=(
+                        f"среднее пластовое давление {value:.3f} бар выше "
+                        f"потолка {limits.ceiling_bar} бар; {source}"
+                    ),
+                )
+            )
+    return tuple(found), (
+        _checked(
+            CONSTRAINT_FIELD_PRESSURE,
+            found,
+            (
+                f"пластовое давление сверено на {n_intervals} шагах управления "
+                f"по FPR, уровень шага k читается по индексу дека "
+                f"{FIRST_CONTROL_LEVEL_DECK_DATE_INDEX} + k; {source}"
+            ),
+            blocking_kinds=BLOCKING_DYNAMIC_VIOLATION_KINDS,
+        ),
+    )
+
+
+def _relative_error(delta_stock: float, delta_flow: float) -> float:
+    denom = abs(delta_flow)
+    return 0.0 if denom == 0.0 else abs(delta_stock - delta_flow) / denom
+
+
+def check_material_balance(
+    field_series: FieldSeries | None,
+) -> tuple[tuple[Violation, ...], tuple[ConstraintCheck, ...]]:
+    if field_series is None or not field_series.has_material_balance:
+        return (), (
+            _not_set(
+                CONSTRAINT_MATERIAL_BALANCE,
+                (
+                    "полевые серии FOIP/FWIP/FOPT/FWPT/FWIT не переданы: "
+                    "материальный баланс пласта не проверялся"
+                ),
+            ),
+        )
+    oil_stock = (
+        field_series.oil_in_place_m3[-1] - field_series.oil_in_place_m3[0]
+    )
+    oil_flow = (
+        field_series.oil_produced_cum_m3[-1]
+        - field_series.oil_produced_cum_m3[0]
+    )
+    water_stock = (
+        field_series.water_in_place_m3[-1] - field_series.water_in_place_m3[0]
+    )
+    water_injected = (
+        field_series.water_injected_cum_m3[-1]
+        - field_series.water_injected_cum_m3[0]
+    )
+    water_produced = (
+        field_series.water_produced_cum_m3[-1]
+        - field_series.water_produced_cum_m3[0]
+    )
+    oil_error = _relative_error(oil_stock, -oil_flow)
+    water_error = _relative_error(water_stock, water_injected - water_produced)
+    found: list[Violation] = []
+    if oil_error > MATERIAL_BALANCE_RELATIVE_TOLERANCE:
+        found.append(
+            Violation(
+                kind=ViolationKind.MATERIAL_BALANCE_BROKEN,
+                control_step=None,
+                well=None,
+                value=oil_error,
+                detail=(
+                    f"баланс нефти по горизонту не сходится: относительная "
+                    f"невязка {oil_error:.6f} выше допуска "
+                    f"{MATERIAL_BALANCE_RELATIVE_TOLERANCE}; изменение запаса "
+                    f"{oil_stock:.3f} м³ против добытого {oil_flow:.3f} м³"
+                ),
+            )
+        )
+    if water_error > MATERIAL_BALANCE_RELATIVE_TOLERANCE:
+        found.append(
+            Violation(
+                kind=ViolationKind.MATERIAL_BALANCE_BROKEN,
+                control_step=None,
+                well=None,
+                value=water_error,
+                detail=(
+                    f"баланс воды по горизонту не сходится: относительная "
+                    f"невязка {water_error:.6f} выше допуска "
+                    f"{MATERIAL_BALANCE_RELATIVE_TOLERANCE}; изменение запаса "
+                    f"{water_stock:.3f} м³ против закачанного минус добытого "
+                    f"{water_injected - water_produced:.3f} м³"
+                ),
+            )
+        )
+    return tuple(found), (
+        _checked(
+            CONSTRAINT_MATERIAL_BALANCE,
+            found,
+            (
+                f"материальный баланс сверен по горизонту при допуске "
+                f"{MATERIAL_BALANCE_RELATIVE_TOLERANCE}: невязка по нефти "
+                f"{oil_error:.6f}, по воде {water_error:.6f}"
             ),
             blocking_kinds=BLOCKING_DYNAMIC_VIOLATION_KINDS,
         ),
@@ -1372,6 +1630,7 @@ def validate_dynamic(
     constraints: Constraints | None = None,
     oil_density_t_per_m3: float | None = None,
     report_undershoot: bool = True,
+    field_series: FieldSeries | None = None,
 ) -> DynamicReport:
     violations: list[Violation] = []
     undershoot, ratios = check_target_ratio(schedule, states)
@@ -1390,6 +1649,7 @@ def validate_dynamic(
         interval_responses,
         constraints,
         oil_density_t_per_m3,
+        field_series,
     )
     violations.extend(constraint_violations)
     _, static_outage_check = check_constraints(

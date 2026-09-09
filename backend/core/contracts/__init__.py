@@ -47,6 +47,7 @@ from .schedule import (
     WellState,
 )
 from .simulation import (
+    MATERIAL_BALANCE_RELATIVE_TOLERANCE,
     FinalNpvArtifact,
     OPM_CONNECTION_SUMMARY_KEYS,
     OPM_WELL_SUMMARY_KEYS,
@@ -61,6 +62,7 @@ from .simulation import (
 )
 
 __all__ = [
+    "MATERIAL_BALANCE_RELATIVE_TOLERANCE",
     "ActiveControlMode",
     "ArtifactHashes",
     "Availability",

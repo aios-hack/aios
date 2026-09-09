@@ -36,6 +36,7 @@ from pathlib import Path
 from typing import Sequence
 
 from backend.core.contracts import (
+    MATERIAL_BALANCE_RELATIVE_TOLERANCE,
     ActiveControlMode,
     RunResult,
     RunStatus,
@@ -63,7 +64,6 @@ _FIELD_SUMMARY_KEYS: tuple[str, ...] = ("FPR", "FOIP", "FWIP", "FOPT", "FWPT", "
 
 # Пределы диагностики — не отбраковывающий oracle (§4.7), а сигнал о явном
 # браке конверсии/сходимости, который стоит показать человеку.
-MATERIAL_BALANCE_RELATIVE_TOLERANCE = 0.01  # 1% шага накопленного объёма
 _PRESSURE_BLOWUP_FACTOR = 3.0  # FPR не должно вырасти/упасть в разы от начального
 
 

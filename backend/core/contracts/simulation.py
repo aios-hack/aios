@@ -25,6 +25,9 @@ OPM_CONNECTION_SUMMARY_KEYS = ("COPT", "COPR")
 REQUIRED_SUMMARY_KEYS = SUMMARY_EXPORT_KEYS
 
 
+MATERIAL_BALANCE_RELATIVE_TOLERANCE: float = 0.01
+
+
 @dataclass(frozen=True, slots=True)
 class SummarySpec:
 

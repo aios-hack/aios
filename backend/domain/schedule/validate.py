@@ -59,6 +59,9 @@ class ViolationKind(Enum):
     WATER_SUPPLY_LIMIT_EXCEEDED = "WATER_SUPPLY_LIMIT_EXCEEDED"
     COMPENSATION_OUT_OF_CORRIDOR = "COMPENSATION_OUT_OF_CORRIDOR"
     COMPENSATION_UNDEFINED = "COMPENSATION_UNDEFINED"
+    FIELD_PRESSURE_BELOW_FLOOR = "FIELD_PRESSURE_BELOW_FLOOR"
+    FIELD_PRESSURE_ABOVE_CEILING = "FIELD_PRESSURE_ABOVE_CEILING"
+    MATERIAL_BALANCE_BROKEN = "MATERIAL_BALANCE_BROKEN"
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +102,8 @@ CONSTRAINT_WATER_SUPPLY: str = "infrastructure.water_supply"
 CONSTRAINT_COMPENSATION: str = "infrastructure.compensation"
 CONSTRAINT_COMPENSATION_SCOPE: str = "infrastructure.compensation_scope"
 CONSTRAINT_BHP_LIMITS: str = "infrastructure.bhp_limits"
+CONSTRAINT_FIELD_PRESSURE: str = "infrastructure.field_pressure"
+CONSTRAINT_MATERIAL_BALANCE: str = "material_balance"
 
 
 @dataclass(frozen=True, slots=True)

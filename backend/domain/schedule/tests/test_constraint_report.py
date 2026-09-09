@@ -48,6 +48,7 @@ from backend.domain.schedule.validate import (
 from backend.domain.schedule.validate_dynamic import (
     CONSTRAINT_FIELD_COVERAGE,
     FIRST_CONTROL_DECK_DATE_INDEX,
+    PHYSICS_CONSTRAINT_NAMES,
     PROVENANCE_FIELDS,
     constraint_fields_to_cover,
     constraint_kinds,
@@ -167,7 +168,7 @@ def test_coverage_map_names_only_declared_constraints() -> None:
     present = {item.constraint for item in report.constraint_checks}
     named = {
         name for names in CONSTRAINT_FIELD_COVERAGE.values() for name in names
-    }
+    } | set(PHYSICS_CONSTRAINT_NAMES)
 
     assert named == present
 
