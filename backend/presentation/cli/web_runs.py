@@ -62,9 +62,20 @@ class WebRuns:
                     if steps:
                         step, total, date = steps[-1]
                         data['progress'] = {'step': int(step), 'total': int(total), 'date': datetime.strptime(date.strip(), '%d-%b-%Y').strftime('%d.%m.%Y')}
+            logs = sorted(directory.glob('opm/runs/*/flow.log'))
+            if logs:
+                started = min(log.stat().st_ctime for log in logs)
+                finished = max(log.stat().st_mtime for log in logs)
+                if finished > started:
+                    data['flow_seconds'] = round(finished - started, 1)
             economics = directory / 'economics/result.json'
             if economics.is_file():
                 data['economics'] = json.loads(economics.read_text(encoding='utf-8'))
+            submission = directory / 'submission/claimed_npv.json'
+            if submission.is_file():
+                bundle = json.loads(submission.read_text(encoding='utf-8'))
+                bundle['schedule_present'] = (directory / 'submission' / 'wells_schedule.inc').is_file()
+                data['submission'] = bundle
             runs.append(data)
         return runs[:50]
 

@@ -22,8 +22,18 @@ def main():
     workflow = RunWorkflow(root.parent)
     if args.mode == 'search':
         from backend.application.optimization.search_run import run_search
+        from backend.presentation.cli.run import build_provenance, resolve_constraints
         outcome = run_search(budget=args.budget)
-        manifest = workflow.search(RunRequest(root.name, outcome.schedule, outcome.predicted_npv))
+        constraints = resolve_constraints(root / 'constraints.json')
+        manifest = workflow.search(
+            RunRequest(
+                root.name,
+                outcome.schedule,
+                outcome.predicted_npv,
+                provenance=build_provenance(outcome, constraints),
+                constraints=constraints,
+            )
+        )
         (root / 'provenance.json').write_text(json.dumps(outcome.provenance, ensure_ascii=False, indent=2))
     else:
         # Fail promptly when Docker is unavailable, before preparing an expensive deck.

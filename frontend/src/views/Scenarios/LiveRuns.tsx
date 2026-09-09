@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useFallbackT } from '../../i18n/I18nContext';
 import { YEAR_SECTIONS } from './constraints';
+import { RunProvenanceDetails, RunProvenanceNotice, SubmissionPanel } from './RunProvenance';
+import type { RunManifest, RunSubmission } from './runTypes';
 import type { ConstraintsDoc } from '../../api/types';
 
 type Run = {
   run_id: string; status: string; mode: string; message: string; budget: number;
   evaluations?: number; feasible_evaluations?: number; rejection_reasons?: string[];
-  manifest?: { predicted_npv: number | null; verified_npv: number | null; sound: boolean | null };
+  manifest?: RunManifest;
+  submission?: RunSubmission;
+  flow_seconds?: number | null;
   unseen_result?: {
     focus_year: string; fitted_schedule_hashes_count: number; exact_fit_overlap: boolean;
     yearly: Record<string, Record<string, { absolute_error_pct: number | null }>>;
@@ -15,12 +19,19 @@ type Run = {
   constraints?: ConstraintsDoc;
   progress?: { step: number; total: number; date: string };
   economics?: { measured_npv?: number | null; sound?: boolean };
-  provenance?: { search_strategy?: string; selected_candidate?: string };
+  provenance?: Partial<RunManifest>;
   validation?: { dynamic_violations: number; blocking_dynamic_violations?: number; failed_identities: string[] };
 };
 const money = (value: number | null | undefined) => value == null ? 'Ещё не рассчитан' : `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(value)} ₽`;
 
 const percent = (value: number | null | undefined) => value == null ? 'не измерено' : `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(value)}%`;
+
+const provenanceOf = (run: Run): RunManifest | undefined => {
+  if (!run.manifest && !run.provenance) return undefined;
+  const merged: Record<string, unknown> = { ...run.provenance };
+  for (const [key, value] of Object.entries(run.manifest ?? {})) if (value != null) merged[key] = value;
+  return merged as RunManifest;
+};
 
 export const LiveRuns = ({ document, blocked, onLoadConditions }: { document: ConstraintsDoc; blocked: boolean; onLoadConditions?: (document: ConstraintsDoc) => void }) => {
   const t = useFallbackT();
@@ -71,7 +82,8 @@ export const LiveRuns = ({ document, blocked, onLoadConditions }: { document: Co
       <h4>Прогон {run.run_id.replace('web-', '')}</h4>
       <p role="status">{run.message}</p>
       {run.progress && <div><p>Шаг полного расчёта: {run.progress.step} из {run.progress.total}. Дата модели: {run.progress.date}.</p><progress aria-label="Ход расчёта OPM" value={run.progress.step} max={run.progress.total} /></div>}
-      {run.provenance?.search_strategy === 'baseline-neighborhood' && <p>{run.provenance.selected_candidate === 'baseline' ? 'Выбран исходный план: среди проверенных допустимых вариантов улучшение не найдено.' : 'Выбрано небольшое изменение исходного плана.'} Результат резервного поиска; сходимость агентной политики не заявляется.</p>}
+      <RunProvenanceNotice manifest={provenanceOf(run)} />
+      {provenanceOf(run)?.selected_candidate === 'baseline' && <p className="scenarios-note">Среди проверенных допустимых вариантов улучшение исходного плана не найдено.</p>}
       <dl><dt>ЧДД — прогноз суррогата</dt><dd>{money(run.manifest?.predicted_npv)}</dd>
         <dt>ЧДД — полный расчёт OPM</dt><dd>{money(run.economics?.measured_npv ?? run.manifest?.verified_npv)}</dd></dl>
       {run.manifest?.verified_npv != null && run.manifest.predicted_npv != null && <p>Расхождение прогноза: {new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(100 * Math.abs(run.manifest.predicted_npv - run.manifest.verified_npv) / Math.max(1, Math.abs(run.manifest.verified_npv)))}%</p>}
@@ -94,6 +106,8 @@ export const LiveRuns = ({ document, blocked, onLoadConditions }: { document: Co
         {Object.entries(run.constraints.infrastructure).map(([key, value]) => <p key={key}>{t(`scenarios.parameter.${key}.label`)}: {typeof value === 'number' ? value : t(`scenarios.parameter.${value}`)}</p>)}
         {onLoadConditions && <button className="scenarios-button" onClick={() => onLoadConditions(run.constraints!)}>Вернуть эти условия в форму</button>}
       </details>}
+      <RunProvenanceDetails manifest={provenanceOf(run)} flowSeconds={run.flow_seconds ?? null} />
+      <SubmissionPanel submission={run.submission} status={run.manifest?.status ?? run.status} />
       <p className="scenarios-note">Проверка использует план и условия, сохранённые при запуске этого прогона. Изменения формы создают новый расчёт.</p>
     </article>)}
   </section>;
