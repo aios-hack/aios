@@ -1,51 +1,3 @@
-"""Задача 62, звено А: `bridge.submission.submit_schedule` целиком, все
-шесть тождеств §10.5. Приёмка карточки G6.
-
-Работает без Docker (карточка это явно разрешает): «Schedule*» здесь —
-не расписание организаторов один в один (`bridge.baseline_schedule`
-оставляет `initial_state` пустым — задача 57 ей не нужна), а расписание с
-настоящим воспроизведённым `initial_state` (`schedule.build.
-initial_state_from_prefix`, тот же приём, что и `schedule.build_schedule`)
-поверх тех же, не канонизированных заново, control/fixed-событий, что и в
-уже прогнанном `bridge.baseline_schedule`. Проверено эмпирически (не
-предположено): `content_hash_opm` у обоих совпадает байт-в-байт — значит и
-настоящий прогон Flow на этом деке уже есть в кеше `aios/data/base_run`.
-Отличается только `canonical_schedule_hash` (он берётся с `initial_state`,
-а не с байтов дека) — фикстура добавляет вторую запись кеша под этим
-хешом, указывающую на те же настоящие артефакты прогона, не выдуманные.
-
-Что это НЕ доказывает: что `schedule.build_schedule`'s канонизация
-control-слоя (другой файл, другая ветка эмита) даёт ту же физику — там
-статус нескольких скважин (`OPEN`/`SHUT`) разошёлся при прямой проверке
-байтов; это отдельная находка вне `bridge/`, не трогается здесь.
-
-## Важно: базовое расписание организаторов НЕ проходит гейт validate_dynamic
-
-Прогон тракта целиком на настоящем базовом отклике даёт 71 нарушение:
-60 `OPEN_WITHOUT_FLOW` по скважине `71` (открыта с уставкой на шагах 0–59,
-первый `COMPDAT` — на шаге 60 — ровно открытый вопрос №17,
-`docs/context/06_open_questions.md`, и то же самое уже закреплено тестом
-`schedule/tests/test_validate_dynamic.py::test_real_response_open_without_flow_stops_at_first_perforation`,
-который специально проверяет, что такие нарушения ЕСТЬ и ограничены
-перфорацией), плюс 11 нарушений `BHP_LIMITED_WITHOUT_UNDERSHOOT`/
-`BHP_BELOW_PRODUCER_LIMIT` на других скважинах — новая находка, число
-раньше никто не считал. Это не дефект тракта: `validate_dynamic` обязан
-это ловить, и ловит верно. Значит **сегодня ни одно расписание,
-включающее скважину 71 с этой уставкой, не пройдёт звено А целиком**, пока
-трекер не ответит на вопрос №17 (дефект дека / зарезервированный ввод /
-наш дефект чтения) или пока Schedule* не поправит уставку скважины 71
-явно (гибридная поправка, `07_concept.md` §6).
-
-Тесты ниже поэтому разделены: то, что происходит ДО гейта
-`validate_dynamic` (identity 1/2/4 — `validate_static`, статус прогона,
-`canonical_schedule_hash`, `source_run_id`), проверяется через
-`submit_schedule` целиком на реальном кеше. То, что происходит ПОСЛЕ гейта
-(identity 5/6 — сборка `FinalNpvArtifact`), проверяется на тех же
-настоящих `opm_run`/`response`, что вернул реальный прогон, — не в обход
-проверки, а потому что для них проверка `validate_dynamic` не по адресу:
-она о согласованности расписания и отклика, не о сборке артефакта.
-"""
-
 from __future__ import annotations
 
 import json
@@ -64,11 +16,13 @@ from backend.core.contracts import (
     ArtifactHashes,
     ControlEvent,
     EventKind,
+    FinalNpvArtifact,
     NormativeSet,
     RunStatus,
     Schedule,
     ScheduleMeta,
     DEFAULT_NORMATIVES_2007,
+    hash_schedule,
 )
 from backend.core.paths import data_root
 from backend.domain.economics import ESP_CATALOG_2007, methodology_version_hash
@@ -76,6 +30,7 @@ from backend.domain.economics.base_case import analyze_base_case
 from backend.domain.schedule import ViolationKind, parse_schedule
 from backend.domain.schedule.build import deck_well_axis, initial_state_from_prefix
 from backend.domain.schedule.canonical import canonical_part_hash
+from backend.domain.schedule.validate_dynamic import _states_by_step
 
 from conftest import docker_unavailable_reason, missing_reason, model_z_dir
 
@@ -87,10 +42,38 @@ pytestmark = pytest.mark.skipif(MODEL_Z is None, reason=missing_reason("ката
 
 NORMATIVES = NormativeSet(**DEFAULT_NORMATIVES_2007, esp_catalog=ESP_CATALOG_2007)
 
+EXPECTED_DYNAMIC_COUNTS: dict[ViolationKind, int] = {
+    ViolationKind.OPEN_WITHOUT_FLOW: 60,
+    ViolationKind.BHP_LIMITED_WITHOUT_UNDERSHOOT: 12,
+    ViolationKind.BHP_BELOW_PRODUCER_LIMIT: 1,
+    ViolationKind.BHP_ABOVE_INJECTOR_LIMIT: 1,
+}
+
+EXPECTED_TOTAL_VIOLATIONS: int = sum(EXPECTED_DYNAMIC_COUNTS.values())
+
+EXPECTED_BHP_LIMITED_WITHOUT_UNDERSHOOT: frozenset[tuple[int, str]] = frozenset(
+    {
+        (30, "77"),
+        (39, "76"),
+        (40, "65"),
+        (40, "110"),
+        (42, "81"),
+        (71, "78"),
+        (95, "82"),
+        (103, "23"),
+        (115, "101"),
+        (131, "16"),
+        (154, "106"),
+        (190, "74"),
+    }
+)
+
+EXPECTED_BHP_ABOVE_INJECTOR_LIMIT: frozenset[tuple[int, str]] = frozenset({(56, "94")})
+
+EXPECTED_BHP_BELOW_PRODUCER_LIMIT: frozenset[tuple[int, str]] = frozenset({(13, "97")})
+
 
 def _cached_response_entry() -> dict[str, object] | None:
-    """Возвращает пригодный настоящий отклик из базового кеша, если он есть."""
-
     for path in (WORK_ROOT / "cache").glob("*.json"):
         try:
             entry = json.loads(path.read_text(encoding="utf-8"))
@@ -139,16 +122,10 @@ def _hybrid_schedule() -> Schedule:
 
 
 def _seed_cache_entry_for(schedule: Schedule, tmp_path: Path) -> None:
-    """Реальный дек этого расписания уже прогнан (см. докстринг модуля) —
-    записывает вторую запись кеша под его собственным `canonical_schedule_hash`,
-    указывающую на те же реальные артефакты, что и существующая запись."""
-
     entry = _cached_response_entry()
     if entry is None:
         if docker_unavailable_reason() is not None:
             pytest.skip(_submission_environment_unavailable_reason())
-        # При доступном Docker CachingOpmRunner создаст запись сам на первом
-        # вызове _run ниже; преждевременно пропускать такую приёмку нельзя.
         return
 
     emitter = OpmDeckEmitter(MODEL_Z)
@@ -175,10 +152,6 @@ def _config(schedule: Schedule):
         deck_hash=hashes.deck_hash,
         history_prefix_hash=canonical_part_hash(schedule.initial_state),
         summary_spec_hash=summary_hash,
-        # Связность/датасет/чекпоинт суррогата — задачи G4/G5, ещё не сделаны
-        # (см. docs/v2/tasks/integration.md). Тестовые заглушки, не
-        # заявленные значения — тем же приёмом, что и в
-        # contracts/tests/test_simulation.py / ui/tests/test_scenarios.py.
         groups_hash="0" * 64,
         dataset_version_hash="0" * 64,
         surrogate_checkpoint_hash="0" * 64,
@@ -198,14 +171,9 @@ def config(schedule):
 
 @pytest.fixture(scope="module")
 def run_and_response(schedule, config, tmp_path_factory: pytest.TempPathFactory):
-    """Identity 1/2/4 — до гейта `validate_dynamic`. Реальный кеш-хит, без Docker."""
-
     tmp = tmp_path_factory.mktemp("g6-seed")
     _seed_cache_entry_for(schedule, tmp)
     return _run(schedule, MODEL_Z, WORK_ROOT, use_cache=True)
-
-
-# --- Identity 1/2/4: до гейта validate_dynamic, через настоящий тракт --------
 
 
 def test_opm_run_status_is_ok(run_and_response) -> None:
@@ -214,29 +182,16 @@ def test_opm_run_status_is_ok(run_and_response) -> None:
 
 
 def test_opm_run_canonical_schedule_hash_matches_recomputed(schedule, run_and_response) -> None:
-    """Identity 1: `OpmRunArtifact.canonical_schedule_hash == canonical_schedule_hash`,
-    пересчитанный на моменте сдачи (`submit_schedule` делает это же явно)."""
-
-    from backend.core.contracts import hash_schedule
-
     opm_run, _ = run_and_response
     assert opm_run.canonical_schedule_hash == hash_schedule(schedule)
 
 
 def test_response_source_run_id_matches_opm_run(run_and_response) -> None:
-    """Identity 4."""
-
     opm_run, response = run_and_response
     assert response.source_run_id == opm_run.run_id
 
 
-# --- Гейт validate_static — до всякого эмита, без Docker вообще --------------
-
-
 def test_validate_static_gate_rejects_before_any_run(schedule, config) -> None:
-    """Событие по скважине вне оси `initial_state` — `WELL_NOT_ON_AXIS`.
-    Тракт обязан упасть на гейте `validate_static`, не дойдя до эмита/прогона."""
-
     broken = Schedule(
         meta=schedule.meta,
         initial_state=schedule.initial_state,
@@ -249,25 +204,11 @@ def test_validate_static_gate_rejects_before_any_run(schedule, config) -> None:
         submit_schedule(broken, MODEL_Z, WORK_ROOT, config, use_cache=True)
 
 
-# --- Гейт validate_dynamic — реальная, задокументированная находка ----------
-
-
 @requires_submission_response
 def test_dynamic_gate_rejects_the_real_baseline_over_well_71(schedule, config) -> None:
-    """Тракт целиком: гейт `validate_dynamic` обязан остановить выдачу
-    `FinalNpvArtifact`, пока открытый вопрос №17 не закрыт. Пин регрессии —
-    если это число изменится, значит либо деку организаторов поправили
-    (маловероятно без объявления), либо в `schedule/`/`bridge/` что-то
-    сломалось."""
-
     with pytest.raises(SubmissionTractError, match="validate_dynamic") as excinfo:
         submit_schedule(schedule, MODEL_Z, WORK_ROOT, config, use_cache=True)
-    assert "71 нарушени" in str(excinfo.value)
-
-
-# --- Identity 5/6: сборка FinalNpvArtifact на настоящих opm_run/response ----
-# (validate_dynamic здесь намеренно не гейтует — эти тождества о сборке
-# артефакта, не о согласованности расписания с откликом.)
+    assert f"{EXPECTED_TOTAL_VIOLATIONS} нарушени" in str(excinfo.value)
 
 
 @pytest.fixture(scope="module")
@@ -278,8 +219,6 @@ def final_npv(schedule, config, run_and_response):
     analysis = analyze_base_case(
         response, parsed.dates, parsed.t0_deck_date_index, config.normatives, config.policies
     )
-    from backend.core.contracts import FinalNpvArtifact
-
     return FinalNpvArtifact(
         npv_table=analysis.table,
         npv_methodology=analysis.table.npv_methodology,
@@ -291,8 +230,6 @@ def final_npv(schedule, config, run_and_response):
 
 
 def test_final_npv_source_matches_run_and_response(final_npv, run_and_response) -> None:
-    """Identity 5."""
-
     opm_run, response = run_and_response
     assert final_npv.source_run_id == opm_run.run_id
     assert final_npv.source_response_hash == response.response_hash
@@ -301,8 +238,6 @@ def test_final_npv_source_matches_run_and_response(final_npv, run_and_response) 
 def test_final_npv_config_and_methodology_hashes_match_independent_recomputation(
     final_npv, config
 ) -> None:
-    """Identity 6."""
-
     assert final_npv.economics_config_hash == economics_config_hash(config)
     assert final_npv.methodology_version_hash == methodology_version_hash()
     assert len(final_npv.economics_config_hash) == 64
@@ -310,25 +245,12 @@ def test_final_npv_config_and_methodology_hashes_match_independent_recomputation
 
 
 def test_final_npv_methodology_matches_its_own_table(final_npv) -> None:
-    """`FinalNpvArtifact.__post_init__` уже это проверяет при конструировании —
-    здесь то же самое явно как приёмка, а не как побочный эффект конструктора."""
-
     assert final_npv.npv_methodology == final_npv.npv_table.npv_methodology
     assert final_npv.npv_methodology > 0.0
 
 
-# --- Полный отчёт вместо обрыва на первом расхождении -----------------------
-#
-# Перенесено из ветки feat/andrey/62 (закрыта): там звено А считало все шесть
-# тождеств §10.5 и отдавало отчёт, тогда как первая версия падала на первом же.
-# Разница существенна ровно потому, что попытка сдачи одна: увидеть «сломано
-# одно» и «цепочка разошлась целиком» надо до неё, а не после.
-
-
 @requires_submission_response
 def test_all_six_identities_are_computed_even_when_the_tract_fails(schedule, config) -> None:
-    """Базовое расписание не проходит динамику — но отчёт всё равно полон."""
-
     result = submit_schedule(
         schedule, MODEL_Z, WORK_ROOT, config, use_cache=True, strict=False
     )
@@ -342,35 +264,69 @@ def test_all_six_identities_are_computed_even_when_the_tract_fails(schedule, con
         "economics_config_hash",
         "methodology_version_hash",
     ]
-    # Тождества провенанса держатся: прогон, отклик и ЧДД связаны верно —
-    # цепочку останавливает динамика, а не подмена артефактов.
     assert result.failed_identities == ()
     assert result.sound is False
     assert result.dynamic_report is not None and not result.dynamic_report.ok
-    assert result.dynamic_report.counts() == {
-        ViolationKind.OPEN_WITHOUT_FLOW: 60,
-        ViolationKind.BHP_LIMITED_WITHOUT_UNDERSHOOT: 10,
-        ViolationKind.BHP_BELOW_PRODUCER_LIMIT: 1,
-    }
+    assert result.dynamic_report.counts() == EXPECTED_DYNAMIC_COUNTS
     assert {
         violation.control_step
         for violation in result.dynamic_report.by_kind()[ViolationKind.OPEN_WITHOUT_FLOW]
         if violation.well == "71"
     } == set(range(60))
-    # ЧДД посчитан, но заявлять его нечем — это и есть различение «нарушена
-    # динамика» против «ошибка в деньгах», ради которого отчёт собирается.
     assert result.final_npv is not None
     with pytest.raises(SubmissionTractError, match="validate_dynamic"):
         _ = result.npv_methodology
 
 
 @requires_submission_response
-def test_strict_mode_lists_every_reason_at_once(schedule, config) -> None:
-    """Одно исключение, все причины: не первая попавшаяся."""
+def test_bhp_violations_name_the_exact_wells_and_steps(schedule, config) -> None:
+    result = submit_schedule(
+        schedule, MODEL_Z, WORK_ROOT, config, use_cache=True, strict=False
+    )
+    assert result.dynamic_report is not None
+    by_kind = result.dynamic_report.by_kind()
 
+    def located(kind: ViolationKind) -> frozenset[tuple[int, str]]:
+        return frozenset(
+            (violation.control_step, violation.well) for violation in by_kind[kind]
+        )
+
+    assert (
+        located(ViolationKind.BHP_LIMITED_WITHOUT_UNDERSHOOT)
+        == EXPECTED_BHP_LIMITED_WITHOUT_UNDERSHOOT
+    )
+    assert (
+        located(ViolationKind.BHP_ABOVE_INJECTOR_LIMIT)
+        == EXPECTED_BHP_ABOVE_INJECTOR_LIMIT
+    )
+    assert (
+        located(ViolationKind.BHP_BELOW_PRODUCER_LIMIT)
+        == EXPECTED_BHP_BELOW_PRODUCER_LIMIT
+    )
+
+
+@requires_submission_response
+def test_the_injector_overshoot_is_the_producer_to_injector_conversion_step(
+    schedule, config
+) -> None:
+    result = submit_schedule(
+        schedule, MODEL_Z, WORK_ROOT, config, use_cache=True, strict=False
+    )
+    assert result.response is not None and result.dynamic_report is not None
+
+    states = _states_by_step(result.response.state_at_date)
+    overshoot = states[(56, "94")]
+    assert overshoot.bhp > 300.0
+    assert overshoot.injection_rate > 0.0
+    assert states[(55, "94")].injection_rate == 0.0
+    assert states[(57, "94")].bhp <= 300.0
+
+
+@requires_submission_response
+def test_strict_mode_lists_every_reason_at_once(schedule, config) -> None:
     with pytest.raises(SubmissionTractError, match="звено А §10.5 не пройдено") as excinfo:
         submit_schedule(schedule, MODEL_Z, WORK_ROOT, config, use_cache=True)
 
     message = str(excinfo.value)
-    assert "validate_dynamic: 71 нарушени" in message
+    assert f"validate_dynamic: {EXPECTED_TOTAL_VIOLATIONS} нарушени" in message
     assert "validate_dynamic не выполнялся" not in message
