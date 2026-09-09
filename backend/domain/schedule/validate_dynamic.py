@@ -12,6 +12,7 @@ from backend.core.contracts import (
     Constraints,
     ControlEvent,
     EventKind,
+    Groups,
     IntervalResponse,
     N_INTERVALS,
     OperatingStatus,
@@ -69,6 +70,13 @@ from .validate import (
     _well_sort_key,
     candidates,
     check_constraints,
+)
+
+COMPENSATION_FIELD_SCOPES: frozenset[str] = frozenset(
+    {"field", "field_and_groups"}
+)
+COMPENSATION_GROUP_SCOPES: frozenset[str] = frozenset(
+    {"groups", "field_and_groups"}
 )
 
 PRODUCER_MIN_BHP_BAR: float = DEFAULT_BHP_PRODUCER_MIN_BAR
@@ -784,6 +792,7 @@ def check_dynamic_constraints(
     constraints: Constraints | None,
     oil_density_t_per_m3: float | None = None,
     field_series: FieldSeries | None = None,
+    groups: Groups | None = None,
 ) -> tuple[tuple[Violation, ...], tuple[ConstraintCheck, ...]]:
     if constraints is None:
         return (), _absent_constraint_checks(field_series)
@@ -798,7 +807,7 @@ def check_dynamic_constraints(
             schedule, interval_responses, constraints, oil_density_t_per_m3
         ),
         _check_outages(schedule, states, constraints),
-        _check_compensation(schedule, interval_responses, constraints),
+        _check_compensation(schedule, interval_responses, constraints, groups),
         check_field_pressure(schedule, constraints, field_series),
         check_material_balance(field_series),
     ):
@@ -835,7 +844,10 @@ _CONSTRAINT_KINDS: dict[str, tuple[ViolationKind, ...]] = {
         ViolationKind.COMPENSATION_OUT_OF_CORRIDOR,
         ViolationKind.COMPENSATION_UNDEFINED,
     ),
-    CONSTRAINT_COMPENSATION_SCOPE: (),
+    CONSTRAINT_COMPENSATION_SCOPE: (
+        ViolationKind.COMPENSATION_OUT_OF_CORRIDOR,
+        ViolationKind.COMPENSATION_UNDEFINED,
+    ),
     CONSTRAINT_FIELD_PRESSURE: (
         ViolationKind.FIELD_PRESSURE_BELOW_FLOOR,
         ViolationKind.FIELD_PRESSURE_ABOVE_CEILING,
@@ -985,25 +997,239 @@ def _absent_constraint_checks(
     return tuple(_not_set(name, detail) for name in names) + balance_checks
 
 
+def _compensation_totals(
+    interval_responses: Sequence[IntervalResponse],
+) -> dict[int, tuple[float, float]]:
+    totals: dict[int, tuple[float, float]] = {}
+    for item in interval_responses:
+        withdrawal, injection = totals.get(item.control_step, (0.0, 0.0))
+        totals[item.control_step] = (
+            withdrawal + max(0.0, item.liquid_volume_delta),
+            injection + max(0.0, item.injection_volume_delta),
+        )
+    return totals
+
+
+def _group_membership(groups: Groups) -> dict[str, tuple[str, ...]]:
+    membership: dict[str, list[str]] = {}
+    for group_id in sorted(groups.groups):
+        for well in groups.groups[group_id]:
+            membership.setdefault(well, []).append(group_id)
+    return {well: tuple(ids) for well, ids in membership.items()}
+
+
+def _compensation_group_totals(
+    interval_responses: Sequence[IntervalResponse], groups: Groups
+) -> dict[tuple[int, str], tuple[float, float]]:
+    membership = _group_membership(groups)
+    uncovered = sorted(
+        {item.well for item in interval_responses if item.well not in membership}
+    )
+    if uncovered:
+        raise ValueError(
+            "групповая компенсация требует, чтобы каждая скважина отклика "
+            f"принадлежала участку, вне участков остались: {', '.join(uncovered)}; "
+            "считать C(k) по неполной нарезке значит объявить проверку "
+            "выполненной там, где часть отбора и закачки не учтена"
+        )
+    totals: dict[tuple[int, str], tuple[float, float]] = {}
+    for item in interval_responses:
+        for group_id in membership[item.well]:
+            key = (item.control_step, group_id)
+            withdrawal, injection = totals.get(key, (0.0, 0.0))
+            totals[key] = (
+                withdrawal + max(0.0, item.liquid_volume_delta),
+                injection + max(0.0, item.injection_volume_delta),
+            )
+    return totals
+
+
+def _compensation_violation(
+    control_step: int,
+    withdrawal: float,
+    injection: float,
+    minimum: float,
+    maximum: float,
+    source: str,
+    where: str,
+) -> Violation | None:
+    if withdrawal <= 0.0:
+        return Violation(
+            kind=ViolationKind.COMPENSATION_UNDEFINED,
+            control_step=control_step,
+            well=None,
+            value=injection,
+            detail=(
+                f"шаг {control_step}, {where}: отбор жидкости за шаг равен "
+                f"{withdrawal:.6f} м³, компенсация C(k) = закачка / отбор "
+                f"не определена и в коридор {minimum}…{maximum} "
+                f"не проверялась; закачано {injection:.3f} м³; "
+                f"границы: {source}"
+            ),
+        )
+    value = injection / withdrawal
+    if minimum <= value <= maximum:
+        return None
+    side = "ниже нижней" if value < minimum else "выше верхней"
+    return Violation(
+        kind=ViolationKind.COMPENSATION_OUT_OF_CORRIDOR,
+        control_step=control_step,
+        well=None,
+        value=value,
+        detail=(
+            f"шаг {control_step}, {where}: компенсация C(k) = {value:.4f} "
+            f"{side} границы коридора {minimum}…{maximum}; "
+            f"закачано {injection:.3f} м³ при отборе жидкости "
+            f"{withdrawal:.3f} м³; границы: {source}"
+        ),
+    )
+
+
+def _compensation_disabled_checks(
+    policy: CompensationPolicy,
+) -> tuple[ConstraintCheck, ...]:
+    return (
+        _not_set(
+            CONSTRAINT_COMPENSATION,
+            (
+                f"infrastructure.{COMPENSATION_MIN}/{COMPENSATION_MAX} "
+                "не заданы: коридор компенсации C(k) не проверялся"
+            ),
+            enforcement=policy.enforcement,
+        ),
+        _not_set(
+            CONSTRAINT_COMPENSATION_SCOPE,
+            (
+                f"infrastructure.{COMPENSATION_SCOPE} = {policy.scope!r}, но "
+                "коридор выключен: область проверки применять не к чему"
+            ),
+            enforcement=policy.enforcement,
+        ),
+    )
+
+
+def _compensation_field_check(
+    schedule: Schedule,
+    totals: Mapping[int, tuple[float, float]],
+    policy: CompensationPolicy,
+    minimum: float,
+    maximum: float,
+    source: str,
+) -> tuple[tuple[Violation, ...], ConstraintCheck]:
+    if policy.scope not in COMPENSATION_FIELD_SCOPES:
+        return (), _not_set(
+            CONSTRAINT_COMPENSATION,
+            (
+                f"infrastructure.{COMPENSATION_SCOPE} = {policy.scope!r}: кейс "
+                "требует коридор только по участкам, разрез по полю целиком "
+                "не запрашивался"
+            ),
+            enforcement=policy.enforcement,
+        )
+    found: list[Violation] = []
+    for control_step in range(schedule.meta.n_intervals):
+        if control_step not in totals:
+            continue
+        withdrawal, injection = totals[control_step]
+        violation = _compensation_violation(
+            control_step,
+            withdrawal,
+            injection,
+            minimum,
+            maximum,
+            source,
+            "поле целиком",
+        )
+        if violation is not None:
+            found.append(violation)
+    return tuple(found), _checked(
+        CONSTRAINT_COMPENSATION,
+        found,
+        (
+            f"коридор компенсации {minimum}…{maximum}, режим "
+            f"{policy.enforcement}: C(k) = закачка / отбор проверена по полю "
+            f"на {len(totals)} шагах"
+        ),
+        blocking_kinds=blocking_kinds_for_compensation(policy),
+        enforcement=policy.enforcement,
+    )
+
+
+def _compensation_groups_check(
+    schedule: Schedule,
+    interval_responses: Sequence[IntervalResponse],
+    groups: Groups | None,
+    policy: CompensationPolicy,
+    minimum: float,
+    maximum: float,
+    source: str,
+) -> tuple[tuple[Violation, ...], ConstraintCheck]:
+    if policy.scope not in COMPENSATION_GROUP_SCOPES:
+        return (), _checked(
+            CONSTRAINT_COMPENSATION_SCOPE,
+            (),
+            (
+                f"infrastructure.{COMPENSATION_SCOPE} = {policy.scope!r}: кейс "
+                "требует коридор только по полю целиком, групповой разрез "
+                "не запрашивался"
+            ),
+            blocking_kinds=frozenset(),
+            enforcement=policy.enforcement,
+        )
+    if groups is None:
+        raise ValueError(
+            f"infrastructure.{COMPENSATION_SCOPE} = {policy.scope!r} требует "
+            "нарезки фонда на участки, но Groups в валидатор не переданы: "
+            "групповой коридор C(k) объявлен кейсом и обязан быть посчитан. "
+            "Пропустить его значит выдать sound=true по ограничению, которое "
+            "никто не проверял"
+        )
+    totals = _compensation_group_totals(interval_responses, groups)
+    found: list[Violation] = []
+    for control_step in range(schedule.meta.n_intervals):
+        for group_id in sorted(groups.groups):
+            key = (control_step, group_id)
+            if key not in totals:
+                continue
+            withdrawal, injection = totals[key]
+            violation = _compensation_violation(
+                control_step,
+                withdrawal,
+                injection,
+                minimum,
+                maximum,
+                source,
+                f"участок {group_id}",
+            )
+            if violation is not None:
+                found.append(violation)
+    blocking_kinds = blocking_kinds_for_compensation(policy)
+    kinds = constraint_kinds(CONSTRAINT_COMPENSATION_SCOPE)
+    return tuple(found), ConstraintCheck(
+        constraint=CONSTRAINT_COMPENSATION_SCOPE,
+        status=STATUS_CHECKED,
+        kinds=kinds,
+        n_violations=len(found),
+        blocking=any(kind in blocking_kinds for kind in kinds),
+        enforcement=policy.enforcement,
+        detail=(
+            f"infrastructure.{COMPENSATION_SCOPE} = {policy.scope!r}: коридор "
+            f"{minimum}…{maximum} проверен по участкам, нарезка "
+            f"{groups.group_hash} из {len(groups.groups)} участков, "
+            f"{len(totals)} пар шаг-участок"
+        ),
+    )
+
+
 def _check_compensation(
     schedule: Schedule,
     interval_responses: Sequence[IntervalResponse],
     constraints: Constraints,
+    groups: Groups | None = None,
 ) -> tuple[tuple[Violation, ...], tuple[ConstraintCheck, ...]]:
     policy = compensation_policy(constraints)
-    scope_check = _compensation_scope_check(policy)
     if not policy.enabled:
-        return (), (
-            _not_set(
-                CONSTRAINT_COMPENSATION,
-                (
-                    f"infrastructure.{COMPENSATION_MIN}/{COMPENSATION_MAX} "
-                    "не заданы: коридор компенсации C(k) не проверялся"
-                ),
-                enforcement=policy.enforcement,
-            ),
-            scope_check,
-        )
+        return (), _compensation_disabled_checks(policy)
     minimum = policy.minimum
     maximum = policy.maximum
     if minimum is None or maximum is None:
@@ -1015,95 +1241,24 @@ def _check_compensation(
         f"infrastructure.{COMPENSATION_MIN}/{COMPENSATION_MAX}, "
         f"режим {policy.enforcement}, {limit_origin(constraints, COMPENSATION_MIN)}"
     )
-    totals: dict[int, tuple[float, float]] = {}
-    for item in interval_responses:
-        withdrawal, injection = totals.get(item.control_step, (0.0, 0.0))
-        totals[item.control_step] = (
-            withdrawal + max(0.0, item.liquid_volume_delta),
-            injection + max(0.0, item.injection_volume_delta),
-        )
-    found: list[Violation] = []
-    for control_step in range(schedule.meta.n_intervals):
-        if control_step not in totals:
-            continue
-        withdrawal, injection = totals[control_step]
-        if withdrawal <= 0.0:
-            found.append(
-                Violation(
-                    kind=ViolationKind.COMPENSATION_UNDEFINED,
-                    control_step=control_step,
-                    well=None,
-                    value=injection,
-                    detail=(
-                        f"шаг {control_step}: отбор жидкости за шаг равен "
-                        f"{withdrawal:.6f} м³, компенсация C(k) = закачка / отбор "
-                        f"не определена и в коридор {minimum}…{maximum} "
-                        f"не проверялась; закачано {injection:.3f} м³; "
-                        f"границы: {source}"
-                    ),
-                )
-            )
-            continue
-        value = injection / withdrawal
-        if minimum <= value <= maximum:
-            continue
-        side = "ниже нижней" if value < minimum else "выше верхней"
-        found.append(
-            Violation(
-                kind=ViolationKind.COMPENSATION_OUT_OF_CORRIDOR,
-                control_step=control_step,
-                well=None,
-                value=value,
-                detail=(
-                    f"шаг {control_step}: компенсация C(k) = {value:.4f} "
-                    f"{side} границы коридора {minimum}…{maximum}; "
-                    f"закачано {injection:.3f} м³ при отборе жидкости "
-                    f"{withdrawal:.3f} м³; границы: {source}"
-                ),
-            )
-        )
-    return tuple(found), (
-        _checked(
-            CONSTRAINT_COMPENSATION,
-            found,
-            (
-                f"коридор компенсации {minimum}…{maximum}, режим "
-                f"{policy.enforcement}: C(k) = закачка / отбор проверена на "
-                f"{len(totals)} шагах"
-            ),
-            blocking_kinds=blocking_kinds_for_compensation(policy),
-            enforcement=policy.enforcement,
-        ),
-        scope_check,
+    field_found, field_check = _compensation_field_check(
+        schedule,
+        _compensation_totals(interval_responses),
+        policy,
+        minimum,
+        maximum,
+        source,
     )
-
-
-def _compensation_scope_check(policy: CompensationPolicy) -> ConstraintCheck:
-    if policy.scope == "field":
-        return _checked(
-            CONSTRAINT_COMPENSATION_SCOPE,
-            (),
-            (
-                f"infrastructure.{COMPENSATION_SCOPE} = 'field': компенсация "
-                "считается по всему полю, это ровно то, что реализовано"
-            ),
-            blocking_kinds=frozenset(),
-            enforcement=policy.enforcement,
-        )
-    return ConstraintCheck(
-        constraint=CONSTRAINT_COMPENSATION_SCOPE,
-        status=STATUS_UNSUPPORTED,
-        kinds=constraint_kinds(CONSTRAINT_COMPENSATION_SCOPE),
-        n_violations=None,
-        blocking=False,
-        enforcement=policy.enforcement,
-        detail=(
-            f"infrastructure.{COMPENSATION_SCOPE} = {policy.scope!r}: "
-            "группового разреза компенсации в валидаторе нет, C(k) считается "
-            "только по всему полю; ограничение объявлено кейсом, но "
-            "не проверяется"
-        ),
+    group_found, group_check = _compensation_groups_check(
+        schedule,
+        interval_responses,
+        groups,
+        policy,
+        minimum,
+        maximum,
+        source,
     )
+    return field_found + group_found, (field_check, group_check)
 
 
 def _days_in_step(schedule: Schedule, control_step: int) -> int:
@@ -1631,6 +1786,7 @@ def validate_dynamic(
     oil_density_t_per_m3: float | None = None,
     report_undershoot: bool = True,
     field_series: FieldSeries | None = None,
+    groups: Groups | None = None,
 ) -> DynamicReport:
     violations: list[Violation] = []
     undershoot, ratios = check_target_ratio(schedule, states)
@@ -1650,6 +1806,7 @@ def validate_dynamic(
         constraints,
         oil_density_t_per_m3,
         field_series,
+        groups,
     )
     violations.extend(constraint_violations)
     _, static_outage_check = check_constraints(

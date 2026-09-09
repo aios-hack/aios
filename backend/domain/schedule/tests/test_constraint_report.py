@@ -8,6 +8,7 @@ from backend.core.contracts import (
     ActiveControlMode,
     Availability,
     Constraints,
+    Groups,
     IntervalResponse,
     OperatingStatus,
     Role,
@@ -39,7 +40,6 @@ from backend.domain.schedule.validate import (
     CONSTRAINT_WELL_OUTAGES_STATIC,
     STATUS_CHECKED,
     STATUS_NOT_SET,
-    STATUS_UNSUPPORTED,
     STATUS_WAIVED,
     ConstraintCheck,
     ViolationKind,
@@ -132,6 +132,7 @@ def report_for(
     liquid: float = 0.0,
     oil: float = 0.0,
     injection: float = 0.0,
+    groups: Groups | None = None,
 ):
     schedule = make_schedule()
     return validate_dynamic(
@@ -140,6 +141,15 @@ def report_for(
         full_intervals(schedule, oil=oil, liquid=liquid, injection=injection),
         constraints,
         oil_density_t_per_m3=OIL_DENSITY_T_PER_M3,
+        groups=groups,
+    )
+
+
+def one_group() -> Groups:
+    return Groups(
+        groups={"G1": ("P1",)},
+        lambda_hash="lambda-test",
+        group_hash="group-test",
     )
 
 
@@ -287,7 +297,7 @@ def test_outages_are_reported_by_both_the_static_and_the_dynamic_check() -> None
     )
 
 
-def test_compensation_scope_groups_is_unsupported_not_checked() -> None:
+def test_compensation_scope_groups_is_checked_not_unsupported() -> None:
     constraints = Constraints(
         infrastructure={
             COMPENSATION_MIN: 0.5,
@@ -295,17 +305,19 @@ def test_compensation_scope_groups_is_unsupported_not_checked() -> None:
             COMPENSATION_SCOPE: "groups",
         }
     )
-    report = report_for(constraints, liquid=100.0, injection=100.0)
+    report = report_for(
+        constraints, liquid=100.0, injection=100.0, groups=one_group()
+    )
     checks = by_name(report.constraint_checks)
 
     scope = checks[CONSTRAINT_COMPENSATION_SCOPE]
-    assert scope.status == STATUS_UNSUPPORTED
-    assert scope.n_violations is None
+    assert scope.status == STATUS_CHECKED
+    assert scope.n_violations == 0
     assert "groups" in scope.detail
-    assert checks[CONSTRAINT_COMPENSATION].status == STATUS_CHECKED
+    assert checks[CONSTRAINT_COMPENSATION].status == STATUS_NOT_SET
 
 
-def test_compensation_scope_field_and_groups_is_unsupported_too() -> None:
+def test_compensation_scope_field_and_groups_is_checked_too() -> None:
     constraints = Constraints(
         infrastructure={
             COMPENSATION_MIN: 0.5,
@@ -313,13 +325,16 @@ def test_compensation_scope_field_and_groups_is_unsupported_too() -> None:
             COMPENSATION_SCOPE: "field_and_groups",
         }
     )
-    report = report_for(constraints, liquid=100.0, injection=100.0)
+    report = report_for(
+        constraints, liquid=100.0, injection=100.0, groups=one_group()
+    )
     checks = by_name(report.constraint_checks)
 
-    assert checks[CONSTRAINT_COMPENSATION_SCOPE].status == STATUS_UNSUPPORTED
+    assert checks[CONSTRAINT_COMPENSATION_SCOPE].status == STATUS_CHECKED
+    assert checks[CONSTRAINT_COMPENSATION].status == STATUS_CHECKED
 
 
-def test_compensation_scope_field_is_the_only_supported_value() -> None:
+def test_compensation_scope_field_leaves_the_group_cut_unrequested() -> None:
     constraints = Constraints(
         infrastructure={
             COMPENSATION_MIN: 0.5,

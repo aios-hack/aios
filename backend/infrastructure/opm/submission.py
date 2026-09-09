@@ -36,6 +36,7 @@ from pathlib import Path
 
 from backend.domain.configuration import economics_config_hash
 from backend.core.contracts import (
+    Groups,
     Config,
     Constraints,
     FinalNpvArtifact,
@@ -309,6 +310,7 @@ def submit_schedule(
     use_cache: bool = True,
     strict: bool = True,
     oil_density_t_per_m3: float | None = None,
+    groups: Groups | None = None,
 ) -> SubmissionResult:
     """`Schedule*` → `FinalNpvArtifact`, все шесть тождеств §10.5 проверены.
 
@@ -362,6 +364,7 @@ def submit_schedule(
             constraints,
             oil_density_t_per_m3=oil_density_t_per_m3,
             report_undershoot=False,
+            groups=groups,
         )
         # ЧДД считается и при грязной динамике: заявлять его нельзя (`sound`
         # будет ложным), но в отчёте видно, какое именно число получилось бы —

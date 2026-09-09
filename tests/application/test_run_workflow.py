@@ -614,14 +614,14 @@ def test_verify_writes_the_constraints_report_next_to_the_validation_result(
     }
 
 
-def test_constraints_report_separates_checked_unset_and_unsupported(tmp_path) -> None:
+def test_constraints_report_separates_checked_and_unset(tmp_path) -> None:
     workflow = RunWorkflow(tmp_path / "runs")
     constraints = Constraints(
         liquid_limits={2007: 1.0},
         infrastructure={
             "compensation_min": 0.5,
             "compensation_max": 1.5,
-            "compensation_scope": "groups",
+            "compensation_scope": "field",
         },
     )
     workflow.verify(
@@ -635,7 +635,7 @@ def test_constraints_report_separates_checked_unset_and_unsupported(tmp_path) ->
     statuses = {item["constraint"]: item["status"] for item in document["checks"]}
     assert statuses["liquid_limits"] == "checked"
     assert statuses["injection_limits"] == "not_set"
-    assert statuses["infrastructure.compensation_scope"] == "unsupported"
+    assert statuses["infrastructure.compensation_scope"] == "checked"
 
 
 def test_constraints_report_marks_an_unlimited_water_source_as_waived(

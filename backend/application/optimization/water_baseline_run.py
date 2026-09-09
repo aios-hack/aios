@@ -184,6 +184,7 @@ def main() -> int:
         predicted_response.interval_response,
         constraints,
         OIL_DENSITY_T_PER_M3,
+        groups=env.groups,
     )
     repair_rounds = 0
     static = validate_static(schedule, constraints)

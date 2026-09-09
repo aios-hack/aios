@@ -529,7 +529,7 @@ def compensation_constraints(
             "compensation_min": minimum,
             "compensation_max": maximum,
             "compensation_enforcement": enforcement,
-            "compensation_scope": "field_and_groups",
+            "compensation_scope": "field",
         }
     )
 
@@ -911,6 +911,7 @@ def test_compensation_violation_text_names_the_source() -> None:
         infrastructure={
             "compensation_min": 0.9,
             "compensation_max": 1.1,
+            "compensation_scope": "field",
             source_key("compensation_min"): SOURCE_DIAGNOSTIC,
             source_key("compensation_max"): SOURCE_DIAGNOSTIC,
         },

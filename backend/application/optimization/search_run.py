@@ -138,6 +138,7 @@ def _repair_predicted_water_balance(
             response.interval_response,
             env.constraints,
             env.oil_density_t_per_m3,
+            groups=env.groups,
         )
         return schedule, evaluated, dynamic, 0
 
@@ -151,6 +152,7 @@ def _repair_predicted_water_balance(
             response.interval_response,
             env.constraints,
             env.oil_density_t_per_m3,
+            groups=env.groups,
         )
         bad_steps = {
             item.control_step
