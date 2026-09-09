@@ -15,7 +15,7 @@ from backend.infrastructure.opm import SubmissionResult, submit_schedule
 from backend.infrastructure.opm.opm_deck import OpmDeckEmitter
 from backend.infrastructure.opm.runner import deck_hashes, summary_spec_hash
 from backend.domain.configuration.schema import default_config
-from backend.core.contracts import ArtifactHashes, Constraints, Schedule, Theta
+from backend.core.contracts import ArtifactHashes, Constraints, Schedule, Theta, Groups, compensation_policy
 from backend.core.contracts.hashing import canonical_bytes, hash_schedule
 from backend.domain.schedule.canonical import canonical_part_hash
 from backend.domain.schedule.json_io import load_schedule_json
@@ -247,6 +247,7 @@ def verify_schedule_with_guard(
     expected_schedule_hash: str | None = None,
     expected_constraints_hash: str | None = None,
     constraints: Constraints | None = None,
+    groups: Groups | None = None,
 ) -> GuardedVerification:
     used_constraints = constraints if constraints is not None else _load_constraints()
     guard = resolve_guard_report(
@@ -263,6 +264,12 @@ def verify_schedule_with_guard(
         encoding="utf-8",
     )
     guard.raise_if_broken()
+    if groups is None and compensation_policy(used_constraints).scope == "field_and_groups":
+        from backend.domain.connectivity.groups import GroupingParams, build_groups
+        from backend.domain.connectivity.measure import load_lambda
+        from backend.application.optimization.runtime_artifacts import resolve_lambda_selection
+        selection = resolve_lambda_selection()
+        groups, _ = build_groups(load_lambda(selection.path), GroupingParams(), extra_wells=schedule.meta.wells)
     for check in guard.unchecked:
         print(
             f"ВНИМАНИЕ: {check.name} не сверяется — эталон отсутствует, "
@@ -283,7 +290,7 @@ def verify_schedule_with_guard(
             deck_hash=hashes.deck_hash,
             history_prefix_hash=canonical_part_hash(schedule.initial_state),
             summary_spec_hash=summary_hash,
-            groups_hash="0" * 64,
+            groups_hash=groups.group_hash if groups is not None else "0" * 64,
             dataset_version_hash="0" * 64,
             surrogate_checkpoint_hash="0" * 64,
         ),
@@ -297,6 +304,7 @@ def verify_schedule_with_guard(
         constraints=used_constraints,
         strict=False,
         oil_density_t_per_m3=OIL_DENSITY_T_PER_M3,
+        groups=groups,
     )
     return GuardedVerification(result=result, guard=guard)
 
@@ -309,6 +317,7 @@ def verify_schedule(
     expected_schedule_hash: str | None = None,
     expected_constraints_hash: str | None = None,
     constraints: Constraints | None = None,
+    groups: Groups | None = None,
 ) -> SubmissionResult:
     return verify_schedule_with_guard(
         schedule,
@@ -317,6 +326,7 @@ def verify_schedule(
         expected_schedule_hash=expected_schedule_hash,
         expected_constraints_hash=expected_constraints_hash,
         constraints=constraints,
+        groups=groups,
     ).result
 
 

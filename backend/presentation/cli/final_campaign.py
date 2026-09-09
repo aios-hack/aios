@@ -64,10 +64,11 @@ def main(argv=None):
     parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--seed", type=int, default=20260911)
     parser.add_argument("--global-search", action="store_true", help="добавить CMA-ES в каждом раунде")
+    parser.add_argument("--resume", action="store_true", help="продолжить кампанию и использовать сохранённый кэш OPM")
     args = parser.parse_args(argv)
     if min(args.evaluations, args.opm_budget, args.rounds) < 1:
         parser.error("budgets must be positive")
-    if args.root.exists():
+    if args.root.exists() and not args.resume:
         parser.error("root already exists; use a new campaign directory")
     require_docker()
     constraints = load_case(args.case)
@@ -83,7 +84,17 @@ def main(argv=None):
     )
     validate_runtime_economic_head(artifacts, env.npv_head)
     evaluator = make_evaluator(env)
-    args.root.mkdir(parents=True)
+    args.root.mkdir(parents=True, exist_ok=args.resume)
+    if args.resume:
+        from backend.core.horizon import load_horizon
+        from backend.domain.configuration.constraints_io import constraints_hash
+        from backend.presentation.cli.run import load_saved_constraints
+        if load_horizon(str(args.root / "horizon.json")) != HORIZON:
+            parser.error("resume horizon differs from the saved campaign")
+        for run_dir in (args.root / "runs").glob("candidate-*"):
+            saved = load_saved_constraints(run_dir)
+            if saved is None or constraints_hash(saved) != constraints_hash(constraints):
+                parser.error("resume constraints differ from a saved run")
     (args.root / "horizon.json").write_text(json.dumps({
         "t0": HORIZON.t0.isoformat(), "n_intervals": HORIZON.n_intervals,
         "n_deck_dates": HORIZON.n_deck_dates, "discount_base_year": HORIZON.discount_base_year,
@@ -92,8 +103,18 @@ def main(argv=None):
     champion_path = args.root / "champion.json"
     seen = set()
     attempted = 0
-    records = []
+    record_path = args.root / "evaluations.json"
+    records = json.loads(record_path.read_text()) if args.resume and record_path.is_file() else []
     incumbent = None
+    if args.resume:
+        for item in records:
+            if item.get("run_id"):
+                attempted += 1
+                seen.add(item["schedule_hash"])
+        if champion_path.is_file():
+            from backend.presentation.cli.run import load_run_request
+            champion = json.loads(champion_path.read_text())
+            incumbent = load_run_request(args.root / "runs", champion["run_id"]).schedule
 
     def record(item):
         records.append(item)
@@ -116,7 +137,7 @@ def main(argv=None):
         workflow.search(request)
         print(f"OPM {attempted}/{args.opm_budget}: {label}, {digest}", flush=True)
         # Unexpected runtime failures stop the campaign; the last champion stays on disk.
-        manifest = workflow.verify(request, lambda s, root: verify_schedule(s, root, constraints=constraints))
+        manifest = workflow.verify(request, lambda s, root: verify_schedule(s, root, constraints=constraints, groups=env.groups))
         run_dir = args.root / "runs" / run_id
         economics = json.loads((run_dir / "economics/result.json").read_text())
         item = {"run_id": run_id, "label": label, "schedule_hash": digest,
