@@ -188,6 +188,9 @@ done
 echo "== verify на чистом клоне (настоящий OPM Flow, 10-20 минут)"
 (
     cd "$CLONE_DIR"
+    if [ -f "$COLD_RUN_DIR/inputs/horizon.json" ]; then
+        export AIOS_HORIZON_PATH="$COLD_RUN_DIR/inputs/horizon.json"
+    fi
     AIOS_PROJECT_ROOT="$CLONE_DIR" \
     AIOS_DOCS_ROOT="$DOCS_ROOT" \
     AIOS_OUT_DIR="$WORKDIR/out" \

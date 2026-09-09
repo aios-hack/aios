@@ -112,6 +112,13 @@ def build_provenance(outcome: object, constraints: Constraints | None) -> RunPro
 
 def load_run_request(runs_root: Path, run_id: str) -> RunRequest:
     run_dir = runs_root / run_id
+    from backend.core.horizon import HORIZON, load_horizon
+    horizon_path = run_dir / "inputs" / "horizon.json"
+    if horizon_path.is_file() and load_horizon(str(horizon_path)) != HORIZON:
+        raise SystemExit(
+            f"Период процесса отличается от сохранённого прогона. "
+            f"Запустите новый процесс с AIOS_HORIZON_PATH={horizon_path}"
+        )
     request_path = run_dir / "inputs" / "request.json"
     if not request_path.is_file():
         raise SystemExit(f"Запуск {run_id!r} не найден: {request_path}")

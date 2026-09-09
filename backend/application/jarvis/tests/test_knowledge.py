@@ -220,6 +220,8 @@ NEW_TERM_IDS = (
 @pytest.fixture(scope="module")
 def compensation_base(knowledge_root: Path) -> dict:
     path = knowledge_root.parents[3] / COMPENSATION_ARTIFACT
+    if not path.is_file():
+        pytest.skip("external OPM compensation artifact is absent; generate with tools/compensation_range.py")
     return json.loads(path.read_text(encoding="utf-8"))
 
 

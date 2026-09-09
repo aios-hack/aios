@@ -196,7 +196,7 @@ PYTHONPATH=. python -m backend.presentation.cli.run full --case config/cases/bas
 базового прогона (`data/base_case/response.json`, 224 шага × 103 скважины) по
 той же формуле, что и валидатор: сумма положительных `injection_volume_delta`
 делить на сумму положительных `liquid_volume_delta` за шаг. Результат
-сохраняется в `data/compensation-base.json` — распределение целиком, разбивка
+сохраняется во внешний артефакт data/compensation-base.json — распределение целиком, разбивка
 по годам и значение на каждом шаге.
 
 Замер (прогон `20260816T200926-8b4da543d1ed`), поверхностные условия:

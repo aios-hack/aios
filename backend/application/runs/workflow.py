@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
@@ -16,6 +16,7 @@ from backend.core.contracts import (
     hash_schedule,
 )
 from backend.core.provenance import git_commit, opm_image
+from backend.core.horizon import HORIZON
 from backend.domain.configuration.constraints_io import constraints_hash, constraints_to_json
 from backend.domain.schedule.emit import (
     WELLS_SCHEDULE_FILE_NAME,
@@ -402,6 +403,10 @@ class RunWorkflow:
         run_dir = self.runs_root / request.run_id
         for name in ("inputs", "schedule", "prediction", "opm", "validation", "economics", "ui"):
             (run_dir / name).mkdir(parents=True, exist_ok=True)
+        (run_dir / "inputs" / "horizon.json").write_text(
+            json.dumps(asdict(HORIZON), default=str, sort_keys=True, indent=2) + "\n",
+            encoding="utf-8",
+        )
         (run_dir / "inputs" / "request.json").write_text(
             json.dumps(
                 {
