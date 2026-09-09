@@ -62,6 +62,8 @@ class ViolationKind(Enum):
     COMPENSATION_UNDEFINED = "COMPENSATION_UNDEFINED"
     FIELD_PRESSURE_BELOW_FLOOR = "FIELD_PRESSURE_BELOW_FLOOR"
     FIELD_PRESSURE_ABOVE_CEILING = "FIELD_PRESSURE_ABOVE_CEILING"
+    REGION_PRESSURE_BELOW_FLOOR = "REGION_PRESSURE_BELOW_FLOOR"
+    REGION_PRESSURE_ABOVE_CEILING = "REGION_PRESSURE_ABOVE_CEILING"
     MATERIAL_BALANCE_BROKEN = "MATERIAL_BALANCE_BROKEN"
 
 
@@ -72,11 +74,14 @@ class Violation:
     well: str | None
     value: float | None
     detail: str
+    region: int | None = None
 
     def __str__(self) -> str:
         where = []
         if self.control_step is not None:
             where.append(f"control_step={self.control_step}")
+        if self.region is not None:
+            where.append(f"регион {self.region}")
         if self.well is not None:
             where.append(f"скважина {self.well!r}")
         location = ", ".join(where) if where else "расписание"
@@ -105,6 +110,7 @@ CONSTRAINT_COMPENSATION: str = "infrastructure.compensation"
 CONSTRAINT_COMPENSATION_SCOPE: str = "infrastructure.compensation_scope"
 CONSTRAINT_BHP_LIMITS: str = "infrastructure.bhp_limits"
 CONSTRAINT_FIELD_PRESSURE: str = "infrastructure.field_pressure"
+CONSTRAINT_REGION_PRESSURE: str = "infrastructure.region_pressure"
 CONSTRAINT_MATERIAL_BALANCE: str = "material_balance"
 
 

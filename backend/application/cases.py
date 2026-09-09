@@ -34,6 +34,8 @@ from backend.core.contracts.constraints import (
     EXTERNAL_WATER_M3_PER_DAY,
     PRESSURE_CEILING_BAR,
     PRESSURE_FLOOR_BAR,
+    REGION_PRESSURE_CEILING_BAR,
+    REGION_PRESSURE_FLOOR_BAR,
     SOURCED_INFRASTRUCTURE_KEYS,
     SOURCE_SUFFIX,
     WATER_REINJECTION_FRACTION,
@@ -41,6 +43,7 @@ from backend.core.contracts.constraints import (
     WATER_SAFETY_FACTOR,
     WATER_SUPPLY_UNLIMITED,
     bhp_limits,
+    region_pressure_limits,
     source_key,
 )
 
@@ -68,6 +71,8 @@ INFRASTRUCTURE_VALUE_KEYS: tuple[str, ...] = (
     BHP_INJECTOR_MAX_BAR,
     PRESSURE_FLOOR_BAR,
     PRESSURE_CEILING_BAR,
+    REGION_PRESSURE_FLOOR_BAR,
+    REGION_PRESSURE_CEILING_BAR,
 )
 
 INFRASTRUCTURE_SOURCE_KEYS: tuple[str, ...] = tuple(
@@ -324,6 +329,7 @@ def load_case(path: str | Path, n_intervals: int = N_INTERVALS) -> Constraints:
         water_supply_policy(constraints)
         compensation_policy(constraints)
         bhp_limits(constraints)
+        region_pressure_limits(constraints)
     except ValueError as error:
         raise CaseError(f"{case_path}: {error}") from error
     return replace(constraints, case_path=str(case_path))

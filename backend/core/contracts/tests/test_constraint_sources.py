@@ -19,6 +19,8 @@ from backend.core.contracts.constraints import (
     COMPENSATION_MIN,
     EXTERNAL_WATER_M3_PER_DAY,
     PRESSURE_CEILING_BAR,
+    REGION_PRESSURE_CEILING_BAR,
+    REGION_PRESSURE_FLOOR_BAR,
     PRESSURE_FLOOR_BAR,
     SOURCE_ASSUMPTION,
     SOURCE_DIAGNOSTIC,
@@ -58,6 +60,8 @@ def test_every_blocking_key_names_its_own_source_field(key: str) -> None:
         BHP_INJECTOR_MAX_BAR: 280.0,
         PRESSURE_FLOOR_BAR: 100.0,
         PRESSURE_CEILING_BAR: 200.0,
+        REGION_PRESSURE_FLOOR_BAR: 100.0,
+        REGION_PRESSURE_CEILING_BAR: 200.0,
     }
     with pytest.raises(CaseError) as error:
         constraints_from_json({"infrastructure": {key: values[key]}})

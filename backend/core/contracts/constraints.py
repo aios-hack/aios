@@ -17,6 +17,8 @@ BHP_PRODUCER_MIN_BAR = "bhp_producer_min_bar"
 BHP_INJECTOR_MAX_BAR = "bhp_injector_max_bar"
 PRESSURE_FLOOR_BAR = "pressure_floor_bar"
 PRESSURE_CEILING_BAR = "pressure_ceiling_bar"
+REGION_PRESSURE_FLOOR_BAR = "region_pressure_floor_bar"
+REGION_PRESSURE_CEILING_BAR = "region_pressure_ceiling_bar"
 
 SOURCE_SUFFIX = "_source"
 
@@ -47,6 +49,8 @@ BLOCKING_INFRASTRUCTURE_KEYS: tuple[str, ...] = (
     BHP_INJECTOR_MAX_BAR,
     PRESSURE_FLOOR_BAR,
     PRESSURE_CEILING_BAR,
+    REGION_PRESSURE_FLOOR_BAR,
+    REGION_PRESSURE_CEILING_BAR,
 )
 
 DIAGNOSTIC_INFRASTRUCTURE_KEYS: tuple[str, ...] = (
@@ -131,6 +135,16 @@ class CompensationPolicy:
 
 @dataclass(frozen=True, slots=True)
 class FieldPressureLimits:
+    floor_bar: float | None
+    ceiling_bar: float | None
+
+    @property
+    def enabled(self) -> bool:
+        return self.floor_bar is not None or self.ceiling_bar is not None
+
+
+@dataclass(frozen=True, slots=True)
+class RegionPressureLimits:
     floor_bar: float | None
     ceiling_bar: float | None
 
@@ -350,3 +364,39 @@ def field_pressure_limits(constraints: Constraints) -> FieldPressureLimits:
             f"не выше пола {floor} бар: коридор пластового давления пуст"
         )
     return FieldPressureLimits(floor, ceiling)
+
+
+def region_pressure_limits(constraints: Constraints) -> RegionPressureLimits:
+    source = constraints.infrastructure
+    has_floor = REGION_PRESSURE_FLOOR_BAR in source
+    has_ceiling = REGION_PRESSURE_CEILING_BAR in source
+    if not (has_floor or has_ceiling):
+        return RegionPressureLimits(None, None)
+    floor = (
+        _finite_number(source, REGION_PRESSURE_FLOOR_BAR, 0.0)
+        if has_floor
+        else None
+    )
+    ceiling = (
+        _finite_number(source, REGION_PRESSURE_CEILING_BAR, 0.0)
+        if has_ceiling
+        else None
+    )
+    if floor is not None and floor <= 0.0:
+        raise ValueError(
+            f"infrastructure.{REGION_PRESSURE_FLOOR_BAR}: пол регионального "
+            f"пластового давления должен быть положительным, получено {floor}"
+        )
+    if ceiling is not None and ceiling <= 0.0:
+        raise ValueError(
+            f"infrastructure.{REGION_PRESSURE_CEILING_BAR}: потолок "
+            "регионального пластового давления должен быть положительным, "
+            f"получено {ceiling}"
+        )
+    if floor is not None and ceiling is not None and ceiling <= floor:
+        raise ValueError(
+            f"infrastructure.{REGION_PRESSURE_CEILING_BAR}: потолок {ceiling} "
+            f"бар не выше пола {floor} бар: коридор регионального пластового "
+            "давления пуст"
+        )
+    return RegionPressureLimits(floor, ceiling)

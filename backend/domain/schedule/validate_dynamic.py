@@ -36,13 +36,17 @@ from backend.core.contracts.constraints import (
     EXTERNAL_WATER_M3_PER_DAY,
     PRESSURE_CEILING_BAR,
     PRESSURE_FLOOR_BAR,
+    REGION_PRESSURE_CEILING_BAR,
+    REGION_PRESSURE_FLOOR_BAR,
     WATER_REINJECTION_FRACTION,
     WATER_REINJECTION_LAG_STEPS,
     WATER_SUPPLY_UNLIMITED,
     FieldPressureLimits,
+    RegionPressureLimits,
     bhp_limits,
     field_pressure_limits,
     limit_origin,
+    region_pressure_limits,
 )
 from backend.core.contracts.response import N_DECK_DATES
 
@@ -63,6 +67,7 @@ from .validate import (
     CONSTRAINT_WELL_OUTAGES,
     CONSTRAINT_BHP_LIMITS,
     CONSTRAINT_FIELD_PRESSURE,
+    CONSTRAINT_REGION_PRESSURE,
     CONSTRAINT_MATERIAL_BALANCE,
     ConstraintCheck,
     ValidationReport,
@@ -105,6 +110,19 @@ class FieldSeries:
             and self.oil_in_place_m3
             and self.water_in_place_m3
         )
+
+
+@dataclass(frozen=True, slots=True)
+class RegionSeries:
+    region_pressure_bar: Mapping[int, tuple[float, ...]]
+
+    @property
+    def regions(self) -> tuple[int, ...]:
+        return tuple(sorted(self.region_pressure_bar))
+
+    @property
+    def has_regions(self) -> bool:
+        return bool(self.region_pressure_bar)
 
 
 def level_deck_date_index(control_step: int) -> int:
@@ -157,6 +175,8 @@ DYNAMIC_VIOLATION_KINDS: frozenset[ViolationKind] = frozenset(
         ViolationKind.COMPENSATION_UNDEFINED,
         ViolationKind.FIELD_PRESSURE_BELOW_FLOOR,
         ViolationKind.FIELD_PRESSURE_ABOVE_CEILING,
+        ViolationKind.REGION_PRESSURE_BELOW_FLOOR,
+        ViolationKind.REGION_PRESSURE_ABOVE_CEILING,
         ViolationKind.MATERIAL_BALANCE_BROKEN,
     }
 )
@@ -177,6 +197,8 @@ BLOCKING_DYNAMIC_VIOLATION_KINDS: frozenset[ViolationKind] = frozenset(
         ViolationKind.OUTAGE_WELL_PRODUCED,
         ViolationKind.FIELD_PRESSURE_BELOW_FLOOR,
         ViolationKind.FIELD_PRESSURE_ABOVE_CEILING,
+        ViolationKind.REGION_PRESSURE_BELOW_FLOOR,
+        ViolationKind.REGION_PRESSURE_ABOVE_CEILING,
     }
 )
 
@@ -823,6 +845,7 @@ def check_dynamic_constraints(
     field_series: FieldSeries | None = None,
     groups: Groups | None = None,
     reservoir_factors: Sequence[tuple[float, float]] | None = None,
+    region_series: RegionSeries | None = None,
 ) -> tuple[tuple[Violation, ...], tuple[ConstraintCheck, ...]]:
     if constraints is None:
         return (), _absent_constraint_checks(field_series)
@@ -846,6 +869,7 @@ def check_dynamic_constraints(
             reservoir_factors,
         ),
         check_field_pressure(schedule, constraints, field_series),
+        check_region_pressure(schedule, constraints, region_series),
         check_material_balance(field_series),
     ):
         found.extend(violations)
@@ -864,6 +888,7 @@ DYNAMIC_CONSTRAINT_NAMES: tuple[str, ...] = (
     CONSTRAINT_COMPENSATION,
     CONSTRAINT_COMPENSATION_SCOPE,
     CONSTRAINT_FIELD_PRESSURE,
+    CONSTRAINT_REGION_PRESSURE,
     CONSTRAINT_MATERIAL_BALANCE,
 )
 
@@ -890,6 +915,10 @@ _CONSTRAINT_KINDS: dict[str, tuple[ViolationKind, ...]] = {
     CONSTRAINT_FIELD_PRESSURE: (
         ViolationKind.FIELD_PRESSURE_BELOW_FLOOR,
         ViolationKind.FIELD_PRESSURE_ABOVE_CEILING,
+    ),
+    CONSTRAINT_REGION_PRESSURE: (
+        ViolationKind.REGION_PRESSURE_BELOW_FLOOR,
+        ViolationKind.REGION_PRESSURE_ABOVE_CEILING,
     ),
     CONSTRAINT_MATERIAL_BALANCE: (ViolationKind.MATERIAL_BALANCE_BROKEN,),
 }
@@ -925,6 +954,8 @@ CONSTRAINT_FIELD_COVERAGE: dict[str, tuple[str, ...]] = {
     BHP_INJECTOR_MAX_BAR: (CONSTRAINT_BHP_LIMITS,),
     PRESSURE_FLOOR_BAR: (CONSTRAINT_FIELD_PRESSURE,),
     PRESSURE_CEILING_BAR: (CONSTRAINT_FIELD_PRESSURE,),
+    REGION_PRESSURE_FLOOR_BAR: (CONSTRAINT_REGION_PRESSURE,),
+    REGION_PRESSURE_CEILING_BAR: (CONSTRAINT_REGION_PRESSURE,),
 }
 
 PHYSICS_CONSTRAINT_NAMES: tuple[str, ...] = (CONSTRAINT_MATERIAL_BALANCE,)
@@ -951,6 +982,8 @@ def constraint_fields_to_cover() -> tuple[str, ...]:
         BHP_INJECTOR_MAX_BAR,
         PRESSURE_FLOOR_BAR,
         PRESSURE_CEILING_BAR,
+        REGION_PRESSURE_FLOOR_BAR,
+        REGION_PRESSURE_CEILING_BAR,
     )
 
 
@@ -1640,6 +1673,123 @@ def check_field_pressure(
     )
 
 
+def _region_pressure_source(
+    constraints: Constraints, limits: RegionPressureLimits
+) -> str:
+    parts: list[str] = []
+    if limits.floor_bar is not None:
+        parts.append(
+            f"пол infrastructure.{REGION_PRESSURE_FLOOR_BAR} = "
+            f"{limits.floor_bar} бар, "
+            f"{limit_origin(constraints, REGION_PRESSURE_FLOOR_BAR)}"
+        )
+    if limits.ceiling_bar is not None:
+        parts.append(
+            f"потолок infrastructure.{REGION_PRESSURE_CEILING_BAR} = "
+            f"{limits.ceiling_bar} бар, "
+            f"{limit_origin(constraints, REGION_PRESSURE_CEILING_BAR)}"
+        )
+    return "; ".join(parts)
+
+
+def check_region_pressure(
+    schedule: Schedule,
+    constraints: Constraints,
+    region_series: RegionSeries | None,
+) -> tuple[tuple[Violation, ...], tuple[ConstraintCheck, ...]]:
+    limits = region_pressure_limits(constraints)
+    if not limits.enabled:
+        return (), (
+            _not_set(
+                CONSTRAINT_REGION_PRESSURE,
+                (
+                    f"ни infrastructure.{REGION_PRESSURE_FLOOR_BAR}, ни "
+                    f"infrastructure.{REGION_PRESSURE_CEILING_BAR} в кейсе "
+                    "не заданы: региональное пластовое давление не "
+                    "проверялось, предел назначать за организаторов нельзя"
+                ),
+            ),
+        )
+    if region_series is None:
+        raise ValueError(
+            f"infrastructure.{REGION_PRESSURE_FLOOR_BAR}/"
+            f"{REGION_PRESSURE_CEILING_BAR} заданы, но серии регионального "
+            "давления не переданы: политика включена, а проверять нечего. "
+            "RPR по регионам появляется только в прогоне диагностического "
+            "дека с FIPNUM, поэтому валидатор обязан получить серии или "
+            "сообщить об ошибке, а не признать расписание допустимым"
+        )
+    if not region_series.has_regions:
+        raise ValueError(
+            f"infrastructure.{REGION_PRESSURE_FLOOR_BAR}/"
+            f"{REGION_PRESSURE_CEILING_BAR} заданы, но серии RPR пусты: "
+            "сравнивать с пределом нечего"
+        )
+    n_intervals = schedule.meta.n_intervals
+    required = level_deck_date_index(n_intervals - 1) + 1
+    for region in region_series.regions:
+        pressures = region_series.region_pressure_bar[region]
+        if len(pressures) < required:
+            raise ValueError(
+                f"серия RPR региона {region} короче горизонта: "
+                f"{len(pressures)} значений при необходимых {required} = "
+                f"{FIRST_CONTROL_LEVEL_DECK_DATE_INDEX} + {n_intervals}; "
+                f"уровень давления шага управления {n_intervals - 1} "
+                f"читается по индексу дека "
+                f"{level_deck_date_index(n_intervals - 1)}"
+            )
+    source = _region_pressure_source(constraints, limits)
+    found: list[Violation] = []
+    for region in region_series.regions:
+        pressures = region_series.region_pressure_bar[region]
+        for control_step in range(n_intervals):
+            value = pressures[level_deck_date_index(control_step)]
+            if limits.floor_bar is not None and value < limits.floor_bar:
+                found.append(
+                    Violation(
+                        kind=ViolationKind.REGION_PRESSURE_BELOW_FLOOR,
+                        control_step=control_step,
+                        well=None,
+                        value=value,
+                        detail=(
+                            f"пластовое давление региона {region} "
+                            f"{value:.3f} бар ниже пола {limits.floor_bar} "
+                            f"бар; {source}"
+                        ),
+                        region=region,
+                    )
+                )
+            if limits.ceiling_bar is not None and value > limits.ceiling_bar:
+                found.append(
+                    Violation(
+                        kind=ViolationKind.REGION_PRESSURE_ABOVE_CEILING,
+                        control_step=control_step,
+                        well=None,
+                        value=value,
+                        detail=(
+                            f"пластовое давление региона {region} "
+                            f"{value:.3f} бар выше потолка "
+                            f"{limits.ceiling_bar} бар; {source}"
+                        ),
+                        region=region,
+                    )
+                )
+    return tuple(found), (
+        _checked(
+            CONSTRAINT_REGION_PRESSURE,
+            found,
+            (
+                f"региональное пластовое давление сверено на {n_intervals} "
+                f"шагах управления по RPR регионов "
+                f"{', '.join(str(item) for item in region_series.regions)}, "
+                f"уровень шага k читается по индексу дека "
+                f"{FIRST_CONTROL_LEVEL_DECK_DATE_INDEX} + k; {source}"
+            ),
+            blocking_kinds=BLOCKING_DYNAMIC_VIOLATION_KINDS,
+        ),
+    )
+
+
 def _relative_error(delta_stock: float, delta_flow: float) -> float:
     denom = abs(delta_flow)
     return 0.0 if denom == 0.0 else abs(delta_stock - delta_flow) / denom
@@ -1981,6 +2131,7 @@ def validate_dynamic(
     field_series: FieldSeries | None = None,
     groups: Groups | None = None,
     reservoir_factors: Sequence[tuple[float, float]] | None = None,
+    region_series: RegionSeries | None = None,
 ) -> DynamicReport:
     violations: list[Violation] = []
     undershoot, ratios = check_target_ratio(schedule, states)
@@ -2002,6 +2153,7 @@ def validate_dynamic(
         field_series,
         groups,
         reservoir_factors,
+        region_series,
     )
     violations.extend(constraint_violations)
     _, static_outage_check = check_constraints(
@@ -2016,6 +2168,7 @@ def validate_dynamic(
             -1 if item.control_step is None else item.control_step,
             _well_sort_key(item.well) if item.well is not None else (2, 0, ""),
             item.kind.value,
+            -1 if item.region is None else item.region,
         )
     )
     wells = {state.well for state in states}

@@ -1,5 +1,3 @@
-"""План и OPM-представление секции SUMMARY для Model_Z."""
-
 from __future__ import annotations
 
 import os
@@ -18,16 +16,18 @@ _REGIONS_INCLUDE = "Model_Z_regs.inc"
 _SCHEDULE_INCLUDE = "Model_Z_sch.inc"
 _TOKEN_RE = re.compile(rb"'([^']*)'|([^\s/]+)")
 _REPEAT_RE = re.compile(r"(\d+)\*(-?\d+)\Z")
+REGION_MARKUP_KEYWORD = "FIP_ZONE"
+REGION_REPORT_KEYWORD = "FIPNUM"
+REGION_PRESSURE_KEY = "RPR"
+REGION_VALUES_PER_LINE = 20
 
 
 class SummaryPlanError(ValueError):
-    """Статика Model_Z не позволяет однозначно построить секцию SUMMARY."""
+    pass
 
 
 @dataclass(frozen=True, slots=True, order=True)
 class SummaryConnection:
-    """Уникальное подключение скважины и PVT-регион его ячейки."""
-
     well: str
     i: int
     j: int
@@ -37,16 +37,12 @@ class SummaryConnection:
 
 @dataclass(frozen=True, slots=True)
 class SummaryPlan:
-    """Логический контракт плюс конкретные оси SUMMARY для одного дека."""
-
     spec: SummarySpec
     wells: tuple[str, ...]
     connections: tuple[SummaryConnection, ...]
 
 
 def _keyword_payload(raw: bytes, keyword: bytes) -> tuple[str, ...]:
-    """Вернуть токены первой записи после keyword до первого ``/``."""
-
     lines = raw.splitlines()
     starts = [index for index, line in enumerate(lines) if line.strip() == keyword]
     if len(starts) != 1:
@@ -141,14 +137,6 @@ def _equivalent_compdat_cells(
     dimens: tuple[int, int, int],
     pvtnum: tuple[int, ...],
 ) -> set[tuple[str, int, int, int]]:
-    """Load exact trajectory/grid intersections from the equivalent cell deck.
-
-    ``COMPDATMD`` only contains measured-depth intervals.  A wellhead plus K
-    intervals is not enough to recover traversed I/J cells, so UI geometry must
-    never be used here.  The organizers supplied an equivalent cell-index deck;
-    accept it only when its grid and complete PVTNUM cube match this model.
-    """
-
     configured = os.environ.get("AIOS_COMPDAT_MODEL_DIR")
     candidates = []
     if configured:
@@ -182,13 +170,101 @@ def _equivalent_compdat_cells(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class RegionPlan:
+    source_keyword: str
+    report_keyword: str
+    values: tuple[int, ...]
+    regions: tuple[int, ...]
+    dimens: tuple[int, int, int]
+
+
+def _run_length_encode(values: Iterable[int]) -> tuple[str, ...]:
+    tokens: list[str] = []
+    current: int | None = None
+    count = 0
+    for value in values:
+        if value == current:
+            count += 1
+            continue
+        if current is not None:
+            tokens.append(f"{count}*{current}" if count > 1 else str(current))
+        current = value
+        count = 1
+    if current is not None:
+        tokens.append(f"{count}*{current}" if count > 1 else str(current))
+    return tuple(tokens)
+
+
+def build_region_plan(model_dir: Path | str) -> RegionPlan:
+    model_dir = Path(model_dir).resolve()
+    data_path = model_dir / _MODEL_DATA
+    regions_path = model_dir / _REGIONS_INCLUDE
+    for path in (data_path, regions_path):
+        if not path.is_file():
+            raise FileNotFoundError(path)
+    dimens = _expand_integers(
+        _keyword_payload(data_path.read_bytes(), b"DIMENS"), "DIMENS"
+    )
+    if len(dimens) != 3:
+        raise SummaryPlanError(f"DIMENS: ожидалось 3 значения, получено {len(dimens)}")
+    nx, ny, nz = dimens
+    raw_regions = regions_path.read_bytes()
+    keyword = REGION_MARKUP_KEYWORD.encode("ascii")
+    if not any(line.strip() == keyword for line in raw_regions.splitlines()):
+        raise SummaryPlanError(
+            f"{_REGIONS_INCLUDE}: нет массива {REGION_MARKUP_KEYWORD}; "
+            f"разметку регионов для {REGION_REPORT_KEYWORD} собрать не из чего"
+        )
+    values = _expand_integers(
+        _keyword_payload(raw_regions, keyword), REGION_MARKUP_KEYWORD
+    )
+    if len(values) != nx * ny * nz:
+        raise SummaryPlanError(
+            f"{REGION_MARKUP_KEYWORD}: ожидалось {nx * ny * nz} ячеек, "
+            f"получено {len(values)}"
+        )
+    if any(value < 0 for value in values):
+        raise SummaryPlanError(
+            f"{REGION_MARKUP_KEYWORD}: отрицательный номер региона недопустим"
+        )
+    regions = tuple(sorted({value for value in values if value > 0}))
+    if not regions:
+        raise SummaryPlanError(
+            f"{REGION_MARKUP_KEYWORD}: все ячейки нулевые, размеченных "
+            "регионов нет"
+        )
+    return RegionPlan(
+        source_keyword=REGION_MARKUP_KEYWORD,
+        report_keyword=REGION_REPORT_KEYWORD,
+        values=values,
+        regions=regions,
+        dimens=(nx, ny, nz),
+    )
+
+
+def render_region_report_array(plan: RegionPlan) -> bytes:
+    tokens = _run_length_encode(plan.values)
+    lines = [f"\n{plan.report_keyword}\n"]
+    for start in range(0, len(tokens), REGION_VALUES_PER_LINE):
+        chunk = tokens[start : start + REGION_VALUES_PER_LINE]
+        lines.append(" " + " ".join(chunk) + "\n")
+    lines.append("/\n")
+    return "".join(lines).encode("ascii")
+
+
+def render_region_summary_include(plan: RegionPlan) -> bytes:
+    lines = [f"\n{REGION_PRESSURE_KEY}\n"]
+    lines.extend(f" {region}\n" for region in plan.regions)
+    lines.append("/\n")
+    return "".join(lines).encode("ascii")
+
+
 def build_summary_plan(
     model_dir: Path | str,
     wells: Iterable[str],
     spec: SummarySpec | None = None,
 ) -> SummaryPlan:
-    """Развернуть все COMPDAT и связать подключения с PVTNUM ячеек."""
-
     model_dir = Path(model_dir).resolve()
     data_path = model_dir / _MODEL_DATA
     regions_path = model_dir / _REGIONS_INCLUDE
@@ -249,8 +325,6 @@ def build_summary_plan(
 
 
 def render_summary_include(plan: SummaryPlan) -> bytes:
-    """Сериализовать поддерживаемые Flow well/connection summary-векторы."""
-
     lines = [
         "-- Generated by bridge.summary; do not edit.\n",
         f"-- wells={len(plan.wells)} connections={len(plan.connections)}\n",

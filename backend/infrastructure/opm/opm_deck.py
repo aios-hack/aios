@@ -26,11 +26,15 @@ from backend.core.contracts import (
 from backend.domain.schedule import LosslessBlock, ParsedSchedule, parse_schedule
 
 from .summary import (
+    RegionPlan,
     SummaryPlan,
     SummaryPlanError,
     _expand_integers,
     _keyword_payload,
+    build_region_plan,
     build_summary_plan,
+    render_region_report_array,
+    render_region_summary_include,
     render_summary_include,
 )
 
@@ -43,6 +47,23 @@ _INPUT_SUFFIXES = frozenset({".data", ".inc"})
 _TOKEN_RE = re.compile(rb"'([^']*)'|([^\s/]+)")
 _UTF8_BOM = b"\xef\xbb\xbf"
 _OPM_UNSUPPORTED_GRID_KEYWORDS = (b"ARRZONE", b"ARRZONE_4")
+
+DIAGNOSTIC_MARKER_NAME = "AIOS_DIAGNOSTIC_DECK"
+DIAGNOSTIC_DECK_BANNER = (
+    "-- AIOS DIAGNOSTIC DECK: NOT FOR SUBMISSION.\n"
+    "-- FIPNUM is assembled from FIP_ZONE and RPR is requested per region so\n"
+    "-- that regional pressure can be measured. The submitted deck carries\n"
+    "-- neither array; a run of this deck is a measurement, not a delivery.\n"
+)
+DIAGNOSTIC_MARKER_TEXT = (
+    "AIOS diagnostic deck.\n"
+    "\n"
+    "Дек собран для замера регионального пластового давления: FIPNUM собран "
+    "из FIP_ZONE, в SUMMARY запрошен RPR по каждому размеченному региону.\n"
+    "\n"
+    "Этот дек не идёт в сдачу. Сдаваемое расписание им не меняется — "
+    "управляющий и фиксированный слои те же, отличается только отчётность.\n"
+)
 
 
 class OpmDeckError(ValueError):
@@ -57,6 +78,10 @@ class EmittedOpmDeck:
     summary_plan: SummaryPlan
     input_files: tuple[Path, ...]
     content_hash_opm: str
+    diagnostic: bool = False
+    region_plan: RegionPlan | None = None
+    regions_file: Path | None = None
+    diagnostic_marker_file: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -581,8 +606,12 @@ class OpmDeckEmitter:
         destination: Path | str,
         *,
         summary_spec: SummarySpec | None = None,
+        diagnostic_regions: bool = False,
     ) -> EmittedOpmDeck:
         self._validate(schedule)
+        region_plan = (
+            build_region_plan(self.model_dir) if diagnostic_regions else None
+        )
         destination = Path(destination).resolve()
         if destination == self.model_dir or self.model_dir in destination.parents:
             raise OpmDeckError("destination не может совпадать с исходной Model_Z или лежать в ней")
@@ -607,6 +636,16 @@ class OpmDeckEmitter:
                         opm_raw, _OPM_UNSUPPORTED_GRID_KEYWORDS
                     )
                 )
+            elif region_plan is not None and source.name == _REGIONS_INCLUDE:
+                target.write_bytes(
+                    opm_raw
+                    + DIAGNOSTIC_DECK_BANNER.encode("ascii")
+                    + render_region_report_array(region_plan)
+                )
+            elif region_plan is not None and source.name == _MODEL_DATA:
+                target.write_bytes(
+                    DIAGNOSTIC_DECK_BANNER.encode("ascii") + opm_raw
+                )
             elif opm_raw != source_raw:
                 target.write_bytes(opm_raw)
             else:
@@ -622,7 +661,18 @@ class OpmDeckEmitter:
             spec=summary_spec,
         )
         emitted_summary = destination / _SUMMARY_INCLUDE
-        emitted_summary.write_bytes(render_summary_include(summary_plan))
+        summary_bytes = render_summary_include(summary_plan)
+        if region_plan is not None:
+            summary_bytes = (
+                DIAGNOSTIC_DECK_BANNER.encode("ascii")
+                + summary_bytes
+                + render_region_summary_include(region_plan)
+            )
+        emitted_summary.write_bytes(summary_bytes)
+        marker_file: Path | None = None
+        if region_plan is not None:
+            marker_file = destination / DIAGNOSTIC_MARKER_NAME
+            marker_file.write_text(DIAGNOSTIC_MARKER_TEXT, encoding="utf-8")
         output_files = tuple(
             sorted(
                 path
@@ -637,4 +687,10 @@ class OpmDeckEmitter:
             summary_plan=summary_plan,
             input_files=output_files,
             content_hash_opm=bundle_hash(output_files, destination),
+            diagnostic=region_plan is not None,
+            region_plan=region_plan,
+            regions_file=(
+                destination / _REGIONS_INCLUDE if region_plan is not None else None
+            ),
+            diagnostic_marker_file=marker_file,
         )
