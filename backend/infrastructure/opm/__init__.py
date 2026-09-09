@@ -1,5 +1,3 @@
-"""Мост между контрактным расписанием и OPM Flow."""
-
 from .base_run import (
     BaseRunReport,
     MATERIAL_BALANCE_RELATIVE_TOLERANCE,
@@ -44,7 +42,14 @@ from .dataset_plan import (
     materialize,
     role_of,
 )
-from .opm_deck import EmittedOpmDeck, OpmDeckEmitter, OpmDeckError, bundle_hash
+from .opm_deck import (
+    EmittedOpmDeck,
+    EmittedSchedule,
+    OpmDeckEmitter,
+    OpmDeckError,
+    bundle_hash,
+    render_schedule_include,
+)
 from .response_loader import ResponseLoader, ResponseLoaderError, load_density_by_pvtnum
 from .runner import (
     DEFAULT_FLOW_ARGS,
@@ -117,11 +122,13 @@ __all__ = [
     "DEFAULT_FLOW_ARGS",
     "DEFAULT_OPM_IMAGE",
     "EmittedOpmDeck",
+    "EmittedSchedule",
     "load_density_by_pvtnum",
     "OpmDeckEmitter",
     "OpmDeckError",
     "OpmRunner",
     "OpmRunnerError",
+    "render_schedule_include",
     "render_summary_include",
     "RunCache",
     "ResponseLoader",

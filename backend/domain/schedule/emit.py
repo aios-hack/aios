@@ -4,8 +4,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from backend.core.contracts import content_hash
+from backend.core.contracts import ControlEvent, Schedule, content_hash, hash_schedule
 
+from .build import ScheduleBuildError, build_schedule
+from .canonical import canonicalize
 from .lossless import (
     LosslessBlock,
     LosslessChunk,
@@ -250,3 +252,97 @@ def emit_from_deck(
     report.raise_if_broken()
     path, emitted = emit_to_file(parsed, directory, sparse=sparse, file_name=file_name)
     return path, emitted, report
+
+
+@dataclass(frozen=True, slots=True)
+class ScheduleDivergence:
+    index: int
+    expected: ControlEvent | None
+    actual: ControlEvent | None
+
+    def format(self) -> str:
+        return (
+            f"первое расхождение управляющего слоя на позиции {self.index}: "
+            f"исходное {self.expected!r} против перечитанного {self.actual!r}"
+        )
+
+
+def _first_control_divergence(
+    expected: Sequence[ControlEvent], actual: Sequence[ControlEvent]
+) -> ScheduleDivergence | None:
+    for index in range(max(len(expected), len(actual))):
+        left = expected[index] if index < len(expected) else None
+        right = actual[index] if index < len(actual) else None
+        if left != right:
+            return ScheduleDivergence(index=index, expected=left, actual=right)
+    return None
+
+
+@dataclass(frozen=True, slots=True)
+class ScheduleRoundTripReport:
+    source_hash: str
+    reparsed_hash: str
+    content_hash: str
+    n_bytes: int
+    divergence: ScheduleDivergence | None
+
+    @property
+    def ok(self) -> bool:
+        return self.source_hash == self.reparsed_hash and self.divergence is None
+
+    def format(self) -> str:
+        if self.ok:
+            return (
+                f"round-trip расписания сошёлся: {self.n_bytes} байт, "
+                f"content_hash {self.content_hash}, "
+                f"canonical_schedule_hash {self.source_hash}"
+            )
+        detail = (
+            self.divergence.format()
+            if self.divergence is not None
+            else "управляющий слой совпал, разошлись фиксированный слой или "
+            "начальное состояние"
+        )
+        return (
+            f"round-trip расписания не сошёлся: canonical_schedule_hash "
+            f"{self.source_hash} против {self.reparsed_hash} на {self.n_bytes} "
+            f"байтах (content_hash {self.content_hash}); {detail}"
+        )
+
+    def raise_if_broken(self) -> None:
+        if not self.ok:
+            raise ScheduleEmitError(self.format())
+
+
+def verify_schedule_round_trip(
+    schedule: Schedule, raw: bytes
+) -> ScheduleRoundTripReport:
+    try:
+        parsed = parse_schedule(raw)
+    except ScheduleParseError as error:
+        raise ScheduleEmitError(
+            f"эмитированное расписание не разбирается обратно: {error}"
+        ) from error
+    source = canonicalize(schedule)
+    try:
+        reparsed = canonicalize(
+            build_schedule(
+                parsed,
+                raw,
+                model=source.meta.model,
+                provenance=source.meta.provenance,
+            )
+        )
+    except ScheduleBuildError as error:
+        raise ScheduleEmitError(
+            f"эмитированное расписание не собирается в Schedule: {error}"
+        ) from error
+    return ScheduleRoundTripReport(
+        source_hash=hash_schedule(source),
+        reparsed_hash=hash_schedule(reparsed),
+        content_hash=content_hash(raw),
+        n_bytes=len(raw),
+        divergence=_first_control_divergence(
+            source.control_events, reparsed.control_events
+        ),
+    )

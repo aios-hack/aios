@@ -1,5 +1,3 @@
-"""Сборка исполняемого OPM-дека из Model_Z и контрактного Schedule."""
-
 from __future__ import annotations
 
 import hashlib
@@ -40,26 +38,29 @@ _REGIONS_INCLUDE = "Model_Z_regs.inc"
 _INPUT_SUFFIXES = frozenset({".data", ".inc"})
 _TOKEN_RE = re.compile(rb"'([^']*)'|([^\s/]+)")
 _UTF8_BOM = b"\xef\xbb\xbf"
-# Both arrays are tNavigator-only region annotations in the organizer's
-# Model_Z_grid.inc.  Flow rejects them before constructing EclipseState; they
-# do not alter pore volume, transmissibility, PVT regions, or schedule data.
 _OPM_UNSUPPORTED_GRID_KEYWORDS = (b"ARRZONE", b"ARRZONE_4")
 
 
 class OpmDeckError(ValueError):
-    """Вход нельзя превратить в однозначный физически эквивалентный дек."""
+    pass
 
 
 @dataclass(frozen=True, slots=True)
 class EmittedOpmDeck:
-    """Самодостаточный набор входных файлов OPM и его content hash."""
-
     data_file: Path
     schedule_file: Path
     summary_file: Path
     summary_plan: SummaryPlan
     input_files: tuple[Path, ...]
     content_hash_opm: str
+
+
+@dataclass(frozen=True, slots=True)
+class EmittedSchedule:
+    raw: bytes
+    content_hash: str
+    model_dir: Path
+    opm_schedule_source: Path | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,8 +111,6 @@ def _raw_keyword_block(raw: bytes, keyword: bytes) -> bytes:
 
 
 def _strip_keyword_records(raw: bytes, keywords: tuple[bytes, ...]) -> bytes:
-    """Remove explicitly audited tNavigator-only array keywords for Flow."""
-
     lines = raw.splitlines(keepends=True)
     output: list[bytes] = []
     index = 0
@@ -157,14 +156,6 @@ def _resolve_opm_schedule_template(
     source_raw: bytes,
     source_parsed: ParsedSchedule,
 ) -> tuple[ParsedSchedule, Path | None]:
-    """Resolve the organizer's cell-index equivalent for a trajectory deck.
-
-    Flow does not support ``WELLTRACK``/``COMPDATMD``.  The repository carries
-    the organizer's equivalent ``COMPDAT`` revision.  It is accepted only when
-    the complete date axis, WELSPECS, non-completion fixed events, completion
-    activation dates, DIMENS, and the full PVTNUM array match.
-    """
-
     has_md = any(block.keyword == "COMPDATMD" for block in source_parsed.blocks)
     has_tracks = re.search(rb"(?m)^WELLTRACK(?:\s|$)", source_raw) is not None
     if not has_md and not has_tracks:
@@ -252,8 +243,6 @@ def _resolve_opm_schedule_template(
 
 
 def bundle_hash(files: Iterable[Path], root: Path) -> str:
-    """Хеширует имена и байты всех входов без неоднозначной конкатенации."""
-
     digest = hashlib.sha256()
     for path in sorted(files, key=lambda item: item.relative_to(root).as_posix()):
         name = path.relative_to(root).as_posix().encode("utf-8")
@@ -363,14 +352,70 @@ def _render_controls(events: Iterable[ControlEvent], step: int) -> bytes:
     return _render_block("WCONPROD", producers) + _render_block("WCONINJE", injectors)
 
 
+def _render_schedule_bytes(schedule: Schedule, template: ParsedSchedule) -> bytes:
+    controls_by_step: dict[int, list[ControlEvent]] = defaultdict(list)
+    fixed_wcon_by_step: dict[int, dict[str, list[FixedDeckEvent]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
+    for event in schedule.control_events:
+        controls_by_step[event.control_step].append(event)
+    for event in schedule.fixed_deck_events:
+        if event.operator in ("WCONPROD", "WCONINJE"):
+            fixed_wcon_by_step[event.control_step][event.operator].append(event)
+
+    chunks: list[bytes] = []
+    active_step: int | None = None
+
+    def flush(step: int | None) -> None:
+        if step is None or not (0 <= step < N_INTERVALS):
+            return
+        fixed = fixed_wcon_by_step[step]
+        chunks.append(_render_fixed_wcon(fixed["WCONPROD"], "WCONPROD"))
+        chunks.append(_render_fixed_wcon(fixed["WCONINJE"], "WCONINJE"))
+        chunks.append(_render_controls(controls_by_step[step], step))
+
+    for chunk in template.chunks:
+        if isinstance(chunk, bytes):
+            chunks.append(chunk)
+            continue
+        block: LosslessBlock = chunk
+        if block.keyword == "DATES":
+            flush(active_step)
+            active_step = block.control_step
+            chunks.append(block.raw)
+        elif active_step is None or active_step < 0:
+            chunks.append(block.raw)
+        elif block.keyword not in ("WCONPROD", "WCONINJE"):
+            chunks.append(block.raw)
+    flush(active_step)
+    return b"".join(chunks)
+
+
+def render_schedule_include(
+    schedule: Schedule, model_dir: Path | str
+) -> EmittedSchedule:
+    resolved_dir = Path(model_dir).resolve()
+    data_file = resolved_dir / _MODEL_DATA
+    schedule_file = resolved_dir / _SCHEDULE_INCLUDE
+    if not data_file.is_file() or not schedule_file.is_file():
+        raise FileNotFoundError(
+            f"в {resolved_dir} нужны {_MODEL_DATA} и {_SCHEDULE_INCLUDE}"
+        )
+    source_bytes = schedule_file.read_bytes()
+    source_parsed = parse_schedule(source_bytes)
+    template, template_source = _resolve_opm_schedule_template(
+        resolved_dir, source_bytes, source_parsed
+    )
+    raw = _render_schedule_bytes(schedule, template)
+    return EmittedSchedule(
+        raw=raw,
+        content_hash=hashlib.sha256(raw).hexdigest(),
+        model_dir=resolved_dir,
+        opm_schedule_source=template_source,
+    )
+
+
 class OpmDeckEmitter:
-    """Заменяет управляющий слой и SUMMARY Model_Z, сохраняя его статику.
-
-    Входной ``Schedule`` обязан быть материализован в плотный слой: на каждом
-    шаге 0…223 каждая адресованная скважина несёт уставку и статус. Фиксированный
-    слой сверяется с выданным Model_Z до эмита и не может быть подменён.
-    """
-
     def __init__(self, model_dir: Path | str) -> None:
         self.model_dir = Path(model_dir).resolve()
         self._data_file = self.model_dir / _MODEL_DATA
@@ -418,44 +463,6 @@ class OpmDeckEmitter:
                 f"нет шагов {sorted(missing)}"
             )
 
-    def _emit_schedule(self, schedule: Schedule) -> bytes:
-        controls_by_step: dict[int, list[ControlEvent]] = defaultdict(list)
-        fixed_wcon_by_step: dict[int, dict[str, list[FixedDeckEvent]]] = defaultdict(
-            lambda: defaultdict(list)
-        )
-        for event in schedule.control_events:
-            controls_by_step[event.control_step].append(event)
-        for event in schedule.fixed_deck_events:
-            if event.operator in ("WCONPROD", "WCONINJE"):
-                fixed_wcon_by_step[event.control_step][event.operator].append(event)
-
-        chunks: list[bytes] = []
-        active_step: int | None = None
-
-        def flush(step: int | None) -> None:
-            if step is None or not (0 <= step < N_INTERVALS):
-                return
-            fixed = fixed_wcon_by_step[step]
-            chunks.append(_render_fixed_wcon(fixed["WCONPROD"], "WCONPROD"))
-            chunks.append(_render_fixed_wcon(fixed["WCONINJE"], "WCONINJE"))
-            chunks.append(_render_controls(controls_by_step[step], step))
-
-        for chunk in self._opm_parsed.chunks:
-            if isinstance(chunk, bytes):
-                chunks.append(chunk)
-                continue
-            block: LosslessBlock = chunk
-            if block.keyword == "DATES":
-                flush(active_step)
-                active_step = block.control_step
-                chunks.append(block.raw)
-            elif active_step is None or active_step < 0:
-                chunks.append(block.raw)
-            elif block.keyword not in ("WCONPROD", "WCONINJE"):
-                chunks.append(block.raw)
-        flush(active_step)
-        return b"".join(chunks)
-
     def emit(
         self,
         schedule: Schedule,
@@ -463,8 +470,6 @@ class OpmDeckEmitter:
         *,
         summary_spec: SummarySpec | None = None,
     ) -> EmittedOpmDeck:
-        """Собрать самодостаточный каталог, не перезаписывая существующие данные."""
-
         self._validate(schedule)
         destination = Path(destination).resolve()
         if destination == self.model_dir or self.model_dir in destination.parents:
@@ -483,9 +488,6 @@ class OpmDeckEmitter:
         for source in source_files:
             target = destination / source.name
             source_raw = source.read_bytes()
-            # tNavigator accepts a UTF-8 BOM before the first keyword, while
-            # Flow treats it as part of that keyword.  Normalize only a
-            # leading BOM in the temporary executable copy.
             opm_raw = source_raw.removeprefix(_UTF8_BOM)
             if source.name == "Model_Z_grid.inc":
                 target.write_bytes(
@@ -499,7 +501,9 @@ class OpmDeckEmitter:
                 shutil.copy2(source, target)
 
         emitted_schedule = destination / _SCHEDULE_INCLUDE
-        emitted_schedule.write_bytes(self._emit_schedule(schedule))
+        emitted_schedule.write_bytes(
+            render_schedule_include(schedule, self.model_dir).raw
+        )
         summary_plan = build_summary_plan(
             self.model_dir,
             self.source_wells,

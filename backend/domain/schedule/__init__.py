@@ -1,5 +1,3 @@
-"""Парсинг и lossless-эмит расписания Model_Z."""
-
 from .build import (
     ControlEventConflict,
     ScheduleBuildError,
@@ -34,12 +32,15 @@ from .emit import (
     EmitStats,
     EmittedSchedule,
     RoundTripReport,
+    ScheduleDivergence,
     ScheduleEmitError,
+    ScheduleRoundTripReport,
     WELLS_SCHEDULE_FILE_NAME,
     emit_from_deck,
     emit_to_file,
     emit_wells_schedule,
     round_trip,
+    verify_schedule_round_trip,
 )
 from .lossless import (
     LosslessBlock,
@@ -119,12 +120,15 @@ __all__ = [
     "EmitStats",
     "EmittedSchedule",
     "RoundTripReport",
+    "ScheduleDivergence",
     "ScheduleEmitError",
+    "ScheduleRoundTripReport",
     "WELLS_SCHEDULE_FILE_NAME",
     "emit_from_deck",
     "emit_to_file",
     "emit_wells_schedule",
     "round_trip",
+    "verify_schedule_round_trip",
     "MIN_SETPOINT_M3_PER_DAY",
     "StaticValidationError",
     "ValidationReport",
