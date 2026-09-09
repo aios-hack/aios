@@ -233,6 +233,18 @@ class RunWorkflow:
             + "\n",
             encoding="utf-8",
         )
+        (run_dir / "validation" / "constraints_report.json").write_text(
+            json.dumps(
+                _constraints_report(
+                    getattr(result, "dynamic_report", None),
+                    fields.get("constraints_hash"),
+                ),
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         (run_dir / "economics" / "result.json").write_text(
             json.dumps(
                 {
@@ -432,6 +444,33 @@ def _provenance_fields(
     if constraints is not None:
         fields["constraints_hash"] = constraints_hash(constraints)
     return fields
+
+
+def _constraints_report(
+    dynamic_report: object, constraints_hash_value: object
+) -> dict[str, object]:
+    checks = getattr(dynamic_report, "constraint_checks", ())
+    if dynamic_report is None or not checks:
+        reason = (
+            "динамического отчёта нет: OPM не дошёл до разбора отклика, "
+            "поэтому ни одно ограничение кейса не проверялось"
+            if dynamic_report is None
+            else "динамический отчёт собран без записей о применённых "
+            "ограничениях: состав проверок неизвестен"
+        )
+        return {
+            "constraints_hash": constraints_hash_value,
+            "checks": None,
+            "unavailable_reason": (
+                f"{reason}; пустой список проверок здесь читался бы как "
+                "«ограничений нет», а это не так"
+            ),
+        }
+    return {
+        "constraints_hash": constraints_hash_value,
+        "checks": [item.as_dict() for item in checks],
+        "unavailable_reason": None,
+    }
 
 
 def _required_text(value: object, name: str, run_id: str) -> str:

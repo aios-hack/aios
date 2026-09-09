@@ -35,12 +35,16 @@ from backend.application.optimization.runtime_artifacts import (
 from backend.application.optimization.search import optimize
 from backend.domain.policy.fixed_point import resolve
 from backend.domain.policy.theta import default_theta
-from backend.domain.schedule.case_limits import apply_case_limits
+from backend.domain.schedule.case_limits import YearlyProduction, apply_case_limits
 from backend.domain.schedule import (
     ViolationKind,
     canonicalize,
     validate_dynamic,
     validate_static,
+)
+from backend.domain.schedule.validate_dynamic import (
+    FIRST_CONTROL_DECK_DATE_INDEX,
+    year_of_step,
 )
 from backend.infrastructure.resources import chdd_python_dir, model_z_dir
 from backend.application.cases import load_case
@@ -194,9 +198,42 @@ def _search_theta(constraints) -> Theta:
     return Theta(values=values, bounds=bounds)
 
 
+def _peak_step_production(env, evaluator):
+    def forecast(schedule: Schedule) -> YearlyProduction:
+        response = evaluator(schedule).state.response
+        liquid_by_step: dict[int, float] = {}
+        injection_by_step: dict[int, float] = {}
+        for state in response.state_at_date:
+            control_step = state.deck_date_index - FIRST_CONTROL_DECK_DATE_INDEX - 1
+            if control_step < 0:
+                continue
+            liquid_by_step[control_step] = (
+                liquid_by_step.get(control_step, 0.0) + state.liquid_rate
+            )
+            injection_by_step[control_step] = (
+                injection_by_step.get(control_step, 0.0) + state.injection_rate
+            )
+        liquid: dict[int, float] = {}
+        injection: dict[int, float] = {}
+        for control_step, value in liquid_by_step.items():
+            year = year_of_step(schedule, control_step)
+            liquid[year] = max(liquid.get(year, 0.0), value)
+        for control_step, value in injection_by_step.items():
+            year = year_of_step(schedule, control_step)
+            injection[year] = max(injection.get(year, 0.0), value)
+        return YearlyProduction(liquid_by_year=liquid, injection_by_year=injection)
+
+    return forecast
+
+
 def _search_near_baseline(env, evaluator, budget: int, provenance: dict[str, str]) -> SearchOutcome:
     rng = random.Random(SEED)
-    baseline = apply_case_limits(env.base_schedule, env.constraints, getattr(env, "control_dates", ()))
+    baseline = apply_case_limits(
+        env.base_schedule,
+        env.constraints,
+        env.control_dates,
+        _peak_step_production(env, evaluator),
+    )
     candidates = [baseline]
     wells = sorted({event.well for event in baseline.control_events
                     if event.kind in (EventKind.SET_LRAT, EventKind.SET_RATE) and event.value})

@@ -1,7 +1,8 @@
+import pytest
 from datetime import date
 from dataclasses import replace
 from backend.core.contracts import Constraints, ControlEvent, EventKind, WellOutage
-from backend.domain.schedule.case_limits import apply_case_limits
+from backend.domain.schedule.case_limits import CaseLimitsForecastRequired, apply_case_limits
 from tests.application.test_run_workflow import sample_schedule
 
 
@@ -24,8 +25,15 @@ def test_outage_includes_both_endpoints_without_changing_history():
         elif event.kind is EventKind.SET_LRAT: assert event.value == 10
 
 
+def test_liquid_cap_needs_a_forecast_rather_than_the_setpoint_sum():
+    with pytest.raises(CaseLimitsForecastRequired):
+        apply_case_limits(dense_schedule(), Constraints(liquid_limits={2007: 3}),
+                          [date(2007, 1, 1), date(2008, 1, 1), date(2009, 1, 1)])
+
+
 def test_liquid_cap_only_applies_to_requested_year():
     changed = apply_case_limits(dense_schedule(), Constraints(liquid_limits={2007: 3}),
-                                [date(2007, 1, 1), date(2008, 1, 1), date(2009, 1, 1)])
+                                [date(2007, 1, 1), date(2008, 1, 1), date(2009, 1, 1)],
+                                allow_setpoint_sum_fallback=True)
     rates = [e.value for e in changed.control_events if e.kind is EventKind.SET_LRAT]
     assert rates == [3, 10, 10]

@@ -22,10 +22,40 @@ from backend.core.contracts import (
     is_excluded_by_negative_rule,
     water_supply_policy,
 )
-from backend.core.contracts.constraints import COMPENSATION_MAX, COMPENSATION_MIN
+from backend.core.contracts.constraints import (
+    COMPENSATION_ENFORCEMENT,
+    COMPENSATION_MAX,
+    COMPENSATION_MIN,
+    COMPENSATION_SCOPE,
+    EXTERNAL_WATER_M3_PER_DAY,
+    WATER_REINJECTION_FRACTION,
+    WATER_REINJECTION_LAG_STEPS,
+    WATER_SUPPLY_UNLIMITED,
+)
 from backend.core.contracts.response import N_DECK_DATES
 
-from .validate import ValidationReport, Violation, ViolationKind, _well_sort_key
+from .validate import (
+    CONSTRAINT_WELL_OUTAGES_STATIC,
+    STATUS_CHECKED,
+    STATUS_NOT_SET,
+    STATUS_UNSUPPORTED,
+    STATUS_WAIVED,
+    CONSTRAINT_COMPENSATION,
+    CONSTRAINT_COMPENSATION_SCOPE,
+    CONSTRAINT_INJECTION_LIMITS,
+    CONSTRAINT_LIQUID_LIMITS,
+    CONSTRAINT_PRODUCTION_FLOORS,
+    CONSTRAINT_WATER_SUPPLY,
+    CONSTRAINT_WATERCUT_LIMITS,
+    CONSTRAINT_WELL_OUTAGES,
+    ConstraintCheck,
+    ValidationReport,
+    Violation,
+    ViolationKind,
+    _well_sort_key,
+    candidates,
+    check_constraints,
+)
 
 PRODUCER_MIN_BHP_BAR: float = 50.0
 INJECTOR_MAX_BHP_BAR: float = 300.0
@@ -120,6 +150,7 @@ class DynamicReport:
     n_intervals_seen: int
     n_wells: int
     blocking_kinds: frozenset[ViolationKind] = BLOCKING_DYNAMIC_VIOLATION_KINDS
+    constraint_checks: tuple[ConstraintCheck, ...] = ()
 
     @property
     def ok(self) -> bool:
@@ -659,7 +690,7 @@ def check_interval_signs(
     return tuple(found)
 
 
-def _year_of_step(schedule: Schedule, control_step: int) -> int:
+def year_of_step(schedule: Schedule, control_step: int) -> int:
     t0 = schedule.meta.t0
     month_index = t0.month - 1 + control_step
     return t0.year + month_index // 12
@@ -671,34 +702,184 @@ def check_dynamic_constraints(
     interval_responses: Sequence[IntervalResponse],
     constraints: Constraints | None,
     oil_density_t_per_m3: float | None = None,
-) -> tuple[Violation, ...]:
+) -> tuple[tuple[Violation, ...], tuple[ConstraintCheck, ...]]:
     if constraints is None:
-        return ()
+        return (), _absent_constraint_checks()
     found: list[Violation] = []
-    found.extend(_check_rate_limits(schedule, states, constraints))
-    found.extend(
+    checks: list[ConstraintCheck] = []
+    for violations, records in (
+        _check_rate_limits(schedule, states, constraints),
         _check_watercut_limits(
             schedule, interval_responses, constraints, oil_density_t_per_m3
-        )
-    )
-    found.extend(
+        ),
         _check_water_supply(
             schedule, interval_responses, constraints, oil_density_t_per_m3
+        ),
+        _check_outages(schedule, states, constraints),
+        _check_compensation(schedule, interval_responses, constraints),
+    ):
+        found.extend(violations)
+        checks.extend(records)
+    return tuple(found), tuple(checks)
+
+
+DYNAMIC_CONSTRAINT_NAMES: tuple[str, ...] = (
+    CONSTRAINT_LIQUID_LIMITS,
+    CONSTRAINT_INJECTION_LIMITS,
+    CONSTRAINT_PRODUCTION_FLOORS,
+    CONSTRAINT_WATERCUT_LIMITS,
+    CONSTRAINT_WATER_SUPPLY,
+    CONSTRAINT_WELL_OUTAGES,
+    CONSTRAINT_COMPENSATION,
+    CONSTRAINT_COMPENSATION_SCOPE,
+)
+
+_CONSTRAINT_KINDS: dict[str, tuple[ViolationKind, ...]] = {
+    CONSTRAINT_LIQUID_LIMITS: (ViolationKind.LIQUID_LIMIT_EXCEEDED,),
+    CONSTRAINT_INJECTION_LIMITS: (ViolationKind.INJECTION_LIMIT_EXCEEDED,),
+    CONSTRAINT_PRODUCTION_FLOORS: (ViolationKind.PRODUCTION_FLOOR_MISSED,),
+    CONSTRAINT_WATERCUT_LIMITS: (ViolationKind.WATERCUT_LIMIT_EXCEEDED,),
+    CONSTRAINT_WATER_SUPPLY: (ViolationKind.WATER_SUPPLY_LIMIT_EXCEEDED,),
+    CONSTRAINT_WELL_OUTAGES: (ViolationKind.OUTAGE_WELL_PRODUCED,),
+    CONSTRAINT_COMPENSATION: (
+        ViolationKind.COMPENSATION_OUT_OF_CORRIDOR,
+        ViolationKind.COMPENSATION_UNDEFINED,
+    ),
+    CONSTRAINT_COMPENSATION_SCOPE: (),
+}
+
+
+def constraint_kinds(constraint: str) -> tuple[ViolationKind, ...]:
+    if constraint == CONSTRAINT_WELL_OUTAGES_STATIC:
+        return (ViolationKind.WELL_OUTAGE_VIOLATED,)
+    if constraint not in _CONSTRAINT_KINDS:
+        raise KeyError(
+            f"ограничение {constraint!r} не объявлено в отчёте о проверках: "
+            "виды нарушений для него неизвестны"
         )
+    return _CONSTRAINT_KINDS[constraint]
+
+
+CONSTRAINT_FIELD_COVERAGE: dict[str, tuple[str, ...]] = {
+    "liquid_limits": (CONSTRAINT_LIQUID_LIMITS,),
+    "injection_limits": (CONSTRAINT_INJECTION_LIMITS,),
+    "production_floors": (CONSTRAINT_PRODUCTION_FLOORS,),
+    "watercut_limits": (CONSTRAINT_WATERCUT_LIMITS,),
+    "well_outages": (CONSTRAINT_WELL_OUTAGES, CONSTRAINT_WELL_OUTAGES_STATIC),
+    WATER_SUPPLY_UNLIMITED: (CONSTRAINT_WATER_SUPPLY,),
+    WATER_REINJECTION_FRACTION: (CONSTRAINT_WATER_SUPPLY,),
+    WATER_REINJECTION_LAG_STEPS: (CONSTRAINT_WATER_SUPPLY,),
+    EXTERNAL_WATER_M3_PER_DAY: (CONSTRAINT_WATER_SUPPLY,),
+    COMPENSATION_MIN: (CONSTRAINT_COMPENSATION,),
+    COMPENSATION_MAX: (CONSTRAINT_COMPENSATION,),
+    COMPENSATION_ENFORCEMENT: (CONSTRAINT_COMPENSATION,),
+    COMPENSATION_SCOPE: (CONSTRAINT_COMPENSATION_SCOPE,),
+}
+
+
+def constraint_fields_to_cover() -> tuple[str, ...]:
+    fields = tuple(
+        name for name in Constraints.__dataclass_fields__ if name != "infrastructure"
     )
-    found.extend(_check_outages(schedule, states, constraints))
-    found.extend(_check_compensation(schedule, interval_responses, constraints))
-    return tuple(found)
+    return fields + (
+        WATER_SUPPLY_UNLIMITED,
+        WATER_REINJECTION_FRACTION,
+        WATER_REINJECTION_LAG_STEPS,
+        EXTERNAL_WATER_M3_PER_DAY,
+        COMPENSATION_MIN,
+        COMPENSATION_MAX,
+        COMPENSATION_ENFORCEMENT,
+        COMPENSATION_SCOPE,
+    )
+
+
+def verified_constraint_checks(
+    checks: Sequence[ConstraintCheck],
+) -> tuple[ConstraintCheck, ...]:
+    present = {item.constraint for item in checks}
+    if len(present) != len(checks):
+        raise ValueError(
+            "отчёт о применённых ограничениях содержит повторяющиеся записи: "
+            "одно ограничение обязано давать ровно один статус"
+        )
+    uncovered: list[str] = []
+    for field_name in constraint_fields_to_cover():
+        expected = CONSTRAINT_FIELD_COVERAGE.get(field_name)
+        if expected is None:
+            uncovered.append(field_name)
+            continue
+        if not present.issuperset(expected):
+            uncovered.append(field_name)
+    if uncovered:
+        raise ValueError(
+            "отчёт о применённых ограничениях неполон, без записи остались "
+            f"поля кейса: {', '.join(sorted(uncovered))}; поле, объявленное "
+            "в Constraints, обязано получить статус проверки, иначе "
+            "sound=true скрывает непроверенное ограничение"
+        )
+    return tuple(sorted(checks, key=lambda item: item.constraint))
+
+
+def _not_set(
+    constraint: str, detail: str, *, enforcement: str | None = None
+) -> ConstraintCheck:
+    return ConstraintCheck(
+        constraint=constraint,
+        status=STATUS_NOT_SET,
+        kinds=constraint_kinds(constraint),
+        n_violations=None,
+        blocking=False,
+        enforcement=enforcement,
+        detail=detail,
+    )
+
+
+def _checked(
+    constraint: str,
+    violations: Sequence[Violation],
+    detail: str,
+    *,
+    blocking_kinds: frozenset[ViolationKind],
+    enforcement: str | None = None,
+) -> ConstraintCheck:
+    kinds = constraint_kinds(constraint)
+    return ConstraintCheck(
+        constraint=constraint,
+        status=STATUS_CHECKED,
+        kinds=kinds,
+        n_violations=sum(1 for item in violations if item.kind in kinds),
+        blocking=any(kind in blocking_kinds for kind in kinds),
+        enforcement=enforcement,
+        detail=detail,
+    )
+
+
+def _absent_constraint_checks() -> tuple[ConstraintCheck, ...]:
+    detail = "ограничения кейса не переданы: динамические проверки не запускались"
+    return tuple(
+        _not_set(name, detail) for name in DYNAMIC_CONSTRAINT_NAMES
+    )
 
 
 def _check_compensation(
     schedule: Schedule,
     interval_responses: Sequence[IntervalResponse],
     constraints: Constraints,
-) -> tuple[Violation, ...]:
+) -> tuple[tuple[Violation, ...], tuple[ConstraintCheck, ...]]:
     policy = compensation_policy(constraints)
+    scope_check = _compensation_scope_check(policy)
     if not policy.enabled:
-        return ()
+        return (), (
+            _not_set(
+                CONSTRAINT_COMPENSATION,
+                (
+                    f"infrastructure.{COMPENSATION_MIN}/{COMPENSATION_MAX} "
+                    "не заданы: коридор компенсации C(k) не проверялся"
+                ),
+                enforcement=policy.enforcement,
+            ),
+            scope_check,
+        )
     minimum = policy.minimum
     maximum = policy.maximum
     if minimum is None or maximum is None:
@@ -757,7 +938,48 @@ def _check_compensation(
                 ),
             )
         )
-    return tuple(found)
+    return tuple(found), (
+        _checked(
+            CONSTRAINT_COMPENSATION,
+            found,
+            (
+                f"коридор компенсации {minimum}…{maximum}, режим "
+                f"{policy.enforcement}: C(k) = закачка / отбор проверена на "
+                f"{len(totals)} шагах"
+            ),
+            blocking_kinds=blocking_kinds_for_compensation(policy),
+            enforcement=policy.enforcement,
+        ),
+        scope_check,
+    )
+
+
+def _compensation_scope_check(policy: CompensationPolicy) -> ConstraintCheck:
+    if policy.scope == "field":
+        return _checked(
+            CONSTRAINT_COMPENSATION_SCOPE,
+            (),
+            (
+                f"infrastructure.{COMPENSATION_SCOPE} = 'field': компенсация "
+                "считается по всему полю, это ровно то, что реализовано"
+            ),
+            blocking_kinds=frozenset(),
+            enforcement=policy.enforcement,
+        )
+    return ConstraintCheck(
+        constraint=CONSTRAINT_COMPENSATION_SCOPE,
+        status=STATUS_UNSUPPORTED,
+        kinds=constraint_kinds(CONSTRAINT_COMPENSATION_SCOPE),
+        n_violations=None,
+        blocking=False,
+        enforcement=policy.enforcement,
+        detail=(
+            f"infrastructure.{COMPENSATION_SCOPE} = {policy.scope!r}: "
+            "группового разреза компенсации в валидаторе нет, C(k) считается "
+            "только по всему полю; ограничение объявлено кейсом, но "
+            "не проверяется"
+        ),
+    )
 
 
 def _days_in_step(schedule: Schedule, control_step: int) -> int:
@@ -772,10 +994,36 @@ def _check_water_supply(
     interval_responses: Sequence[IntervalResponse],
     constraints: Constraints,
     oil_density_t_per_m3: float | None,
-) -> tuple[Violation, ...]:
+) -> tuple[tuple[Violation, ...], tuple[ConstraintCheck, ...]]:
     policy = water_supply_policy(constraints)
+    if policy.unlimited:
+        return (), (
+            ConstraintCheck(
+                constraint=CONSTRAINT_WATER_SUPPLY,
+                status=STATUS_WAIVED,
+                kinds=constraint_kinds(CONSTRAINT_WATER_SUPPLY),
+                n_violations=None,
+                blocking=False,
+                enforcement=None,
+                detail=(
+                    f"infrastructure.{WATER_SUPPLY_UNLIMITED} = true: кейс "
+                    "объявил источник воды неограниченным, материальный баланс "
+                    "воды снят явно, а не пропущен"
+                ),
+            ),
+        )
     if not policy.enabled:
-        return ()
+        return (), (
+            _not_set(
+                CONSTRAINT_WATER_SUPPLY,
+                (
+                    f"ни {WATER_REINJECTION_FRACTION}, ни "
+                    f"{WATER_REINJECTION_LAG_STEPS}, ни "
+                    f"{EXTERNAL_WATER_M3_PER_DAY} в infrastructure не заданы: "
+                    "материальный баланс воды не проверялся"
+                ),
+            ),
+        )
     if oil_density_t_per_m3 is None or oil_density_t_per_m3 <= 0.0:
         raise ValueError(
             "water_reinjection_fraction задан, но положительная плотность "
@@ -820,20 +1068,33 @@ def _check_water_supply(
                 ),
             )
         )
-    return tuple(found)
+    return tuple(found), (
+        _checked(
+            CONSTRAINT_WATER_SUPPLY,
+            found,
+            (
+                f"доля возврата {policy.reinjection_fraction}, лаг "
+                f"{policy.lag_steps} шагов, внешний приток "
+                f"{policy.external_water_m3_per_day} м³/сут: закачка сверена "
+                f"с балансом воды на {schedule.meta.n_intervals} шагах"
+            ),
+            blocking_kinds=BLOCKING_DYNAMIC_VIOLATION_KINDS,
+        ),
+    )
 
 
 def _check_rate_limits(
     schedule: Schedule,
     states: Sequence[StateAtDate],
     constraints: Constraints,
-) -> tuple[Violation, ...]:
-    if not (
+) -> tuple[tuple[Violation, ...], tuple[ConstraintCheck, ...]]:
+    empty = not (
         constraints.liquid_limits
         or constraints.injection_limits
         or constraints.production_floors
-    ):
-        return ()
+    )
+    if empty:
+        return (), _rate_limit_checks(constraints, ())
     totals: dict[int, tuple[float, float, float]] = {}
     for state in states:
         control_step = state.deck_date_index - FIRST_CONTROL_DECK_DATE_INDEX - 1
@@ -848,7 +1109,7 @@ def _check_rate_limits(
     found: list[Violation] = []
     for control_step in sorted(totals):
         liquid, injection, oil = totals[control_step]
-        year = _year_of_step(schedule, control_step)
+        year = year_of_step(schedule, control_step)
         liquid_limit = constraints.liquid_limits.get(year)
         if liquid_limit is not None and liquid > liquid_limit:
             found.append(
@@ -891,7 +1152,46 @@ def _check_rate_limits(
                     ),
                 )
             )
-    return tuple(found)
+    return tuple(found), _rate_limit_checks(constraints, found)
+
+
+def _rate_limit_checks(
+    constraints: Constraints, found: Sequence[Violation]
+) -> tuple[ConstraintCheck, ...]:
+    sources: tuple[tuple[str, Mapping[int, float], str], ...] = (
+        (
+            CONSTRAINT_LIQUID_LIMITS,
+            constraints.liquid_limits,
+            "верхний предел суммарной добычи жидкости по годам",
+        ),
+        (
+            CONSTRAINT_INJECTION_LIMITS,
+            constraints.injection_limits,
+            "верхний предел суммарной закачки по годам",
+        ),
+        (
+            CONSTRAINT_PRODUCTION_FLOORS,
+            constraints.production_floors,
+            "нижняя граница суммарной добычи нефти по годам",
+        ),
+    )
+    records: list[ConstraintCheck] = []
+    for name, limits, meaning in sources:
+        if not limits:
+            records.append(
+                _not_set(name, f"{name} в кейсе не заданы: {meaning} не проверялся")
+            )
+            continue
+        years = ", ".join(str(year) for year in sorted(limits))
+        records.append(
+            _checked(
+                name,
+                found,
+                f"{meaning} задан на годы {years} и сверен пошагово",
+                blocking_kinds=BLOCKING_DYNAMIC_VIOLATION_KINDS,
+            )
+        )
+    return tuple(records)
 
 
 def _check_watercut_limits(
@@ -899,9 +1199,14 @@ def _check_watercut_limits(
     interval_responses: Sequence[IntervalResponse],
     constraints: Constraints,
     oil_density_t_per_m3: float | None,
-) -> tuple[Violation, ...]:
+) -> tuple[tuple[Violation, ...], tuple[ConstraintCheck, ...]]:
     if not constraints.watercut_limits:
-        return ()
+        return (), (
+            _not_set(
+                CONSTRAINT_WATERCUT_LIMITS,
+                "watercut_limits в кейсе не заданы: обводнённость не проверялась",
+            ),
+        )
     if oil_density_t_per_m3 is None:
         raise ValueError(
             "watercut_limits заданы, но плотность нефти не передана: "
@@ -921,7 +1226,7 @@ def _check_watercut_limits(
         oil, liquid = totals[control_step]
         if liquid <= 0.0:
             continue
-        year = _year_of_step(schedule, control_step)
+        year = year_of_step(schedule, control_step)
         limit = constraints.watercut_limits.get(year)
         if limit is None:
             continue
@@ -939,16 +1244,36 @@ def _check_watercut_limits(
                     ),
                 )
             )
-    return tuple(found)
+    years = ", ".join(str(year) for year in sorted(constraints.watercut_limits))
+    return tuple(found), (
+        _checked(
+            CONSTRAINT_WATERCUT_LIMITS,
+            found,
+            (
+                f"предел обводнённости задан на годы {years} и сверен "
+                f"на {len(totals)} шагах при плотности нефти "
+                f"{oil_density_t_per_m3} т/м³"
+            ),
+            blocking_kinds=BLOCKING_DYNAMIC_VIOLATION_KINDS,
+        ),
+    )
 
 
 def _check_outages(
     schedule: Schedule,
     states: Sequence[StateAtDate],
     constraints: Constraints,
-) -> tuple[Violation, ...]:
+) -> tuple[tuple[Violation, ...], tuple[ConstraintCheck, ...]]:
     if not constraints.well_outages:
-        return ()
+        return (), (
+            _not_set(
+                CONSTRAINT_WELL_OUTAGES,
+                (
+                    "well_outages в кейсе не заданы: работа скважин внутри "
+                    "окон простоя не проверялась"
+                ),
+            ),
+        )
     indexed = _states_by_step(states)
     found: list[Violation] = []
     for outage in constraints.well_outages:
@@ -972,7 +1297,17 @@ def _check_outages(
                         ),
                     )
                 )
-    return tuple(found)
+    return tuple(found), (
+        _checked(
+            CONSTRAINT_WELL_OUTAGES,
+            found,
+            (
+                f"окон простоя {len(constraints.well_outages)}: отклик сверен "
+                "на нулевой дебит и нулевую закачку внутри каждого окна"
+            ),
+            blocking_kinds=BLOCKING_DYNAMIC_VIOLATION_KINDS,
+        ),
+    )
 
 
 def validate_dynamic(
@@ -993,15 +1328,18 @@ def validate_dynamic(
     violations.extend(check_intent_versus_fact(schedule, states))
     violations.extend(check_response_axes(schedule, states, interval_responses))
     violations.extend(check_interval_signs(interval_responses))
-    violations.extend(
-        check_dynamic_constraints(
-            schedule,
-            states,
-            interval_responses,
-            constraints,
-            oil_density_t_per_m3,
-        )
+    constraint_violations, dynamic_checks = check_dynamic_constraints(
+        schedule,
+        states,
+        interval_responses,
+        constraints,
+        oil_density_t_per_m3,
     )
+    violations.extend(constraint_violations)
+    _, static_outage_check = check_constraints(
+        candidates(schedule.control_events), constraints
+    )
+    checks = verified_constraint_checks(dynamic_checks + (static_outage_check,))
     violations.sort(
         key=lambda item: (
             -1 if item.control_step is None else item.control_step,
@@ -1023,4 +1361,5 @@ def validate_dynamic(
         n_intervals_seen=len(steps),
         n_wells=len(wells),
         blocking_kinds=blocking_dynamic_violation_kinds(constraints),
+        constraint_checks=checks,
     )

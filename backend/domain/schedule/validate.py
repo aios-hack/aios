@@ -80,6 +80,65 @@ class Violation:
         return f"[{self.kind.value}] {location}{value}: {self.detail}"
 
 
+STATUS_CHECKED: str = "checked"
+STATUS_UNSUPPORTED: str = "unsupported"
+STATUS_NOT_SET: str = "not_set"
+STATUS_WAIVED: str = "waived"
+
+CONSTRAINT_STATUSES: frozenset[str] = frozenset(
+    {STATUS_CHECKED, STATUS_UNSUPPORTED, STATUS_NOT_SET, STATUS_WAIVED}
+)
+
+CONSTRAINT_LIQUID_LIMITS: str = "liquid_limits"
+CONSTRAINT_INJECTION_LIMITS: str = "injection_limits"
+CONSTRAINT_PRODUCTION_FLOORS: str = "production_floors"
+CONSTRAINT_WATERCUT_LIMITS: str = "watercut_limits"
+CONSTRAINT_WELL_OUTAGES: str = "well_outages"
+CONSTRAINT_WELL_OUTAGES_STATIC: str = "well_outages (static)"
+CONSTRAINT_WATER_SUPPLY: str = "infrastructure.water_supply"
+CONSTRAINT_COMPENSATION: str = "infrastructure.compensation"
+CONSTRAINT_COMPENSATION_SCOPE: str = "infrastructure.compensation_scope"
+
+
+@dataclass(frozen=True, slots=True)
+class ConstraintCheck:
+    constraint: str
+    status: str
+    kinds: tuple[ViolationKind, ...]
+    n_violations: int | None
+    blocking: bool
+    enforcement: str | None
+    detail: str
+
+    def __post_init__(self) -> None:
+        if self.status not in CONSTRAINT_STATUSES:
+            raise ValueError(
+                f"неизвестный статус проверки ограничения {self.status!r}: "
+                f"ожидается одно из {sorted(CONSTRAINT_STATUSES)}"
+            )
+        if self.status == STATUS_CHECKED and self.n_violations is None:
+            raise ValueError(
+                f"{self.constraint}: статус {STATUS_CHECKED!r} обязан нести "
+                "число нарушений, иначе отчёт не сообщает результат проверки"
+            )
+        if self.status != STATUS_CHECKED and self.n_violations is not None:
+            raise ValueError(
+                f"{self.constraint}: статус {self.status!r} означает, что "
+                "проверка не выполнялась, поэтому числа нарушений быть не может"
+            )
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "constraint": self.constraint,
+            "status": self.status,
+            "n_violations": self.n_violations,
+            "blocking": self.blocking,
+            "kinds": [kind.value for kind in self.kinds],
+            "enforcement": self.enforcement,
+            "detail": self.detail,
+        }
+
+
 @dataclass(frozen=True, slots=True)
 class ValidationReport:
     violations: tuple[Violation, ...]
@@ -469,9 +528,21 @@ def check_fixed_layer(
 
 def check_constraints(
     events: Sequence[CandidateEvent], constraints: Constraints | None
-) -> tuple[Violation, ...]:
-    if constraints is None:
-        return ()
+) -> tuple[tuple[Violation, ...], ConstraintCheck]:
+    kinds = (ViolationKind.WELL_OUTAGE_VIOLATED,)
+    if constraints is None or not constraints.well_outages:
+        return (), ConstraintCheck(
+            constraint=CONSTRAINT_WELL_OUTAGES_STATIC,
+            status=STATUS_NOT_SET,
+            kinds=kinds,
+            n_violations=None,
+            blocking=True,
+            enforcement=None,
+            detail=(
+                "well_outages в кейсе не заданы: статическая проверка событий "
+                "внутри окон простоя не запускалась"
+            ),
+        )
     found: list[Violation] = []
     for outage in constraints.well_outages:
         for event in sorted(events, key=_event_sort_key):
@@ -506,7 +577,18 @@ def check_constraints(
                         ),
                     )
                 )
-    return tuple(found)
+    return tuple(found), ConstraintCheck(
+        constraint=CONSTRAINT_WELL_OUTAGES_STATIC,
+        status=STATUS_CHECKED,
+        kinds=kinds,
+        n_violations=len(found),
+        blocking=True,
+        enforcement=None,
+        detail=(
+            f"окон простоя {len(constraints.well_outages)}: события расписания "
+            "проверены на положительные уставки и OPEN внутри окна"
+        ),
+    )
 
 
 def validate_static(
@@ -534,7 +616,8 @@ def validate_static(
     violations.extend(
         check_fixed_layer(schedule.fixed_deck_events, expected_fixed_events_hash)
     )
-    violations.extend(check_constraints(events, constraints))
+    outage_violations, _outage_check = check_constraints(events, constraints)
+    violations.extend(outage_violations)
     violations.sort(
         key=lambda item: (
             -1 if item.control_step is None else item.control_step,

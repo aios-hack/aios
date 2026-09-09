@@ -15,12 +15,15 @@ from backend.application.runs import (
 )
 from backend.application.runs.workflow import SubmissionError
 from backend.core.contracts import (
+    ActiveControlMode,
     Availability,
     Constraints,
+    IntervalResponse,
     OperatingStatus,
     Role,
     Schedule,
     ScheduleMeta,
+    StateAtDate,
     SubmissionBundle,
     WellOutage,
     WellState,
@@ -35,6 +38,11 @@ from backend.domain.configuration.constraints_io import (
 from backend.domain.schedule import parse_schedule
 from backend.domain.schedule.build import build_schedule
 from backend.domain.schedule.emit import ScheduleEmitError, verify_schedule_round_trip
+from backend.domain.schedule.validate_dynamic import (
+    FIRST_CONTROL_DECK_DATE_INDEX,
+    DynamicReport,
+    validate_dynamic,
+)
 from backend.infrastructure.opm.opm_deck import render_schedule_include
 
 
@@ -527,3 +535,144 @@ def test_submit_refuses_a_run_that_does_not_exist(tmp_path) -> None:
 
     with pytest.raises(SubmissionError, match="absent"):
         workflow.submit("absent", synthetic_model_dir(tmp_path / "model"))
+
+
+def constrained_report(constraints: Constraints | None) -> DynamicReport:
+    schedule = Schedule(
+        meta=ScheduleMeta(wells=("W1",), n_intervals=2),
+        initial_state={
+            "W1": WellState(
+                Availability.AVAILABLE, Role.PROD, OperatingStatus.OPEN, 10.0
+            )
+        },
+        fixed_deck_events=(),
+        control_events=(),
+    )
+    n_dates = schedule.meta.n_intervals + FIRST_CONTROL_DECK_DATE_INDEX + 1
+    states = tuple(
+        StateAtDate(
+            deck_date_index=index,
+            well="W1",
+            liquid_rate=0.0,
+            oil_rate=0.0,
+            injection_rate=0.0,
+            thp=20.0,
+            bhp=120.0,
+            well_efficiency=1.0,
+            active_control_mode=ActiveControlMode.RATE_TARGET,
+        )
+        for index in range(n_dates)
+    )
+    intervals = tuple(
+        IntervalResponse(
+            control_step=step,
+            well="W1",
+            oil_mass_delta=0.0,
+            liquid_volume_delta=0.0,
+            injection_volume_delta=0.0,
+        )
+        for step in range(schedule.meta.n_intervals)
+    )
+    return validate_dynamic(
+        schedule, states, intervals, constraints, oil_density_t_per_m3=0.85
+    )
+
+
+@dataclass(frozen=True)
+class ReportedVerification:
+    sound: bool
+    npv_methodology: float | None
+    dynamic_report: DynamicReport | None
+
+
+def constraints_report_of(run_dir: Path) -> dict[str, object]:
+    path = run_dir / "validation" / "constraints_report.json"
+    assert path.is_file(), f"отчёт о применённых ограничениях не записан: {path}"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_verify_writes_the_constraints_report_next_to_the_validation_result(
+    tmp_path,
+) -> None:
+    workflow = RunWorkflow(tmp_path / "runs")
+    constraints = sample_constraints()
+    request = RunRequest("reported", sample_schedule(), constraints=constraints)
+
+    workflow.verify(
+        request,
+        lambda _s, _o: ReportedVerification(
+            True, 11.0, constrained_report(constraints)
+        ),
+    )
+
+    document = constraints_report_of(tmp_path / "runs" / "reported")
+    assert document["constraints_hash"] == constraints_hash(constraints)
+    assert document["unavailable_reason"] is None
+    names = {item["constraint"] for item in document["checks"]}
+    assert names == {
+        item.constraint for item in constrained_report(constraints).constraint_checks
+    }
+
+
+def test_constraints_report_separates_checked_unset_and_unsupported(tmp_path) -> None:
+    workflow = RunWorkflow(tmp_path / "runs")
+    constraints = Constraints(
+        liquid_limits={2007: 1.0},
+        infrastructure={
+            "compensation_min": 0.5,
+            "compensation_max": 1.5,
+            "compensation_scope": "groups",
+        },
+    )
+    workflow.verify(
+        RunRequest("statuses", sample_schedule(), constraints=constraints),
+        lambda _s, _o: ReportedVerification(
+            True, 1.0, constrained_report(constraints)
+        ),
+    )
+
+    document = constraints_report_of(tmp_path / "runs" / "statuses")
+    statuses = {item["constraint"]: item["status"] for item in document["checks"]}
+    assert statuses["liquid_limits"] == "checked"
+    assert statuses["injection_limits"] == "not_set"
+    assert statuses["infrastructure.compensation_scope"] == "unsupported"
+
+
+def test_constraints_report_marks_an_unlimited_water_source_as_waived(
+    tmp_path,
+) -> None:
+    workflow = RunWorkflow(tmp_path / "runs")
+    constraints = Constraints(infrastructure={"water_supply_unlimited": True})
+    workflow.verify(
+        RunRequest("waived", sample_schedule(), constraints=constraints),
+        lambda _s, _o: ReportedVerification(
+            True, 1.0, constrained_report(constraints)
+        ),
+    )
+
+    document = constraints_report_of(tmp_path / "runs" / "waived")
+    statuses = {item["constraint"]: item["status"] for item in document["checks"]}
+    assert statuses["infrastructure.water_supply"] == "waived"
+
+
+def test_missing_dynamic_report_gives_a_reason_not_an_empty_list(tmp_path) -> None:
+    workflow = RunWorkflow(tmp_path / "runs")
+    constraints = sample_constraints()
+    workflow.verify(
+        RunRequest("no-dynamics", sample_schedule(), constraints=constraints),
+        lambda _s, _o: ReportedVerification(False, None, None),
+    )
+
+    document = constraints_report_of(tmp_path / "runs" / "no-dynamics")
+    assert document["checks"] is None
+    assert isinstance(document["unavailable_reason"], str)
+    assert document["unavailable_reason"]
+    assert document["constraints_hash"] == constraints_hash(constraints)
+
+
+def test_constraints_report_reaches_the_submission_package(tmp_path) -> None:
+    workflow, model_dir = prepare_submittable_run(tmp_path, "packaged")
+
+    report = workflow.submit("packaged", model_dir)
+
+    assert (report.directory / "validation" / "constraints_report.json").is_file()
