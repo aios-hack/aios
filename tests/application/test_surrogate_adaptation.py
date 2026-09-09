@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from backend.presentation.cli.surrogate_adapt import ensure_disjoint_splits, sample_scenarios
+from backend.presentation.cli.surrogate_adapt import ensure_disjoint_splits, sample_scenarios, main
 
 
 @pytest.mark.parametrize("splits", [(["a"], ["a"], ["c"]),
@@ -25,3 +25,16 @@ def test_replay_sampling_preserves_whole_scenarios_and_feature_prefix():
     assert torch.equal(sampled[0], x[rows, :2])
     assert torch.equal(sampled[1], wells[rows])
     assert torch.equal(sampled[2], y[rows])
+
+
+@pytest.mark.parametrize("extra", [["--learning-rates", "nan"],
+                                   ["--learning-rates", "0"],
+                                   ["--learning-rates", "0.001", "0.001"],
+                                   ["--members", "2", "2"],
+                                   ["--validation-scenarios", "0"]])
+def test_invalid_experiment_budgets_rejected_before_loading_data(tmp_path, extra):
+    destination = tmp_path / "experiment"
+    with pytest.raises(SystemExit) as caught:
+        main(["--tensors", "missing", "--runs-root", "missing", "--out", str(destination), *extra])
+    assert caught.value.code == 2
+    assert not destination.exists()

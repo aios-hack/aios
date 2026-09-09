@@ -1,0 +1,336 @@
+{
+  "replay_train": [
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "baseline",
+      "canonical_schedule_hash": "32209ecc1f6f2e46184414567401284f55409221dde361dfa23ee293b5a98ff3"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "levels-0014",
+      "canonical_schedule_hash": "587645c0f0c76ac7ee9cb88fd6c1bddcf12740aaddd89d68fb2448147e3f24a1"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "levels-0025",
+      "canonical_schedule_hash": "ba8272c973b264d3da07c7f4c1b231e91a9839dca2531620fe4fe57f0a09de05"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "levels-0042",
+      "canonical_schedule_hash": "3f7bd7187c753be17ad9ab815b327d75d816f7dfd75eb699a41e18766444b3a1"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "levels-0054",
+      "canonical_schedule_hash": "ef59798d046794bdd8a95c89ce1ce71868cd11f310edfc74faebfc309f60a345"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "levels-0073",
+      "canonical_schedule_hash": "c5b50d40abaa81d09f59ad6641b903a61cb24d5abe2466d86b8bb8d4ed118e75"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "levels-0088",
+      "canonical_schedule_hash": "76d539b363284f4358c63f29493a8b8ce0ff5c2821f73a356f7461d472a26f74"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "levels-0104",
+      "canonical_schedule_hash": "5dd09b5a971ab1d59cc47620389e394eeae2d1f65cda4f3365c3aa22e26cf250"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "unreachable-0011",
+      "canonical_schedule_hash": "16cd4faadf57678f4b9d3d3c5d4e0d4f912f23b936bc7e779b7630e9be3a0abd"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "unreachable-0025",
+      "canonical_schedule_hash": "3062c511f32b4933de6d230c8e6021e636ecf3403450adbf17a38164af570df5"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "shutdown-0003",
+      "canonical_schedule_hash": "9985e58ffc38b7d9aed9f009cc330a535321720de6fa028a6af9a724b0d2e799"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "shutdown-0019",
+      "canonical_schedule_hash": "f2a0bcdc6f5d711e4abf68c20d9063c10a4f93bd593dfae05bbc0156c929e890"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "shutdown-0032",
+      "canonical_schedule_hash": "1cabc22f9a364f3666135350a71e7bf643215178f9fbf56cf3d4beeacc6e78cd"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "levels-0000",
+      "canonical_schedule_hash": "6550cc4387d5b6e47039dc087b8bdb0207278e3e4056e979623ce02ea0b8f4c5"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "levels-0014",
+      "canonical_schedule_hash": "a19feaa3f73c7890eb15b5ed3cc9f8e3ca4edd89c92cda322863a30d781f69b6"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "levels-0029",
+      "canonical_schedule_hash": "5ed443218102bb303d57a18f9f2c49b53b86956aa98f8c9656b2142a2f355607"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "levels-0043",
+      "canonical_schedule_hash": "546da864df5d14ba2839c972a623d43b5a150419bab72d7e0d56aeae7cfc845d"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "levels-0056",
+      "canonical_schedule_hash": "19b08862d7f73f731d8b96874b8d6e151dd1cdf8b8bdb4489352ea11c0e09ab0"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "levels-0070",
+      "canonical_schedule_hash": "0b9fbf06f6e7fe43656f91256e7456dc16f5d45f4f18698d2f395900e8f0016f"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "levels-0082",
+      "canonical_schedule_hash": "8d9ecd6520c45bade8b949144eb426dba769ad6c4961402b10d4f242fb5df34f"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "levels-0097",
+      "canonical_schedule_hash": "8abdb38b89bc4fbe032d439c21fe156219dd7dcb7d4297e1893fc124ce7d604b"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "levels-0109",
+      "canonical_schedule_hash": "b5f864e522dfe339638857804311e263c3577d32e6f6e7af071f36e0924a28bc"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "levels-0123",
+      "canonical_schedule_hash": "de40a11a91ada8d3a73e8bf4d7a5f33f6e7076745f21e630e24dd6944fbc0e34"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "levels-0142",
+      "canonical_schedule_hash": "ae56352ae3a56165c98059a88e921954ab7cde05806c55c0459f323dd662dd61"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "levels-0155",
+      "canonical_schedule_hash": "b30cf242d4c2b8d3ab0085aa7008bb28a6322e85ff3f2a132563032628426eb5"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "levels-0169",
+      "canonical_schedule_hash": "13fb58148f6891267fab17db9f45345a959cc04bafa84ab21f50b30af89f89f4"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "levels-0182",
+      "canonical_schedule_hash": "06e7822c6ed13f649e7712e46e38d01b4fa7e40ff54a603d060f619d30938e9c"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "levels-0195",
+      "canonical_schedule_hash": "4bd82fa869e1f775389d4212d96eabb5d2167e2a8aa8f0cc3995fb91b0347fc2"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "levels-0210",
+      "canonical_schedule_hash": "74e1da2ebbc6ae592f96af36ce2d5412dfcb3097ada0cebc36605bf40221a6ea"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "levels-0223",
+      "canonical_schedule_hash": "a4820220d4b08d8e2001733660cd3d8e57ec18824039b81ff8008e49624730be"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "levels-0237",
+      "canonical_schedule_hash": "bb1ed4048f8469156b443f55ff1fb8fa56a730aba61722f334e15774283ac4f1"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "levels-0252",
+      "canonical_schedule_hash": "72c965cbb2026f160cd6dbe66227d9326726678b9e5e71ddce368012f2d22f7a"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "levels-0264",
+      "canonical_schedule_hash": "901df65a1da864b9a4c51152689252228d2244d0297c8d7e1bf63125ffe5f7f8"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "unreachable-0001",
+      "canonical_schedule_hash": "7d0a193bd6ce3153ed9f3b0f4d3184b3631cfc43c670a0564fa265739f01f0c6"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "unreachable-0014",
+      "canonical_schedule_hash": "229b5c8fac4ed3c2dde5419b3b106863e2a6eb6f5d1b88e7db5a56aa8163f3be"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "unreachable-0030",
+      "canonical_schedule_hash": "01ced30fade03c220ab52b97ebde2181425023ba6e2e79ddf83635db05a3a9e6"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "unreachable-0041",
+      "canonical_schedule_hash": "e9ad4e97a3d8a5ab1a7c818fa85509312565501056ee589b0a27b33597f4d6d8"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "unreachable-0056",
+      "canonical_schedule_hash": "18f01fc4e539822cf49cb46d227301850ae818f06453b0806b3db54f64a35a60"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "unreachable-0068",
+      "canonical_schedule_hash": "ca0755015ec59d6fd0ef861b22f09ec0b7bf6c9757dbb7949642b515941873f7"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "unreachable-0082",
+      "canonical_schedule_hash": "ec30b2708d9bbc9fc8142d6bb42021e56bd3cfd6ae5fb749e5ad263f1851bf33"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "unreachable-0099",
+      "canonical_schedule_hash": "ed51cac65c2e12d9d9bd60e485fcde7259c676a068f068f23684fcddb204f8bc"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "shutdown-0011",
+      "canonical_schedule_hash": "74f9232bee24abfb39b872f835a1b0578454479d31d426127e860b666c3d37fa"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "shutdown-0022",
+      "canonical_schedule_hash": "86f7033b750fe7cdb9dbfb85c8c6754194307b7235084c6846f8b4abbce39bad"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "shutdown-0034",
+      "canonical_schedule_hash": "f6bdac40ec4b4315a993211e6224851b1806de0e96b698f7b051f26ca6beac9a"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "shutdown-0051",
+      "canonical_schedule_hash": "086659f52ce0fb8ecdbc3c6689f21f0f6000224d5dda8766ac4e7d1ad25d2e13"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "shutdown-0068",
+      "canonical_schedule_hash": "bcd9576370ed657204e298a9df4f871ff75db596ee73966f0a41bc81c789c292"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "shutdown-0082",
+      "canonical_schedule_hash": "a50b99f055ba4c4062f3723ee08d5ad9027dbbbd6c03b9329b13d77421a8bff2"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "conversion-0005",
+      "canonical_schedule_hash": "b25cd9e0600580ce7a855b5df487ebbb68f04d409ca233b7ef36391b6376a20b"
+    },
+    {
+      "source_dataset": "dataset-extra-500",
+      "scenario_id": "conversion-0019",
+      "canonical_schedule_hash": "c0a029c05de8beb9b5a9b2052070619c4932aa5252ac9cc3a66bbdcdd81bcfd1"
+    }
+  ],
+  "replay_validation": [
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "levels-0002",
+      "canonical_schedule_hash": "bfa3e110b6bef27c25846ec0f446d72edb39febe1f4fc1d5284a9eb7febbc3b0"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "levels-0008",
+      "canonical_schedule_hash": "86b6443844a33d731aacc3ab35993e27a8fe280fbde94659ae4166046a68483f"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "levels-0009",
+      "canonical_schedule_hash": "943c5ba6661de99b8200d5ebf85d3436ac58858924b8848eb640e7a48ed3870b"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "levels-0011",
+      "canonical_schedule_hash": "0d002f51431e0056e399df71ab8bff0f218b258b19a191c32a2b153bcea55623"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "levels-0013",
+      "canonical_schedule_hash": "c9bc9f88537841b7b91c68f513ceac20cbefbae6271f7c9288ff7d17410e96e6"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "levels-0026",
+      "canonical_schedule_hash": "d5e05197137d338e6fb4ab2a3826acc499fa2b09de406f4ea04acfd528f27983"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "levels-0037",
+      "canonical_schedule_hash": "1df6761d3e969f56ac923318a4d0a1eb909a067a69c3bd17763fdaaf55079be7"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "levels-0038",
+      "canonical_schedule_hash": "732499d6867a4e4efb189b9238c8b2edb42bdb3d4a6c05a9aba14a35844b5df5"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "levels-0057",
+      "canonical_schedule_hash": "62a95f05bfd523cc302067a80058ca4ae26058005641ddbce745f7841e6687d1"
+    },
+    {
+      "source_dataset": "dataset-main",
+      "scenario_id": "levels-0061",
+      "canonical_schedule_hash": "0e3b22af44a20b1a6a73e381f91dd1500388b7946ac7ec50ddc640e217f705db"
+    }
+  ],
+  "local_train": [
+    "candidate-004",
+    "candidate-005",
+    "candidate-006",
+    "candidate-007"
+  ],
+  "local_validation": [
+    "candidate-008"
+  ],
+  "local_test": [
+    "candidate-009"
+  ],
+  "candidate-004": {
+    "schedule_hash": "dceab740a7d160df1f4828bcb2ac35cbaec7f28ad2c94d866d4cf2a88a86aa5c",
+    "response_file_sha256": "96553535a582e736046e91f3642e4a3f707a3c5e96be72c36d2f746709dc6a97"
+  },
+  "candidate-005": {
+    "schedule_hash": "5217da21f2f5629c1f5001ec8ac81b6061492182c04384885729128940340033",
+    "response_file_sha256": "2de7d879c56ff80a67ed0d5dd1d8b134d1ec97b61ac9f0679575d06b54570d71"
+  },
+  "candidate-006": {
+    "schedule_hash": "9857c8dabbd36f552589a939969b70e565e807c715d98cdeeb67b5c5aa407bda",
+    "response_file_sha256": "fe513bd0fe69fc6131a580a4703827e00dc14269edc0770e0f57781d3ba95540"
+  },
+  "candidate-007": {
+    "schedule_hash": "f60e22e22f5d4c19453a6611afddb2f9914bc15fbc0dede41d8814374df96d12",
+    "response_file_sha256": "3de115e7ba8b4bed3fb7ef1e8545d6eae0353ef277d27fe8482971f334dc07c7"
+  },
+  "candidate-008": {
+    "schedule_hash": "f535df9d165d3e5126360b81a83383cb477c1186c63337afc822be688c814aa8",
+    "response_file_sha256": "e71a6962bd0579c68029360bcd6fab4ee98c744dc0430ebfe7680ecfaaf95720"
+  },
+  "local_train_repetitions": 4,
+  "local_validation_weight_repetitions": 4,
+  "test_warning": "held out from gradient and selection, but historically inspected; not a blind test"
+}

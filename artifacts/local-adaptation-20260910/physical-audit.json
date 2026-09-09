@@ -1,0 +1,89 @@
+{
+  "rows": [
+    {
+      "run_id": "candidate-008",
+      "split": "validation",
+      "production_ensemble": {
+        "version": "7ac268e6c20f6bd9fa31edf4693827d7881a236ef50f65ae7cae3286ae0478f4",
+        "mae": {
+          "oil_mass_delta": 19.215057753987516,
+          "liquid_volume_delta": 47.7548435332871,
+          "injection_volume_delta": 286.49618585298197,
+          "liquid_rate": 1.799779799378034,
+          "injection_rate": 9.79841230712552,
+          "bhp": 55.83655513176144
+        },
+        "evaluation_seconds": 0.4846314589958638
+      },
+      "adapted_winner": {
+        "version": "e31293c85f56c0badcfffccde719152df291e1cc31ce4250fadf3643259ea923",
+        "mae": {
+          "oil_mass_delta": 8.744732522104716,
+          "liquid_volume_delta": 14.191226107402912,
+          "injection_volume_delta": 3.7345202653649445,
+          "liquid_rate": 0.36176967753120665,
+          "injection_rate": 0.10218002594459735,
+          "bhp": 3.097045051902739
+        },
+        "evaluation_seconds": 0.25827141699846834
+      }
+    },
+    {
+      "run_id": "candidate-009",
+      "split": "held-out",
+      "production_ensemble": {
+        "version": "7ac268e6c20f6bd9fa31edf4693827d7881a236ef50f65ae7cae3286ae0478f4",
+        "mae": {
+          "oil_mass_delta": 19.13562028649445,
+          "liquid_volume_delta": 48.685186589805824,
+          "injection_volume_delta": 277.2376040221914,
+          "liquid_rate": 1.8369110149748613,
+          "injection_rate": 9.533312158677184,
+          "bhp": 56.549226334951456
+        },
+        "evaluation_seconds": 0.4869435420114314
+      },
+      "adapted_winner": {
+        "version": "e31293c85f56c0badcfffccde719152df291e1cc31ce4250fadf3643259ea923",
+        "mae": {
+          "oil_mass_delta": 8.008152468359917,
+          "liquid_volume_delta": 11.516392976334952,
+          "injection_volume_delta": 2.4444530979108876,
+          "liquid_rate": 0.3059644976865898,
+          "injection_rate": 0.06997101316835612,
+          "bhp": 2.9415559173457004
+        },
+        "evaluation_seconds": 0.25971904199104756
+      }
+    }
+  ],
+  "historical_holdout": {
+    "scenarios": 105,
+    "parent_raw_network": {
+      "loss": 0.006257557934568163,
+      "raw_network_channel_mae": [
+        10.006474494934082,
+        23.83022689819336,
+        44.33207702636719,
+        0.6650828719139099,
+        1.207202434539795,
+        4.490411758422852
+      ],
+      "nodes": 2422560
+    },
+    "winner_raw_network": {
+      "loss": 0.007264571013204032,
+      "raw_network_channel_mae": [
+        13.061665534973145,
+        27.336902618408203,
+        50.165550231933594,
+        0.8110641837120056,
+        1.47215735912323,
+        5.556610584259033
+      ],
+      "nodes": 2422560
+    }
+  },
+  "production_changed": false,
+  "warning": "Historically inspected labels, not blind. MAE does not certify water constraints, NPV ranking, or global generalization."
+}

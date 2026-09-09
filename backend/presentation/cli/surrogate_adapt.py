@@ -70,15 +70,25 @@ def main(argv=None):
     parser.add_argument("--threads", type=int, default=10)
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--replay-scenarios", type=int, default=49)
+    parser.add_argument("--validation-scenarios", type=int, default=10)
+    parser.add_argument("--members", type=int, nargs="+", default=[0, 1, 2])
+    parser.add_argument("--learning-rates", type=float, nargs="+", default=[1e-4, 3e-5])
     args = parser.parse_args(argv)
-    if args.out.exists() or min(args.threads, args.epochs, args.replay_scenarios) < 1:
+    if args.out.exists() or min(args.threads, args.epochs, args.replay_scenarios, args.validation_scenarios) < 1:
         parser.error("new output directory and positive budgets required")
+    import math
+    if any(not math.isfinite(lr) or lr <= 0 for lr in args.learning_rates):
+        parser.error("learning rates must be finite and positive")
+    if len(set(args.members)) != len(args.members) or len(set(args.learning_rates)) != len(args.learning_rates):
+        parser.error("duplicate arms are not allowed")
     args.out.mkdir(parents=True)
     torch.set_num_threads(args.threads)
     artifacts = resolve_runtime_artifacts()
     context = ModelZFeatureArtifact.load(artifacts.feature_context)
     manifest = json.loads(artifacts.checkpoint.read_text())
     members = [(artifacts.checkpoint.parent / path).resolve() for path in manifest["members"]]
+    if any(i < 0 or i >= len(members) for i in args.members):
+        parser.error("unknown ensemble member")
     reference = TrajectorySurrogate.load(members[0])
     if reference.config.target_parameterization != "absolute" or reference.config.scenario_context:
         parser.error("this replay experiment requires base-feature absolute checkpoints")
@@ -89,13 +99,15 @@ def main(argv=None):
         parser.error("replay tensor context or well axes differ from checkpoint")
     if args.replay_scenarios > len(blob["counts"]["train"]):
         parser.error("not enough replay scenarios")
+    if args.validation_scenarios > len(blob["counts"]["validation"]):
+        parser.error("not enough validation scenarios")
     stride = len(blob["counts"]["train"]) / args.replay_scenarios
     replay_ids = [int(i * stride) for i in range(args.replay_scenarios)]
     old = sample_scenarios(blob["tensors"]["train"], blob["counts"]["train"], replay_ids, width)
-    old_validation = sample_scenarios(blob["tensors"]["validation"], blob["counts"]["validation"], list(range(10)), width)
-    old_validation_counts = blob["counts"]["validation"][:10]
+    old_validation = sample_scenarios(blob["tensors"]["validation"], blob["counts"]["validation"], list(range(args.validation_scenarios)), width)
+    old_validation_counts = blob["counts"]["validation"][:args.validation_scenarios]
     identities = {"replay_train": [blob["identities"]["train"][i] for i in replay_ids],
-                  "replay_validation": blob["identities"]["validation"][:10],
+                  "replay_validation": blob["identities"]["validation"][:args.validation_scenarios],
                   "local_train": ["candidate-004", "candidate-005", "candidate-006", "candidate-007"],
                   "local_validation": ["candidate-008"], "local_test": ["candidate-009"]}
     # Hold test tensors and labels closed until all arm selection is finished.
@@ -131,7 +143,9 @@ def main(argv=None):
     print(f"train={len(train[0]):,}, validation={len(validation[0]):,}, CPU threads={args.threads}", flush=True)
     results = []
     for member_index, path in enumerate(members):
-        for lr in (1e-4, 3e-5):
+        if member_index not in args.members:
+            continue
+        for lr in args.learning_rates:
             arm = f"member-{member_index}-lr-{lr:g}"
             directory = args.out / arm
             directory.mkdir()
