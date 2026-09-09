@@ -1,0 +1,12 @@
+{
+  "canonical_schedule_hash": "819555a4124a2b725e92b74f6d351482f7d7a9f690e5edf8b31e9d57d95d903f",
+  "dynamic_violations": 72,
+  "metadata": {
+    "constraints_path": "/Users/andreykuronskin/PycharmProjects/aios/aios-surrogate-release/out/web-runs/web-20260906-180829-e0cbc79a/constraints.json"
+  },
+  "opm_npv": 11859918956.49624,
+  "predicted_npv": 11845854621.440353,
+  "run_id": "20260906T181134-cd522d10b1d6",
+  "run_status": "RunStatus.OK",
+  "sound": true
+}
