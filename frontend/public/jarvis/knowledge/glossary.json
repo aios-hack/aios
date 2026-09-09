@@ -2210,7 +2210,7 @@
         "ru": "Допустимый интервал компенсации от C_min до C_max. Выход выше коридора — пластовое давление растёт и появляется риск раскрыть трещину; выход ниже — давление падает, пласт истощается и добыча теряется. Границы не назначаются нами: они измеряются по базовому прогону организаторов как интервал от минимума до максимума компенсации базы, расширенный на 0.05 в каждую сторону, а на тестовом кейсе берутся из самого кейса. В режиме hard выход за коридор делает расписание непригодным.",
         "en": "The admissible interval of compensation from C_min to C_max. Going above the corridor raises reservoir pressure and risks opening a fracture; going below it drops pressure, depletes the reservoir and loses production. The bounds are not assigned by us: they are measured from the organisers' base run as the interval from the minimum to the maximum base compensation widened by 0.05 on each side, and on the test case they are taken from the case itself. Under hard enforcement, leaving the corridor makes a schedule unusable."
       },
-      "formula": "C_min <= C(k) <= C_max; нарушения COMPENSATION_BELOW_CORRIDOR и COMPENSATION_ABOVE_CORRIDOR",
+      "formula": "C_min <= C(k) <= C_max; выход за границы — нарушение COMPENSATION_OUT_OF_CORRIDOR",
       "unit": "доля",
       "source": "config/competition-constraints.json",
       "where_in_platform": [
@@ -2253,11 +2253,16 @@
         "дополнительная вода",
         "external_water_m3_per_day",
         "external water",
-        "объём n"
+        "объём n",
+        "fraction_defaulted",
+        "water_supply_unlimited",
+        "неограниченный источник воды",
+        "доля реинжекции",
+        "water_reinjection_fraction"
       ],
       "definition": {
-        "ru": "Объём воды, который организаторы разрешают закачивать сверх добытой на тестовом кейсе. В контракте это параметр external_water_m3_per_day. Проверка «закачка не больше добытой воды плюс n» выполняется только если кейс явно объявил ограничение источника воды; иначе закачка ограничена не источником, а коридором компенсации.",
-        "en": "The volume of water the organisers permit to be injected beyond the produced water on the test case. In the contract this is the parameter external_water_m3_per_day. The check that injection does not exceed produced water plus n applies only if the case explicitly declares a water-source limit; otherwise injection is bounded not by the source but by the compensation corridor."
+        "ru": "Объём воды, который организаторы разрешают закачивать сверх добытой на тестовом кейсе. В контракте это поле external_water_m3_per_day. Проверка «закачка не больше добытой воды плюс n» выполняется только если кейс явно объявил ограничение источника воды; иначе закачка ограничена не источником, а коридором компенсации. Если кейс назвал внешнюю воду, но не назвал долю реинжекции, доля подставляется равной 1.0 и помечается флагом fraction_defaulted — умолчание видно, а не растворяется в числе. Неограниченный источник объявляется не бесконечным n, а отдельным полем water_supply_unlimited; комбинация этого флага с водяными ключами (water_reinjection_fraction, water_reinjection_lag_steps, external_water_m3_per_day) отвергается — источник либо неограничен, либо описан числами, но не то и другое сразу.",
+        "en": "The volume of water the organisers permit to be injected beyond the produced water on the test case. In the contract this is the field external_water_m3_per_day. The check that injection does not exceed produced water plus n applies only if the case explicitly declares a water-source limit; otherwise injection is bounded not by the source but by the compensation corridor. If the case names the external water but not the reinjection fraction, the fraction defaults to 1.0 and is marked with the flag fraction_defaulted, so the default stays visible instead of dissolving into the number. An unlimited source is declared not by an infinite n but by the separate field water_supply_unlimited; combining that flag with the water keys (water_reinjection_fraction, water_reinjection_lag_steps, external_water_m3_per_day) is rejected — the source is either unlimited or described by numbers, never both."
       },
       "formula": "sum_i q_wi(k) <= sum_p q_w(p,k) + n",
       "unit": "м3/сут",
@@ -2286,7 +2291,8 @@
         "water-supply",
         "injection-corridor",
         "voidage-replacement",
-        "constraints"
+        "constraints",
+        "compensation-violation"
       ]
     },
     {
@@ -2709,6 +2715,155 @@
         "opm",
         "submitted",
         "constraints"
+      ]
+    },
+    {
+      "id": "compensation-violation",
+      "term": {
+        "ru": "Нарушение компенсации",
+        "en": "Compensation violation"
+      },
+      "aliases": [
+        "COMPENSATION_OUT_OF_CORRIDOR",
+        "COMPENSATION_UNDEFINED",
+        "нарушение компенсации",
+        "компенсация вне коридора",
+        "неопределённая компенсация",
+        "compensation violation",
+        "compensation out of corridor",
+        "compensation undefined"
+      ],
+      "definition": {
+        "ru": "Компенсация — отношение закачки к отбору за шаг управления. Проверка даёт нарушения двух видов. COMPENSATION_OUT_OF_CORRIDOR — величина посчитана, но лежит вне коридора. COMPENSATION_UNDEFINED — величину посчитать нельзя: отбор на шаге нулевой, и отношение не определено; это отказ, а не подставной ноль. Строгость задаётся полем compensation_enforcement: по умолчанию diagnostic — нарушение записывается, но расписание не блокирует; при hard нарушение блокирующее. Область проверки задаётся полем compensation_scope: field — только по полю, groups — только по участкам, field_and_groups — и по полю, и по участкам; по умолчанию field_and_groups.",
+        "en": "Compensation is the ratio of injection to offtake over a control step. The check yields violations of two kinds. COMPENSATION_OUT_OF_CORRIDOR: the quantity was computed but falls outside the corridor. COMPENSATION_UNDEFINED: the quantity cannot be computed because offtake at the step is zero and the ratio is undefined; this is a refusal, not a stand-in zero. Strictness is set by compensation_enforcement: the default diagnostic records the violation without blocking the schedule, while hard makes it blocking. The scope is set by compensation_scope: field checks the field only, groups the areas only, field_and_groups both; the default is field_and_groups."
+      },
+      "formula": "компенсация = закачка / отбор; COMPENSATION_OUT_OF_CORRIDOR при выходе за C_min..C_max, COMPENSATION_UNDEFINED при нулевом отборе",
+      "unit": "доля",
+      "source": "backend/domain/schedule/validate_dynamic.py",
+      "where_in_platform": [
+        {
+          "workspace": "money",
+          "view": "constraints",
+          "what": {
+            "ru": "режим и область проверки компенсации среди ограничений",
+            "en": "the compensation enforcement and scope among the constraints"
+          },
+          "spotlight": "money-constraints-table"
+        },
+        {
+          "workspace": "overview",
+          "view": "fund",
+          "what": {
+            "ru": "компенсация фонда относительно коридора",
+            "en": "the field compensation against the corridor"
+          },
+          "spotlight": "overview-compensation-metric"
+        }
+      ],
+      "related": [
+        "compensation",
+        "compensation-scope",
+        "injection-corridor",
+        "compensation-base-measurement",
+        "voidage-replacement"
+      ]
+    },
+    {
+      "id": "compensation-base-measurement",
+      "term": {
+        "ru": "Компенсация базового прогона (измерение)",
+        "en": "Base run compensation, measured"
+      },
+      "aliases": [
+        "компенсация базы",
+        "измеренная компенсация",
+        "compensation-base.json",
+        "базовая компенсация",
+        "base compensation",
+        "measured compensation"
+      ],
+      "definition": {
+        "ru": "Компенсация базового прогона организаторов, измеренная по отклику, а не назначенная. По 224 шагам управления в поверхностных условиях: минимум 1.2016, p05 1.2138, медиана 1.2753, p95 1.4233, максимум 1.4567. Ни один из 224 шагов не попадает в коридор 0.85…1.15, который назначали мы: база живёт целиком выше него, поэтому такой коридор описывал бы не пласт, а наше предположение. Пересчёт тех же шагов в пластовые условия через объёмные коэффициенты меняет величину на 0.06…0.29 процента — то есть выбор условий на этом кейсе почти ничего не меняет, а выбор границ коридора меняет всё.",
+        "en": "The compensation of the organisers' base run, measured from the response rather than assigned. Over 224 control steps in surface conditions: minimum 1.2016, p05 1.2138, median 1.2753, p95 1.4233, maximum 1.4567. Not one of the 224 steps falls inside the 0.85…1.15 corridor we had assigned: the base lies entirely above it, so such a corridor would describe our assumption rather than the reservoir. Recomputing the same steps in reservoir conditions through the formation volume factors shifts the value by 0.06…0.29 per cent, so on this case the choice of conditions changes almost nothing while the choice of corridor bounds changes everything."
+      },
+      "formula": "C(k) = сумма положительных injection_volume_delta / сумма положительных liquid_volume_delta",
+      "unit": "доля",
+      "source": "data/compensation-base.json",
+      "where_in_platform": [
+        {
+          "workspace": "overview",
+          "view": "fund",
+          "what": {
+            "ru": "компенсация фонда по шагам базового прогона",
+            "en": "the field compensation by step of the base run"
+          },
+          "spotlight": "overview-compensation-metric"
+        },
+        {
+          "workspace": "money",
+          "view": "constraints",
+          "what": {
+            "ru": "коридор компенсации рядом с измерением базы",
+            "en": "the compensation corridor beside the base measurement"
+          },
+          "spotlight": "money-constraints-table"
+        }
+      ],
+      "related": [
+        "compensation",
+        "compensation-violation",
+        "injection-corridor",
+        "voidage-replacement"
+      ]
+    },
+    {
+      "id": "physics-gate",
+      "term": {
+        "ru": "Физгейт (физические инварианты прогноза)",
+        "en": "Physics gate"
+      },
+      "aliases": [
+        "физгейт",
+        "физический гейт",
+        "физические инварианты",
+        "physics gate",
+        "physgate",
+        "physics_admissible",
+        "семь инвариантов"
+      ],
+      "definition": {
+        "ru": "Проверка прогноза суррогата на семь физических инвариантов перед тем, как кандидат уйдёт в OPM. Пять считаются на одном прогнозе: NON_NEGATIVE, WATERCUT_RANGE, CUMULATIVE_MONOTONIC, SHUT_WELL_FLOW, BHP_LIMIT. Два дифференциальные — INJECTION_RESPONSE (отклик на закачку) и MATERIAL_BALANCE (водный баланс): они сравнивают кандидата с опорой, потому что прирост существует только относительно чего-то. Кандидат допускается, когда admissible истинно, а это одновременно полнота — посчитаны все семь — и отсутствие блокирующих флагов: пропущенный инвариант не считается пройденным. Из семи только BHP_LIMIT — предупреждение: предсказанное забойное вне предела означает, что OPM переведёт скважину на другой режим управления, а не что прогноз физически невозможен. Остальные шесть блокирующие.",
+        "en": "The check of a surrogate prediction against seven physical invariants before a candidate goes to OPM. Five are computed on a single prediction: NON_NEGATIVE, WATERCUT_RANGE, CUMULATIVE_MONOTONIC, SHUT_WELL_FLOW, BHP_LIMIT. Two are differential — INJECTION_RESPONSE and MATERIAL_BALANCE — and compare the candidate against a reference, because an increment exists only relative to something. A candidate is admitted when admissible holds, which is both completeness, all seven actually computed, and the absence of blocking flags: a skipped invariant does not count as a passed one. Of the seven only BHP_LIMIT is a warning: a predicted bottomhole pressure outside the limit means OPM will switch the well to another control mode, not that the prediction is physically impossible. The other six are blocking."
+      },
+      "formula": "admissible = complete И blocking_count == 0; complete = посчитаны все семь инвариантов",
+      "unit": null,
+      "source": "backend/ml/surrogate/physics_checks.py",
+      "where_in_platform": [
+        {
+          "workspace": "overview",
+          "view": "fund",
+          "what": {
+            "ru": "доверие к прогону и физические инварианты",
+            "en": "the run trust board and the physical invariants"
+          },
+          "spotlight": "overview-trustboard"
+        },
+        {
+          "workspace": "money",
+          "view": "comparison",
+          "what": {
+            "ru": "флаги физики рядом со статусом прогона",
+            "en": "the physics flags beside the run status"
+          },
+          "spotlight": "money-comparison-table"
+        }
+      ],
+      "related": [
+        "surrogate",
+        "bhp",
+        "material-balance",
+        "sound",
+        "opm"
       ]
     }
   ]

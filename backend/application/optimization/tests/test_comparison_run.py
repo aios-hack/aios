@@ -618,3 +618,173 @@ def test_comparison_module_carries_no_comments() -> None:
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             assert ast.get_docstring(node) is None, node.name
+
+
+def test_comparison_document_carries_every_required_field(
+    tmp_path: Path, stub_tract: dict[str, Any]
+) -> None:
+    document = verification_run.compare_baseline_to_candidate(
+        run_id="run-1",
+        case_path=Path("config/cases/base.json"),
+        constraints=CASE,
+        baseline_schedule=BASELINE,
+        candidate_schedule=CANDIDATE,
+        control_dates=DATES,
+        forecast=_forecast(1.0),
+        runs_root=tmp_path,
+        model_dir=tmp_path / "model",
+        verifier=_verifier(stub_tract, {"baseline": 7.781e9, "candidate": 11.873e9}),
+    )
+    saved = json.loads(
+        (tmp_path / "run-1" / "comparison.json").read_text(encoding="utf-8")
+    )
+    assert set(saved) == {
+        "schema_version",
+        "run_id",
+        "conditions",
+        "baseline",
+        "candidate",
+        "delta",
+        "totals",
+        "table",
+    }
+    for name in ("baseline", "candidate"):
+        side = saved[name]
+        assert set(side) == {
+            "name",
+            "canonical_schedule_hash",
+            "npv_rub",
+            "npv_bln_rub",
+            "run_id",
+            "run_status",
+            "sound",
+            "violations",
+            "failed_identities",
+            "wallclock_seconds",
+            "opm_runs",
+            "case_projection",
+        }
+        assert set(side["violations"]) == {
+            "static",
+            "dynamic",
+            "blocking",
+            "by_kind",
+        }
+        assert isinstance(side["npv_rub"], float)
+        assert isinstance(side["wallclock_seconds"], float)
+        assert side["opm_runs"] == 1
+    assert set(saved["delta"]) == {
+        "npv_rub",
+        "npv_bln_rub",
+        "npv_percent",
+        "blocking_violations",
+        "wallclock_seconds",
+    }
+    assert set(saved["totals"]) == {"opm_runs", "wallclock_seconds"}
+    assert saved["totals"]["opm_runs"] == 2
+
+
+def test_comparison_conditions_name_the_case_and_the_opm_image(
+    tmp_path: Path, stub_tract: dict[str, Any]
+) -> None:
+    document = verification_run.compare_baseline_to_candidate(
+        run_id="run-1",
+        case_path=Path("config/cases/base.json"),
+        constraints=CASE,
+        baseline_schedule=BASELINE,
+        candidate_schedule=CANDIDATE,
+        control_dates=DATES,
+        forecast=_forecast(1.0),
+        runs_root=tmp_path,
+        model_dir=tmp_path / "model",
+        verifier=_verifier(stub_tract, {"baseline": 7.0e9, "candidate": 8.0e9}),
+    )
+    conditions = document["conditions"]
+    assert set(conditions) == {
+        "equal",
+        "case_path",
+        "case_hash",
+        "constraints_hash",
+        "deck_hash",
+        "opm_image",
+        "git_commit",
+        "checks",
+    }
+    assert conditions["equal"] is True
+    assert conditions["case_path"] == str(Path("config/cases/base.json"))
+    assert conditions["case_hash"] == constraints_hash(CASE)
+    assert conditions["constraints_hash"] == constraints_hash(CASE)
+    checks = {check["name"]: check for check in conditions["checks"]}
+    assert set(checks) == {
+        "constraints_hash",
+        "case_hash",
+        "deck_hash",
+        "opm_image",
+    }
+    for check in checks.values():
+        assert check["holds"] is True
+        assert check["baseline"] == check["candidate"]
+
+
+def test_divergent_opm_image_between_sides_refuses_the_comparison() -> None:
+    actual = constraints_hash(CASE)
+    checks = (
+        verification_run.ConditionCheck(
+            name="opm_image", baseline="opm:a", candidate="opm:b"
+        ),
+    )
+    with pytest.raises(verification_run.ComparisonError) as error:
+        verification_run.refuse_unequal_conditions(checks)
+    message = str(error.value)
+    assert "opm_image" in message
+    assert "не в одних условиях" in message
+    assert actual not in message
+
+
+def test_equal_conditions_flags_the_side_that_diverges() -> None:
+    other = Constraints(liquid_limits={2007: 55.0})
+    checks = verification_run.equal_conditions(
+        _side(
+            "baseline", BASELINE, npv=7.0e9, constraints_actual=constraints_hash(CASE)
+        ),
+        _side(
+            "candidate",
+            CANDIDATE,
+            npv=8.0e9,
+            constraints_actual=constraints_hash(other),
+        ),
+        case_hash=constraints_hash(CASE),
+        baseline_deck_hash="deck",
+        candidate_deck_hash="deck",
+        image="opm:test",
+    )
+    by_name = {check.name: check for check in checks}
+    assert by_name["constraints_hash"].holds is False
+    assert by_name["case_hash"].holds is True
+    assert by_name["deck_hash"].holds is True
+    assert by_name["opm_image"].holds is True
+
+
+def test_both_sides_are_verified_under_one_case_and_one_image(
+    tmp_path: Path, stub_tract: dict[str, Any]
+) -> None:
+    document = verification_run.compare_baseline_to_candidate(
+        run_id="run-1",
+        case_path=Path("config/cases/base.json"),
+        constraints=CASE,
+        baseline_schedule=BASELINE,
+        candidate_schedule=CANDIDATE,
+        control_dates=DATES,
+        forecast=_forecast(1.0),
+        runs_root=tmp_path,
+        model_dir=tmp_path / "model",
+        verifier=_verifier(stub_tract, {"baseline": 7.0e9, "candidate": 8.0e9}),
+    )
+    assert stub_tract["verify"] == 2
+    assert stub_tract["decks"] == 2
+    assert document["baseline"]["canonical_schedule_hash"] != (
+        document["candidate"]["canonical_schedule_hash"]
+    )
+    assert document["conditions"]["deck_hash"] == "deck-template-hash"
+    assert document["conditions"]["opm_image"]
+    assert document["baseline"]["run_id"] != document["candidate"]["run_id"]
