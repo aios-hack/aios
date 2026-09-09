@@ -4,17 +4,43 @@ These are proposals, not feasibility guarantees: flow must be simulated again.
 """
 from dataclasses import replace
 
-from backend.core.contracts import EventKind, water_supply_policy
+from backend.core.contracts import ControlEvent, EventKind, water_supply_policy
 from backend.core.contracts.constraints import bhp_limits
 from backend.domain.schedule import canonicalize
+
+
+def commissioning_controls(schedule):
+    """Control a new well after its immutable commissioning event, on the same date."""
+    events = list(schedule.control_events)
+    present = {(e.control_step, e.well, e.kind) for e in events}
+    for fixed in schedule.fixed_deck_events:
+        if fixed.control_step >= schedule.meta.n_intervals:
+            continue
+        if fixed.operator == "WCONINJE":
+            kind, value, status = EventKind.SET_RATE, float(fixed.raw_args[3]), fixed.raw_args[1]
+        elif fixed.operator == "WCONPROD":
+            kind, value, status = EventKind.SET_LRAT, float(fixed.raw_args[5]), fixed.raw_args[0]
+        else:
+            continue
+        key = (fixed.control_step, fixed.well)
+        if (*key, kind) not in present:
+            events.append(ControlEvent(*key, kind, value))
+            present.add((*key, kind))
+        if not any((*key, k) in present for k in (EventKind.OPEN, EventKind.SHUT)):
+            status_kind = EventKind[status]
+            events.append(ControlEvent(*key, status_kind))
+            present.add((*key, status_kind))
+    return canonicalize(replace(schedule, control_events=tuple(events)))
 
 
 def repair_from_observation(schedule, response, control_dates, constraints, *, water_margin=0.8, density=0.9131, injection_reference=None):
     if not 0 <= water_margin < 1 or density <= 0:
         raise ValueError("water margin must be in [0,1), density must be positive")
+    schedule = commissioning_controls(schedule)
     # Grow from a feasible plan using measured water, retaining its production
     # controls but allowing injection to rise up to the original target ceilings.
     if injection_reference is not None:
+        injection_reference = commissioning_controls(injection_reference)
         reference = {(e.control_step, e.well, e.kind): e for e in injection_reference.control_events}
         injectors = {(e.control_step, e.well) for e in injection_reference.control_events if e.kind is EventKind.SET_RATE}
         statuses = {(e.control_step, e.well): e for e in injection_reference.control_events

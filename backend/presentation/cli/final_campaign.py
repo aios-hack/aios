@@ -118,12 +118,16 @@ def main(argv=None):
         from backend.core.horizon import load_horizon
         from backend.domain.configuration.constraints_io import constraints_hash
         from backend.presentation.cli.run import load_saved_constraints
+        from backend.domain.connectivity.groups_artifact import load as load_groups
         if load_horizon(str(args.root / "horizon.json")) != HORIZON:
             parser.error("resume horizon differs from the saved campaign")
         for run_dir in (args.root / "runs").glob("candidate-*"):
             saved = load_saved_constraints(run_dir)
             if saved is None or constraints_hash(saved) != constraints_hash(constraints):
                 parser.error("resume constraints differ from a saved run")
+            groups_path = run_dir / "inputs/groups.json"
+            if groups_path.is_file() and load_groups(groups_path).groups != env.groups:
+                parser.error("resume groups differ from a saved run")
     (args.root / "horizon.json").write_text(json.dumps({
         "t0": HORIZON.t0.isoformat(), "n_intervals": HORIZON.n_intervals,
         "n_deck_dates": HORIZON.n_deck_dates, "discount_base_year": HORIZON.discount_base_year,
@@ -136,6 +140,33 @@ def main(argv=None):
     records = json.loads(record_path.read_text()) if args.resume and record_path.is_file() else []
     incumbent = None
     if args.resume:
+        # Recover a completed verification after interruption between saving the
+        # run and updating the campaign journal (also supports isolated trials).
+        recorded_ids = {item.get("run_id") for item in records}
+        for directory in sorted((args.root / "runs").glob("candidate-*")):
+            economics_path = directory / "economics/result.json"
+            manifest_path = directory / "manifest.json"
+            if directory.name in recorded_ids or not economics_path.is_file() or not manifest_path.is_file():
+                continue
+            manifest = json.loads(manifest_path.read_text())
+            if manifest.get("sound") not in (True, False) or manifest.get("status") == "searched":
+                continue
+            economics = json.loads(economics_path.read_text())
+            item = {"run_id": directory.name, "label": "recovered-completed-run",
+                    "schedule_hash": manifest["schedule_hash"], "sound": manifest["sound"],
+                    "verified_npv_rub": manifest.get("verified_npv"),
+                    "constraints_hash": manifest.get("constraints_hash"), "deck_hash": manifest.get("deck_hash"),
+                    "opm_image": manifest.get("opm_image"), "groups_hash": env.groups.group_hash,
+                    "economics_config_hash": economics.get("economics_config_hash"),
+                    "methodology_version_hash": economics.get("methodology_version_hash")}
+            if item["sound"]:
+                report = workflow.submit(directory.name, model_z_dir())
+                if not all(line.passed for line in check_submission(report.directory)):
+                    raise RuntimeError("Recovered submission selfcheck failed")
+                item["submission"] = str(report.directory.resolve())
+                promote_champion(champion_path, item)
+            records.append(item)
+        record_path.write_text(json.dumps(records, ensure_ascii=False, indent=2) + "\n")
         for item in records:
             if item.get("run_id"):
                 attempted += 1
