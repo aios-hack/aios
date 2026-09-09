@@ -1,5 +1,6 @@
 import json
 from dataclasses import dataclass, replace
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -25,6 +26,7 @@ from backend.core.contracts import (
     ScheduleMeta,
     StateAtDate,
     SubmissionBundle,
+    T0,
     WellOutage,
     WellState,
     content_hash,
@@ -43,7 +45,10 @@ from backend.domain.schedule.validate_dynamic import (
     DynamicReport,
     validate_dynamic,
 )
-from backend.infrastructure.opm.opm_deck import render_schedule_include
+from backend.infrastructure.opm.opm_deck import (
+    render_control_period_include,
+    render_schedule_include,
+)
 
 
 @dataclass(frozen=True)
@@ -516,11 +521,11 @@ def test_submit_is_idempotent(tmp_path) -> None:
 
 def test_a_broken_round_trip_gives_no_package(tmp_path, monkeypatch) -> None:
     workflow, model_dir = prepare_submittable_run(tmp_path, "tampered")
-    genuine = render_schedule_include(emittable_schedule(), model_dir)
+    genuine = render_control_period_include(emittable_schedule(), model_dir)
     tampered = genuine.raw.replace(b"'W1' 'OPEN' 'LRAT'", b"'W1' 'SHUT' 'LRAT'", 1)
     assert tampered != genuine.raw
     monkeypatch.setattr(
-        "backend.application.runs.workflow.render_schedule_include",
+        "backend.application.runs.workflow.render_control_period_include",
         lambda schedule, directory: replace(genuine, raw=tampered),
     )
 
@@ -535,6 +540,149 @@ def test_submit_refuses_a_run_that_does_not_exist(tmp_path) -> None:
 
     with pytest.raises(SubmissionError, match="absent"):
         workflow.submit("absent", synthetic_model_dir(tmp_path / "model"))
+
+
+SYNTHETIC_HISTORY_STEPS = 5
+
+
+def synthetic_schedule_include_with_history() -> bytes:
+    parts = [
+        b"RPTSCHED\n 'WELLS=1' 'SUMMARY=1' 'RESTART=0' /\n\n"
+        b"WELSPECS\n 'W1' 'GROUP' 23 17 1* 'OIL' /\n"
+        b" 'W2' 'GROUP' 47 40 1* 'OIL' /\n/\n\n"
+    ]
+    for step in range(SYNTHETIC_HISTORY_STEPS):
+        month = MONTHS[(step + 7) % 12]
+        parts.append(f"DATES\n 01 {month} 2006 /\n/\n\n".encode())
+        parts.append(
+            f"WCONPROD\n 'W1' 'OPEN' 'LRAT' 1* 1* 1* {10.0 + step} 1* 50 1* 1* /\n/\n\n"
+            f"WCONINJE\n 'W2' 'WATER' 'OPEN' 'RATE' {20.0 + step} 1* 300 1* 1* /\n/\n\n".encode()
+        )
+    for step in range(SYNTHETIC_STEPS + 1):
+        month = MONTHS[step % 12]
+        year = 2007 + step // 12
+        parts.append(f"DATES\n 01 {month} {year} /\n/\n\n".encode())
+        if step < SYNTHETIC_STEPS:
+            parts.append(
+                f"WCONPROD\n 'W1' 'OPEN' 'LRAT' 1* 1* 1* {100.0 + step} 1* 50 1* 1* /\n/\n\n"
+                f"WCONINJE\n 'W2' 'WATER' 'OPEN' 'RATE' {200.0 + step} 1* 300 1* 1* /\n/\n\n".encode()
+            )
+    return b"".join(parts)
+
+
+def historical_model_dir(root: Path) -> Path:
+    model_dir = root / "Model_Z"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    (model_dir / "Model_Z_sch.inc").write_bytes(synthetic_schedule_include_with_history())
+    (model_dir / "Model_Z.data").write_bytes(
+        b"RUNSPEC\nDIMENS\n 10 10 3 /\nSCHEDULE\nINCLUDE\n 'Model_Z_sch.inc' /\n"
+    )
+    return model_dir
+
+
+def historical_schedule() -> Schedule:
+    raw = synthetic_schedule_include_with_history()
+    return build_schedule(
+        parse_schedule(raw), raw, model="Model_Z", provenance="synthetic"
+    )
+
+
+def prepare_historical_run(tmp_path: Path) -> tuple[RunWorkflow, Path]:
+    workflow = RunWorkflow(tmp_path / "runs")
+    workflow.verify(
+        RunRequest(
+            "historical",
+            historical_schedule(),
+            predicted_npv=12.0,
+            provenance=submittable_provenance(),
+        ),
+        lambda _schedule, _opm: FakeSubmittableVerification(
+            True, CLAIMED_NPV, FakeFinalNpv(CLAIMED_NPV)
+        ),
+    )
+    return workflow, historical_model_dir(tmp_path / "model")
+
+
+def test_submitted_file_carries_no_event_from_the_historical_part(tmp_path) -> None:
+    workflow, model_dir = prepare_historical_run(tmp_path)
+
+    report = workflow.submit("historical", model_dir)
+    parsed = parse_schedule(report.schedule_path.read_bytes())
+
+    before_t0 = [
+        block
+        for block in parsed.blocks
+        if block.event_date is not None and block.event_date < T0
+    ]
+    assert [block.keyword for block in before_t0] == [
+        "DATES",
+        "WCONPROD",
+        "WCONINJE",
+    ]
+    assert before_t0[0].event_date == date(2006, 12, 1)
+    assert all(block.control_step is None for block in before_t0)
+    assert all(
+        event.control_step >= 0
+        for event in parsed.control_events + parsed.fixed_deck_events
+    )
+
+
+def test_submitted_file_drops_the_historical_dates_the_deck_carries(tmp_path) -> None:
+    workflow, model_dir = prepare_historical_run(tmp_path)
+    source = parse_schedule((model_dir / "Model_Z_sch.inc").read_bytes())
+
+    report = workflow.submit("historical", model_dir)
+    submitted = parse_schedule(report.schedule_path.read_bytes())
+
+    assert len(source.dates) == SYNTHETIC_HISTORY_STEPS + SYNTHETIC_STEPS + 1
+    assert len(submitted.dates) == SYNTHETIC_STEPS + 2
+    assert submitted.dates[1:] == source.dates[SYNTHETIC_HISTORY_STEPS:]
+
+
+def test_the_number_of_control_blocks_matches_the_managed_period(tmp_path) -> None:
+    workflow, model_dir = prepare_historical_run(tmp_path)
+
+    report = workflow.submit("historical", model_dir)
+    parsed = parse_schedule(report.schedule_path.read_bytes())
+
+    managed = [
+        block
+        for block in parsed.blocks
+        if block.keyword in ("WCONPROD", "WCONINJE")
+        and block.control_step is not None
+        and block.control_events
+    ]
+    assert len(managed) == 2 * SYNTHETIC_STEPS
+    assert {block.control_step for block in managed} == set(range(SYNTHETIC_STEPS))
+    assert max(event.control_step for event in parsed.control_events) == (
+        SYNTHETIC_STEPS - 1
+    )
+
+
+def test_the_submitted_control_period_still_round_trips(tmp_path) -> None:
+    workflow, model_dir = prepare_historical_run(tmp_path)
+    schedule = historical_schedule()
+
+    report = workflow.submit("historical", model_dir)
+    raw = report.schedule_path.read_bytes()
+
+    verify_schedule_round_trip(schedule, raw).raise_if_broken()
+    assert content_hash(raw) == report.bundle.content_hash_submission
+    assert report.bundle.canonical_schedule_hash == hash_schedule(schedule)
+
+
+def test_the_control_period_file_is_smaller_than_the_full_deck(tmp_path) -> None:
+    workflow, model_dir = prepare_historical_run(tmp_path)
+    schedule = historical_schedule()
+
+    report = workflow.submit("historical", model_dir)
+    full = render_schedule_include(schedule, model_dir)
+
+    submitted = report.schedule_path.read_bytes()
+    assert len(submitted) < len(full.raw)
+    for month in (b"01 AUG 2006", b"01 SEP 2006", b"01 OCT 2006", b"01 NOV 2006"):
+        assert month in full.raw
+        assert month not in submitted
 
 
 def constrained_report(constraints: Constraints | None) -> DynamicReport:

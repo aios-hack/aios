@@ -48,6 +48,7 @@ from .opm_deck import (
     OpmDeckEmitter,
     OpmDeckError,
     bundle_hash,
+    render_control_period_include,
     render_schedule_include,
 )
 from .pvt import (
@@ -148,6 +149,7 @@ __all__ = [
     "OpmDeckError",
     "OpmRunner",
     "OpmRunnerError",
+    "render_control_period_include",
     "render_schedule_include",
     "render_summary_include",
     "RunCache",

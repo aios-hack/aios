@@ -6,18 +6,22 @@ import re
 import shutil
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Mapping, Sequence
 
 from backend.core.contracts import (
     N_CONTROL_DATES,
     N_INTERVALS,
     T0,
+    Availability,
     ControlEvent,
     EventKind,
     FixedDeckEvent,
+    Role,
     Schedule,
     SummarySpec,
+    WellState,
 )
 from backend.domain.schedule import LosslessBlock, ParsedSchedule, parse_schedule
 
@@ -412,6 +416,114 @@ def render_schedule_include(
         content_hash=hashlib.sha256(raw).hexdigest(),
         model_dir=resolved_dir,
         opm_schedule_source=template_source,
+    )
+
+
+_MONTH_NAMES: tuple[str, ...] = (
+    "JAN",
+    "FEB",
+    "MAR",
+    "APR",
+    "MAY",
+    "JUN",
+    "JUL",
+    "AUG",
+    "SEP",
+    "OCT",
+    "NOV",
+    "DEC",
+)
+
+
+def _seed_date(t0: date) -> date:
+    if t0.month == 1:
+        return date(t0.year - 1, 12, 1)
+    return date(t0.year, t0.month - 1, 1)
+
+
+def _render_dates(event_date: date) -> bytes:
+    month = _MONTH_NAMES[event_date.month - 1]
+    return (
+        f"\nDATES\n {event_date.day:02d} {month} {event_date.year} /\n/\n"
+    ).encode("ascii")
+
+
+def _render_initial_state(
+    wells: Sequence[str], initial_state: Mapping[str, WellState]
+) -> bytes:
+    producers: list[str] = []
+    injectors: list[str] = []
+    for well in wells:
+        state = initial_state.get(well)
+        if state is None:
+            raise OpmDeckError(
+                f"начальное состояние не задано для скважины {well!r}: "
+                "управляемый период нельзя описать без состояния на t0"
+            )
+        if state.availability is not Availability.AVAILABLE:
+            continue
+        status = state.operating_status.name
+        value = _format_number(state.setpoint)
+        if state.role is Role.PROD:
+            producers.append(f"'{well}' '{status}' 'LRAT' 1* 1* 1* {value} 1* 50 1* 1*")
+        elif state.role is Role.INJ:
+            injectors.append(f"'{well}' 'WATER' '{status}' 'RATE' {value} 1* 300 1* 1*")
+        else:
+            raise OpmDeckError(
+                f"скважина {well!r} введена, но роль не определена: "
+                "начальное состояние неполно"
+            )
+    return _render_block("WCONPROD", producers) + _render_block("WCONINJE", injectors)
+
+
+def _control_period_offset(parsed: ParsedSchedule) -> int:
+    offset = 0
+    for chunk in parsed.chunks:
+        if isinstance(chunk, bytes):
+            offset += len(chunk)
+            continue
+        if chunk.keyword == "DATES" and chunk.control_step == 0:
+            return offset
+        offset += len(chunk.raw)
+    raise OpmDeckError(
+        f"в эмитированном расписании нет даты начала управления t0={T0}: "
+        "управляемый период выделить не из чего"
+    )
+
+
+def _deck_preamble(parsed: ParsedSchedule) -> bytes:
+    head = parsed.chunks[0] if parsed.chunks else b""
+    if not isinstance(head, bytes):
+        raise OpmDeckError(
+            "дек начинается с блока расписания: преамбулы с WELSPECS нет, "
+            "ось скважин управляемого периода взять неоткуда"
+        )
+    if b"WELSPECS" not in head:
+        raise OpmDeckError(
+            "в преамбуле дека нет WELSPECS: ось скважин управляемого "
+            "периода взять неоткуда"
+        )
+    return head
+
+
+def render_control_period_include(
+    schedule: Schedule, model_dir: Path | str
+) -> EmittedSchedule:
+    full = render_schedule_include(schedule, model_dir)
+    parsed = parse_schedule(full.raw)
+    raw = b"".join(
+        (
+            _deck_preamble(parsed),
+            _render_dates(_seed_date(schedule.meta.t0)),
+            _render_initial_state(schedule.meta.wells, schedule.initial_state),
+            full.raw[_control_period_offset(parsed) :],
+        )
+    )
+    return EmittedSchedule(
+        raw=raw,
+        content_hash=hashlib.sha256(raw).hexdigest(),
+        model_dir=full.model_dir,
+        opm_schedule_source=full.opm_schedule_source,
     )
 
 
