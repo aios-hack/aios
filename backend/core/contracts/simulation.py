@@ -1,5 +1,3 @@
-"""SummarySpec, RunResult и provenance финальной сдачи. README.md §6, §6a."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -29,13 +27,6 @@ REQUIRED_SUMMARY_KEYS = SUMMARY_EXPORT_KEYS
 
 @dataclass(frozen=True, slots=True)
 class SummarySpec:
-    """Логический экспорт и фактические векторы секции SUMMARY.
-
-    ``export_keys`` — девять полей, которые обязан получить эталонный
-    расчётчик. ``opm_well_keys`` и ``opm_connection_keys`` — буквальные
-    ключи, которые пишет OpmDeckEmitter. WOMT/WOMR восстанавливает
-    ResponseLoader из COPT/COPR по PVTNUM и DENSITY каждой ячейки.
-    """
 
     export_keys: tuple[str, ...] = SUMMARY_EXPORT_KEYS
     opm_well_keys: tuple[str, ...] = OPM_WELL_SUMMARY_KEYS
@@ -66,7 +57,6 @@ class RunStatus(Enum):
 
 @dataclass(frozen=True, slots=True)
 class RunResult:
-    """Падение прогона — данные, а не исключение (§4.4 базы знаний)."""
 
     run_id: str
     status: RunStatus
@@ -80,21 +70,12 @@ class RunResult:
 
 @dataclass(frozen=True, slots=True)
 class OpmRunArtifact(RunResult):
-    """RunResult финального OPM-прогона + единственное новое поле.
-
-    Не заводит нового поля для хеша расписания — canonical_schedule_hash
-    уже есть в RunResult. content_hash_opm — хеш байтов сгенерированного
-    OPM-дека целиком (статика + расписание), не то же самое, что deck_hash
-    (только статика) и не то же самое, что canonical_schedule_hash
-    (семантический хеш Schedule, не файла).
-    """
 
     content_hash_opm: str
 
 
 @dataclass(frozen=True, slots=True)
 class ResponseArtifact:
-    """Результат ResponseLoader, а не безымянная пара массивов."""
 
     source_run_id: str  # обязан равняться OpmRunArtifact.run_id
     response_hash: str  # хеш канонической сериализации обоих типов
@@ -104,7 +85,6 @@ class ResponseArtifact:
 
 @dataclass(frozen=True, slots=True)
 class FinalNpvArtifact:
-    """Единственный разрешённый источник заявленного числа. README.md §6a."""
 
     npv_table: NpvTable
     npv_methodology: float  # рубли, то самое число, которое заявляется
@@ -124,11 +104,6 @@ class FinalNpvArtifact:
 
 @dataclass(frozen=True, slots=True)
 class SubmissionArtifact:
-    """Не реализован до подтверждения формата организаторами (§3.1).
-
-    Форма зафиксирована на будущее. canonical_schedule_hash обязан
-    равняться тому же значению, что и OpmRunArtifact.canonical_schedule_hash.
-    """
 
     canonical_schedule_hash: str
     content_hash_submission: str

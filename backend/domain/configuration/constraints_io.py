@@ -1,4 +1,3 @@
-"""Validated case constraint serialization shared by UI and workflows."""
 from __future__ import annotations
 import hashlib
 import math

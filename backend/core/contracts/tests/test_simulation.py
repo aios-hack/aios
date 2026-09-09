@@ -51,11 +51,6 @@ def test_summary_spec_rejects_dropping_or_reordering_keys(
 
 
 def test_summary_spec_covers_reference_calculator_columns() -> None:
-    """Сторож против отката к прежнему списку из шести ключей.
-
-    WOMR, WTHP и WEFF добавлены 15.08: WOMR и WTHP расчётчик читает,
-    WEFF не использует, но требует наличия столбца.
-    """
     for key in ("WOMR", "WTHP", "WEFF"):
         assert key in SUMMARY_EXPORT_KEYS
 
