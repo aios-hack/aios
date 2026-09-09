@@ -16,7 +16,7 @@ from backend.core.contracts import (
     hash_schedule,
 )
 from backend.core.provenance import git_commit, opm_image
-from backend.domain.configuration.constraints_io import constraints_to_json
+from backend.domain.configuration.constraints_io import constraints_hash, constraints_to_json
 from backend.domain.schedule.emit import (
     WELLS_SCHEDULE_FILE_NAME,
     verify_schedule_round_trip,
@@ -189,7 +189,7 @@ class RunWorkflow:
             predicted_npv=request.predicted_npv,
             verified_npv=None,
             sound=None,
-            **_provenance_fields(request.provenance),
+            **_provenance_fields(request.provenance, request.constraints),
         )
         self._write_manifest(run_dir, manifest)
         return manifest
@@ -203,7 +203,7 @@ class RunWorkflow:
         verified_npv = result.npv_methodology if sound else None
         calculated = getattr(result, 'final_npv', None)
         measured_npv = calculated.npv_methodology if calculated is not None else verified_npv
-        fields = _provenance_fields(request.provenance)
+        fields = _provenance_fields(request.provenance, request.constraints)
         observed_deck_hash = getattr(getattr(result, "opm_run", None), "deck_hash", None)
         if observed_deck_hash:
             fields["deck_hash"] = observed_deck_hash
@@ -425,8 +425,13 @@ class RunWorkflow:
         )
 
 
-def _provenance_fields(provenance: RunProvenance) -> dict[str, object]:
-    return {name: getattr(provenance, name) for name in MANIFEST_PROVENANCE_FIELDS}
+def _provenance_fields(
+    provenance: RunProvenance, constraints: Constraints | None = None
+) -> dict[str, object]:
+    fields = {name: getattr(provenance, name) for name in MANIFEST_PROVENANCE_FIELDS}
+    if constraints is not None:
+        fields["constraints_hash"] = constraints_hash(constraints)
+    return fields
 
 
 def _required_text(value: object, name: str, run_id: str) -> str:

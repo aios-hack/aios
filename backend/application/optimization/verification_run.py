@@ -1,34 +1,22 @@
-"""G7: найденный CMA-ES план через настоящий OPM и звено А §10.5.
-
-Запуск: `PYTHONPATH=. python -m backend.application.optimization.verification_run`. Нужны Docker с
-образом OPM, чекпойнт суррогата, измеренная λ и `torch` (extras `ml`).
-
-θ* читается из `cmaes.json`, затем `Schedule*` воспроизводится production-
-ансамблем и политикой. Совпадение `canonical_schedule_hash` доказывает, что
-в OPM уходит ровно отобранный самосогласованный план.
-
-Тракт вызывается `strict=False`, чтобы сохранить полный диагностический
-отчёт даже при нарушении. Ограничения воды и кейса передаются те же, что в
-поиске; сдаваемым числом результат становится только при `result.sound`.
-"""
-
 from __future__ import annotations
 
 import json
 import sys
 import tempfile
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-from backend.infrastructure.opm import submit_schedule
+from backend.infrastructure.opm import SubmissionResult, submit_schedule
 from backend.infrastructure.opm.opm_deck import OpmDeckEmitter
 from backend.infrastructure.opm.runner import deck_hashes, summary_spec_hash
 from backend.domain.configuration.schema import default_config
-from backend.core.contracts import ArtifactHashes, Schedule, Theta
+from backend.core.contracts import ArtifactHashes, Constraints, Schedule, Theta
 from backend.core.contracts.hashing import canonical_bytes, hash_schedule
 from backend.domain.schedule.canonical import canonical_part_hash
+from backend.domain.schedule.json_io import load_schedule_json
 from backend.domain.economics import (
     load_normatives,
     load_response_artifact,
@@ -48,24 +36,227 @@ from backend.application.optimization.search_run import (
 from backend.domain.policy.fixed_point import resolve
 from backend.domain.policy.theta import default_theta
 from backend.infrastructure.resources import chdd_python_dir, model_z_dir
-from backend.domain.configuration.constraints_io import constraints_from_json
+from backend.domain.configuration.constraints_io import (
+    constraints_from_json,
+    constraints_hash,
+)
 
 LAMBDA = Path("data/lambda-window-2007/lambda.json")
 RESPONSE = Path("data/base_case/response.json")
 WORK_ROOT = Path("data/g7-submission")
-EXPECTED_HASH = None  # сверяется с cmaes.json; None — принять любой
+EXPECTED_HASH: str | None = None
 BASE_NPV = 11_873_676_459.64
 OIL_DENSITY_T_PER_M3 = 0.9131
 
 
-def _load_constraints():
+class VerificationGuardError(RuntimeError):
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class GuardCheck:
+    name: str
+    expected: str | None
+    actual: str
+    source: str
+
+    @property
+    def checked(self) -> bool:
+        return self.expected is not None
+
+    @property
+    def holds(self) -> bool:
+        return self.expected is not None and self.expected == self.actual
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "checked": self.checked,
+            "holds": self.holds,
+            "expected": self.expected,
+            "actual": self.actual,
+            "source": self.source,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class GuardReport:
+    schedule: GuardCheck
+    constraints: GuardCheck
+
+    @property
+    def checks(self) -> tuple[GuardCheck, ...]:
+        return (self.schedule, self.constraints)
+
+    @property
+    def unchecked(self) -> tuple[GuardCheck, ...]:
+        return tuple(check for check in self.checks if not check.checked)
+
+    @property
+    def fully_checked(self) -> bool:
+        return not self.unchecked
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "fully_checked": self.fully_checked,
+            "unchecked": [check.name for check in self.unchecked],
+            "checks": [check.as_dict() for check in self.checks],
+        }
+
+    def raise_if_broken(self) -> None:
+        broken = [
+            check for check in self.checks if check.checked and not check.holds
+        ]
+        if not broken:
+            return
+        details = "; ".join(
+            f"{check.name}: в прогоне {check.expected}, предъявлено "
+            f"{check.actual} (источник эталона: {check.source})"
+            for check in broken
+        )
+        raise VerificationGuardError(
+            "верификация прекращена до запуска Flow: предъявленное к проверке "
+            f"расходится с зафиксированным в прогоне — {details}"
+        )
+
+
+def _load_constraints() -> Constraints:
     return constraints_from_json(
         json.loads(CONSTRAINTS.read_text(encoding="utf-8"))
     )
 
 
-def verify_schedule(schedule: Schedule, work_root: Path):
-    """Run the real OPM tract for the exact schedule supplied by a caller."""
+def _read_manifest(run_dir: Path) -> dict[str, object]:
+    path = run_dir / "manifest.json"
+    if not path.is_file():
+        return {}
+    document = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(document, dict):
+        raise VerificationGuardError(
+            f"манифест прогона не объект JSON: {path}"
+        )
+    return document
+
+
+def _manifest_hash(document: dict[str, object], field: str, run_dir: Path) -> str | None:
+    value = document.get(field)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise VerificationGuardError(
+            f"манифест прогона {run_dir} содержит {field}={value!r}; "
+            "эталонный хеш должен быть непустой строкой"
+        )
+    return value
+
+
+def _run_constraints_hash(run_dir: Path) -> str | None:
+    path = run_dir / "inputs" / "constraints.json"
+    if not path.is_file():
+        return None
+    document = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(document, dict):
+        raise VerificationGuardError(
+            f"сохранённый кейс прогона не объект JSON: {path}"
+        )
+    return constraints_hash(constraints_from_json(document))
+
+
+def resolve_guard_report(
+    schedule: Schedule,
+    constraints: Constraints,
+    *,
+    run_dir: Path | None = None,
+    expected_schedule_hash: str | None = None,
+    expected_constraints_hash: str | None = None,
+) -> GuardReport:
+    schedule_source = "аргумент expected_schedule_hash"
+    constraints_source = "аргумент expected_constraints_hash"
+    if expected_schedule_hash is None and EXPECTED_HASH is not None:
+        expected_schedule_hash = EXPECTED_HASH
+        schedule_source = "константа EXPECTED_HASH"
+    if run_dir is not None:
+        manifest = _read_manifest(run_dir)
+        if expected_schedule_hash is None:
+            expected_schedule_hash = _manifest_hash(
+                manifest, "schedule_hash", run_dir
+            )
+            schedule_source = f"{run_dir / 'manifest.json'}:schedule_hash"
+        if expected_constraints_hash is None:
+            expected_constraints_hash = _manifest_hash(
+                manifest, "constraints_hash", run_dir
+            )
+            constraints_source = f"{run_dir / 'manifest.json'}:constraints_hash"
+        if expected_constraints_hash is None:
+            expected_constraints_hash = _run_constraints_hash(run_dir)
+            constraints_source = str(run_dir / "inputs" / "constraints.json")
+    if expected_schedule_hash is None:
+        schedule_source = "эталон не найден"
+    if expected_constraints_hash is None:
+        constraints_source = "эталон не найден"
+    return GuardReport(
+        schedule=GuardCheck(
+            name="canonical_schedule_hash",
+            expected=expected_schedule_hash,
+            actual=hash_schedule(schedule),
+            source=schedule_source,
+        ),
+        constraints=GuardCheck(
+            name="constraints_hash",
+            expected=expected_constraints_hash,
+            actual=constraints_hash(constraints),
+            source=constraints_source,
+        ),
+    )
+
+
+def _guard_run_dir(work_root: Path, run_dir: Path | None) -> Path | None:
+    if run_dir is not None:
+        return run_dir
+    candidate = work_root.parent
+    if (candidate / "manifest.json").is_file() or (
+        candidate / "inputs" / "constraints.json"
+    ).is_file():
+        return candidate
+    return None
+
+
+@dataclass(frozen=True, slots=True)
+class GuardedVerification:
+    result: SubmissionResult
+    guard: GuardReport
+
+
+def verify_schedule_with_guard(
+    schedule: Schedule,
+    work_root: Path,
+    *,
+    run_dir: Path | None = None,
+    expected_schedule_hash: str | None = None,
+    expected_constraints_hash: str | None = None,
+    constraints: Constraints | None = None,
+) -> GuardedVerification:
+    used_constraints = constraints if constraints is not None else _load_constraints()
+    guard = resolve_guard_report(
+        schedule,
+        used_constraints,
+        run_dir=_guard_run_dir(work_root, run_dir),
+        expected_schedule_hash=expected_schedule_hash,
+        expected_constraints_hash=expected_constraints_hash,
+    )
+    work_root.mkdir(parents=True, exist_ok=True)
+    (work_root / "verification-guard.json").write_text(
+        json.dumps(guard.as_dict(), ensure_ascii=False, indent=2, sort_keys=True)
+        + "\n",
+        encoding="utf-8",
+    )
+    guard.raise_if_broken()
+    for check in guard.unchecked:
+        print(
+            f"ВНИМАНИЕ: {check.name} не сверяется — эталон отсутствует, "
+            f"фактическое значение {check.actual}",
+            flush=True,
+        )
     model_dir = model_z_dir()
     normatives_path = chdd_python_dir() / "input" / "Нормативы_ЧДД.xlsx"
     normatives = load_normatives(normatives_path)
@@ -86,28 +277,46 @@ def verify_schedule(schedule: Schedule, work_root: Path):
         ),
         global_seed=SEED,
     )
-    work_root.mkdir(parents=True, exist_ok=True)
-    return submit_schedule(
+    result = submit_schedule(
         schedule,
         model_dir,
         work_root,
         config,
-        constraints=_load_constraints(),
+        constraints=used_constraints,
         strict=False,
         oil_density_t_per_m3=OIL_DENSITY_T_PER_M3,
     )
+    return GuardedVerification(result=result, guard=guard)
+
+
+def verify_schedule(
+    schedule: Schedule,
+    work_root: Path,
+    *,
+    run_dir: Path | None = None,
+    expected_schedule_hash: str | None = None,
+    expected_constraints_hash: str | None = None,
+    constraints: Constraints | None = None,
+) -> SubmissionResult:
+    return verify_schedule_with_guard(
+        schedule,
+        work_root,
+        run_dir=run_dir,
+        expected_schedule_hash=expected_schedule_hash,
+        expected_constraints_hash=expected_constraints_hash,
+        constraints=constraints,
+    ).result
 
 
 def persist_observation(
     schedule: Schedule,
-    result,
+    result: SubmissionResult,
     *,
     predicted_npv: float | None,
     observation_root: Path = Path("data/opm-observations"),
     metadata: dict[str, object] | None = None,
+    guard: GuardReport | None = None,
 ) -> Path:
-    """Persist an OPM truth point for diagnostics and later active learning."""
-
     schedule_hash = hash_schedule(schedule)
     observation_dir = observation_root / schedule_hash
     observation_dir.mkdir(parents=True, exist_ok=True)
@@ -145,6 +354,7 @@ def persist_observation(
                     if result.dynamic_report is not None
                     else None
                 ),
+                "verification_guard": guard.as_dict() if guard is not None else None,
                 "metadata": metadata or {},
             },
             ensure_ascii=False,
@@ -177,11 +387,7 @@ def main() -> int:
     evaluator = make_evaluator(env)
 
     saved = json.loads(Path("data/lambda-window-2007/cmaes.json").read_text(encoding="utf-8"))
-    # θ* берётся из отчёта поиска, а не воспроизводится поиском заново:
-    # прогон CMA-ES стоит двадцать минут и ничего не добавляет, а хеш
-    # восстановленного расписания всё равно сверяется с записанным.
     if saved.get('schedule_path'):
-        from backend.domain.schedule.json_io import load_schedule_json
         schedule = load_schedule_json(Path(saved['schedule_path']))
         repaired_prediction = evaluator(schedule)
         repair_rounds = 0
@@ -210,7 +416,18 @@ def main() -> int:
 
     print("\nзвено А: эмит, прогон Flow, отклик, гейт, экономика...", flush=True)
     started = time.monotonic()
-    result = verify_schedule(schedule, WORK_ROOT)
+    try:
+        guarded = verify_schedule_with_guard(
+            schedule,
+            WORK_ROOT,
+            expected_schedule_hash=expected,
+            constraints=constraints,
+        )
+    except VerificationGuardError as error:
+        print(f"\n{error}", flush=True)
+        return 3
+    result = guarded.result
+    guard = guarded.guard
     print(f"тракт отработал за {(time.monotonic() - started) / 60:.1f} мин", flush=True)
 
     print(f"\nстатус прогона: {result.opm_run.status}", flush=True)
@@ -242,6 +459,7 @@ def main() -> int:
         result,
         predicted_npv=repaired_prediction.npv,
         metadata={"candidate": "cmaes-policy", "water_repair_rounds": repair_rounds},
+        guard=guard,
     )
     Path("data/g7-result.json").write_text(
         json.dumps(
@@ -256,6 +474,7 @@ def main() -> int:
                 "dynamic_violations": len(result.dynamic_report.violations)
                 if result.dynamic_report
                 else None,
+                "verification_guard": guard.as_dict() if guard is not None else None,
             },
             ensure_ascii=False,
             indent=2,
