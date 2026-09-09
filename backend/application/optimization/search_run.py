@@ -106,7 +106,12 @@ SEARCH_CAP = _positive_cap("AIOS_SEARCH_FIXED_POINT_CAP", DEFAULT_SEARCH_CAP)
 FINAL_CAP = _positive_cap("AIOS_FINAL_FIXED_POINT_CAP", DEFAULT_FINAL_CAP)
 FINALIST_CAP = 4
 OOD_THRESHOLD = float(os.environ.get("AIOS_OOD_THRESHOLD", "0.0"))
+RISK_AVERSION_BETA = float(os.environ.get("AIOS_RISK_AVERSION_BETA", "0.0"))
 BUDGET = 120
+
+MISSING_SIGMA = (
+    "β задана, но модель не даёт разброса: нужен ансамбль"
+)
 
 WATER_REPAIR_MARGIN = 0.98
 WATER_REPAIR_CEILING = 0.95
@@ -614,6 +619,35 @@ def _search_near_baseline(
                          static_count, blocking_count, registry.records)
 
 
+def _risk_adjusted_npv(npv: float, sigma: float | None, beta: float) -> float:
+    if beta <= 0.0:
+        return float(npv)
+    if sigma is None:
+        raise SearchRunError(MISSING_SIGMA)
+    return float(npv) - beta * float(sigma)
+
+
+def select_finalist(finalists: Sequence[tuple], beta: float = RISK_AVERSION_BETA):
+    if not finalists:
+        raise SearchRunError(
+            "отбор финалистов вызван на пустом наборе: выбирать не из чего"
+        )
+    if beta < 0.0:
+        raise SearchRunError(
+            f"коэффициент неприятия риска β={beta} отрицателен: штраф за "
+            f"разброс не может быть премией"
+        )
+    if beta > 0.0 and any(item[7] is None for item in finalists):
+        raise SearchRunError(MISSING_SIGMA)
+    return max(
+        finalists,
+        key=lambda item: (
+            item[3].self_consistent,
+            _risk_adjusted_npv(item[0], item[7], beta),
+        ),
+    )
+
+
 def run_search(
     *,
     budget: int = BUDGET,
@@ -647,6 +681,11 @@ def run_search(
     validate_runtime_economic_head(artifacts, env.npv_head)
     initial = load_response_artifact(RESPONSE)
     evaluator = make_evaluator(env)
+    final_evaluator = (
+        make_evaluator(env, with_sigma=True)
+        if RISK_AVERSION_BETA > 0.0
+        else evaluator
+    )
     search_start = _search_theta(constraints)
     provenance = {
         "model_version": env.model.version,
@@ -834,7 +873,7 @@ def run_search(
             )
             check = validate_static(final.schedule, env.constraints)
             repaired_schedule, evaluated, dynamic, repair_rounds = _repair_predicted_water_balance(
-                env, evaluator, final.schedule
+                env, final_evaluator, final.schedule
             )
             check = validate_static(repaired_schedule, env.constraints)
         except (OutOfDomainScheduleError, PhysicallyImpossibleScheduleError) as error:
@@ -890,6 +929,7 @@ def run_search(
                     check,
                     surrogate_blocking,
                     repaired_hash,
+                    evaluated.sigma,
                 )
             )
             best = registry.current
@@ -920,7 +960,8 @@ def run_search(
         check,
         surrogate_blocking,
         schedule_hash,
-    ) = max(finalists, key=lambda item: (item[3].self_consistent, item[0]))
+        predicted_sigma,
+    ) = select_finalist(finalists, RISK_AVERSION_BETA)
     delta = 100.0 * (predicted_npv - BASE_NPV) / BASE_NPV
     print(
         f"\nθ*: ЧДД {predicted_npv / 1e9:.3f} млрд ({delta:+.1f}% к базовому), "
@@ -941,6 +982,10 @@ def run_search(
             provenance,
             search_strategy="cma-es",
             selected_candidate="finalist",
+            risk_aversion_beta=str(RISK_AVERSION_BETA),
+            npv_sigma=(
+                "none" if predicted_sigma is None else repr(float(predicted_sigma))
+            ),
             policy_equilibrium=(
                 "reached" if final.self_consistent else "not-claimed"
             ),

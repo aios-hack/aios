@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import inspect
+import typing
 import json
 from dataclasses import dataclass, fields
 from datetime import date
@@ -98,11 +99,8 @@ def test_check_pair_accepts_exactly_those_types() -> None:
         "backend.application.optimization.schedule_search",
         reason="сквозной поиск требует torch (extras ml)",
     )
-    signature = inspect.signature(physics.check_pair)
-    hints = {
-        name: parameter.annotation
-        for name, parameter in signature.parameters.items()
-    }
+    hints = typing.get_type_hints(physics.check_pair)
+
     assert hints["reference"] is physics.RawModelOutput
     assert hints["reference_schedule"] is Schedule
 

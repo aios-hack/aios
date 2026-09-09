@@ -3,13 +3,20 @@ import hashlib
 import math
 from typing import Any
 from backend.core.contracts import Constraints, WellOutage, N_INTERVALS, canonical_bytes
-YEAR_SECTIONS = ("injection_limits", "liquid_limits", "production_floors", "watercut_limits")
+YEAR_SECTIONS = (
+    "injection_limits",
+    "liquid_limits",
+    "production_floors",
+    "oil_limits",
+    "watercut_limits",
+)
 
 def constraints_to_json(c: Constraints) -> dict[str, Any]:
     return {
         "injection_limits": {str(y): float(v) for y, v in sorted(c.injection_limits.items())},
         "liquid_limits": {str(y): float(v) for y, v in sorted(c.liquid_limits.items())},
         "production_floors": {str(y): float(v) for y, v in sorted(c.production_floors.items())},
+        "oil_limits": {str(y): float(v) for y, v in sorted(c.oil_limits.items())},
         "watercut_limits": {str(y): float(v) for y, v in sorted(c.watercut_limits.items())},
         "well_outages": [
             {
@@ -122,6 +129,7 @@ def constraints_from_json(d: dict[str, Any], n_intervals: int = N_INTERVALS) -> 
         injection_limits=_parse_year_map(d, "injection_limits"),
         liquid_limits=_parse_year_map(d, "liquid_limits"),
         production_floors=_parse_year_map(d, "production_floors"),
+        oil_limits=_parse_year_map(d, "oil_limits"),
         watercut_limits=_parse_year_map(d, "watercut_limits"),
         well_outages=_parse_outages(d, n_intervals),
         infrastructure=dict(infrastructure),

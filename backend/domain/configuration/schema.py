@@ -37,16 +37,6 @@ DEFAULT_BUDGETS = Budgets(
 
 @dataclass(frozen=True, slots=True)
 class ConnectivityMeasurementParams:
-    """Допуски измерения связности: два числа, которые кампания λ обязана
-    получить параметром, а не прочитать литералом внутри домена.
-
-    `injection_shortfall_tolerance` — доля недобора приёмистости, выше которой
-    скважина объявляется недостижимой (`achievability_ok` = false).
-    `separation_floor_share` — доля шага амплитуды; разделение фактической
-    приёмистости между уровнями HIGH и LOW ниже неё означает, что столбец
-    в эксперименте не участвовал.
-    """
-
     injection_shortfall_tolerance: float
     separation_floor_share: float
 
