@@ -115,6 +115,24 @@ def control_step_of_level(deck_date_index: int) -> int:
     return deck_date_index - FIRST_CONTROL_LEVEL_DECK_DATE_INDEX
 
 
+def control_step_pressures(
+    field_pressure_bar: Sequence[float], n_intervals: int
+) -> tuple[float, ...]:
+    required = level_deck_date_index(n_intervals - 1) + 1
+    if len(field_pressure_bar) < required:
+        raise ValueError(
+            f"серия FPR короче горизонта: {len(field_pressure_bar)} значений "
+            f"при необходимых {required} = {FIRST_CONTROL_LEVEL_DECK_DATE_INDEX}"
+            f" + {n_intervals}; уровень давления шага управления "
+            f"{n_intervals - 1} читается по индексу дека "
+            f"{level_deck_date_index(n_intervals - 1)}"
+        )
+    return tuple(
+        field_pressure_bar[level_deck_date_index(step)]
+        for step in range(n_intervals)
+    )
+
+
 DYNAMIC_VIOLATION_KINDS: frozenset[ViolationKind] = frozenset(
     {
         ViolationKind.TARGET_UNDERSHOOT,
@@ -804,6 +822,7 @@ def check_dynamic_constraints(
     oil_density_t_per_m3: float | None = None,
     field_series: FieldSeries | None = None,
     groups: Groups | None = None,
+    reservoir_factors: Sequence[tuple[float, float]] | None = None,
 ) -> tuple[tuple[Violation, ...], tuple[ConstraintCheck, ...]]:
     if constraints is None:
         return (), _absent_constraint_checks(field_series)
@@ -818,7 +837,14 @@ def check_dynamic_constraints(
             schedule, interval_responses, constraints, oil_density_t_per_m3
         ),
         _check_outages(schedule, states, constraints),
-        _check_compensation(schedule, interval_responses, constraints, groups),
+        _check_compensation(
+            schedule,
+            interval_responses,
+            constraints,
+            groups,
+            oil_density_t_per_m3,
+            reservoir_factors,
+        ),
         check_field_pressure(schedule, constraints, field_series),
         check_material_balance(field_series),
     ):
@@ -1011,6 +1037,14 @@ def _absent_constraint_checks(
     return tuple(_not_set(name, detail) for name in names) + balance_checks
 
 
+COMPENSATION_SURFACE_CONDITIONS: str = "поверхностные условия"
+COMPENSATION_RESERVOIR_CONDITIONS: str = "пластовые условия"
+COMPENSATION_SURFACE_NOTICE: str = (
+    "объёмные коэффициенты B_o/B_w в валидатор не переданы: C(k) считается "
+    "в поверхностных условиях, пересчёт в пластовые не выполнялся"
+)
+
+
 def _compensation_totals(
     interval_responses: Sequence[IntervalResponse],
 ) -> dict[int, tuple[float, float]]:
@@ -1024,6 +1058,71 @@ def _compensation_totals(
     return totals
 
 
+def _reservoir_factors_at(
+    reservoir_factors: Sequence[tuple[float, float]], control_step: int
+) -> tuple[float, float]:
+    if control_step < 0 or control_step >= len(reservoir_factors):
+        raise ValueError(
+            f"пересчёт компенсации в пластовые условия запрошен на шаге "
+            f"{control_step}, но пара (B_o, B_w) для него не передана: "
+            f"получено {len(reservoir_factors)} пар. Считать компенсацию по "
+            "коэффициентам соседнего шага значит выдать за пластовое условие "
+            "число, которого никто не считал"
+        )
+    oil_factor, water_factor = reservoir_factors[control_step]
+    if oil_factor <= 0.0 or water_factor <= 0.0:
+        raise ValueError(
+            f"пара объёмных коэффициентов на шаге {control_step} неположительна: "
+            f"B_o = {oil_factor}, B_w = {water_factor}; объём в пластовых "
+            "условиях по ним не определён"
+        )
+    return oil_factor, water_factor
+
+
+def reservoir_step_totals(
+    oil_mass_t: float,
+    liquid_volume_m3: float,
+    injection_volume_m3: float,
+    oil_density_t_per_m3: float,
+    oil_factor: float,
+    water_factor: float,
+) -> tuple[float, float]:
+    if oil_density_t_per_m3 <= 0.0:
+        raise ValueError(
+            "пересчёт компенсации в пластовые условия требует положительной "
+            f"плотности нефти, получено {oil_density_t_per_m3} т/м³: объём "
+            "нефти в поверхностных условиях по массе не восстановить"
+        )
+    oil_volume = oil_mass_t / oil_density_t_per_m3
+    water_volume = max(0.0, liquid_volume_m3 - oil_volume)
+    withdrawal = oil_volume * oil_factor + water_volume * water_factor
+    return withdrawal, injection_volume_m3 * water_factor
+
+
+def _compensation_reservoir_totals(
+    interval_responses: Sequence[IntervalResponse],
+    reservoir_factors: Sequence[tuple[float, float]],
+    oil_density_t_per_m3: float,
+) -> dict[int, tuple[float, float]]:
+    surface: dict[int, tuple[float, float, float]] = {}
+    for item in interval_responses:
+        oil, liquid, injection = surface.get(item.control_step, (0.0, 0.0, 0.0))
+        surface[item.control_step] = (
+            oil + max(0.0, item.oil_mass_delta),
+            liquid + max(0.0, item.liquid_volume_delta),
+            injection + max(0.0, item.injection_volume_delta),
+        )
+    totals: dict[int, tuple[float, float]] = {}
+    for control_step, (oil, liquid, injection) in surface.items():
+        oil_factor, water_factor = _reservoir_factors_at(
+            reservoir_factors, control_step
+        )
+        totals[control_step] = reservoir_step_totals(
+            oil, liquid, injection, oil_density_t_per_m3, oil_factor, water_factor
+        )
+    return totals
+
+
 def _group_membership(groups: Groups) -> dict[str, tuple[str, ...]]:
     membership: dict[str, list[str]] = {}
     for group_id in sorted(groups.groups):
@@ -1033,7 +1132,10 @@ def _group_membership(groups: Groups) -> dict[str, tuple[str, ...]]:
 
 
 def _compensation_group_totals(
-    interval_responses: Sequence[IntervalResponse], groups: Groups
+    interval_responses: Sequence[IntervalResponse],
+    groups: Groups,
+    reservoir_factors: Sequence[tuple[float, float]] | None = None,
+    oil_density_t_per_m3: float | None = None,
 ) -> dict[tuple[int, str], tuple[float, float]]:
     membership = _group_membership(groups)
     uncovered = sorted(
@@ -1046,15 +1148,32 @@ def _compensation_group_totals(
             "считать C(k) по неполной нарезке значит объявить проверку "
             "выполненной там, где часть отбора и закачки не учтена"
         )
-    totals: dict[tuple[int, str], tuple[float, float]] = {}
+    surface: dict[tuple[int, str], tuple[float, float, float]] = {}
     for item in interval_responses:
         for group_id in membership[item.well]:
             key = (item.control_step, group_id)
-            withdrawal, injection = totals.get(key, (0.0, 0.0))
-            totals[key] = (
-                withdrawal + max(0.0, item.liquid_volume_delta),
+            oil, liquid, injection = surface.get(key, (0.0, 0.0, 0.0))
+            surface[key] = (
+                oil + max(0.0, item.oil_mass_delta),
+                liquid + max(0.0, item.liquid_volume_delta),
                 injection + max(0.0, item.injection_volume_delta),
             )
+    if reservoir_factors is None:
+        return {
+            key: (liquid, injection)
+            for key, (_, liquid, injection) in surface.items()
+        }
+    if oil_density_t_per_m3 is None:
+        raise ValueError(
+            "пересчёт групповой компенсации в пластовые условия запрошен "
+            "без плотности нефти: объём нефти в отборе не восстановить"
+        )
+    totals: dict[tuple[int, str], tuple[float, float]] = {}
+    for key, (oil, liquid, injection) in surface.items():
+        oil_factor, water_factor = _reservoir_factors_at(reservoir_factors, key[0])
+        totals[key] = reservoir_step_totals(
+            oil, liquid, injection, oil_density_t_per_m3, oil_factor, water_factor
+        )
     return totals
 
 
@@ -1066,6 +1185,7 @@ def _compensation_violation(
     maximum: float,
     source: str,
     where: str,
+    conditions: str = COMPENSATION_SURFACE_CONDITIONS,
 ) -> Violation | None:
     if withdrawal <= 0.0:
         return Violation(
@@ -1078,7 +1198,7 @@ def _compensation_violation(
                 f"{withdrawal:.6f} м³, компенсация C(k) = закачка / отбор "
                 f"не определена и в коридор {minimum}…{maximum} "
                 f"не проверялась; закачано {injection:.3f} м³; "
-                f"границы: {source}"
+                f"условия расчёта: {conditions}; границы: {source}"
             ),
         )
     value = injection / withdrawal
@@ -1094,7 +1214,8 @@ def _compensation_violation(
             f"шаг {control_step}, {where}: компенсация C(k) = {value:.4f} "
             f"{side} границы коридора {minimum}…{maximum}; "
             f"закачано {injection:.3f} м³ при отборе жидкости "
-            f"{withdrawal:.3f} м³; границы: {source}"
+            f"{withdrawal:.3f} м³; условия расчёта: {conditions}; "
+            f"границы: {source}"
         ),
     )
 
@@ -1129,6 +1250,8 @@ def _compensation_field_check(
     minimum: float,
     maximum: float,
     source: str,
+    conditions: str,
+    notice: str,
 ) -> tuple[tuple[Violation, ...], ConstraintCheck]:
     if policy.scope not in COMPENSATION_FIELD_SCOPES:
         return (), _not_set(
@@ -1153,6 +1276,7 @@ def _compensation_field_check(
             maximum,
             source,
             "поле целиком",
+            conditions,
         )
         if violation is not None:
             found.append(violation)
@@ -1162,7 +1286,7 @@ def _compensation_field_check(
         (
             f"коридор компенсации {minimum}…{maximum}, режим "
             f"{policy.enforcement}: C(k) = закачка / отбор проверена по полю "
-            f"на {len(totals)} шагах"
+            f"на {len(totals)} шагах в {conditions}{notice}"
         ),
         blocking_kinds=blocking_kinds_for_compensation(policy),
         enforcement=policy.enforcement,
@@ -1177,6 +1301,10 @@ def _compensation_groups_check(
     minimum: float,
     maximum: float,
     source: str,
+    conditions: str,
+    notice: str,
+    reservoir_factors: Sequence[tuple[float, float]] | None = None,
+    oil_density_t_per_m3: float | None = None,
 ) -> tuple[tuple[Violation, ...], ConstraintCheck]:
     if policy.scope not in COMPENSATION_GROUP_SCOPES:
         return (), _checked(
@@ -1198,7 +1326,9 @@ def _compensation_groups_check(
             "Пропустить его значит выдать sound=true по ограничению, которое "
             "никто не проверял"
         )
-    totals = _compensation_group_totals(interval_responses, groups)
+    totals = _compensation_group_totals(
+        interval_responses, groups, reservoir_factors, oil_density_t_per_m3
+    )
     found: list[Violation] = []
     for control_step in range(schedule.meta.n_intervals):
         for group_id in sorted(groups.groups):
@@ -1214,6 +1344,7 @@ def _compensation_groups_check(
                 maximum,
                 source,
                 f"участок {group_id}",
+                conditions,
             )
             if violation is not None:
                 found.append(violation)
@@ -1228,9 +1359,9 @@ def _compensation_groups_check(
         enforcement=policy.enforcement,
         detail=(
             f"infrastructure.{COMPENSATION_SCOPE} = {policy.scope!r}: коридор "
-            f"{minimum}…{maximum} проверен по участкам, нарезка "
+            f"{minimum}…{maximum} проверен по участкам в {conditions}, нарезка "
             f"{groups.group_hash} из {len(groups.groups)} участков, "
-            f"{len(totals)} пар шаг-участок"
+            f"{len(totals)} пар шаг-участок{notice}"
         ),
     )
 
@@ -1240,6 +1371,8 @@ def _check_compensation(
     interval_responses: Sequence[IntervalResponse],
     constraints: Constraints,
     groups: Groups | None = None,
+    oil_density_t_per_m3: float | None = None,
+    reservoir_factors: Sequence[tuple[float, float]] | None = None,
 ) -> tuple[tuple[Violation, ...], tuple[ConstraintCheck, ...]]:
     policy = compensation_policy(constraints)
     if not policy.enabled:
@@ -1255,13 +1388,35 @@ def _check_compensation(
         f"infrastructure.{COMPENSATION_MIN}/{COMPENSATION_MAX}, "
         f"режим {policy.enforcement}, {limit_origin(constraints, COMPENSATION_MIN)}"
     )
+    if reservoir_factors is None:
+        conditions = COMPENSATION_SURFACE_CONDITIONS
+        notice = f"; {COMPENSATION_SURFACE_NOTICE}"
+        field_totals = _compensation_totals(interval_responses)
+    else:
+        if oil_density_t_per_m3 is None:
+            raise ValueError(
+                "пересчёт компенсации в пластовые условия запрошен парой "
+                "(B_o, B_w), но плотность нефти не передана: объём нефти в "
+                "отборе по массе не восстановить, а подставить её за "
+                "организаторов нельзя"
+            )
+        conditions = COMPENSATION_RESERVOIR_CONDITIONS
+        notice = (
+            f" по B_o/B_w на {len(reservoir_factors)} шагах при плотности "
+            f"нефти {oil_density_t_per_m3} т/м³"
+        )
+        field_totals = _compensation_reservoir_totals(
+            interval_responses, reservoir_factors, oil_density_t_per_m3
+        )
     field_found, field_check = _compensation_field_check(
         schedule,
-        _compensation_totals(interval_responses),
+        field_totals,
         policy,
         minimum,
         maximum,
         source,
+        conditions,
+        notice,
     )
     group_found, group_check = _compensation_groups_check(
         schedule,
@@ -1271,6 +1426,10 @@ def _check_compensation(
         minimum,
         maximum,
         source,
+        conditions,
+        notice,
+        reservoir_factors,
+        oil_density_t_per_m3,
     )
     return field_found + group_found, (field_check, group_check)
 
@@ -1821,6 +1980,7 @@ def validate_dynamic(
     report_undershoot: bool = True,
     field_series: FieldSeries | None = None,
     groups: Groups | None = None,
+    reservoir_factors: Sequence[tuple[float, float]] | None = None,
 ) -> DynamicReport:
     violations: list[Violation] = []
     undershoot, ratios = check_target_ratio(schedule, states)
@@ -1841,6 +2001,7 @@ def validate_dynamic(
         oil_density_t_per_m3,
         field_series,
         groups,
+        reservoir_factors,
     )
     violations.extend(constraint_violations)
     _, static_outage_check = check_constraints(

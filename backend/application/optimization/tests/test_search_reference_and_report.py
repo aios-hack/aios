@@ -174,7 +174,7 @@ def _run_real_main(out: Path, outcome: _Outcome) -> dict[str, object]:
         "SEED": 20260816,
         "SEARCH_CAP": 2,
         "FINAL_CAP": 8,
-        "BASE_NPV": 11_873_676_459.64,
+        "BASE_NPV": 11_873_122_324.91,
         "SEARCH_RESULT": out,
         "canonical_bytes": canonical_bytes,
         "run_search": lambda **_: outcome,

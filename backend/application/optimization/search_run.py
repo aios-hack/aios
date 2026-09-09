@@ -61,7 +61,7 @@ CONSTRAINTS = Path(
 )
 SEARCH_DIAGNOSTICS = Path(os.environ.get("AIOS_SEARCH_DIAGNOSTICS_PATH", "data/lambda-window-2007/cmaes-diagnostics.json"))
 SEARCH_RESULT = Path(os.environ.get("AIOS_SEARCH_RESULT_PATH", "data/lambda-window-2007/cmaes.json"))
-BASE_NPV = 11_873_676_459.64
+BASE_NPV = 11_873_122_324.91
 SEED = 20260816
 
 

@@ -383,7 +383,7 @@ def submittable_provenance() -> RunProvenance:
     )
 
 
-CLAIMED_NPV = 11_873_676_459.64
+CLAIMED_NPV = 11_873_122_324.91
 
 
 def prepare_submittable_run(

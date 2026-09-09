@@ -39,8 +39,8 @@ from backend.infrastructure.llm.fake_chat import FakeChatClient
 
 RUN_ID = "jarvis-run"
 PREDICTED_NPV = 12_345_678.5
-VERIFIED_NPV = 11_873_676_459.64
-CLAIMED_NPV = 11_873_676_459.64
+VERIFIED_NPV = 11_873_122_324.91
+CLAIMED_NPV = 11_873_122_324.91
 SEARCH_STRATEGY = "cmaes-restart"
 
 

@@ -55,7 +55,7 @@ LAMBDA = Path("data/lambda-window-2007/lambda.json")
 RESPONSE = Path("data/base_case/response.json")
 WORK_ROOT = Path("data/g7-submission")
 EXPECTED_HASH: str | None = None
-BASE_NPV = 11_873_676_459.64
+BASE_NPV = 11_873_122_324.91
 OIL_DENSITY_T_PER_M3 = 0.9131
 
 

@@ -11,6 +11,7 @@ from backend.core.contracts import (
     Policies,
     QuantizationPolicy,
 )
+from backend.application.optimization.search_run import BASE_NPV
 from backend.core.paths import data_root
 from backend.domain.economics import (
     ESP_CATALOG_2007,
@@ -29,6 +30,14 @@ from conftest import missing_reason, model_z_schedule
 BASE_CASE_RESPONSE = (
     data_root() / "base_case" / "response.json"
 )
+
+CANONICAL_RUN_ID = "20260816T200926-8b4da543d1ed"
+CANONICAL_RESPONSE_HASH = (
+    "85f04c6a74ff575d9fe1b25cf3f8a8adcfab998e27b2184036b48d8cd526423f"
+)
+CANONICAL_NPV_RUB = 11_873_122_324.91
+CANONICAL_CONVERSION_COUNT = 0
+CANONICAL_STOP_START_COUNT = 41
 
 MODEL_Z_SCHEDULE = model_z_schedule()
 
@@ -68,6 +77,20 @@ def test_analysis_runs_on_the_real_base_run_response(analysis) -> None:
     assert analysis.n_deck_dates > analysis.n_intervals
 
 
+def test_artifact_is_the_canonical_base_run(analysis) -> None:
+    assert analysis.source_run_id == CANONICAL_RUN_ID
+    assert analysis.response_hash == CANONICAL_RESPONSE_HASH
+
+
+def test_npv_of_canonical_artifact_matches_the_recorded_base(analysis) -> None:
+    assert analysis.npv_methodology == pytest.approx(CANONICAL_NPV_RUB, abs=0.01)
+
+
+def test_search_baseline_constant_equals_the_measured_base(analysis) -> None:
+    assert BASE_NPV == CANONICAL_NPV_RUB
+    assert analysis.npv_methodology == pytest.approx(BASE_NPV, abs=0.01)
+
+
 def test_axes_are_derived_from_the_deck_not_hardcoded(analysis) -> None:
     parsed = parse_schedule(MODEL_Z_SCHEDULE.read_bytes())
     assert analysis.n_deck_dates == len(parsed.dates)
@@ -102,13 +125,6 @@ def test_decomposition_invariants_hold_at_machine_zero(analysis) -> None:
 
 
 def test_interval_series_covers_every_interval(analysis) -> None:
-    """Накопленный ряд сходится к ЧДД. Допуск — как у `InvariantResidual.within`:
-
-    абсолютный машинный ноль плюс относительный, потому что на 1.2·10¹⁰ руб
-    порядок суммирования интервальных слагаемых даёт разброс в единицы
-    1e-6 руб — это ULP double, а не расхождение методики.
-    """
-
     series = analysis.decomposition.series
     assert len(series.points) == analysis.n_intervals
     assert series.total_discounted_fcf == pytest.approx(
@@ -132,21 +148,11 @@ def test_cost_structure_reconciles_to_fcf(analysis) -> None:
 
 
 def test_event_tally_uses_factual_response_not_schedule_intent(analysis) -> None:
-    """Девять schedule-конверсий имеют реальный промежуточный SHUT в OPM.
-
-    Официальный ``chdd_model.py`` сравнивает соседние фактические строки и на
-    этом exact response также получает stop+start, а не direct conversion.
-    Память последней активной роли через SHUT дала бы ложные 5 млн ₽ и сломала
-    machine-precision reference parity.
-    """
-
-    assert analysis.response_hash == (
-        "85f04c6a74ff575d9fe1b25cf3f8a8adcfab998e27b2184036b48d8cd526423f"
-    )
+    assert analysis.response_hash == CANONICAL_RESPONSE_HASH
     events = analysis.events
-    assert events.conversion_count == 0
+    assert events.conversion_count == CANONICAL_CONVERSION_COUNT
     assert events.conversion_cost_rub == pytest.approx(0.0)
-    assert events.stop_start_count == 41
+    assert events.stop_start_count == CANONICAL_STOP_START_COUNT
     assert events.stop_start_cost_rub == pytest.approx(
         events.stop_start_count * NORMATIVES.event_cost_rub
     )
@@ -154,8 +160,6 @@ def test_event_tally_uses_factual_response_not_schedule_intent(analysis) -> None
 
 
 def test_initial_esp_is_not_charged(analysis) -> None:
-    """chargeInitialPump = False: первичное оснащение типоразмер даёт, CAPEX — нет."""
-
     events = analysis.events
     assert events.esp_capex_rub == pytest.approx(
         sum(
@@ -186,8 +190,6 @@ def test_before_tax_ranking_sums_without_income_tax(analysis) -> None:
 
 
 def test_negative_row_rule_excludes_the_terminal_date_only(analysis) -> None:
-    """Правило отрицательных строк: если строки исключены, все на одну дату."""
-
     if analysis.excluded_row_count:
         assert len(analysis.excluded_dates) >= 1
 

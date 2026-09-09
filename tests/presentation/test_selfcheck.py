@@ -14,7 +14,7 @@ MONTHS = (
     "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
 )
 SYNTHETIC_STEPS = 4
-CLAIMED_NPV = 11_873_676_459.64
+CLAIMED_NPV = 11_873_122_324.91
 
 
 def test_selfcheck_reports_current_backend_commands(capsys) -> None:

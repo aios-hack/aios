@@ -97,7 +97,7 @@ MANIFEST = {
     "status": "ready_to_submit",
     "schedule_hash": "0" * 64,
     "predicted_npv": 12345678.5,
-    "verified_npv": 11873676459.64,
+    "verified_npv": 11873122324.91,
     "sound": True,
     "iterations": 240,
     "search_strategy": "cmaes-restart",
@@ -105,7 +105,7 @@ MANIFEST = {
 }
 CLAIMED = {
     "canonical_schedule_hash": "0" * 64,
-    "claimed_npv_rub": 11873676459.64,
+    "claimed_npv_rub": 11873122324.91,
     "source_run_id": "jarvis-run",
     "created_at": "2026-09-09T10:00:00+00:00",
 }
@@ -149,5 +149,5 @@ def test_package_numbers_are_not_allowed_without_the_evidence() -> None:
 
 def test_allowed_numbers_merges_payloads_and_evidence() -> None:
     allowed = allowed_numbers(PAYLOADS, [CLAIMED])
-    assert 11873676459.64 in allowed
+    assert 11873122324.91 in allowed
     assert 1161713780.758579 in allowed
