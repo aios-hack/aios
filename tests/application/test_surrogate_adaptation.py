@@ -31,7 +31,8 @@ def test_replay_sampling_preserves_whole_scenarios_and_feature_prefix():
                                    ["--learning-rates", "0"],
                                    ["--learning-rates", "0.001", "0.001"],
                                    ["--members", "2", "2"],
-                                   ["--validation-scenarios", "0"]])
+                                   ["--validation-scenarios", "0"],
+                                   ["--local-train", "same", "--local-validation", "same"]])
 def test_invalid_experiment_budgets_rejected_before_loading_data(tmp_path, extra):
     destination = tmp_path / "experiment"
     with pytest.raises(SystemExit) as caught:

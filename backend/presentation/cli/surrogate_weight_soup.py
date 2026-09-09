@@ -32,6 +32,8 @@ def main(argv=None):
     parser.add_argument("--runs-root", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--max-historical-loss-ratio", type=float, default=1.01)
+    parser.add_argument("--selection-run", default="candidate-008")
+    parser.add_argument("--audit-run", default="candidate-009")
     parser.add_argument("--alphas", type=float, nargs="+", default=[.125, .25, .375, .5, .625, .75, .875, 1.])
     args = parser.parse_args(argv)
     if args.out.exists() or not 1 <= args.max_historical_loss_ratio < 2:
@@ -53,7 +55,9 @@ def main(argv=None):
     historical = sample_scenarios(blob["tensors"]["test"], blob["counts"]["test"],
                                   list(range(len(blob["counts"]["test"]))), len(parent.input_scaler.mean))
     featureizer, local = ScheduleFeatureizer(), {}
-    for run_id in ("candidate-008", "candidate-009"):
+    if args.selection_run == args.audit_run:
+        parser.error("selection and audit runs must differ")
+    for run_id in (args.selection_run, args.audit_run):
         request = load_run_request(args.runs_root, run_id)
         model_input = replace(featureizer.transform(request.schedule, context.context), lambda_edges=())
         response = load_response_artifact(args.runs_root / run_id / "response.json")
@@ -63,16 +67,16 @@ def main(argv=None):
     for alpha in sorted(set(args.alphas)):
         model = interpolate(parent, adapted, alpha)
         row = {"alpha": alpha, "version": model.version, "historical": errors(model, historical),
-               "candidate-008": errors(model, local["candidate-008"]),
-               "candidate-009": errors(model, local["candidate-009"])}
+               "selection": {"run_id": args.selection_run, **errors(model, local[args.selection_run])},
+               "audit": {"run_id": args.audit_run, **errors(model, local[args.audit_run])}}
         row["historical_loss_ratio"] = row["historical"]["loss"] / parent_historical["loss"]
         rows.append(row)
         print(json.dumps(row), flush=True)
     eligible = [row for row in rows if row["historical_loss_ratio"] <= args.max_historical_loss_ratio]
-    winner = min(eligible, key=lambda row: row["candidate-008"]["loss"]) if eligible else None
+    winner = min(eligible, key=lambda row: row["selection"]["loss"]) if eligible else None
     args.out.mkdir(parents=True)
     payload = {"parent_historical": parent_historical, "rows": rows, "winner": winner,
-               "selection_rule": "lowest candidate-008 loss within historical loss ratio bound",
+               "selection_rule": "lowest configured selection-run loss within historical loss ratio bound",
                "production_changed": False}
     (args.out / "result.json").write_text(json.dumps(payload, indent=2) + "\n")
     if winner:

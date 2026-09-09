@@ -73,9 +73,20 @@ def main(argv=None):
     parser.add_argument("--validation-scenarios", type=int, default=10)
     parser.add_argument("--members", type=int, nargs="+", default=[0, 1, 2])
     parser.add_argument("--learning-rates", type=float, nargs="+", default=[1e-4, 3e-5])
+    parser.add_argument("--local-train", nargs="+",
+                        default=["candidate-004", "candidate-005", "candidate-006", "candidate-007"])
+    parser.add_argument("--local-validation", nargs="+", default=["candidate-008"])
+    parser.add_argument("--local-test", default="candidate-009")
+    parser.add_argument("--local-repetitions", type=int, default=4)
     args = parser.parse_args(argv)
-    if args.out.exists() or min(args.threads, args.epochs, args.replay_scenarios, args.validation_scenarios) < 1:
+    if args.out.exists() or min(args.threads, args.epochs, args.replay_scenarios,
+                                args.validation_scenarios, args.local_repetitions) < 1:
         parser.error("new output directory and positive budgets required")
+    if not args.local_train or not args.local_validation:
+        parser.error("local train and validation runs are required")
+    if set(args.local_train) & set(args.local_validation) or args.local_test in {
+            *args.local_train, *args.local_validation}:
+        parser.error("local run splits overlap")
     import math
     if any(not math.isfinite(lr) or lr <= 0 for lr in args.learning_rates):
         parser.error("learning rates must be finite and positive")
@@ -108,8 +119,8 @@ def main(argv=None):
     old_validation_counts = blob["counts"]["validation"][:args.validation_scenarios]
     identities = {"replay_train": [blob["identities"]["train"][i] for i in replay_ids],
                   "replay_validation": blob["identities"]["validation"][:args.validation_scenarios],
-                  "local_train": ["candidate-004", "candidate-005", "candidate-006", "candidate-007"],
-                  "local_validation": ["candidate-008"], "local_test": ["candidate-009"]}
+                  "local_train": args.local_train, "local_validation": args.local_validation,
+                  "local_test": [args.local_test]}
     # Hold test tensors and labels closed until all arm selection is finished.
     featureizer = ScheduleFeatureizer()
     local = {}
@@ -122,21 +133,23 @@ def main(argv=None):
         identities[run_id] = {"schedule_hash": hash_schedule(request.schedule),
                               "response_file_sha256": hashlib.sha256(response_path.read_bytes()).hexdigest()}
         print(f"prepared {run_id}: {len(local[run_id][0])} nodes", flush=True)
-    test_request = load_run_request(args.runs_root, "candidate-009")
-    identities["candidate-009"] = {"schedule_hash": hash_schedule(test_request.schedule)}
+    test_request = load_run_request(args.runs_root, args.local_test)
+    identities[args.local_test] = {"schedule_hash": hash_schedule(test_request.schedule)}
     ensure_disjoint_splits(
         [row["canonical_schedule_hash"] for row in identities["replay_train"]]
         + [identities[k]["schedule_hash"] for k in identities["local_train"]],
         [row["canonical_schedule_hash"] for row in identities["replay_validation"]]
         + [identities[k]["schedule_hash"] for k in identities["local_validation"]],
-        [identities["candidate-009"]["schedule_hash"]]
+        [identities[args.local_test]["schedule_hash"]]
         + [row["canonical_schedule_hash"] for row in blob["identities"]["test"]],
     )
-    train = combine([old] + [local[k] for _ in range(4) for k in identities["local_train"]])
-    validation = combine([old_validation] + [local["candidate-008"] for _ in range(4)])
-    validation_counts = list(old_validation_counts) + [len(local["candidate-008"][0])] * 4
-    identities["local_train_repetitions"] = 4
-    identities["local_validation_weight_repetitions"] = 4
+    train = combine([old] + [local[k] for _ in range(args.local_repetitions) for k in identities["local_train"]])
+    validation = combine([old_validation] + [local[k] for _ in range(args.local_repetitions)
+                                              for k in identities["local_validation"]])
+    validation_counts = list(old_validation_counts) + [len(local[k][0])
+        for _ in range(args.local_repetitions) for k in identities["local_validation"]]
+    identities["local_train_repetitions"] = args.local_repetitions
+    identities["local_validation_weight_repetitions"] = args.local_repetitions
     identities["test_warning"] = "held out from gradient and selection, but historically inspected; not a blind test"
     dataset_hash = hashlib.sha256(canonical_bytes(identities)).hexdigest()
     (args.out / "split.json").write_text(json.dumps(identities, indent=2) + "\n")
@@ -169,7 +182,8 @@ def main(argv=None):
             result.model.save(directory / "model.pt")
             record = {"arm": arm, "initial_version": initial_version,
                       "model_version": result.model.version, "before": before, "after": after,
-                      "local_validation": errors(result.model, local["candidate-008"]),
+                      "local_validation": {k: errors(result.model, local[k])
+                                           for k in identities["local_validation"]},
                       "replay_validation": errors(result.model, old_validation),
                       "epochs": len(result.history), "best_epoch": result.best_epoch,
                       "seconds": time.perf_counter() - began}
@@ -179,8 +193,8 @@ def main(argv=None):
             print(f"FINISHED {arm}: {before['loss']:.6g} -> {after['loss']:.6g}", flush=True)
     winner = min(results, key=lambda r: r["after"]["loss"])
     selected = TrajectorySurrogate.load(args.out / winner["arm"] / "model.pt")
-    request = load_run_request(args.runs_root, "candidate-009")
-    response = load_response_artifact(args.runs_root / "candidate-009/response.json")
+    request = load_run_request(args.runs_root, args.local_test)
+    response = load_response_artifact(args.runs_root / args.local_test / "response.json")
     model_input = replace(featureizer.transform(request.schedule, context.context), lambda_edges=())
     test = _example_tensors([TrainingExample(model_input, response)], selected.wells)
     final = {"winner": winner, "test": errors(selected, test),
