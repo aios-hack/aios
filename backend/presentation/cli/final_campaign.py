@@ -28,7 +28,7 @@ from backend.core.paths import data_root
 from backend.domain.schedule import build_schedule, canonicalize, parse_schedule, validate_static
 from backend.domain.schedule.case_limits import apply_case_limits
 from backend.domain.economics import load_response_artifact, save_response_artifact
-from backend.application.optimization.observed_repair import repair_from_observation
+from backend.application.optimization.observed_repair import repair_from_observation, production_from_observation
 from backend.infrastructure.opm.opm_deck import render_schedule_include
 from backend.infrastructure.resources import model_z_dir, normatives_xlsx
 from backend.presentation.cli.run import build_provenance, require_docker
@@ -71,6 +71,8 @@ def main(argv=None):
     parser.add_argument("--direct-only", action="store_true", help="OPM-поиск по измеренной воде без весов и ранжирования суррогатом")
     parser.add_argument("--water-margins", nargs="+", type=float, default=[0.0, 0.85, 0.95],
                         help="резервные пробы: 0 — закрытая закачка, затем доли измеренной доступной воды")
+    parser.add_argument("--production-scales", nargs="+", type=float, default=[],
+                        help="после водных проб: повысить отбор при измеренном запасе давления, например 1.25")
     args = parser.parse_args(argv)
     if min(args.evaluations, args.opm_budget, args.rounds) < 1:
         parser.error("budgets must be positive")
@@ -78,6 +80,9 @@ def main(argv=None):
         parser.error("--direct-only cannot be combined with --global-search")
     if any(not 0 <= margin < 1 for margin in args.water_margins):
         parser.error("water margins must be in [0,1)")
+    import math
+    if any(not math.isfinite(scale) or scale <= 1 for scale in args.production_scales):
+        parser.error("production scales must be finite and exceed 1")
     if args.root.exists() and not args.resume:
         parser.error("root already exists; use a new campaign directory")
     require_docker()
@@ -298,6 +303,13 @@ def main(argv=None):
                                                   water_margin=margin, density=env.oil_density_t_per_m3,
                                                   injection_reference=baseline)
                 verify(expressible(proposal), None, f"observed-water-margin-{margin}")
+            for scale in args.production_scales:
+                if attempted >= round_stop or incumbent is None:
+                    break
+                champion = json.loads(champion_path.read_text())
+                observed = load_response_artifact(args.root / "runs" / champion["run_id"] / "response.json")
+                proposal = production_from_observation(incumbent, observed, constraints, scale=scale)
+                verify(expressible(proposal), None, f"production-headroom-scale-{scale}")
         for score, candidate in sorted(ranked.values(), key=lambda item: item[0], reverse=True)[:slots]:
             verify(candidate, score, f"local-round-{round_index + 1}")
     if not champion_path.exists():

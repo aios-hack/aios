@@ -4,7 +4,7 @@ from dataclasses import replace
 import pytest
 
 from backend.application.cases import load_case
-from backend.application.optimization.observed_repair import repair_from_observation
+from backend.application.optimization.observed_repair import repair_from_observation, production_from_observation
 from backend.core.contracts import EventKind, FixedDeckEvent
 from backend.core.horizon import HORIZON
 from backend.domain.schedule import parse_schedule
@@ -60,3 +60,26 @@ def test_zero_injection_overrides_first_commissioning_month_without_changing_fix
     assert not any(e.kind is EventKind.OPEN for e in controls)
     assert repaired.fixed_deck_events == schedule.fixed_deck_events
     assert repaired.initial_state == schedule.initial_state
+
+
+def test_production_trial_uses_measured_pressure_and_preserves_injection():
+    from pathlib import Path
+    schedule = historical_schedule()
+    constraints = load_case(Path("config/competition-constraints.json"))
+    state = SimpleNamespace(deck_date_index=HORIZON.history_offset + 1,
+                            well="W1", bhp=80.0, liquid_rate=100.0)
+    response = SimpleNamespace(state_at_date=[state])
+    proposal = production_from_observation(schedule, response, constraints, scale=1.25)
+    target = next(e for e in proposal.control_events
+                  if e.well == "W1" and e.control_step == 0 and e.kind is EventKind.SET_LRAT)
+    assert target.value == 125.0
+    assert [e for e in proposal.control_events if e.kind is EventKind.SET_RATE] == [
+        e for e in schedule.control_events if e.kind is EventKind.SET_RATE]
+    assert proposal.fixed_deck_events == schedule.fixed_deck_events
+    assert proposal.initial_state == schedule.initial_state
+    for bhp, rate in [(60.0, 100.0), (80.0, 90.0)]:
+        state.bhp, state.liquid_rate = bhp, rate
+        unchanged = production_from_observation(schedule, response, constraints)
+        assert unchanged.control_events == schedule.control_events
+    with pytest.raises(ValueError):
+        production_from_observation(schedule, response, constraints, scale=float("nan"))

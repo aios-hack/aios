@@ -3,10 +3,32 @@
 These are proposals, not feasibility guarantees: flow must be simulated again.
 """
 from dataclasses import replace
+import math
 
 from backend.core.contracts import ControlEvent, EventKind, water_supply_policy
 from backend.core.contracts.constraints import bhp_limits
 from backend.domain.schedule import canonicalize
+
+
+def production_from_observation(schedule, response, constraints, *, scale=1.25, pressure_margin=10.0):
+    """Raise attained liquid targets only where measured producer pressure has room.
+
+    Injection and fixed events stay unchanged. This is an OPM proposal, not a
+    guarantee: changed production can alter pressure and water at other wells.
+    """
+    from backend.core.horizon import HORIZON
+    if not math.isfinite(scale) or scale <= 1 or not math.isfinite(pressure_margin) or pressure_margin < 0:
+        raise ValueError("scale must exceed 1 and pressure margin must be nonnegative and finite")
+    states = {(s.deck_date_index - HORIZON.history_offset - 1, s.well): s for s in response.state_at_date}
+    threshold = bhp_limits(constraints).producer_min_bar + pressure_margin
+    events = []
+    for event in schedule.control_events:
+        state = states.get((event.control_step, event.well))
+        if (event.kind is EventKind.SET_LRAT and event.value > 0 and state is not None
+                and state.bhp > threshold and state.liquid_rate >= 0.95 * event.value):
+            event = replace(event, value=min(500.0, event.value * scale))
+        events.append(event)
+    return canonicalize(replace(schedule, control_events=tuple(events)))
 
 
 def commissioning_controls(schedule):
