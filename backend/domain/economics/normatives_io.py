@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import re
 import zipfile
 from pathlib import Path
@@ -11,6 +12,8 @@ NORMATIVES_SHEET: str = "Нормативы"
 ESP_SHEET: str = "ЭЦН"
 
 RUB_PER_MILLION: float = 1_000_000.0
+
+_HASH_CHUNK_BYTES: int = 1024 * 1024
 
 SCALAR_CODES: dict[str, str] = {
     "oilPriceRubT": "price_oil_rub_per_t",
@@ -213,6 +216,22 @@ def _parse_sheet(sheet_xml: bytes, shared: list[str]) -> list[list[Any]]:
         width = max(cells) + 1 if cells else 0
         rows.append([cells.get(index) for index in range(width)])
     return rows
+
+
+def normatives_sha256(path: str | Path) -> str:
+    workbook_path = Path(path)
+    if not workbook_path.is_file():
+        raise NormativesError(f"файл нормативов не найден: {workbook_path}")
+    digest = hashlib.sha256()
+    try:
+        with workbook_path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(_HASH_CHUNK_BYTES), b""):
+                digest.update(chunk)
+    except OSError as error:
+        raise NormativesError(
+            f"файл нормативов не прочитан: {workbook_path}: {error}"
+        ) from error
+    return digest.hexdigest()
 
 
 def read_normative_sheets(path: str | Path) -> dict[str, list[list[Any]]]:

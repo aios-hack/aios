@@ -1,10 +1,3 @@
-"""Запуск OPM Flow над эмитированным деком. Контракт §4.4, README.md §6.
-
-Падение прогона — данные, а не исключение: наружу всегда выходит `RunResult`
-со статусом, ни одна ошибка запуска не поднимается вызывающему. Кеша здесь
-нет (задача 5), разбора отклика тоже (задача 6) — только запуск и статус.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -26,25 +19,30 @@ from backend.core.contracts import (
     canonical_bytes,
     hash_schedule,
 )
+from backend.core.provenance import DEFAULT_OPM_IMAGE, OPM_IMAGE_ENV
 
 from .opm_deck import EmittedOpmDeck, bundle_hash
 
-
-DEFAULT_OPM_IMAGE = "openporousmedia/opmreleases:latest"
-OPM_IMAGE_ENV = "OPM_FLOW_IMAGE"
+__all__ = [
+    "DEFAULT_FLOW_ARGS",
+    "DEFAULT_OPM_IMAGE",
+    "DeckHashes",
+    "OPM_IMAGE_ENV",
+    "OPM_USER_ENV",
+    "OpmRunner",
+    "OpmRunnerError",
+    "deck_hashes",
+    "default_run_as_user",
+    "mount_path",
+    "static_deck_hash",
+    "summary_spec_hash",
+]
 
 _EXTENDED_LENGTH_PREFIX = "\\\\?\\"
 _EXTENDED_LENGTH_UNC_PREFIX = "\\\\?\\UNC\\"
 
 
 def mount_path(path: Path | str) -> str:
-    r"""Путь для аргумента `-v` докера, без extended-length префикса Windows.
-
-    `Path.resolve()` на Windows возвращает путь вида `\\?\W:\...`. Докер
-    разбирает спецификацию тома по двоеточиям и на таком пути отказывает:
-    `invalid spec: ... too many colons`. Префикс здесь снимается, а сам путь
-    остаётся абсолютным.
-    """
 
     text = str(path)
     if text.startswith(_EXTENDED_LENGTH_UNC_PREFIX):
@@ -54,36 +52,14 @@ def mount_path(path: Path | str) -> str:
     return text
 
 
-# Образ opmreleases объявляет пользователя opm с uid 1001. Каталог прогона
-# создаём мы, и владеет им тот, кто запустил тесты, — на любой машине, где
-# это не uid 1001, flow не может открыть даже собственный .PRT.
-#
-# Отказ при этом выглядит не как отказ прав: Flow валится на «Failed to
-# create valid EclipseState object», а настоящая причина — будь то неизвестное
-# ключевое слово или битая секция — уходит в лог, который он не смог создать.
-# Замерено 16.08: тот же дек с неизвестным ключевым словом без --user даёт
-# «Failed opening file /out/MINI.PRT for StreamLog», с --user — «Unknown
-# keyword: NOTAREALKEYWORD».
-#
-# Поэтому uid хоста передаётся всегда, а не подбирается под машину.
 OPM_USER_ENV = "OPM_RUN_AS_USER"
 
-# Та же строгость разбора, на которой Model_Z прошла приёмку задачи 2.
 DEFAULT_FLOW_ARGS: tuple[str, ...] = ("--parsing-strictness=low",)
 
-# `None` — осмысленное значение («не передавать --user вовсе»), поэтому
-# «не задано» им выразить нельзя и нужен отдельный часовой.
 _UNSET: str = "<unset>"
 
 
 def default_run_as_user() -> str | None:
-    """`uid:gid` текущего процесса, либо `None` там, где их нет.
-
-    Явный пустой `OPM_RUN_AS_USER` — способ вернуть прежнее поведение и
-    отдать выбор пользователя образу: в rootless-docker и в podman
-    отображение уже сделано демоном, и навязывать `--user` там вредно.
-    """
-
     override = os.environ.get(OPM_USER_ENV)
     if override is not None:
         return override.strip() or None
@@ -99,36 +75,14 @@ _LOG_NAME = "flow.log"
 _COMMAND_NAME = "command.txt"
 _OUTPUT_DIR = "output"
 
-# Flow 2026.04 завершается кодом 0, даже когда решатель не сошёлся ни на одном
-# шаге: он принимает несошедшийся шаг, если тот уже равен минимальному, и
-# рапортует «Wasted: 100%» только в статистике. Поэтому код возврата
-# несходимость не ловит, и единственный признак — текст лога.
 _NOT_CONVERGED_MARKERS: tuple[str, ...] = (
-    # «...but timestep X is smaller or equal to Y» — таймшаг уже на минимуме,
-    # решатель не сошёлся, и Flow всё равно принимает шаг таким.
     "Solver failed to converge",
 )
 
-# «Problem: Solver convergence failure - Iteration limit reached» —
-# отдельно от _NOT_CONVERGED_MARKERS (задача 7, настоящий базовый прогон
-# Model_Z 16.08): текст не всегда значит «Flow снимает прогон». На полном
-# 371-датном прогоне маркер встретился один раз в 2000 году, за семь лет до
-# начала горизонта управления, и сразу сопровождался «Timestep chopped to
-# 10.23 days» — Flow отбросил несошедшийся шаг целиком и пересчитал его
-# заново на меньшем таймшаге, который сошёлся; расчёт дошёл до всех 371
-# report step без единого дальнейшего срабатывания. Это не «принятый
-# несошедшийся шаг», как у `_NOT_CONVERGED_MARKERS`, а ровно противоположное:
-# шаг, который Flow не принял и пересчитал. Только когда за этим маркером НЕ
-# следует успешный chop — тот случай, когда Flow действительно снимает
-# прогон.
 _ITERATION_LIMIT_MARKER = "Solver convergence failure"
 _CHOP_RECOVERY_MARKER = "Timestep chopped to"
 _CHOP_RECOVERY_LOOKAHEAD_LINES = 5
 
-# Восстановимые сообщения того же семейства, которые встречаются и в успешном
-# прогоне: линейный решатель промахнулся, Flow срезал шаг и сошёлся дальше.
-# В маркеры не входят намеренно — иначе нормальный прогон получит
-# NOT_CONVERGED.
 _RECOVERABLE_MARKERS: tuple[str, ...] = (
     "Linear solver convergence failure",
     "Convergence failure for linear solver",
@@ -137,12 +91,11 @@ _RECOVERABLE_MARKERS: tuple[str, ...] = (
 
 
 class OpmRunnerError(ValueError):
-    """Вход нельзя превратить в однозначный ключ прогона."""
+    pass
 
 
 @dataclass(frozen=True, slots=True)
 class DeckHashes:
-    """Три хеша `RunResult`, вычисленные из дека, расписания и спецификации."""
 
     deck_hash: str
     canonical_schedule_hash: str
@@ -150,19 +103,11 @@ class DeckHashes:
 
 
 def summary_spec_hash(spec: SummarySpec) -> str:
-    """Хеш `SummarySpec` целиком — все три кортежа как один объект (§6)."""
 
     return hashlib.sha256(canonical_bytes(spec)).hexdigest()
 
 
 def static_deck_hash(deck: EmittedOpmDeck) -> str:
-    """Хеш только статики дека: входы без управляющего слоя и без SUMMARY.
-
-    `RunResult.deck_hash` по контракту — статическая часть, поэтому
-    `Model_Z_sch.inc` и `Model_Z_summary.inc` из хеша исключены: их вклад
-    несут `canonical_schedule_hash` и `summary_hash`. Хеш байтов дека
-    целиком — это `EmittedOpmDeck.content_hash_opm`, другая величина (§6a).
-    """
 
     variable = {deck.schedule_file.resolve(), deck.summary_file.resolve()}
     static = [path for path in deck.input_files if path.resolve() not in variable]
@@ -175,7 +120,6 @@ def static_deck_hash(deck: EmittedOpmDeck) -> str:
 
 
 def deck_hashes(deck: EmittedOpmDeck, schedule: Schedule) -> DeckHashes:
-    """Собирает три хеша прогона из того, что реально пошло в симулятор."""
 
     return DeckHashes(
         deck_hash=static_deck_hash(deck),
@@ -185,7 +129,6 @@ def deck_hashes(deck: EmittedOpmDeck, schedule: Schedule) -> DeckHashes:
 
 
 def _tail(path: Path, *, max_lines: int = 15, max_chars: int = 2000) -> str:
-    """Хвост лога для диагностики — без выгрузки всего файла в сообщение."""
 
     try:
         lines = [
@@ -200,13 +143,6 @@ def _tail(path: Path, *, max_lines: int = 15, max_chars: int = 2000) -> str:
 
 
 def _unrecovered_iteration_limit_failure(path: Path) -> bool:
-    """True — `_ITERATION_LIMIT_MARKER` встретился и Flow его не пересчитал.
-
-    Каждое вхождение маркера проверяется на своё окно в
-    `_CHOP_RECOVERY_LOOKAHEAD_LINES` строк: если внутри окна есть
-    `_CHOP_RECOVERY_MARKER`, Flow отбросил несошедшийся шаг и успешно
-    пересчитал его меньшим таймшагом — не отказ прогона.
-    """
 
     try:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
@@ -222,7 +158,6 @@ def _unrecovered_iteration_limit_failure(path: Path) -> bool:
 
 
 def _first_marker(path: Path, markers: Sequence[str]) -> str | None:
-    """Первый маркер несходимости в логе, построчно — лог бывает большим."""
 
     try:
         with path.open("r", encoding="utf-8", errors="replace") as log:
@@ -236,12 +171,6 @@ def _first_marker(path: Path, markers: Sequence[str]) -> str | None:
 
 
 class OpmRunner:
-    """Запускает Flow в Docker, каждый прогон — в своей рабочей директории.
-
-    Общего изменяемого состояния нет: каталог дека монтируется только на
-    чтение, всё, что пишет симулятор, попадает в `<work_root>/<run_id>/`.
-    Два прогона одного и того же дека не видят файлов друг друга.
-    """
 
     def __init__(
         self,
@@ -261,7 +190,6 @@ class OpmRunner:
         self.timeout_seconds = timeout_seconds
         self.run_as_user = default_run_as_user() if run_as_user is _UNSET else run_as_user
 
-    # --- публичный вход -------------------------------------------------
 
     def run(
         self,
@@ -271,7 +199,6 @@ class OpmRunner:
         run_id: str | None = None,
         flow_args: Sequence[str] | None = None,
     ) -> RunResult:
-        """Прогнать эмитированный дек. Ошибка ключа — тоже `RunResult`."""
 
         run_id = run_id or self.new_run_id()
         started = time.perf_counter()
@@ -307,7 +234,6 @@ class OpmRunner:
         run_id: str | None = None,
         flow_args: Sequence[str] | None = None,
     ) -> RunResult:
-        """Прогнать любой готовый `.DATA`. Наружу не бросает ничего."""
 
         run_id = run_id or self.new_run_id()
         started = time.perf_counter()
@@ -361,8 +287,6 @@ class OpmRunner:
                 workdir,
             )
         except OSError as error:
-            # docker не найден или недоступен — это отказ запуска, не отказ
-            # симулятора, но наружу всё равно уходит статусом.
             return result(
                 RunStatus.FAILED,
                 f"не удалось запустить {self.docker_binary!r}: {error}",
@@ -392,11 +316,9 @@ class OpmRunner:
             workdir,
         )
 
-    # --- внутреннее -----------------------------------------------------
 
     @staticmethod
     def new_run_id() -> str:
-        """Уникален для каждого прогона, включая повтор того же дека."""
 
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
         return f"{stamp}-{uuid.uuid4().hex[:12]}"
@@ -434,7 +356,6 @@ class OpmRunner:
         ]
 
     def _force_remove_container(self, container: str) -> None:
-        """Снятый по таймауту клиент не убивает контейнер — снимаем явно."""
 
         try:
             subprocess.run(
@@ -449,7 +370,6 @@ class OpmRunner:
 
 
 def _collect_artifacts(workdir: Path | None) -> tuple[str, ...]:
-    """Пути к тому, что действительно лежит на диске после прогона."""
 
     if workdir is None:
         return ()

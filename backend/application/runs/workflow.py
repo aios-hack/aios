@@ -1,9 +1,3 @@
-"""Persist one plan evaluation as a complete, inspectable run directory.
-
-The workflow deliberately accepts the OPM step as a callable.  Application
-code owns the sequence and files; infrastructure owns how OPM is launched.
-"""
-
 from __future__ import annotations
 
 import json
@@ -12,7 +6,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Callable, Protocol
 
-from backend.core.contracts import Schedule, canonical_bytes, hash_schedule
+from backend.core.contracts import Constraints, Schedule, canonical_bytes, hash_schedule
+from backend.domain.configuration.constraints_io import constraints_to_json
 
 
 class WorkflowStatus(Enum):
@@ -27,12 +22,57 @@ class Verification(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
-class RunRequest:
-    """A plan produced by the fast model, ready for an independent check."""
+class RunProvenance:
+    model_version: str | None = None
+    npv_head_version: str | None = None
+    scenario_ood_version: str | None = None
+    feature_context_sha256: str | None = None
+    constraints_hash: str | None = None
+    deck_hash: str | None = None
+    normatives_sha256: str | None = None
+    opm_image: str | None = None
+    git_commit: str | None = None
+    seed: str | None = None
+    search_strategy: str | None = None
+    policy_equilibrium: str | None = None
+    iterations: int | None = None
+    self_consistent: bool | None = None
 
+
+@dataclass(frozen=True, slots=True)
+class RunRequest:
     run_id: str
     schedule: Schedule
     predicted_npv: float | None = None
+    constraints: Constraints | None = None
+    provenance: RunProvenance = RunProvenance()
+
+
+MANIFEST_PROVENANCE_FIELDS: tuple[str, ...] = (
+    "model_version",
+    "npv_head_version",
+    "scenario_ood_version",
+    "feature_context_sha256",
+    "constraints_hash",
+    "deck_hash",
+    "normatives_sha256",
+    "opm_image",
+    "git_commit",
+    "seed",
+    "search_strategy",
+    "policy_equilibrium",
+    "iterations",
+    "self_consistent",
+)
+
+MANIFEST_FIELDS: tuple[str, ...] = (
+    "run_id",
+    "status",
+    "schedule_hash",
+    "predicted_npv",
+    "verified_npv",
+    "sound",
+) + MANIFEST_PROVENANCE_FIELDS
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,9 +83,42 @@ class RunManifest:
     predicted_npv: float | None
     verified_npv: float | None
     sound: bool | None
+    model_version: str | None = None
+    npv_head_version: str | None = None
+    scenario_ood_version: str | None = None
+    feature_context_sha256: str | None = None
+    constraints_hash: str | None = None
+    deck_hash: str | None = None
+    normatives_sha256: str | None = None
+    opm_image: str | None = None
+    git_commit: str | None = None
+    seed: str | None = None
+    search_strategy: str | None = None
+    policy_equilibrium: str | None = None
+    iterations: int | None = None
+    self_consistent: bool | None = None
+
+    @classmethod
+    def from_dict(cls, document: dict[str, object]) -> RunManifest:
+        missing = [
+            name
+            for name in ("run_id", "status", "schedule_hash")
+            if name not in document
+        ]
+        if missing:
+            raise ValueError(
+                "манифест прогона неполон, нет обязательных полей: "
+                + ", ".join(missing)
+            )
+        known = {
+            name: document.get(name)
+            for name in MANIFEST_FIELDS
+            if name != "status"
+        }
+        return cls(status=WorkflowStatus(document["status"]), **known)
 
     def as_dict(self) -> dict[str, object]:
-        return {
+        document: dict[str, object] = {
             "run_id": self.run_id,
             "status": self.status.value,
             "schedule_hash": self.schedule_hash,
@@ -53,10 +126,12 @@ class RunManifest:
             "verified_npv": self.verified_npv,
             "sound": self.sound,
         }
+        for name in MANIFEST_PROVENANCE_FIELDS:
+            document[name] = getattr(self, name)
+        return document
 
 
 class RunWorkflow:
-    """Writes the fixed run layout and advances it from search to OPM result."""
 
     def __init__(self, runs_root: Path) -> None:
         self.runs_root = runs_root
@@ -70,6 +145,7 @@ class RunWorkflow:
             predicted_npv=request.predicted_npv,
             verified_npv=None,
             sound=None,
+            **_provenance_fields(request.provenance),
         )
         self._write_manifest(run_dir, manifest)
         return manifest
@@ -80,11 +156,13 @@ class RunWorkflow:
         run_dir = self._prepare(request)
         result = verify(request.schedule, run_dir / "opm")
         sound = result.sound
-        # The real submission tract deliberately raises when an unsound result
-        # is accessed as a verified NPV. Persist rejection diagnostics instead.
         verified_npv = result.npv_methodology if sound else None
         calculated = getattr(result, 'final_npv', None)
         measured_npv = calculated.npv_methodology if calculated is not None else verified_npv
+        fields = _provenance_fields(request.provenance)
+        observed_deck_hash = getattr(getattr(result, "opm_run", None), "deck_hash", None)
+        if observed_deck_hash:
+            fields["deck_hash"] = observed_deck_hash
         manifest = RunManifest(
             run_id=request.run_id,
             status=WorkflowStatus.READY_TO_SUBMIT if sound else WorkflowStatus.REJECTED,
@@ -92,6 +170,7 @@ class RunWorkflow:
             predicted_npv=request.predicted_npv,
             verified_npv=verified_npv,
             sound=sound,
+            **fields,
         )
         (run_dir / "validation").mkdir(exist_ok=True)
         (run_dir / "validation" / "result.json").write_text(
@@ -122,7 +201,6 @@ class RunWorkflow:
         search: Callable[[], RunRequest],
         verify: Callable[[Schedule, Path], Verification],
     ) -> RunManifest:
-        """Run search once, then verify the exact returned schedule once."""
         request = search()
         self.search(request)
         return self.verify(request, verify)
@@ -146,6 +224,17 @@ class RunWorkflow:
             + "\n",
             encoding="utf-8",
         )
+        if request.constraints is not None:
+            (run_dir / "inputs" / "constraints.json").write_text(
+                json.dumps(
+                    constraints_to_json(request.constraints),
+                    ensure_ascii=False,
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
         (run_dir / "schedule" / "schedule.json").write_bytes(canonical_bytes(request.schedule))
         (run_dir / "prediction" / "result.json").write_text(
             json.dumps({"npv": request.predicted_npv}, indent=2) + "\n", encoding="utf-8"
@@ -158,3 +247,7 @@ class RunWorkflow:
             json.dumps(manifest.as_dict(), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
+
+
+def _provenance_fields(provenance: RunProvenance) -> dict[str, object]:
+    return {name: getattr(provenance, name) for name in MANIFEST_PROVENANCE_FIELDS}

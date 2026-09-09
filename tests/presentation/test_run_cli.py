@@ -6,7 +6,17 @@ import pytest
 from backend.application.cases import CaseError, load_case
 from backend.application.runs import RunRequest, RunWorkflow
 from backend.core.contracts import water_supply_policy
-from backend.presentation.cli.run import build_parser, load_run_request, main, resolve_case
+from backend.core.provenance import DEFAULT_OPM_IMAGE
+from backend.domain.configuration.constraints_io import constraints_hash, constraints_to_json
+from backend.presentation.cli.run import (
+    build_parser,
+    build_provenance,
+    default_case_path,
+    load_run_request,
+    main,
+    resolve_case,
+    resolve_constraints,
+)
 from tests.application.test_run_workflow import sample_schedule
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -201,3 +211,81 @@ def test_verify_refuses_a_case_instead_of_ignoring_it(tmp_path) -> None:
         main(["verify", "--run-id", "saved", "--case", str(BASE_CASE)])
 
     assert "--case" in str(error.value)
+
+
+def test_resolve_constraints_returns_the_loaded_case() -> None:
+    assert resolve_constraints(BASE_CASE) == load_case(BASE_CASE)
+    assert resolve_constraints(None) is None
+
+
+def test_resolve_constraints_ignores_a_missing_default_file(tmp_path) -> None:
+    assert resolve_constraints(tmp_path / "absent.json") is None
+
+
+def test_a_run_prepared_with_a_case_keeps_a_copy_of_it(tmp_path) -> None:
+    constraints = resolve_constraints(BASE_CASE)
+    RunWorkflow(tmp_path).search(
+        RunRequest("cased", sample_schedule(), constraints=constraints)
+    )
+
+    copied = tmp_path / "cased" / "inputs" / "constraints.json"
+    assert copied.is_file()
+    assert json.loads(copied.read_text(encoding="utf-8")) == constraints_to_json(constraints)
+
+
+def test_verify_reloads_the_case_the_plan_was_found_on(tmp_path) -> None:
+    constraints = resolve_constraints(BASE_CASE)
+    RunWorkflow(tmp_path).search(
+        RunRequest("cased", sample_schedule(), constraints=constraints)
+    )
+
+    assert load_run_request(tmp_path, "cased").constraints == constraints
+
+
+def test_a_run_saved_without_a_case_reloads_without_one(tmp_path) -> None:
+    RunWorkflow(tmp_path).search(RunRequest("plain", sample_schedule()))
+
+    assert load_run_request(tmp_path, "plain").constraints is None
+
+
+def test_default_case_path_follows_the_search_environment(monkeypatch, tmp_path) -> None:
+    monkeypatch.delenv("AIOS_CONSTRAINTS_PATH", raising=False)
+    assert default_case_path() == Path("config/competition-constraints.json")
+
+    monkeypatch.setenv("AIOS_CONSTRAINTS_PATH", str(tmp_path / "other.json"))
+    assert default_case_path() == tmp_path / "other.json"
+
+
+def test_provenance_records_the_environment_and_the_case() -> None:
+    class Outcome:
+        provenance = {
+            "model_version": "surrogate-1.4.0",
+            "npv_head_version": "npv-head-2.1",
+            "scenario_ood_version": "ood-3",
+            "seed": "20260816",
+            "search_strategy": "cma-es",
+            "policy_equilibrium": "reached",
+        }
+        evaluations = 120
+        self_consistent = True
+
+    constraints = load_case(BASE_CASE)
+    provenance = build_provenance(Outcome(), constraints)
+
+    assert provenance.model_version == "surrogate-1.4.0"
+    assert provenance.npv_head_version == "npv-head-2.1"
+    assert provenance.scenario_ood_version == "ood-3"
+    assert provenance.seed == "20260816"
+    assert provenance.search_strategy == "cma-es"
+    assert provenance.policy_equilibrium == "reached"
+    assert provenance.iterations == 120
+    assert provenance.self_consistent is True
+    assert provenance.constraints_hash == constraints_hash(constraints)
+    assert provenance.opm_image == DEFAULT_OPM_IMAGE
+
+
+def test_provenance_without_a_case_leaves_the_case_hash_empty() -> None:
+    class Outcome:
+        provenance: dict[str, str] = {}
+
+    assert build_provenance(Outcome(), None).constraints_hash is None
