@@ -24,6 +24,13 @@ from backend.core.paths import out_root
 from backend.core.provenance import DEFAULT_OPM_IMAGE, OPM_IMAGE_ENV
 
 from .opm_deck import EmittedOpmDeck, bundle_hash
+from .preflight import (
+    DockerPreflightError,
+    ImageReference,
+    PreflightReport,
+    ensure_docker_ready,
+    resolve_image_reference,
+)
 
 __all__ = [
     "BUDGET_CASE_ENV",
@@ -33,10 +40,13 @@ __all__ = [
     "DEFAULT_FLOW_ARGS",
     "DEFAULT_OPM_IMAGE",
     "DeckHashes",
+    "DockerPreflightError",
+    "ImageReference",
     "OPM_IMAGE_ENV",
     "OPM_USER_ENV",
     "OpmRunner",
     "OpmRunnerError",
+    "PreflightReport",
     "budget_journal_path",
     "deck_hashes",
     "default_run_as_user",
@@ -254,6 +264,7 @@ class OpmRunner:
         timeout_seconds: float | None = None,
         run_as_user: str | None = _UNSET,
         budget_journal: Path | str | None = None,
+        preflight: bool = True,
     ) -> None:
         self.work_root = Path(work_root).resolve()
         self.work_root.mkdir(parents=True, exist_ok=True)
@@ -263,6 +274,12 @@ class OpmRunner:
         self.timeout_seconds = timeout_seconds
         self.run_as_user = default_run_as_user() if run_as_user is _UNSET else run_as_user
         self.budget_journal = Path(budget_journal) if budget_journal is not None else None
+        self.preflight = preflight
+
+    def image_reference(self) -> ImageReference:
+        return resolve_image_reference(
+            image=self.image, docker_binary=self.docker_binary
+        )
 
 
     def run(
@@ -329,6 +346,11 @@ class OpmRunner:
             return run_result
 
         data_file = Path(data_file).resolve()
+        if self.preflight:
+            try:
+                ensure_docker_ready(image=self.image, docker_binary=self.docker_binary)
+            except DockerPreflightError as error:
+                return result(RunStatus.FAILED, error.report.message, None)
         try:
             workdir = self._make_workdir(run_id)
         except OSError as error:
@@ -390,7 +412,8 @@ class OpmRunner:
             )
         return result(
             RunStatus.OK,
-            f"flow завершился кодом 0, образ {self.image}; лог: {log_file}",
+            f"flow завершился кодом 0, образ {self.image_reference().image}; "
+            f"лог: {log_file}",
             workdir,
         )
 

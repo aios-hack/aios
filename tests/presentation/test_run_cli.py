@@ -295,7 +295,8 @@ def test_provenance_records_the_environment_and_the_case() -> None:
     assert provenance.iterations == 120
     assert provenance.self_consistent is True
     assert provenance.constraints_hash == constraints_hash(constraints)
-    assert provenance.opm_image == DEFAULT_OPM_IMAGE
+    repository = DEFAULT_OPM_IMAGE.split(":", 1)[0]
+    assert provenance.opm_image.startswith(repository)
 
 
 def test_provenance_without_a_case_leaves_the_case_hash_empty() -> None:

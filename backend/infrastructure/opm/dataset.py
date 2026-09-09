@@ -1,31 +1,3 @@
-"""Генератор датасета «расписание → отклик». Задача 30, контракт §9.
-
-```
-PerturbationPlan → [Schedule] → validate_static == [] → мост →
-  [(Schedule, StateAtDate, IntervalResponse)] + метаданные
-```
-
-Три свойства, без которых компонент бесполезен на настоящем OPM (полный
-прогон Model_Z — сотни секунд, §4.7):
-
-- **дешёвый отсев раньше дорогого.** `validate_static` (§7.1) гоняется по
-  каждому сценарию до эмита дека; структурно невалидный сценарий не тратит
-  прогон;
-- **параллелизм.** Сценарии независимы: у каждого свой каталог дека и своя
-  рабочая директория прогона, общего изменяемого состояния нет. Работает
-  пул потоков — вся тяжёлая часть это `subprocess.run` докера, GIL на ней не
-  держится, а каждый Flow сам многопоточный, поэтому одновременных
-  контейнеров разумно держать вчетверо меньше, чем ядер;
-- **возобновление.** Ключ прогона — тройка хешей §4.5, поэтому прерванная
-  генерация продолжается с кеша: уже посчитанные сценарии возвращаются
-  `CachingOpmRunner` без запуска симулятора, и манифест дописывается
-  строкой на сценарий, а не переписывается целиком.
-
-Датасет живёт вне git (правило 9, `.gitignore`): в репозитории только этот
-код и форма манифеста. Версия датасета адресуется `dataset_hash`, входящим
-в provenance (§9.2); `synthetic` в метаданных всегда `False` — здесь
-настоящие прогоны, а синтетика в метрики качества не допускается (§1.1).
-"""
 
 from __future__ import annotations
 
@@ -66,15 +38,24 @@ from .runner import OpmRunner, deck_hashes
 
 MANIFEST_NAME = "manifest.jsonl"
 PLAN_NAME = "plan.json"
+SCHEDULES_DIR = "schedules"
 
-# Одновременных контейнеров вчетверо меньше, чем логических ядер: каждый Flow
-# внутри контейнера сам многопоточный, и запуск по контейнеру на ядро только
-# отбирает потоки у решателя.
+RETAINED_RUN_SUFFIXES: frozenset[str] = frozenset({".SMSPEC", ".UNSMRY"})
+ALWAYS_RETAINED: tuple[str, ...] = (
+    "материализованное расписание сценария",
+    "SMSPEC и UNSMRY прогона",
+    "манифест и план датасета",
+)
+COMPACTED_ON_REQUEST: tuple[str, ...] = (
+    "остальные файлы рабочей директории прогона",
+    "каталог дека сценария",
+)
+
 CORES_PER_CONTAINER = 4
 
 
 class DatasetError(ValueError):
-    """Датасет нельзя собрать однозначно из плана и базового расписания."""
+    pass
 
 
 def default_max_workers() -> int:
@@ -84,7 +65,6 @@ def default_max_workers() -> int:
 
 @dataclass(frozen=True, slots=True)
 class RunMetadata:
-    """Метаданные прогона §9.2: seed, статус, доля недостижимых, флаг синтетики."""
 
     scenario_id: str
     family: PerturbationFamily
@@ -153,15 +133,6 @@ class RunMetadata:
 
 @dataclass(frozen=True, slots=True)
 class DatasetSample:
-    """Пара «расписание → отклик» плюс метаданные прогона.
-
-    Отклик — два типа `ResponseArtifact` (§4.1.1), не один тензор: их
-    перепутать на уровне типов нельзя, и датасет их не склеивает. `None`
-    возможен только при `load_responses=False` — режиме, в котором прогоны
-    складываются в кеш, а разбор отклика откладывается; пустой
-    `ResponseArtifact` вместо `None` не подставляется, иначе несуществующий
-    отклик выглядел бы как посчитанный.
-    """
 
     schedule: Schedule
     response: ResponseArtifact | None
@@ -170,7 +141,6 @@ class DatasetSample:
 
 @dataclass(frozen=True, slots=True)
 class SkippedScenario:
-    """Сценарий, отсеянный `validate_static` до эмита — прогон не потрачен."""
 
     spec: PerturbationSpec
     report: ValidationReport
@@ -178,7 +148,6 @@ class SkippedScenario:
 
 @dataclass(frozen=True, slots=True)
 class DatasetBuildReport:
-    """Итог партии: что посчитано, что взято из кеша, что отсеяно."""
 
     dataset_hash: str
     plan_hash: str
@@ -204,17 +173,7 @@ class DatasetBuildReport:
 
 
 def dataset_hash(plan: PerturbationPlan, metadata: Iterable[RunMetadata]) -> str:
-    """Версия датасета — хеш плана и всех ключей прогонов, вошедших в него.
 
-    Входит в provenance (§9.2). Порядок прогонов на хеш не влияет: ключи
-    сортируются, иначе параллельная генерация давала бы разный хеш для
-    одного и того же датасета.
-    """
-
-    # Множество, не список: манифест дописывается построчно, и повторный
-    # вызов после возобновления кладёт по второй строке на тот же сценарий с
-    # тем же ключом. Датасет от этого не меняется — значит, не должен
-    # меняться и его хеш.
     keys = sorted(
         {
             f"{item.scenario_id}:{item.canonical_schedule_hash}:"
@@ -227,13 +186,6 @@ def dataset_hash(plan: PerturbationPlan, metadata: Iterable[RunMetadata]) -> str
 
 
 class DatasetManifest:
-    """Манифест датасета: по строке JSON на сценарий, дописывается атомарно.
-
-    Формат — JSONL, а не единый JSON: прерванная генерация оставляет
-    корректный файл из уже записанных строк, и возобновление читает его без
-    восстановления. Запись под общим замком — единственная точка, где
-    параллельные прогоны встречаются.
-    """
 
     def __init__(self, path: Path | str) -> None:
         self.path = Path(path)
@@ -266,12 +218,6 @@ class DatasetManifest:
 
 
 class DatasetGenerator:
-    """Порождает расписания по плану, прогоняет их и складывает пары в датасет.
-
-    Не переписывает мост: `OpmDeckEmitter`, `OpmRunner`, `RunCache` и
-    `ResponseLoader` используются как есть. Единственное, что добавляется, —
-    план эксперимента, параллельная раскладка прогонов и манифест.
-    """
 
     def __init__(
         self,
@@ -309,7 +255,6 @@ class DatasetGenerator:
         self._runner_lock = threading.Lock()
         self._runner: object | None = None
 
-    # --- вход -----------------------------------------------------------
 
     def base_schedule(self) -> Schedule:
         if self._base_schedule is None:
@@ -331,15 +276,10 @@ class DatasetGenerator:
                     )
             return self._runner
 
-    # --- дешёвая часть: план и отсев ------------------------------------
 
     def prepare(
         self, plan: PerturbationPlan
     ) -> tuple[tuple[MaterializedSchedule, ...], tuple[SkippedScenario, ...]]:
-        """Материализация плана и `validate_static` — без единого прогона.
-
-        Возвращает то, что заслуживает симулятора, и то, что отсеяно (§9).
-        """
 
         base = self.base_schedule()
         accepted: list[MaterializedSchedule] = []
@@ -353,13 +293,11 @@ class DatasetGenerator:
                 skipped.append(SkippedScenario(spec=spec, report=report))
         return tuple(accepted), tuple(skipped)
 
-    # --- дорогая часть: прогоны -----------------------------------------
 
     def _deck_dir(self, material: MaterializedSchedule) -> Path:
         return self.dataset_root / "decks" / material.spec.scenario_id
 
     def emit_deck(self, material: MaterializedSchedule) -> EmittedOpmDeck:
-        """Свой каталог дека на сценарий — прогоны не делят изменяемых файлов."""
 
         destination = self._deck_dir(material)
         if destination.exists() and any(destination.iterdir()):
@@ -371,9 +309,6 @@ class DatasetGenerator:
     def _run_one(self, material: MaterializedSchedule) -> tuple[RunMetadata, RunResult, EmittedOpmDeck]:
         deck = self.emit_deck(material)
         hashes = deck_hashes(deck, material.schedule)
-        # Попадание фиксируется до прогона: `CachingOpmRunner` возвращает
-        # сохранённый `RunResult` как есть, и отличить его от свежего можно
-        # только по тому, лежал ли этот `run_id` в кеше заранее.
         cached = self.cache.lookup(
             hashes.deck_hash,
             hashes.canonical_schedule_hash,
@@ -398,22 +333,32 @@ class DatasetGenerator:
         )
         return metadata, result, deck
 
+    def schedule_dir(self) -> Path:
+        return self.dataset_root / SCHEDULES_DIR
+
+    def retain_schedule(self, scenario_id: str, deck: EmittedOpmDeck) -> Path:
+        source = Path(deck.schedule_file)
+        if not source.is_file():
+            raise DatasetError(
+                f"сценарий {scenario_id}: материализованное расписание "
+                f"не найдено и не может быть сохранено: {source}"
+            )
+        destination_dir = self.schedule_dir()
+        destination_dir.mkdir(parents=True, exist_ok=True)
+        destination = destination_dir / f"{scenario_id}{source.suffix}"
+        shutil.copy2(source, destination)
+        return destination
+
     def _compact_verified_response(
         self,
         result: RunResult,
         deck: EmittedOpmDeck,
         *,
         response_hash: str,
+        scenario_id: str | None = None,
     ) -> RunResult:
-        """Retain the reloadable Summary pair after a verified parse.
 
-        The destructive part is deliberately behind three conditions: the
-        simulator run is OK, ``ResponseLoader`` has already returned, and its
-        canonical response hash is present.  The cache entry is rewritten to
-        the surviving SMSPEC/UNSMRY paths before the duplicated deck is
-        removed.  Failed or unparsed runs are never compacted.
-        """
-
+        self.retain_schedule(scenario_id or result.run_id, deck)
         if result.status is not RunStatus.OK or len(response_hash) != 64:
             raise DatasetError(
                 f"прогон {result.run_id}: compact разрешён только после "
@@ -423,10 +368,10 @@ class DatasetGenerator:
         required = tuple(
             path
             for path in artifacts
-            if path.suffix.upper() in {".SMSPEC", ".UNSMRY"}
+            if path.suffix.upper() in RETAINED_RUN_SUFFIXES
         )
         suffixes = {path.suffix.upper() for path in required}
-        if suffixes != {".SMSPEC", ".UNSMRY"} or any(
+        if suffixes != set(RETAINED_RUN_SUFFIXES) or any(
             not path.is_file() for path in required
         ):
             raise DatasetError(
@@ -476,27 +421,11 @@ class DatasetGenerator:
         *,
         limit: int | None = None,
     ) -> DatasetBuildReport:
-        """Прогнать план и сложить пары в датасет. Прерванный вызов возобновляем.
-
-        Возобновление отдельного флага не требует и не имеет: ключ прогона —
-        тройка хешей (§4.5), поэтому повторный вызов на том же плане поднимает
-        уже посчитанное из кеша и досчитывает только недостающее. Прерванная
-        генерация продолжается тем же вызовом, каким была начата.
-
-        `limit` режет партию — им отлаживают генератор, не намолачивая полный
-        датасет.
-        """
 
         started = datetime.now(timezone.utc)
         accepted, skipped = self.prepare(plan)
         self._write_plan(plan)
 
-        # Возобновление держится на кеше прогонов (§4.5), а не на списке
-        # сделанного: сценарий из манифеста всё равно проходит через `build`,
-        # но симулятора не стоит — `CachingOpmRunner` отдаёт сохранённый
-        # `RunResult`, и пара «расписание → отклик» попадает в результат.
-        # Пропуск по манифесту вернул бы пустой датасет на повторном вызове:
-        # прогоны есть, а пар нет.
         pending = list(accepted)
         if limit is not None:
             pending = pending[:limit]
@@ -532,7 +461,10 @@ class DatasetGenerator:
             )
             if self.compact_artifacts:
                 self._compact_verified_response(
-                    result, deck, response_hash=response.response_hash
+                    result,
+                    deck,
+                    response_hash=response.response_hash,
+                    scenario_id=material.spec.scenario_id,
                 )
             metadata = RunMetadata(
                 scenario_id=metadata.scenario_id,
@@ -568,9 +500,6 @@ class DatasetGenerator:
                     error = future.exception()
                     if error is None:
                         continue
-                    # Один испорченный отклик не снимает всю партию: сценарий
-                    # уходит в `failed`, остальные прогоны остаются в кеше и
-                    # при следующем вызове не пересчитываются.
                     failed.append(
                         RunMetadata(
                             scenario_id=material.spec.scenario_id,
@@ -627,6 +556,5 @@ class DatasetGenerator:
 
 
 def schedule_keys(samples: Sequence[DatasetSample]) -> tuple[str, ...]:
-    """`canonical_schedule_hash` каждой пары — ось адресации датасета (§2.3)."""
 
     return tuple(hash_schedule(sample.schedule) for sample in samples)

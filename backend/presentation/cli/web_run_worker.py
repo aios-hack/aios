@@ -1,13 +1,16 @@
-"""Isolated process for a browser-requested search or exact-plan verification."""
 from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 from pathlib import Path
 
+from backend.infrastructure.opm.preflight import (
+    DockerPreflightError,
+    ensure_docker_ready,
+)
 
-def main():
+
+def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('mode', choices=['search', 'verify'])
     parser.add_argument('--directory', type=Path, required=True)
@@ -36,11 +39,14 @@ def main():
         )
         (root / 'provenance.json').write_text(json.dumps(outcome.provenance, ensure_ascii=False, indent=2))
     else:
-        # Fail promptly when Docker is unavailable, before preparing an expensive deck.
-        subprocess.run(['docker', 'info', '--format', '{{.ServerVersion}}'], check=True, timeout=15)
+        try:
+            ensure_docker_ready()
+        except DockerPreflightError as error:
+            raise SystemExit(error.report.message) from error
         from backend.presentation.cli.run import load_run_request
         from backend.application.optimization.verification_run import verify_schedule, persist_observation
         request = load_run_request(root.parent, root.name)
+
         def verify_and_record(schedule, work_root):
             result = verify_schedule(schedule, work_root)
             persist_observation(schedule, result, predicted_npv=request.predicted_npv,
@@ -49,7 +55,8 @@ def main():
             return result
         manifest = workflow.verify(request, verify_and_record)
     print(json.dumps(manifest.as_dict(), ensure_ascii=False), flush=True)
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())

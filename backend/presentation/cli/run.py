@@ -16,10 +16,15 @@ from backend.application.runs import (
 from backend.application.runs.workflow import SUBMISSION_BUNDLE_FIELDS, SubmissionError
 from backend.core.contracts import Constraints
 from backend.core.paths import out_root
-from backend.core.provenance import git_commit, opm_image
+from backend.core.provenance import git_commit
 from backend.domain.configuration.constraints_io import constraints_from_json, constraints_hash
 from backend.domain.economics.normatives_io import NormativesError, normatives_sha256
 from backend.domain.schedule.emit import ScheduleEmitError
+from backend.infrastructure.opm.preflight import (
+    DockerPreflightError,
+    ensure_docker_ready,
+    resolve_image_reference,
+)
 from backend.infrastructure.resources import model_z_dir, normatives_xlsx
 from backend.presentation.ui_export.run_summary import export_run_summary
 from backend.presentation.ui_export.artifact_io import load_schedule_json
@@ -93,7 +98,7 @@ def build_provenance(outcome: object, constraints: Constraints | None) -> RunPro
         constraints_hash=constraints_hash(constraints) if constraints is not None else None,
         deck_hash=None,
         normatives_sha256=resolve_normatives_sha256(),
-        opm_image=opm_image(),
+        opm_image=resolve_image_reference().image,
         git_commit=git_commit(),
         seed=recorded.get("seed"),
         search_strategy=recorded.get("search_strategy"),
@@ -135,9 +140,18 @@ def load_saved_constraints(run_dir: Path) -> Constraints | None:
     return constraints_from_json(json.loads(saved.read_text(encoding="utf-8")))
 
 
+def require_docker() -> None:
+    try:
+        ensure_docker_ready()
+    except DockerPreflightError as error:
+        raise SystemExit(error.report.message) from error
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     mode = args.mode
+    if mode in {"verify", "full"}:
+        require_docker()
     if mode in {"search", "full"}:
         case_path = resolve_case(args.case)
         constraints = resolve_constraints(case_path or default_case_path())
