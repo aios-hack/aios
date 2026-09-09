@@ -44,7 +44,7 @@ from backend.domain.policy.agents import (
     water_ceiling_for,
     with_agents,
 )
-from backend.domain.policy.agents.base import BoundSense
+from backend.domain.policy.agents.base import Bound, BoundSense, merge_proposals
 from backend.domain.policy.agents.registry import rank_of
 from backend.domain.policy.budget import injection_ceiling_for_well
 from backend.domain.policy.fixed_point import PolicyEquilibrium, Visited
@@ -586,3 +586,31 @@ def test_the_same_parameter_twice_is_refused() -> None:
 def test_a_non_positive_cap_is_refused() -> None:
     with pytest.raises(ValueError, match="потолок"):
         ThetaRegistry(specs=(), cap=0)
+
+
+def test_a_lone_proposal_still_honours_its_inherited_bounds() -> None:
+    event = ControlEvent(
+        control_step=0,
+        well="i1",
+        kind=EventKind.SET_RATE,
+        value=900.0,
+    )
+    proposal = Proposal(
+        level=Level.WELL,
+        agent="executor",
+        decisions=(event,),
+        rule_by_decision=(Rule.R1,),
+        trace=(),
+        bounds=(
+            Bound(
+                well="i1",
+                kind=EventKind.SET_RATE,
+                sense=BoundSense.CEILING,
+                value=100.0,
+            ),
+        ),
+    )
+
+    merged = merge_proposals((proposal,), 0, Rule.R1)
+
+    assert merged.decisions[0].value == 100.0

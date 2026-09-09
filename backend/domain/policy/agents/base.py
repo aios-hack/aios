@@ -217,6 +217,13 @@ def merge_proposals(
                 f"{proposal.level.value}"
             )
     if len(proposals) == 1:
+        if head.verdict is Verdict.ALLOW and head.bounds and head.decisions:
+            return replace(
+                head,
+                decisions=tuple(
+                    _clamped(event, head.bounds) for event in head.decisions
+                ),
+            )
         return head
 
     agent = head.agent
