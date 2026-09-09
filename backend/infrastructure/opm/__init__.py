@@ -50,6 +50,17 @@ from .opm_deck import (
     bundle_hash,
     render_schedule_include,
 )
+from .pvt import (
+    Densities,
+    OilBranch,
+    OilTable,
+    PvtError,
+    PvtRegion,
+    PvtTables,
+    WaterTable,
+    load_pvt,
+    parse_pvt,
+)
 from .response_loader import ResponseLoader, ResponseLoaderError, load_density_by_pvtnum
 from .runner import (
     DEFAULT_FLOW_ARGS,
@@ -124,6 +135,15 @@ __all__ = [
     "EmittedOpmDeck",
     "EmittedSchedule",
     "load_density_by_pvtnum",
+    "Densities",
+    "load_pvt",
+    "OilBranch",
+    "OilTable",
+    "parse_pvt",
+    "PvtError",
+    "PvtRegion",
+    "PvtTables",
+    "WaterTable",
     "OpmDeckEmitter",
     "OpmDeckError",
     "OpmRunner",
