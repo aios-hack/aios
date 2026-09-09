@@ -165,6 +165,12 @@ def main(argv=None):
                     "economics_config_hash": economics.get("economics_config_hash"),
                     "methodology_version_hash": economics.get("methodology_version_hash")}
             if item["sound"]:
+                from backend.application.optimization.champion import CONDITION_KEYS
+                previous = json.loads(champion_path.read_text()) if champion_path.is_file() else None
+                if previous is not None and any(item.get(key) != previous.get(key) for key in CONDITION_KEYS):
+                    item["comparison_rejected"] = "isolated run has different or unresolved measurement conditions"
+                    records.append(item)
+                    continue
                 report = workflow.submit(directory.name, model_z_dir())
                 if not all(line.passed for line in check_submission(report.directory)):
                     raise RuntimeError("Recovered submission selfcheck failed")

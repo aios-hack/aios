@@ -4,7 +4,7 @@ import pytest
 
 from backend.core.contracts import ControlEvent, EventKind
 from backend.presentation.cli.surrogate_audit import ranking_metrics
-from backend.presentation.cli.surrogate_screen import choose_pair, transfer_fraction
+from backend.presentation.cli.surrogate_screen import choose_pair, transfer_fraction, water_margins, known_schedule_hashes
 from tests.application.test_run_workflow import historical_schedule
 
 
@@ -51,3 +51,28 @@ def test_ranking_metrics_expose_wrong_order_and_regret():
     assert result["pairwise_accuracy"] == 0
     assert result["top1_regret_rub"] == 20
     assert ranking_metrics([]) == {"n": 0}
+
+
+def test_default_water_proposals_keep_five_percent_reserve():
+    assert water_margins() == (.7, .75, .8, .85, .9, .95)
+    assert max(water_margins(.99)) == .99
+    with pytest.raises(ValueError):
+        water_margins(float("nan"))
+
+
+def test_known_measurements_are_reused_only_with_identical_conditions(tmp_path, monkeypatch):
+    import json
+    from types import SimpleNamespace
+    from backend.presentation.cli import surrogate_screen
+    root = tmp_path / "candidate-001"
+    (root / "inputs").mkdir(parents=True)
+    (root / "economics").mkdir()
+    (root / "inputs/groups.json").write_text("{}")
+    champion = dict(constraints_hash="c", deck_hash="d", opm_image="i", groups_hash="g",
+                    economics_config_hash="e", methodology_version_hash="m")
+    (root / "manifest.json").write_text(json.dumps(dict(champion, sound=False, schedule_hash="s")))
+    (root / "economics/result.json").write_text(json.dumps(champion))
+    monkeypatch.setattr(surrogate_screen, "load_groups", lambda _: SimpleNamespace(group_hash="g"))
+    assert known_schedule_hashes(tmp_path, champion) == {"s"}  # failed trials also cost OPM
+    assert known_schedule_hashes(tmp_path, dict(champion, constraints_hash="other")) == set()
+    assert known_schedule_hashes(tmp_path, dict(champion, groups_hash="other")) == set()

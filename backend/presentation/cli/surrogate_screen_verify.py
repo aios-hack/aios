@@ -2,12 +2,14 @@
 import argparse
 import hashlib
 import json
+import os
 import time
 from pathlib import Path
 
 from backend.application.optimization.verification_run import verify_schedule
 from backend.application.runs import RunWorkflow
 from backend.core.contracts import hash_schedule
+from backend.core.provenance import OPM_IMAGE_ENV
 from backend.domain.connectivity.groups_artifact import load as load_groups
 from backend.domain.economics import save_response_artifact
 from backend.presentation.cli.run import load_run_request, require_docker
@@ -29,6 +31,10 @@ def main(argv=None):
     request = load_run_request(args.runs_root, row["run_id"])
     if hash_schedule(request.schedule) != row["schedule_hash"]:
         parser.error("schedule differs from frozen selection")
+    expected_image = request.provenance.opm_image or ""
+    if "@sha256:" not in expected_image:
+        parser.error("verification requires a pinned OPM image; unresolved historical results cannot be relabeled")
+    os.environ[OPM_IMAGE_ENV] = expected_image
     directory = args.runs_root / request.run_id
     grouping = load_groups(directory / "inputs/groups.json")
     require_docker()

@@ -11,13 +11,13 @@ import random
 import time
 from dataclasses import replace
 from pathlib import Path
-from types import SimpleNamespace
 
 import torch
 
 from backend.application.optimization.runtime_artifacts import resolve_runtime_artifacts
 from backend.application.optimization.observed_repair import repair_from_observation
 from backend.application.runs import RunRequest, RunWorkflow
+from backend.core.provenance import git_commit
 from backend.core.contracts import EventKind, canonical_bytes, hash_schedule
 from backend.domain.connectivity.groups_artifact import load as load_groups, save as save_groups
 from backend.domain.economics import load_response_artifact
@@ -30,7 +30,33 @@ from backend.ml.surrogate.model_z_context import ModelZFeatureArtifact
 from backend.ml.surrogate.npv_block_head import load_direct_npv_head
 from backend.ml.surrogate.npv_economic_features import scenario_feature_vector
 from backend.ml.surrogate.scenario_ood import ScenarioDensityDomain
-from backend.presentation.cli.run import load_run_request, build_provenance
+from backend.presentation.cli.run import load_run_request
+
+
+def water_margins(maximum=.95):
+    if not math.isfinite(maximum) or not .25 < maximum < 1:
+        raise ValueError("maximum water margin must be finite and in (.25,1)")
+    return tuple(round(maximum - .25 + .05 * index, 10) for index in range(6))
+
+
+def known_schedule_hashes(runs, champion):
+    known = set()
+    for directory in runs.glob("candidate-*"):
+        economics = directory / "economics/result.json"
+        groups = directory / "inputs/groups.json"
+        if not economics.is_file() or not groups.is_file():
+            continue
+        manifest = json.loads((directory / "manifest.json").read_text())
+        result = json.loads(economics.read_text())
+        if manifest.get("sound") not in (True, False):
+            continue
+        if any(manifest.get(k) != champion[k] for k in ("constraints_hash", "deck_hash", "opm_image")):
+            continue
+        if any(result.get(k) != champion[k] for k in ("economics_config_hash", "methodology_version_hash")):
+            continue
+        if load_groups(groups).group_hash == champion["groups_hash"]:
+            known.add(manifest["schedule_hash"])
+    return known
 
 
 def transfer_fraction(schedule, donor, receiver, fraction):
@@ -66,17 +92,26 @@ def main(argv=None):
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--count", type=int, default=16)
     parser.add_argument("--seed", type=int, default=20260910)
+    parser.add_argument("--max-water-margin", type=float, default=.95,
+                        help="верхняя доля измеренной воды; >0.95 — явная агрессивная проба, не гарантия допустимости")
     parser.add_argument("--allow-ood-experiment", action="store_true")
     args = parser.parse_args(argv)
     if args.out.exists() or args.count < 6:
         parser.error("new output directory and at least six candidates required")
+    try:
+        margins = water_margins(args.max_water_margin)
+    except ValueError as error:
+        parser.error(str(error))
     started = time.perf_counter()
     torch.set_num_threads(1)
     champion = json.loads((args.campaign / "champion.json").read_text())
     runs = args.campaign / "runs"
+    known = known_schedule_hashes(runs, champion)
     anchor = load_run_request(runs, champion["run_id"])
     if hash_schedule(anchor.schedule) != champion["schedule_hash"]:
         parser.error("anchor schedule differs from champion")
+    if "@sha256:" not in (anchor.provenance.opm_image or ""):
+        parser.error("anchor must pin an OPM image digest")
     baseline = load_run_request(runs, "candidate-001")
     measured_path = runs / champion["run_id"] / "response.json"
     observed = load_response_artifact(measured_path)
@@ -91,7 +126,7 @@ def main(argv=None):
         parser.error("model and deck horizons differ")
     proposals = [(f"measured-water-{margin}", repair_from_observation(
         anchor.schedule, observed, dates, anchor.constraints, water_margin=margin,
-        injection_reference=baseline.schedule)) for margin in (.75, .85, .90, .95, .97, .99)]
+        injection_reference=baseline.schedule)) for margin in margins]
     rng = random.Random(args.seed)
     injectors = sorted({e.well for e in anchor.schedule.control_events if e.kind is EventKind.SET_RATE and e.value > 0})
     for _ in range(args.count - 6):
@@ -110,6 +145,9 @@ def main(argv=None):
         digest = hash_schedule(schedule)
         if digest in schedules or digest == champion["schedule_hash"]:
             continue
+        if digest in known:
+            rejected.append({"label": label, "schedule_hash": digest, "reason": "already measured under identical conditions"})
+            continue
         if not validate_static(schedule, anchor.constraints).ok:
             rejected.append({"label": label, "reason": "static"})
             continue
@@ -120,6 +158,9 @@ def main(argv=None):
             vector = scenario_feature_vector(x, indices, n_wells=len(head.wells), feature_set="economic")
             score = head.predict_vector(vector)
             ood = domain.score(vector[:domain.feature_width])
+        if not math.isfinite(score) or not math.isfinite(ood):
+            rejected.append({"label": label, "reason": "non-finite model score"})
+            continue
         row = dict(label=label, schedule_hash=digest, ranking_score=score,
                    ood_score=ood, inside_domain=ood <= domain.threshold,
                    inference_seconds=time.perf_counter() - tick)
@@ -141,9 +182,11 @@ def main(argv=None):
             run_id = f"candidate-{next_id + offset:03d}"
             if (runs / run_id).exists():
                 raise ValueError("refusing to overwrite a run")
-            provenance = build_provenance(SimpleNamespace(provenance={
-                "search_strategy": f"experimental-screen-{arm}", "seed": str(args.seed),
-                "npv_head_version": head.version}), anchor.constraints)
+            # CPU-only screening must not probe Docker and record an unresolved
+            # tag when Docker is unavailable. Verification enforces this digest.
+            provenance = replace(anchor.provenance, deck_hash=None, git_commit=git_commit(),
+                                 search_strategy=f"experimental-screen-{arm}", seed=str(args.seed),
+                                 npv_head_version=head.version)
             workflow.search(RunRequest(run_id, schedules[row["schedule_hash"]], None, anchor.constraints, provenance))
             save_groups(grouping, runs / run_id / "inputs/groups.json")
             selection.append(dict(row, arm=arm, run_id=run_id))
@@ -152,6 +195,8 @@ def main(argv=None):
                "head_version": head.version, "domain_version": domain.version,
                "domain_threshold": domain.threshold, "seed": args.seed,
                "allow_ood_experiment": args.allow_ood_experiment,
+               "max_water_margin": args.max_water_margin,
+               "known_measurement_count": len(known),
                "rows": rows, "rejected": rejected, "selection": selection,
                "blocked_reason": reason, "screening_seconds": time.perf_counter() - started,
                "warning": "ranking_score is NOT calibrated NPV. OPM required for both arms; no claimed acceleration yet."}
