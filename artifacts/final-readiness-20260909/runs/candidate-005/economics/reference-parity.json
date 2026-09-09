@@ -1,0 +1,11 @@
+{
+  "npv_ours": 1464123030.4381707,
+  "npv_reference": 1464123030.438171,
+  "absolute_difference": 2.384185791015625e-07,
+  "discrepancies": 0,
+  "matched": true,
+  "saved_measured_npv": 1464123030.4381707,
+  "saved_measurement_matches": true,
+  "calculator_sha256": "7d52f292e61b4821d00e3e0a34acf43ad9dac6817680001f3ebaea70f45ed61e",
+  "control_start": "2007-01-01"
+}

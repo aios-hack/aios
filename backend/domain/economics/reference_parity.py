@@ -293,15 +293,19 @@ def run_reference(
     policies: Policies,
     balance_sheet: BalanceSheetInputs = BalanceSheetInputs(),
     start_year: int | None = None,
+    start_date: date | None = None,
 ) -> dict[str, Any]:
+    if start_year is not None and start_date is not None:
+        raise ValueError("Specify start_year or start_date, not both")
     module = load_reference_module(chdd_python_dir)
-    start_date = f"{start_year}-01-01" if start_year is not None else None
+    calculation_start = (start_date.isoformat() if start_date is not None else
+                         f"{start_year}-01-01" if start_year is not None else None)
     return module.compute_calculation(
         list(records),
         headers=list(module.REQUIRED_COLUMNS),
         assumptions=reference_assumptions(normatives, policies, balance_sheet),
         pumps=reference_pumps(normatives),
-        start_date=start_date,
+        start_date=calculation_start,
     )
 
 
