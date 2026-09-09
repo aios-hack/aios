@@ -7,7 +7,7 @@
 В составе:
 
 - Production-ансамбль траекторий, экономическая голова, фильтр области применимости,
-  контекст признаков и указатель `data/surrogate-production.json`.
+  контекст признаков и указатель data/surrogate-production.json.
 - Реальный базовый ответ `data/base_case/response.json` и измеренная матрица
   `data/lambda-window-2007/lambda.json`, необходимые поиску.
 - Четыре каталога `out/web-runs/`: два неудачных поиска и два подтверждённых OPM

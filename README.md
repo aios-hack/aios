@@ -12,7 +12,7 @@
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -e '.[dev]'
+.venv/bin/pip install -e '.[dev,ml]'
 .venv/bin/pytest -q
 ```
 
@@ -46,7 +46,7 @@ Docker-сборка и состав сервисов описаны в `Dockerfi
 свежий клон **неполон по замыслу**, и команды делятся на три группы. Проверить состояние —
 `ls data/` и `python -m backend.presentation.cli.selfcheck`.
 
-### Работает сразу после `pip install -e '.[dev]'`
+### Работает после `pip install -e '.[dev,ml]'`
 
 | Команда | Что даёт |
 |---|---|
