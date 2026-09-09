@@ -1,10 +1,3 @@
-"""Шаг иерархии: реестр агентов вызывает уровни в объявленном порядке.
-
-Механики уровней живут в `policy/levels.py`, роли и порядок вызова — в
-`policy/agents/`. Здесь только сборка шага и имя агента в каждой записи
-журнала, которое берётся из реестра, а не пишется строкой по месту.
-"""
-
 from __future__ import annotations
 
 from backend.core.contracts import Theta
@@ -26,6 +19,7 @@ from backend.domain.policy.levels import (
     execute_well,
     field_limit_from_constraints,
     group_demand_rub_per_m3,
+    group_liquid_demand_rub_per_day,
     group_of,
     observations_by_group,
     restrict,
@@ -52,6 +46,7 @@ __all__ = [
     "execute_well",
     "field_limit_from_constraints",
     "group_demand_rub_per_m3",
+    "group_liquid_demand_rub_per_day",
     "group_of",
     "observations_by_group",
     "restrict",
@@ -67,6 +62,7 @@ def run_step(
     theta: Theta,
     flags: RuleFlags,
     field_limit_m3_per_day: float | None = None,
+    field_liquid_limit_m3_per_day: float | None = None,
     setpoint_step_m3_per_day: float | None = None,
     registry: AgentRegistry = DEFAULT_REGISTRY,
 ) -> HierarchyResult:
@@ -74,7 +70,13 @@ def run_step(
     allocator = registry.one_of_level(Level.GROUP)
     executor = registry.one_of_level(Level.WELL)
 
-    allocation = coordinator.allocate(state, context, flags, field_limit_m3_per_day)
+    allocation = coordinator.allocate(
+        state,
+        context,
+        flags,
+        field_limit_m3_per_day,
+        field_liquid_limit_m3_per_day,
+    )
     group_decisions: list[GroupDecision] = []
     decisions = []
     trace: list[LeveledTraceEntry] = list(allocation.trace)

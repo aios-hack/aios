@@ -72,26 +72,14 @@ class RuleContext:
     influence: Lambda | None = None
     groups: Groups | None = None
     injection_budget_m3_per_day: float | None = None
+    liquid_budget_m3_per_day: float | None = None
+    group_liquid_budget_m3_per_day: Mapping[str, float] = field(default_factory=dict)
     memory: PolicyMemory = field(default_factory=PolicyMemory)
     group_injection_m3_per_day: Mapping[str, float] = field(default_factory=dict)
     group_offtake_m3_per_day: Mapping[str, float] = field(default_factory=dict)
     cyclic_uplift_rub_per_well: Mapping[str, float] = field(default_factory=dict)
-    #: Уставка закачки базового расписания на текущем шаге, м³/сут, по
-    #: скважинам. Нужна там, где решение принимать не на чем: R1 не
-    #: считает предельную ценность для нагнетательной, которой нет в λ,
-    #: и без базовой уставки такая скважина молча остаётся на нуле.
     baseline_injection_m3_per_day: Mapping[str, float] = field(default_factory=dict)
-    #: Физический потолок приёмистости скважины, м³/сут: её собственный
-    #: исторический максимум с запасом. Правило обязано знать его до
-    #: раздачи, а не узнавать постфактум срезом: вода, выданная сверх
-    #: потолка, при срезе пропадает, вместо того чтобы уйти следующей
-    #: по ценности скважине.
     injection_cap_m3_per_day: Mapping[str, float] = field(default_factory=dict)
-    #: Шаг, на котором базовое расписание переводит скважину под закачку.
-    #: R6 судит о переводе по предельной ценности воды, а она считается
-    #: только для скважин внутри окна замера λ. Скважина, которую дек
-    #: переводит позже окна, в λ не попала и попасть не могла: в окне
-    #: она добывала. Без этой карты правило не переведёт её никогда.
     baseline_conversion_step: Mapping[str, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -107,3 +95,13 @@ class RuleContext:
             and self.injection_budget_m3_per_day < 0
         ):
             raise ValueError("отрицательный лимит закачки")
+        if (
+            self.liquid_budget_m3_per_day is not None
+            and self.liquid_budget_m3_per_day < 0
+        ):
+            raise ValueError("отрицательный лимит жидкости")
+        for group_id, quota in self.group_liquid_budget_m3_per_day.items():
+            if quota < 0:
+                raise ValueError(
+                    f"участок {group_id}: отрицательная квота жидкости {quota}"
+                )

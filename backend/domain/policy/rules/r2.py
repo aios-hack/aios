@@ -31,6 +31,9 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
     pivot = read(theta, "r2_watercut_pivot")
     gain = read(theta, "r2_gain")
     density = context.oil_density_t_per_m3
+    budget = context.liquid_budget_m3_per_day
+    if budget is not None and budget < 0.0:
+        raise ValueError(f"отрицательная квота жидкости участка: {budget}")
     decisions: list[ControlEvent] = []
     trace: list[TraceEntry] = []
     for well in sorted(state.wells):
@@ -43,6 +46,8 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
         target = target_rate_m3_per_day(
             observation.liquid_rate_m3_per_day, watercut, pivot, gain
         )
+        if budget is not None:
+            target = min(target, budget)
         if target == observation.setpoint_m3_per_day:
             continue
         decisions.append(
@@ -53,20 +58,23 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
                 value=target,
             )
         )
+        inputs = {
+            "liquid_rate_m3_per_day": observation.liquid_rate_m3_per_day,
+            "watercut": watercut,
+            "theta_r2_watercut_pivot": pivot,
+            "theta_r2_gain": gain,
+            "previous_setpoint_m3_per_day": observation.setpoint_m3_per_day,
+            "target_rate_m3_per_day": target,
+            "lrat_ceiling_m3_per_day": MAX_LRAT_M3_PER_DAY,
+        }
+        if budget is not None:
+            inputs["group_liquid_budget_m3_per_day"] = budget
         trace.append(
             TraceEntry(
                 control_step=state.control_step,
                 well=well,
                 rule=RULE,
-                inputs={
-                    "liquid_rate_m3_per_day": observation.liquid_rate_m3_per_day,
-                    "watercut": watercut,
-                    "theta_r2_watercut_pivot": pivot,
-                    "theta_r2_gain": gain,
-                    "previous_setpoint_m3_per_day": observation.setpoint_m3_per_day,
-                    "target_rate_m3_per_day": target,
-                    "lrat_ceiling_m3_per_day": MAX_LRAT_M3_PER_DAY,
-                },
+                inputs=inputs,
                 decision="SET_LRAT",
             )
         )

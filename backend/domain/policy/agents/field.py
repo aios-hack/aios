@@ -1,5 +1,3 @@
-"""Координатор поля: делит лимит закачки между участками."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -25,6 +23,7 @@ class FieldCoordinator:
         "читает лимит закачки поля из Constraints, а не назначает его сам",
         "считает спрос участка на воду правилом R1 по измеренной λ",
         "раздаёт квоты участкам пропорционально спросу, не превышая лимит поля",
+        "читает лимит жидкости поля и делит его по маржинальной ценности отбора",
     )
     trace_agent: str = FIELD_AGENT
 
@@ -34,8 +33,15 @@ class FieldCoordinator:
         context: RuleContext,
         flags: RuleFlags,
         field_limit_m3_per_day: float | None = None,
+        field_liquid_limit_m3_per_day: float | None = None,
     ) -> FieldAllocation:
-        return allocate_field(state, context, flags, field_limit_m3_per_day)
+        return allocate_field(
+            state,
+            context,
+            flags,
+            field_limit_m3_per_day,
+            field_liquid_limit_m3_per_day,
+        )
 
     def propose(
         self,
@@ -43,13 +49,20 @@ class FieldCoordinator:
         context: RuleContext,
         flags: RuleFlags | None = None,
         field_limit_m3_per_day: float | None = None,
+        field_liquid_limit_m3_per_day: float | None = None,
     ) -> Proposal:
         if flags is None:
             raise ValueError(
                 f"{self.name}: без RuleFlags спрос участка считать нечем — "
                 f"формула предельной ценности живёт в правиле R1"
             )
-        allocation = self.allocate(state, context, flags, field_limit_m3_per_day)
+        allocation = self.allocate(
+            state,
+            context,
+            flags,
+            field_limit_m3_per_day,
+            field_liquid_limit_m3_per_day,
+        )
         return Proposal(
             level=self.level,
             agent=self.trace_agent,
