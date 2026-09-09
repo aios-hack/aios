@@ -20,6 +20,7 @@ from backend.ml.surrogate.raw_model_output import RawModelOutput
 
 import hashlib
 import math
+import os
 from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
@@ -89,6 +90,118 @@ _DIFFERENTIAL_INVARIANT_NAMES: tuple[str, ...] = (
 
 class ScheduleSearchError(ValueError):
     pass
+
+
+class LambdaDesyncError(ScheduleSearchError):
+    pass
+
+
+LAMBDA_STRICT_ENV = "AIOS_LAMBDA_STRICT"
+
+
+def _lambda_strict_enabled(environ: Mapping[str, str] | None = None) -> bool:
+    env = os.environ if environ is None else environ
+    raw = env.get(LAMBDA_STRICT_ENV)
+    if raw is None:
+        return False
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def npv_blend_provenance(npv_head: object | None) -> dict[str, str]:
+    if npv_head is None:
+        return {
+            "npv_head_version": "none",
+            "npv_blend_mode": "absent: голова прямого прогноза не загружена",
+            "npv_physical_weight": "none",
+            "npv_direct_weight": "none",
+            "npv_physical_ensemble_version": "none",
+            "npv_blend_provenance_hash": "none",
+        }
+    weight = getattr(npv_head, "physical_npv_weight", None)
+    if weight is None:
+        raise ScheduleSearchError(
+            "голова ЧДД не сообщает physical_npv_weight: долю физической части "
+            "бленда нельзя записать в провенанс, а прогноз ЧДД без неё "
+            "невоспроизводим"
+        )
+    physical = float(weight)
+    if not math.isfinite(physical) or not 0.0 <= physical <= 1.0:
+        raise ScheduleSearchError(
+            f"доля физической части бленда {physical!r} вне отрезка [0, 1]: "
+            "провенанс ЧДД описывал бы несуществующую смесь"
+        )
+    return {
+        "npv_head_version": str(getattr(npv_head, "version", "") or "unversioned"),
+        "npv_blend_mode": "direct-only" if physical == 0.0 else "physical-blend",
+        "npv_physical_weight": repr(physical),
+        "npv_direct_weight": repr(1.0 - physical),
+        "npv_physical_ensemble_version": str(
+            getattr(npv_head, "physical_ensemble_version", "") or "none"
+        ),
+        "npv_blend_provenance_hash": str(
+            getattr(npv_head, "physical_blend_provenance_hash", "") or "none"
+        ),
+    }
+
+
+def _context_lambda_hashes(feature_context: ModelZFeatureArtifact) -> tuple[str, ...]:
+    return tuple(lambda_hash(window) for window in feature_context.context.lambda_windows)
+
+
+def lambda_sync_provenance(
+    lambda_: Lambda,
+    feature_context: ModelZFeatureArtifact,
+    lambda_path: Path | None,
+    *,
+    strict: bool,
+) -> dict[str, str]:
+    search_hash = lambda_hash(lambda_)
+    context_hashes = _context_lambda_hashes(feature_context)
+    record = {
+        "lambda_path": "none: связность не измерялась" if lambda_path is None else str(lambda_path),
+        "lambda_window": f"{lambda_.window_start}..{lambda_.window_end}",
+        "lambda_search_hash": search_hash,
+        "lambda_context_hashes": ",".join(context_hashes) if context_hashes else "none",
+        "lambda_context_source_hash": feature_context.lambda_source_hash,
+        "lambda_context_dataset_hash": feature_context.dataset_hash,
+        "lambda_context_training_scenarios": str(feature_context.n_training_scenarios),
+        "lambda_strict": "true" if strict else "false",
+    }
+    if lambda_path is None:
+        record["lambda_sync"] = "not-applicable"
+        record["lambda_sync_detail"] = (
+            "поиск идёт на нулевой связности, сверять с обучающей λ нечего"
+        )
+        return record
+    if not context_hashes:
+        message = (
+            "контекст признаков не содержит ни одного окна λ: на какой матрице "
+            "связности обучались признаки — установить нельзя, поэтому "
+            "рассинхронизацию с λ поиска обнаружить невозможно"
+        )
+        record["lambda_sync"] = "unknown"
+        record["lambda_sync_detail"] = message
+        if strict:
+            raise LambdaDesyncError(message)
+        return record
+    if search_hash in context_hashes:
+        record["lambda_sync"] = "match"
+        record["lambda_sync_detail"] = (
+            f"λ поиска {search_hash} совпала с окном, на котором обучался контекст"
+        )
+        return record
+    message = (
+        f"λ поиска ({lambda_path}, окно {lambda_.window_start}..{lambda_.window_end}, "
+        f"хеш {search_hash}) не совпадает ни с одним окном, на котором обучался "
+        f"контекст признаков (хеши {', '.join(context_hashes)}): поиск считает на "
+        "одной матрице связности, а признаки обучены на другой, поэтому прогноз "
+        "смещён систематически и по самому прогнозу это не видно"
+    )
+    record["lambda_sync"] = "desync"
+    record["lambda_sync_detail"] = message
+    if strict:
+        raise LambdaDesyncError(message)
+    return record
 
 
 def _validate_npv_head_compatibility(
@@ -406,8 +519,10 @@ def load_environment(
     ood_threshold: float = 0.0,
     ood_soft_penalty: bool = False,
     ood_penalty_per_unit: float = 0.0,
+    lambda_strict: bool | None = None,
 ) -> SearchEnvironment:
 
+    strict_lambda = _lambda_strict_enabled() if lambda_strict is None else lambda_strict
     case_constraints = Constraints() if constraints is None else constraints
     water_supply_policy(case_constraints)
     compensation_policy(case_constraints)
@@ -464,6 +579,14 @@ def load_environment(
                 hash_schedule(reference_schedule)
                 if reference_schedule is not None
                 else "none"
+            ),
+            "feature_context_path": str(feature_context_path),
+            **npv_blend_provenance(npv_head),
+            **lambda_sync_provenance(
+                lambda_,
+                feature_context,
+                lambda_path,
+                strict=strict_lambda,
             ),
         }
     )

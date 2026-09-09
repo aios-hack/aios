@@ -143,6 +143,149 @@ def resolve_ood_threshold(
     )
 
 
+RELEASE_FORMAT = "aios.surrogate-release.v1"
+RELEASE_FILENAME = "release.json"
+INSTALL_MANIFEST_FORMAT = "aios.surrogate-runtime.v1"
+
+
+@dataclass(frozen=True, slots=True)
+class FileVerdict:
+    path: str
+    expected_sha256: str
+    actual_sha256: str | None
+    status: str
+
+    @property
+    def ok(self) -> bool:
+        return self.status == "ok"
+
+    def as_dict(self) -> dict[str, str | None]:
+        return {
+            "path": self.path,
+            "status": self.status,
+            "expected_sha256": self.expected_sha256,
+            "actual_sha256": self.actual_sha256,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class BundleVerdict:
+    root: Path
+    reference: Path
+    reference_format: str
+    files: tuple[FileVerdict, ...]
+    extra_files: tuple[str, ...]
+
+    @property
+    def mismatched(self) -> tuple[FileVerdict, ...]:
+        return tuple(item for item in self.files if not item.ok)
+
+    @property
+    def ok(self) -> bool:
+        return not self.mismatched
+
+    @property
+    def exit_code(self) -> int:
+        return 0 if self.ok else 1
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "format": "aios.surrogate-bundle-verdict.v1",
+            "root": str(self.root),
+            "reference": str(self.reference),
+            "reference_format": self.reference_format,
+            "checked_file_count": len(self.files),
+            "mismatched_file_count": len(self.mismatched),
+            "status": "ok" if self.ok else "corrupted",
+            "files": [item.as_dict() for item in self.files],
+            "mismatches": [item.as_dict() for item in self.mismatched],
+            "extra_files": list(self.extra_files),
+        }
+
+
+def _read_expected_checksums(reference: Path) -> tuple[dict[str, str], str]:
+    try:
+        payload = json.loads(reference.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise RuntimeArtifactError(
+            f"опись пакета {reference} не читается: {error}"
+        ) from error
+    if not isinstance(payload, dict):
+        raise RuntimeArtifactError(f"опись пакета {reference} не является объектом")
+    declared = payload.get("format")
+    if declared not in {RELEASE_FORMAT, INSTALL_MANIFEST_FORMAT}:
+        raise RuntimeArtifactError(
+            f"неподдерживаемый формат описи пакета {reference}: {declared!r}"
+        )
+    checksums = payload.get("files_sha256")
+    if not isinstance(checksums, dict) or not checksums:
+        raise RuntimeArtifactError(
+            f"{reference}: опись без files_sha256 не задаёт ни одной контрольной "
+            "суммы — сверять нечего, а молчаливый успех означал бы непроверенный пакет"
+        )
+    expected: dict[str, str] = {}
+    for name, digest in checksums.items():
+        if not isinstance(name, str) or not isinstance(digest, str) or len(digest) != 64:
+            raise RuntimeArtifactError(
+                f"{reference}: запись описи {name!r} не является парой "
+                "«путь — SHA-256»"
+            )
+        expected[name] = digest.lower()
+    return expected, str(declared)
+
+
+def _bundle_reference(root: Path) -> Path:
+    release = root / RELEASE_FILENAME
+    if release.is_file():
+        return release
+    raise RuntimeArtifactError(
+        f"в пакете {root} нет {RELEASE_FILENAME}: без описи с контрольными "
+        "суммами вердикт о целостности вынести нельзя"
+    )
+
+
+def verify_bundle(root: Path | str, reference: Path | str | None = None) -> BundleVerdict:
+    bundle_root = Path(root).resolve()
+    if not bundle_root.is_dir():
+        raise RuntimeArtifactError(f"пакет {bundle_root} не является каталогом")
+    reference_path = (
+        _bundle_reference(bundle_root) if reference is None else Path(reference).resolve()
+    )
+    if not reference_path.is_file():
+        raise RuntimeArtifactError(f"описи пакета нет по пути {reference_path}")
+    expected, reference_format = _read_expected_checksums(reference_path)
+    verdicts: list[FileVerdict] = []
+    for name in sorted(expected):
+        relative = Path(name)
+        if relative.is_absolute() or ".." in relative.parts:
+            raise RuntimeArtifactError(
+                f"{reference_path}: запись описи {name!r} выводит за пределы пакета"
+            )
+        target = bundle_root / relative
+        if not target.is_file():
+            verdicts.append(FileVerdict(name, expected[name], None, "missing"))
+            continue
+        actual = hashlib.sha256(target.read_bytes()).hexdigest()
+        status = "ok" if actual == expected[name] else "checksum-mismatch"
+        verdicts.append(FileVerdict(name, expected[name], actual, status))
+    known = {(bundle_root / Path(name)).resolve() for name in expected}
+    known.add(reference_path)
+    extra = tuple(
+        sorted(
+            path.relative_to(bundle_root).as_posix()
+            for path in bundle_root.rglob("*")
+            if path.is_file() and path.resolve() not in known
+        )
+    )
+    return BundleVerdict(
+        root=bundle_root,
+        reference=reference_path,
+        reference_format=reference_format,
+        files=tuple(verdicts),
+        extra_files=extra,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class RuntimeArtifacts:
     checkpoint: Path
