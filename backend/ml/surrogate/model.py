@@ -477,6 +477,7 @@ def _targets(
     parameterization: str = "absolute",
     oil_density_t_per_m3: float = 0.9131,
 ) -> Tensor:
+    from backend.core.horizon import HORIZON
     item = example.input
     interval = {
         (row.well, row.control_step): row for row in example.response.interval_response
@@ -488,7 +489,7 @@ def _targets(
     for node in item.nodes:
         try:
             response = interval[(node.well, node.control_step)]
-            state = states[(node.well, 147 + node.control_step)]
+            state = states[(node.well, HORIZON.history_offset + 1 + node.control_step)]
         except KeyError as error:
             raise SurrogateModelError(
                 f"отклик не покрывает ({node.well!r}, {node.control_step})"

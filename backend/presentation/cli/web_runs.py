@@ -74,7 +74,7 @@ class WebRuns:
             submission = directory / 'submission/claimed_npv.json'
             if submission.is_file():
                 bundle = json.loads(submission.read_text(encoding='utf-8'))
-                bundle['schedule_present'] = (directory / 'submission' / 'wells_schedule.inc').is_file()
+                bundle['schedule_present'] = (directory / 'submission' / 'well_schedule.inc').is_file()
                 data['submission'] = bundle
             runs.append(data)
         return runs[:50]

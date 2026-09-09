@@ -425,7 +425,7 @@ def test_submit_builds_the_package_of_a_sound_run(tmp_path) -> None:
     report = workflow.submit("submittable", model_dir)
 
     assert report.schedule_path.is_file()
-    assert report.schedule_path.name == "wells_schedule.inc"
+    assert report.schedule_path.name == "well_schedule.inc"
     assert report.manifest.status is WorkflowStatus.READY_TO_SUBMIT
     document = json.loads(
         (report.directory / "claimed_npv.json").read_text(encoding="utf-8")
@@ -443,7 +443,7 @@ def test_the_package_bytes_are_the_ones_that_were_hashed(tmp_path) -> None:
 
     raw = report.schedule_path.read_bytes()
     assert content_hash(raw) == report.bundle.content_hash_submission
-    verify_schedule_round_trip(emittable_schedule(), raw).raise_if_broken()
+    verify_schedule_round_trip(emittable_schedule(), raw, history_prefix=(report.directory / "validation/history.inc").read_bytes()).raise_if_broken()
 
 
 def test_submit_copies_the_evidence_next_to_the_claimed_number(tmp_path) -> None:
@@ -614,13 +614,7 @@ def test_submitted_file_carries_no_event_from_the_historical_part(tmp_path) -> N
         for block in parsed.blocks
         if block.event_date is not None and block.event_date < T0
     ]
-    assert [block.keyword for block in before_t0] == [
-        "DATES",
-        "WCONPROD",
-        "WCONINJE",
-    ]
-    assert before_t0[0].event_date == date(2006, 12, 1)
-    assert all(block.control_step is None for block in before_t0)
+    assert before_t0 == []
     assert all(
         event.control_step >= 0
         for event in parsed.control_events + parsed.fixed_deck_events
@@ -635,8 +629,8 @@ def test_submitted_file_drops_the_historical_dates_the_deck_carries(tmp_path) ->
     submitted = parse_schedule(report.schedule_path.read_bytes())
 
     assert len(source.dates) == SYNTHETIC_HISTORY_STEPS + SYNTHETIC_STEPS + 1
-    assert len(submitted.dates) == SYNTHETIC_STEPS + 2
-    assert submitted.dates[1:] == source.dates[SYNTHETIC_HISTORY_STEPS:]
+    assert len(submitted.dates) == SYNTHETIC_STEPS + 1
+    assert submitted.dates == source.dates[SYNTHETIC_HISTORY_STEPS:]
 
 
 def test_the_number_of_control_blocks_matches_the_managed_period(tmp_path) -> None:
@@ -652,6 +646,9 @@ def test_the_number_of_control_blocks_matches_the_managed_period(tmp_path) -> No
         and block.control_step is not None
         and block.control_events
     ]
+    # Event roles are interpreted in the organizer's historical context.
+    parsed = parse_schedule((report.directory / "validation/history.inc").read_bytes() + report.schedule_path.read_bytes())
+    managed = [b for b in parsed.blocks if b.keyword in ("WCONPROD", "WCONINJE") and b.control_events]
     assert len(managed) == 2 * SYNTHETIC_STEPS
     assert {block.control_step for block in managed} == set(range(SYNTHETIC_STEPS))
     assert max(event.control_step for event in parsed.control_events) == (
@@ -666,7 +663,7 @@ def test_the_submitted_control_period_still_round_trips(tmp_path) -> None:
     report = workflow.submit("historical", model_dir)
     raw = report.schedule_path.read_bytes()
 
-    verify_schedule_round_trip(schedule, raw).raise_if_broken()
+    verify_schedule_round_trip(schedule, raw, history_prefix=(report.directory / "validation/history.inc").read_bytes()).raise_if_broken()
     assert content_hash(raw) == report.bundle.content_hash_submission
     assert report.bundle.canonical_schedule_hash == hash_schedule(schedule)
 

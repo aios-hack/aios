@@ -51,8 +51,10 @@ from backend.domain.schedule.case_limits import (
 )
 from backend.core.provenance import git_commit, opm_image
 
-LAMBDA = Path("data/lambda-window-2007/lambda.json")
-RESPONSE = Path("data/base_case/response.json")
+from backend.core.paths import data_root
+
+LAMBDA = data_root() / "lambda-window-2007/lambda.json"
+RESPONSE = data_root() / "base_case/response.json"
 WORK_ROOT = Path("data/g7-submission")
 EXPECTED_HASH: str | None = None
 BASE_NPV = 11_873_122_324.91

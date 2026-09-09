@@ -17,7 +17,7 @@ from .lossless import (
     parse_schedule,
 )
 
-WELLS_SCHEDULE_FILE_NAME: str = "wells_schedule.inc"
+WELLS_SCHEDULE_FILE_NAME: str = "well_schedule.inc"
 
 _FUND_KEYWORDS: frozenset[str] = frozenset({"WCONPROD", "WCONINJE"})
 
@@ -315,8 +315,10 @@ class ScheduleRoundTripReport:
 
 
 def verify_schedule_round_trip(
-    schedule: Schedule, raw: bytes
+    schedule: Schedule, raw: bytes, *, history_prefix: bytes = b""
 ) -> ScheduleRoundTripReport:
+    submitted_raw = raw
+    raw = history_prefix + raw
     try:
         parsed = parse_schedule(raw)
     except ScheduleParseError as error:
@@ -340,8 +342,8 @@ def verify_schedule_round_trip(
     return ScheduleRoundTripReport(
         source_hash=hash_schedule(source),
         reparsed_hash=hash_schedule(reparsed),
-        content_hash=content_hash(raw),
-        n_bytes=len(raw),
+        content_hash=content_hash(submitted_raw),
+        n_bytes=len(submitted_raw),
         divergence=_first_control_divergence(
             source.control_events, reparsed.control_events
         ),

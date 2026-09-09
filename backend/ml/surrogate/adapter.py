@@ -49,7 +49,9 @@ from backend.infrastructure.opm.response_loader import _build_well_timelines, _f
 
 from .raw_model_output import RawModelOutput
 
-_HISTORY_HORIZON = 147  # deck_date_index 0…146 — историческая часть StateAtDate
+from backend.core.horizon import HORIZON
+
+_HISTORY_HORIZON = HORIZON.history_offset + 1
 
 
 class AdapterError(ValueError):

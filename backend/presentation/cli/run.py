@@ -38,6 +38,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--runs-root", type=Path, default=out_root() / "runs")
     parser.add_argument("--model-dir", type=Path, default=None)
+    parser.add_argument("--budget", type=int, default=None, help="число оценок поиска")
+    parser.add_argument("--seed", type=int, default=None, help="seed независимого поиска")
     parser.add_argument(
         "--case",
         type=Path,
@@ -158,7 +160,14 @@ def main(argv: list[str] | None = None) -> int:
         from backend.application.optimization.search_run import run_search
         from backend.application.optimization.verification_run import verify_schedule
 
-        outcome = run_search(case_path=case_path)
+        search_options = {}
+        if args.budget is not None:
+            if args.budget <= 0:
+                raise SystemExit("--budget должен быть положительным")
+            search_options["budget"] = args.budget
+        if args.seed is not None:
+            search_options["seed"] = args.seed
+        outcome = run_search(case_path=case_path, **search_options)
         run_id = args.run_id or datetime.now().strftime("run-%Y%m%d-%H%M%S")
         request = RunRequest(
             run_id,

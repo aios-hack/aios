@@ -86,7 +86,9 @@ _UNCONSTRAINED_FIELD_LIMIT_M3_PER_DAY = 1.0e7
 PHYSICAL_HEADROOM = 1.2
 SETPOINT_STEP_M3_PER_DAY = 1.0
 WATER_COMMAND_SAFETY_FACTOR = 0.95
-_HISTORY_DECK_OFFSET = 146
+from backend.core.horizon import HORIZON
+
+_HISTORY_DECK_OFFSET = HORIZON.history_offset
 _SCHEDULE_INCLUDE = "Model_Z_sch.inc"
 _DIFFERENTIAL_INVARIANT_NAMES: tuple[str, ...] = (
     Invariant.INJECTION_RESPONSE.value,
@@ -574,6 +576,15 @@ def load_environment(
     normatives = load_normatives(normatives_path)
     policies = default_policies()
     feature_context = ModelZFeatureArtifact.load(feature_context_path)
+    expected_dates = tuple(parsed.dates[parsed.t0_deck_date_index:])
+    if tuple(feature_context.context.control_dates) != expected_dates:
+        raise ScheduleSearchError(
+            "Период весов не совпадает с периодом дека: нужны совместимые "
+            "веса/контекст для нового кейса; изменение AIOS_HORIZON_PATH "
+            "само по себе не переносит суррогат на другой период"
+        )
+    if len(parsed.dates) != HORIZON.n_deck_dates or parsed.t0_deck_date_index != HORIZON.history_offset:
+        raise ScheduleSearchError("Размеры дека не совпадают с AIOS_HORIZON_PATH")
     model = (
         TrajectoryEnsemble.load(checkpoint_path)
         if Path(checkpoint_path).suffix == ".json"

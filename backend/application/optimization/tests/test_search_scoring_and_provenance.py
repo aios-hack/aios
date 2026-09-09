@@ -503,6 +503,7 @@ _RUN_SEARCH_IMPORT_SOURCES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ),
     ("backend.infrastructure.resources", ("chdd_python_dir", "model_z_dir")),
     ("backend.application.cases", ("load_case",)),
+    ("backend.core.paths", ("data_root",)),
     ("backend.domain.configuration.constraints_io", ("constraints_hash",)),
 )
 

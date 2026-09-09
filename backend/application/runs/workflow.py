@@ -22,7 +22,7 @@ from backend.domain.schedule.emit import (
     verify_schedule_round_trip,
 )
 from backend.domain.schedule.json_io import load_schedule_json
-from backend.infrastructure.opm.opm_deck import render_control_period_include
+from backend.infrastructure.opm.opm_deck import render_control_period_include, render_submission_history
 
 
 class WorkflowStatus(Enum):
@@ -295,7 +295,8 @@ class RunWorkflow:
             )
         schedule = self._read_schedule(run_dir)
         emitted = render_control_period_include(schedule, model_dir)
-        verify_schedule_round_trip(schedule, emitted.raw).raise_if_broken()
+        history = render_submission_history(schedule, model_dir)
+        verify_schedule_round_trip(schedule, emitted.raw, history_prefix=history).raise_if_broken()
         submission_dir = run_dir / "submission"
         schedule_path = submission_dir / WELLS_SCHEDULE_FILE_NAME
         bundle = SubmissionBundle(
@@ -336,6 +337,8 @@ class RunWorkflow:
             encoding="utf-8",
         )
         self._copy_evidence(run_dir, submission_dir)
+        (submission_dir / "validation").mkdir(exist_ok=True)
+        (submission_dir / "validation" / "history.inc").write_bytes(history)
         submitted = RunManifest(
             **{
                 **{

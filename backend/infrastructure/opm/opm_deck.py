@@ -536,20 +536,21 @@ def render_control_period_include(
 ) -> EmittedSchedule:
     full = render_schedule_include(schedule, model_dir)
     parsed = parse_schedule(full.raw)
-    raw = b"".join(
-        (
-            _deck_preamble(parsed),
-            _render_dates(_seed_date(schedule.meta.t0)),
-            _render_initial_state(schedule.meta.wells, schedule.initial_state),
-            full.raw[_control_period_offset(parsed) :],
-        )
-    )
+    # The organizer appends this include to their history. No WELSPECS,
+    # historical controls or synthetic pre-t0 date belong in the submission.
+    raw = full.raw[_control_period_offset(parsed) :]
     return EmittedSchedule(
         raw=raw,
         content_hash=hashlib.sha256(raw).hexdigest(),
         model_dir=full.model_dir,
         opm_schedule_source=full.opm_schedule_source,
     )
+
+
+def render_submission_history(schedule: Schedule, model_dir: Path | str) -> bytes:
+    """Local validation context; never part of well_schedule.inc."""
+    full = render_schedule_include(schedule, model_dir)
+    return full.raw[:_control_period_offset(parse_schedule(full.raw))]
 
 
 class OpmDeckEmitter:
@@ -575,6 +576,9 @@ class OpmDeckEmitter:
             )
 
     def _validate(self, schedule: Schedule) -> None:
+        from backend.core.horizon import HORIZON
+        if len(self._parsed.dates) != HORIZON.n_deck_dates or self._parsed.t0_deck_date_index != HORIZON.history_offset:
+            raise OpmDeckError("Даты полного дека не совпадают с AIOS_HORIZON_PATH")
         meta = schedule.meta
         if meta.model != "Model_Z" or meta.t0 != T0:
             raise OpmDeckError(f"ожидался Model_Z с t0={T0}")

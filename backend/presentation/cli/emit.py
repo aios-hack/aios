@@ -12,7 +12,7 @@ from .paths import model_z_schedule, require
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="aios emit",
-        description="Эмит wells_schedule.inc из дека организаторов через LosslessEmitter.",
+        description="Эмит well_schedule.inc из дека организаторов через LosslessEmitter.",
     )
     parser.add_argument("--out", type=Path, default=Path("/out"))
     parser.add_argument("--deck", type=Path, default=None)

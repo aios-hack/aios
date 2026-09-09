@@ -56,7 +56,9 @@ from backend.infrastructure.resources import chdd_python_dir, model_z_dir
 from backend.application.cases import load_case
 from backend.domain.configuration.constraints_io import constraints_hash
 
-RESPONSE = Path("data/base_case/response.json")
+from backend.core.paths import data_root
+
+RESPONSE = data_root() / "base_case/response.json"
 CONSTRAINTS = Path(
     os.environ.get("AIOS_CONSTRAINTS_PATH", "config/competition-constraints.json")
 )
@@ -1280,6 +1282,7 @@ def run_search(
     case_path: Path | None = None,
     search_cap: int = SEARCH_CAP,
     final_cap: int = FINAL_CAP,
+    seed: int = SEED,
 ) -> SearchOutcome:
     if search_cap <= 0 or final_cap <= 0:
         raise SearchRunError(
@@ -1327,7 +1330,7 @@ def run_search(
         "model_version": env.model.version,
         "lambda_window": f"{env.lambda_.window_start}..{env.lambda_.window_end}",
         "lambda_stability": f"{env.lambda_.stability:.3f}",
-        "seed": str(SEED),
+        "seed": str(seed),
         "runtime_artifact_source": artifacts.source,
         "feature_context_sha256": _artifact_sha256(
             artifacts.feature_context, "feature_context"
@@ -1464,7 +1467,7 @@ def run_search(
     )
     started = time.monotonic()
     report = optimize(
-        objective, search_start, seed=SEED, max_evaluations=budget
+        objective, search_start, seed=seed, max_evaluations=budget
     )
     elapsed = time.monotonic() - started
     print(

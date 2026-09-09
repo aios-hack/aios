@@ -1,0 +1,179 @@
+"""Bounded surrogate search with OPM finalists and a durable verified incumbent."""
+from __future__ import annotations
+
+import argparse
+import json
+import random
+from dataclasses import replace
+from pathlib import Path
+from types import SimpleNamespace
+
+from backend.application.cases import load_case
+from backend.application.optimization.champion import promote_champion
+from backend.application.optimization.runtime_artifacts import (
+    resolve_runtime_artifacts, resolve_lambda_selection, resolve_ood_threshold,
+    validate_runtime_economic_head,
+)
+from backend.application.optimization.schedule_search import load_environment, make_evaluator
+from backend.application.optimization.search_run import (
+    _peak_step_production, _repair_predicted_water_balance,
+    _injection_transfer_plan, _transfer_injection, run_search,
+)
+from backend.application.optimization.verification_run import verify_schedule
+from backend.application.runs import RunRequest, RunWorkflow
+from backend.core.contracts import EventKind, hash_schedule
+from backend.core.horizon import HORIZON
+from backend.core.paths import data_root
+from backend.domain.schedule import build_schedule, canonicalize, parse_schedule, validate_static
+from backend.domain.schedule.case_limits import apply_case_limits
+from backend.infrastructure.opm.opm_deck import render_schedule_include
+from backend.infrastructure.resources import model_z_dir, normatives_xlsx
+from backend.presentation.cli.run import build_provenance, require_docker
+from backend.presentation.cli.selfcheck import check_submission
+
+
+def local_candidates(schedule, lambda_, count, seed):
+    """Connectivity transfers and rate changes over several time scales."""
+    rng = random.Random(seed)
+    yield schedule
+    for donor, receiver, volume in _injection_transfer_plan(lambda_, schedule, count // 3):
+        yield _transfer_injection(schedule, donor, receiver, volume)
+    wells = sorted({e.well for e in schedule.control_events if e.value is not None})
+    if not wells:
+        return
+    for _ in range(count):
+        well = rng.choice(wells)
+        start = rng.randrange(schedule.meta.n_intervals)
+        duration = rng.choice((12, 36, schedule.meta.n_intervals))
+        scale = rng.choice((0.85, 0.95, 1.05, 1.15))
+        events = tuple(
+            replace(e, value=min(500.0, e.value * scale)
+                    if e.kind is EventKind.SET_LRAT else e.value * scale)
+            if e.well == well and e.value is not None and start <= e.control_step < start + duration
+            else e for e in schedule.control_events
+        )
+        yield canonicalize(replace(schedule, control_events=events))
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--case", type=Path, required=True)
+    parser.add_argument("--root", type=Path, required=True, help="новый каталог кампании")
+    parser.add_argument("--evaluations", type=int, default=120)
+    parser.add_argument("--opm-budget", type=int, default=8)
+    parser.add_argument("--rounds", type=int, default=3)
+    parser.add_argument("--seed", type=int, default=20260911)
+    parser.add_argument("--global-search", action="store_true", help="добавить CMA-ES в каждом раунде")
+    args = parser.parse_args(argv)
+    if min(args.evaluations, args.opm_budget, args.rounds) < 1:
+        parser.error("budgets must be positive")
+    if args.root.exists():
+        parser.error("root already exists; use a new campaign directory")
+    require_docker()
+    constraints = load_case(args.case)
+    artifacts = resolve_runtime_artifacts()
+    selection = resolve_lambda_selection(feature_context=artifacts.feature_context)
+    env = load_environment(
+        model_dir=model_z_dir(), normatives_path=normatives_xlsx(),
+        response_path=data_root() / "base_case/response.json",
+        checkpoint_path=artifacts.checkpoint, feature_context_path=artifacts.feature_context,
+        npv_head_path=artifacts.npv_head, npv_calibration_path=artifacts.npv_calibration,
+        scenario_ood_path=artifacts.scenario_ood, lambda_path=selection.path,
+        constraints=constraints, ood_threshold=resolve_ood_threshold().value,
+    )
+    validate_runtime_economic_head(artifacts, env.npv_head)
+    evaluator = make_evaluator(env)
+    args.root.mkdir(parents=True)
+    (args.root / "horizon.json").write_text(json.dumps({
+        "t0": HORIZON.t0.isoformat(), "n_intervals": HORIZON.n_intervals,
+        "n_deck_dates": HORIZON.n_deck_dates, "discount_base_year": HORIZON.discount_base_year,
+    }, indent=2) + "\n")
+    workflow = RunWorkflow(args.root / "runs")
+    champion_path = args.root / "champion.json"
+    seen = set()
+    attempted = 0
+    records = []
+    incumbent = None
+
+    def record(item):
+        records.append(item)
+        (args.root / "evaluations.json").write_text(json.dumps(records, ensure_ascii=False, indent=2) + "\n")
+
+    def verify(candidate, predicted, label):
+        nonlocal attempted, incumbent
+        digest = hash_schedule(candidate)
+        if digest in seen or attempted >= args.opm_budget:
+            return
+        seen.add(digest)
+        static = validate_static(candidate, constraints)
+        if not static.ok:
+            record({"label": label, "schedule_hash": digest, "stage": "static-rejected", "violations": len(static.violations)})
+            return
+        attempted += 1
+        run_id = f"candidate-{attempted:03d}"
+        outcome = SimpleNamespace(provenance={"seed": str(args.seed), "search_strategy": label})
+        request = RunRequest(run_id, candidate, predicted, constraints, build_provenance(outcome, constraints))
+        workflow.search(request)
+        print(f"OPM {attempted}/{args.opm_budget}: {label}, {digest}", flush=True)
+        # Unexpected runtime failures stop the campaign; the last champion stays on disk.
+        manifest = workflow.verify(request, lambda s, root: verify_schedule(s, root, constraints=constraints))
+        run_dir = args.root / "runs" / run_id
+        economics = json.loads((run_dir / "economics/result.json").read_text())
+        item = {"run_id": run_id, "label": label, "schedule_hash": digest,
+                "sound": manifest.sound, "verified_npv_rub": manifest.verified_npv,
+                "predicted_npv_rub": predicted, "constraints_hash": manifest.constraints_hash,
+                "deck_hash": manifest.deck_hash, "opm_image": manifest.opm_image,
+                "economics_config_hash": economics["economics_config_hash"],
+                "methodology_version_hash": economics["methodology_version_hash"]}
+        if manifest.sound:
+            # Assemble and verify before promoting, so champion always has a usable package.
+            report = workflow.submit(run_id, model_z_dir())
+            if not all(line.passed for line in check_submission(report.directory)):
+                raise RuntimeError("submission selfcheck failed")
+            item["submission"] = str(report.directory.resolve())
+            if promote_champion(champion_path, item):
+                incumbent = candidate
+                print(f"CHAMPION: {manifest.verified_npv:,.2f} RUB", flush=True)
+        record(item)
+
+    def expressible(schedule):
+        rendered = render_schedule_include(schedule, model_z_dir())
+        return build_schedule(parse_schedule(rendered.raw), rendered.raw)
+
+    baseline = expressible(env.base_schedule)
+    verify(baseline, None, "original-baseline")
+    projected = apply_case_limits(baseline, constraints, env.control_dates, _peak_step_production(env, evaluator))
+    for round_index in range(args.rounds):
+        if attempted >= args.opm_budget:
+            break
+        anchor = incumbent if incumbent is not None else projected
+        candidates = list(local_candidates(anchor, env.lambda_, args.evaluations, args.seed + round_index))
+        if args.global_search:
+            outcome = run_search(budget=args.evaluations, case_path=args.case, seed=args.seed + round_index)
+            candidates.insert(0, outcome.schedule)
+        ranked = {}
+        for index, candidate in enumerate(candidates):
+            try:
+                repaired, evaluation, _, _ = _repair_predicted_water_balance(env, evaluator, candidate)
+                repaired = expressible(repaired)
+                # Rank the exact schedule that will go to OPM, after include normalization.
+                score = evaluator(repaired).npv
+                digest = hash_schedule(repaired)
+                if digest not in seen and validate_static(repaired, constraints).ok:
+                    ranked[digest] = (score, repaired)
+            except ValueError as error:
+                record({"round": round_index, "candidate": index, "stage": "surrogate-rejected", "reason": str(error)})
+            if index % 10 == 0:
+                print(f"round {round_index + 1}: scored {index + 1}/{len(candidates)}, eligible {len(ranked)}", flush=True)
+        slots = max(1, (args.opm_budget - attempted) // (args.rounds - round_index))
+        for score, candidate in sorted(ranked.values(), key=lambda item: item[0], reverse=True)[:slots]:
+            verify(candidate, score, f"local-round-{round_index + 1}")
+    if not champion_path.exists():
+        print("No OPM-verified admissible champion. See evaluations.json.")
+        return 2
+    print(champion_path.read_text(), flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

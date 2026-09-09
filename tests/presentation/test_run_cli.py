@@ -343,7 +343,7 @@ def test_submit_prints_the_package_the_claimed_number_and_every_hash(
         )
     )
     assert str(tmp_path / "runs" / "submittable" / "submission") in printed
-    assert "wells_schedule.inc" in printed
+    assert "well_schedule.inc" in printed
     assert f"{bundle.claimed_npv_rub:.2f}" in printed
     for name in SUBMISSION_BUNDLE_FIELDS:
         if name == "claimed_npv_rub":
@@ -362,12 +362,12 @@ def test_submit_through_the_cli_is_idempotent(tmp_path, capsys) -> None:
     first = capsys.readouterr().out
     package = tmp_path / "runs" / "submittable" / "submission"
     names = sorted(path.name for path in package.iterdir())
-    schedule_bytes = (package / "wells_schedule.inc").read_bytes()
+    schedule_bytes = (package / "well_schedule.inc").read_bytes()
 
     assert main(argv) == 0
     assert capsys.readouterr().out == first
     assert sorted(path.name for path in package.iterdir()) == names
-    assert (package / "wells_schedule.inc").read_bytes() == schedule_bytes
+    assert (package / "well_schedule.inc").read_bytes() == schedule_bytes
 
 
 def test_the_cli_reports_the_reason_a_package_was_not_built(tmp_path) -> None:

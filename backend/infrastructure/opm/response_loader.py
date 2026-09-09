@@ -429,9 +429,9 @@ def _build_well_timelines(schedule: Schedule) -> dict[str, _WellTimeline]:
 def _control_step_for_date(deck_date_index: int) -> int | None:
     """control_step, чьё решение действует на эту дату; None — до начала горизонта (§1.2)."""
 
-    if deck_date_index < 146:
+    if deck_date_index < N_DECK_DATES - N_INTERVALS - 1:
         return None
-    return deck_date_index - 147  # -1 (ровно StateAtDate[146]) .. 223
+    return deck_date_index - (N_DECK_DATES - N_INTERVALS)
 
 
 def _fallback_control_mode(
@@ -549,7 +549,7 @@ def _build_interval_response(
         injection_diff = [injection_cum[i + 1] - injection_cum[i] for i in range(N_DECK_DATES - 1)]
         # Шаг 2: IntervalResponse[k] = raw_diff[146+k], k=0..223 — простая переиндексация.
         for k in range(N_INTERVALS):
-            i = 146 + k
+            i = N_DECK_DATES - N_INTERVALS - 1 + k
             result.append(
                 IntervalResponse(
                     control_step=k,

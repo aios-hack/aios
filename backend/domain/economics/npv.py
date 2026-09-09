@@ -18,7 +18,9 @@ from backend.core.contracts import (
 from .esp import EspStateMachine
 from .ledger import ProductionLedger, build_production_ledger
 
-DISCOUNT_BASE_YEAR: int = 2007
+from backend.core.horizon import HORIZON
+
+DISCOUNT_BASE_YEAR: int = HORIZON.discount_base_year
 MONTHS_PER_YEAR: int = 12
 
 ZERO_LINE_ITEMS: LineItems = LineItems(

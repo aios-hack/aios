@@ -5,8 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-N_DECK_DATES = 371
-N_INTERVALS = 224
+from backend.core.horizon import HORIZON
+
+N_DECK_DATES = HORIZON.n_deck_dates
+N_INTERVALS = HORIZON.n_intervals
 
 
 class ActiveControlMode(Enum):
@@ -134,8 +136,8 @@ def join_by_control_step(
             StatePair(
                 control_step=k,
                 response=interval_responses[(k, well)],
-                current_state=states_at_date[(147 + k, well)],
-                previous_state=states_at_date[(146 + k, well)],
+                current_state=states_at_date[(HORIZON.history_offset + 1 + k, well)],
+                previous_state=states_at_date[(HORIZON.history_offset + k, well)],
             )
         )
     return pairs

@@ -112,7 +112,7 @@ def test_a_genuine_submission_package_passes(tmp_path, capsys) -> None:
 
 def test_one_flipped_byte_in_the_include_fails(tmp_path, capsys) -> None:
     directory = build_submission(tmp_path)
-    schedule_path = directory / "wells_schedule.inc"
+    schedule_path = directory / "well_schedule.inc"
     raw = bytearray(schedule_path.read_bytes())
     position = raw.index(b"100.0") + 4
     raw[position] = raw[position] + 1
@@ -127,7 +127,7 @@ def test_one_flipped_byte_in_the_include_fails(tmp_path, capsys) -> None:
 
 def test_a_single_whitespace_byte_appended_to_the_include_fails(tmp_path) -> None:
     directory = build_submission(tmp_path)
-    schedule_path = directory / "wells_schedule.inc"
+    schedule_path = directory / "well_schedule.inc"
     schedule_path.write_bytes(schedule_path.read_bytes() + b" ")
 
     assert selfcheck.main(["--submission", str(directory)]) != 0
@@ -184,7 +184,7 @@ def test_a_claimed_npv_without_the_hash_fields_is_a_refusal(tmp_path, capsys) ->
 
 def test_a_missing_include_is_a_refusal(tmp_path, capsys) -> None:
     directory = build_submission(tmp_path)
-    (directory / "wells_schedule.inc").unlink()
+    (directory / "well_schedule.inc").unlink()
 
     assert selfcheck.main(["--submission", str(directory)]) != 0
 

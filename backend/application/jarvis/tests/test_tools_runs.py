@@ -117,7 +117,7 @@ def write_submission(run_dir: Path, claimed: float = CLAIMED_NPV) -> dict[str, A
         json.dumps(document, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    (submission_dir / "wells_schedule.inc").write_bytes(b"SCHEDULE\n/\n")
+    (submission_dir / "well_schedule.inc").write_bytes(b"SCHEDULE\n/\n")
     manifest["status"] = "ready_to_submit"
     (run_dir / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",

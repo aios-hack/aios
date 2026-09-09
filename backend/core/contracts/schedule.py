@@ -7,9 +7,11 @@ from datetime import date
 from enum import Enum
 from typing import Mapping, Sequence
 
-N_CONTROL_DATES = 225
-N_INTERVALS = 224
-T0 = date(2007, 1, 1)
+from backend.core.horizon import HORIZON
+
+N_CONTROL_DATES = HORIZON.n_intervals + 1
+N_INTERVALS = HORIZON.n_intervals
+T0 = HORIZON.t0
 
 # Жёсткий потолок Методики: «Дебит жидкости добывающей скважины свыше
 # 500 м³/сут не допускается». Эталонный расчётчик на таком входе не считает,

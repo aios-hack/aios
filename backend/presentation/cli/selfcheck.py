@@ -137,7 +137,9 @@ def check_submission(directory: Path) -> list[CheckLine]:
     schedule_path = directory / WELLS_SCHEDULE_FILE_NAME
     claimed = _read_claimed_bundle(directory / CLAIMED_NPV_FILE_NAME)
     raw = _read_submitted_bytes(schedule_path)
-    actual_canonical = _canonical_hash_of(raw, schedule_path)
+    history_path = directory / "validation" / "history.inc"
+    history = history_path.read_bytes() if history_path.is_file() else b""
+    actual_canonical = _canonical_hash_of(history + raw, schedule_path)
     actual_content = content_hash(raw)
     claimed_canonical = str(claimed[CLAIMED_CANONICAL_FIELD])
     claimed_content = str(claimed[CLAIMED_CONTENT_FIELD])

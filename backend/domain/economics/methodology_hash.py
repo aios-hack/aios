@@ -12,7 +12,10 @@ xlsx) и `reference_parity.py` (гармонизация с эталоном) с
 from __future__ import annotations
 
 import hashlib
+import json
+from dataclasses import asdict
 from pathlib import Path
+from backend.core.horizon import HORIZON
 
 METHODOLOGY_FILES: tuple[str, ...] = (
     "npv.py",
@@ -29,4 +32,6 @@ def methodology_version_hash() -> str:
     digest = hashlib.sha256()
     for name in METHODOLOGY_FILES:
         digest.update((_PACKAGE_DIR / name).read_bytes())
+    # Period and discount origin affect money just as surely as formula code.
+    digest.update(json.dumps(asdict(HORIZON), default=str, sort_keys=True).encode())
     return digest.hexdigest()

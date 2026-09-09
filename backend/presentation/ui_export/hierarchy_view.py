@@ -36,7 +36,9 @@ from backend.domain.policy.state import PolicyState, RuleContext, WellObservatio
 from backend.domain.policy.theta import default_theta
 from backend.presentation.ui_export.timeline import _JSON_DIGITS
 
-HISTORY_DECK_OFFSET: int = 146
+from backend.core.horizon import HORIZON
+
+HISTORY_DECK_OFFSET: int = HORIZON.history_offset
 SETPOINT_STEP_M3_PER_DAY: float = 1.0
 DEFAULT_OIL_DENSITY_T_PER_M3: float = 0.86
 
