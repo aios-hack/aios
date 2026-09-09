@@ -166,6 +166,11 @@ def main(argv=None):
         })
         request = RunRequest(run_id, candidate, predicted, constraints, build_provenance(outcome, constraints))
         workflow.search(request)
+        from backend.domain.connectivity.groups_artifact import build_artifact, save as save_groups
+        grouping, _ = build_artifact(env.lambda_, extra_wells=candidate.meta.wells)
+        if grouping.groups != env.groups:
+            raise RuntimeError("Search and verification groups differ")
+        save_groups(grouping, args.root / "runs" / run_id / "inputs/groups.json")
         print(f"OPM {attempted}/{args.opm_budget}: {label}, {digest}", flush=True)
         # Unexpected runtime failures stop the campaign; the last champion stays on disk.
         run_dir = args.root / "runs" / run_id

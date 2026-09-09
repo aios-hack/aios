@@ -264,12 +264,23 @@ def verify_schedule_with_guard(
         encoding="utf-8",
     )
     guard.raise_if_broken()
+    from backend.domain.connectivity.groups_artifact import load as load_groups, save as save_groups, build_artifact
+    saved_run = _guard_run_dir(work_root, run_dir)
+    groups_path = saved_run / "inputs/groups.json" if saved_run is not None else None
+    if groups_path is not None and groups_path.is_file():
+        recorded_groups = load_groups(groups_path).groups
+        if groups is not None and groups != recorded_groups:
+            raise VerificationGuardError("Переданная нарезка отличается от сохранённых участков прогона")
+        groups = recorded_groups
     if groups is None and compensation_policy(used_constraints).scope == "field_and_groups":
-        from backend.domain.connectivity.groups import GroupingParams, build_groups
         from backend.domain.connectivity.measure import load_lambda
         from backend.application.optimization.runtime_artifacts import resolve_lambda_selection
         selection = resolve_lambda_selection()
-        groups, _ = build_groups(load_lambda(selection.path), GroupingParams(), extra_wells=schedule.meta.wells)
+        artifact, _ = build_artifact(load_lambda(selection.path), extra_wells=schedule.meta.wells)
+        groups = artifact.groups
+        if groups_path is not None:
+            groups_path.parent.mkdir(parents=True, exist_ok=True)
+            save_groups(artifact, groups_path)
     for check in guard.unchecked:
         print(
             f"ВНИМАНИЕ: {check.name} не сверяется — эталон отсутствует, "

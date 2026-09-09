@@ -340,6 +340,10 @@ class RunWorkflow:
         self._copy_evidence(run_dir, submission_dir)
         (submission_dir / "validation").mkdir(exist_ok=True)
         (submission_dir / "validation" / "history.inc").write_bytes(history)
+        for name in ("horizon.json", "groups.json"):
+            source = run_dir / "inputs" / name
+            if source.is_file():
+                shutil.copy2(source, submission_dir / "validation" / name)
         submitted = RunManifest(
             **{
                 **{
