@@ -1,65 +1,3 @@
-"""Первый собственный `Schedule*` — задача G5, docs/v2/tasks/integration.md.
-
-Склеивает то, что уже написано и протестировано раздельно: суррогат
-(`surrogate/`), правила и агентскую иерархию (`policy/`), неподвижную точку
-(`policy/fixed_point.py`), границу оптимизатора (`optimizer/interface.py`) и
-сам поиск (`optimizer/search.py`). Ни одна из этих частей не связывала
-остальные в один сквозной прогон θ → Schedule* — этот файл и есть та связка.
-
-## Откуда берётся наблюдение по скважине на каждом шаге
-
-`PolicyState`/`WellObservation` за шаг требует роль, "открыта ли" скважина,
-физический дебит/приёмистость и текущую уставку.
-
-- **Физические дебиты** (`liquid_rate`, `oil_rate`, `injection_rate`) — из
-  `StateAtDate` предсказания суррогата на `deck_date_index = 146 + step`
-  (README.md §5: это дата начала интервала управления `step`).
-- **Роль, "открыта", уставка** — не из отклика, а из **собственного**
-  состояния расписания, которое строит этот же цикл: они полностью
-  определяются накопленными до сих пор решениями (`ControlEvent`). Отклик
-  сообщает только физику, а не то, что было скомандовано — альтернативы для
-  ещё не существующего расписания просто нет.
-
-## Память между шагами
-
-`policy/rules/r3.py` — единственное правило с готовой `advance()` (месяцы
-убытка/прибыли для гистерезиса R3). `R1`, `R2`, `R5` памяти не читают.
-`R6` (перевод под закачку) читает `memory.converted_to_injection` — эту
-запись пишет сам факт применения решения `CONVERT_INJ`, здесь же.
-`R4` (порог ЭЦН) читает `memory.esp_nominal_m3_per_day`, но модуля `advance`
-для него нет: типоразмер обязан не убывать (`WellMemory.with_esp` — храповик,
-`08_contracts.md` §5.1), поэтому корректное обновление после шага —
-`max(текущий, размер_под_фактически_достигнутый_дебит)`. Это прямое
-следствие храповика, а не отдельное предположение.
-
-## Bootstrap неподвижной точки
-
-Первый вызов `policy` внутри `policy.fixed_point.resolve` получает
-`initial_state` — настоящий отклик базового прогона
-(`aios/data/base_case/response.json`, задача G1), не синтетику: он
-физически существует и уже прошёл приёмку. Последующие вызовы получают
-предсказание суррогата на предыдущей `Schedule*`-кандидатуре — ровно то, что
-и задумано неподвижной точкой.
-
-## Groups/Lambda — та же честная заглушка, что и в G3
-
-Настоящая λ требует серии экспериментов с отклонениями закачки, которой нет
-(`ui/base_artifact.py::_trivial_connectivity`). Здесь используется та же
-заглушка: одна группа на весь фонд, нулевая матрица влияния правильной
-формы. Из-за этого R1/R5 не видят межскважинного переноса ценности — весь
-фонд для них одна группа без внутренней конкуренции за лимит. Это
-ограничение заглушки, а не этого файла — унаследовано открыто, не спрятано.
-
-## Лимит закачки при пустом `Constraints`
-
-`Constraints()` пустой означает «нет ограничений сверх физических»
-(докстринг `contracts/constraints.py`), но `field_limit_from_constraints`
-требует явного числа на год. Вместо нужен явно не связывающий лимит
-(`_UNCONSTRAINED_FIELD_LIMIT_M3_PER_DAY`, на порядки больше физической
-мощности месторождения) — чтобы R1 распределял закачку по предельной
-ценности, а не упирался в искусственный потолок.
-"""
-
 from __future__ import annotations
 
 from backend.ml.surrogate.npv_block_head import BlockKernelNpvHead, load_direct_npv_head
@@ -69,6 +7,7 @@ from backend.ml.surrogate.ood import OodScore
 from backend.ml.surrogate.physics_checks import PhysicsReport, Severity, severity_of, check_prediction
 from backend.ml.surrogate.scenario_ood import ScenarioDensityDomain
 from backend.ml.surrogate.npv_calibration import NpvCalibration
+from backend.ml.surrogate.raw_model_output import RawModelOutput
 
 
 import hashlib
@@ -76,6 +15,7 @@ import math
 from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
+from types import MappingProxyType
 from typing import Callable, Mapping, Sequence
 
 from backend.domain.configuration.schema import default_policies
@@ -98,7 +38,8 @@ from backend.core.contracts import (
     hash_schedule,
     water_supply_policy,
 )
-from backend.domain.connectivity.groups import GroupingParams, group_hash, lambda_hash
+from backend.domain.connectivity.groups import GroupingParams, build_groups, group_hash, lambda_hash
+from backend.domain.connectivity.measure import load_lambda
 from backend.domain.economics import analyze_base_case, load_normatives, load_response_artifact
 from backend.domain.policy.agents.projection import (
     HardConstraints,
@@ -126,16 +67,10 @@ UNCONSTRAINED_WELLS = HardConstraints(well_cap_m3_per_day={})
 
 _UNCONSTRAINED_FIELD_LIMIT_M3_PER_DAY = 1.0e7
 
-#: Во сколько раз плану позволено превысить то, что месторождение делало в
-#: базовом расписании. Запас, а не потолок с потолка: инфраструктура ППД
-#: рассчитана на исторические объёмы, и просить у неё кратно больше — это
-#: не оптимизация, а невыполнимая команда, которую симулятор молча
-#: проигнорирует (прогон G7 20.08: 22 скважины остались закрытыми, 1553
-#: нарушения MODE_CONTRADICTS_SCHEDULE).
 PHYSICAL_HEADROOM = 1.2
 SETPOINT_STEP_M3_PER_DAY = 1.0
 WATER_COMMAND_SAFETY_FACTOR = 0.95
-_HISTORY_DECK_OFFSET = 146  # README.md §5: deck_date_index шага = 146 + control_step
+_HISTORY_DECK_OFFSET = 146
 _SCHEDULE_INCLUDE = "Model_Z_sch.inc"
 
 
@@ -176,7 +111,6 @@ def _validate_npv_head_compatibility(
 
 
 class OutOfDomainScheduleError(ScheduleSearchError):
-    """A candidate left the training trust region and must not be optimized."""
 
     def __init__(self, score: float, description: str) -> None:
         self.score = float(score)
@@ -187,13 +121,6 @@ class OutOfDomainScheduleError(ScheduleSearchError):
 
 
 class PhysicallyImpossibleScheduleError(ScheduleSearchError):
-    """Прогноз кандидата нарушает физический инвариант — S-04.
-
-    Отдельный тип, а не общая ошибка поиска: причина отказа обязана дойти до
-    трассы выбора неизменной. Нарушение физики — не штраф в ЧДД, который
-    оптимизатор мог бы «окупить» другими статьями, а запрет: кандидат не
-    оценивается и в OPM-пакет не попадает.
-    """
 
     def __init__(self, counts: Mapping[str, int], description: str) -> None:
         self.counts = dict(counts)
@@ -206,12 +133,6 @@ def _enforce_physics(
     enabled: bool,
     baseline: Mapping[str, int] | None = None,
 ) -> None:
-    """Block every impossible prediction, including violations shared with an anchor.
-
-    ``baseline`` is retained for callers of the old API, but counts never
-    excuse a violation on a different well/step. Fixed commissioning is now
-    interpreted consistently by features and response timelines.
-    """
 
     if not enabled or report.blocking_count == 0:
         return
@@ -237,15 +158,6 @@ def _enforce_physics(
 def _enforce_scenario_ood(
     model_input, model, domain: ScenarioDensityDomain | None
 ) -> None:
-    """Совместная плотность расписания — S-06.
-
-    Покомпонентный `OodScore` спрашивает про каждый признак по отдельности и
-    поэтому пропускает совместный сдвиг: на восьми кандидатах контура он даёт
-    ровно 0.0000, тогда как относительная ошибка ЧДД на них — 431% по медиане.
-    Сценарная плотность на тех же восьми даёт 87…146 при пороге 11.42, то есть
-    отвергает все с запасом от 7.6 до 12.8 раз. Проверки дополняют друг друга,
-    а не заменяют: первая ловит выход одного признака, вторая — режим целиком.
-    """
 
     if domain is None:
         return
@@ -264,7 +176,6 @@ def _enforce_scenario_ood(
 
 
 def _enforce_ood_threshold(ood: OodScore, threshold: float | None) -> None:
-    """Reject an extrapolating candidate before adapting or valuing its output."""
 
     if threshold is None or ood.inside(threshold):
         return
@@ -282,7 +193,6 @@ def _enforce_ood_threshold(ood: OodScore, threshold: float | None) -> None:
 
 
 def _trivial_connectivity(schedule: Schedule) -> tuple[Lambda, Groups]:
-    """Та же честная заглушка, что и в задаче G3 (`ui/base_artifact.py`)."""
 
     wells = schedule.meta.wells
     roles = {well: schedule.initial_state[well].role for well in wells}
@@ -313,7 +223,6 @@ def _trivial_connectivity(schedule: Schedule) -> tuple[Lambda, Groups]:
 
 @dataclass(frozen=True, slots=True)
 class SearchEnvironment:
-    """Всё, что нужно θ → Schedule* и не меняется между вызовами."""
 
     base_schedule: Schedule
     real_history: ResponseArtifact
@@ -334,14 +243,47 @@ class SearchEnvironment:
     npv_calibration: NpvCalibration | None = None
     physics_gate: bool = True
     ood_threshold: float = 0.0
+    reference_schedule: Schedule | None = None
+    reference_response: RawModelOutput | None = None
+    provenance: Mapping[str, str] = MappingProxyType({})
+
+    @property
+    def has_reference(self) -> bool:
+        return self.reference_schedule is not None and self.reference_response is not None
 
 
 @dataclass(frozen=True, slots=True)
 class PolicyFeedback:
-    """A response paired with the exact schedule that produced it."""
 
     response: ResponseArtifact
     schedule: Schedule
+
+
+def _build_reference(
+    base_schedule: Schedule,
+    feature_context: ModelZFeatureArtifact,
+    model: TrajectorySurrogate | TrajectoryEnsemble,
+) -> tuple[Schedule | None, RawModelOutput | None, str]:
+    reference_schedule = canonicalize(base_schedule)
+    try:
+        model_input = replace(
+            ScheduleFeatureizer().transform(reference_schedule, feature_context.context),
+            lambda_edges=(),
+        )
+        reference_response = model.predict(model_input).output
+    except ValueError as error:
+        return None, None, f"absent: прогноз суррогата на опоре не построен: {error}"
+    if reference_response.canonical_schedule_hash != hash_schedule(reference_schedule):
+        return (
+            None,
+            None,
+            "absent: прогноз опоры привязан к другому расписанию",
+        )
+    return (
+        reference_schedule,
+        reference_response,
+        "base-case-schedule+surrogate-prediction",
+    )
 
 
 def load_environment(
@@ -359,16 +301,6 @@ def load_environment(
     constraints: Constraints | None = None,
     ood_threshold: float = 0.0,
 ) -> SearchEnvironment:
-    """Окружение поиска. `lambda_path` — измеренная λ, если она уже есть.
-
-    Без неё берётся заглушка из докстринга модуля, и это видно по нулевой
-    матрице: при λ=0 правило R1 не различает скважины по предельной ценности
-    закачки и душит её по всему фонду, а ЧДД кандидата схлопывается. Путь
-    сюда передаёт тот, кто прогнал кампанию замера
-    (`connectivity/campaign.py`); файл читается `connectivity.measure.
-    load_lambda`, и его отсутствие по явно переданному пути — ошибка, а не
-    молчаливый откат к заглушке.
-    """
 
     case_constraints = Constraints() if constraints is None else constraints
     water_supply_policy(case_constraints)
@@ -400,14 +332,24 @@ def load_environment(
     if lambda_path is None:
         lambda_, groups = _trivial_connectivity(base_schedule)
     else:
-        from backend.domain.connectivity.groups import GroupingParams, build_groups
-        from backend.domain.connectivity.measure import load_lambda
-
         lambda_ = load_lambda(lambda_path)
         groups, _ = build_groups(
             lambda_, GroupingParams(), extra_wells=base_schedule.meta.wells
         )
     flags = RuleFlags(enabled=dict(DEFAULT_RULE_FLAGS))
+    reference_schedule, reference_response, reference_origin = _build_reference(
+        base_schedule, feature_context, model
+    )
+    provenance = MappingProxyType(
+        {
+            "reference": reference_origin,
+            "reference_schedule_hash": (
+                hash_schedule(reference_schedule)
+                if reference_schedule is not None
+                else "none"
+            ),
+        }
+    )
     return SearchEnvironment(
         base_schedule=base_schedule,
         real_history=real_history,
@@ -427,13 +369,13 @@ def load_environment(
         scenario_ood=scenario_ood,
         physics_gate=physics_gate,
         ood_threshold=ood_threshold,
+        reference_schedule=reference_schedule,
+        reference_response=reference_response,
+        provenance=provenance,
     )
 
 
 def _commission_steps(schedule: Schedule) -> dict[str, int]:
-    """Шаг, с которого скважина AVAILABLE — тем же критерием, что
-    `surrogate/schedule_roles.py::build_role_timelines` использует для смены
-    роли: `WCONPROD`/`WCONINJE` внутри горизонта — это и есть ввод."""
 
     steps: dict[str, int] = {}
     for well, state in schedule.initial_state.items():
@@ -449,7 +391,6 @@ def _flow_start_steps(
     schedule: Schedule,
     initial_rates: Mapping[str, tuple[float, float, float]] | None = None,
 ) -> dict[str, int]:
-    """First step at which a formally commissioned well can physically flow."""
 
     commissioned = _commission_steps(schedule)
     first_completion: dict[str, int] = {}
@@ -527,11 +468,6 @@ def _build_policy_state(
             continue
         liquid, oil, injection = rates.get(well, (0.0, 0.0, 0.0))
         liquid = max(liquid, 0.0)
-        # Реальный отклик у почти остановленных скважин иногда даёт
-        # oil_volume чуть больше liquid_rate (тот же класс шума, что и
-        # переток из SURROGATE_HANDOFF.md §6, там же клипуется отдельным
-        # порогом) — обводнённость уходит за [0, 1]. Клип по физике:
-        # нефти не может быть больше жидкости.
         oil = max(0.0, min(oil, liquid * oil_density_t_per_m3 * (1.0 - 1e-9)))
         observations[well] = WellObservation(
             well=well,
@@ -548,10 +484,6 @@ def _build_policy_state(
 def _group_injection_offtake(
     state: PolicyState, groups: Groups
 ) -> tuple[dict[str, float], dict[str, float]]:
-    """R5 (коридор компенсации) требует эти два словаря на входе `RuleContext`
-    (`docs/context/08_contracts.md`: компенсация — величина участка, не
-    скважины). Считается прямой суммой открытых скважин по роли, тем же
-    способом, что `group_demand_rub_per_m3` (R1) агрегирует спрос."""
 
     by_group = observations_by_group(state, groups)
     injection: dict[str, float] = {}
@@ -604,22 +536,6 @@ def _advance_memory(state: PolicyState, context: RuleContext, *, esp_catalog) ->
 
 
 def _physical_caps(schedule: Schedule) -> tuple[dict[str, float], float]:
-    """Потолок на скважину и на месторождение — из дека, а не из воздуха.
-
-    Потолок скважины — её собственный исторический максимум в базовом
-    расписании: скважина, которая никогда не брала больше 30 м³/сут, не
-    возьмёт и 584 тысячи, сколько бы ценности ни насчитало правило R1 по
-    измеренной λ. Потолок месторождения — базовая суммарная закачка на шаг,
-    обе величины с запасом `PHYSICAL_HEADROOM`.
-
-    Почему это понадобилось. `Constraints()` пустой означает «нет
-    ограничений сверх физических», и до измерения λ подстановка заведомо не
-    связывающего лимита была безобидной: при нулевой λ предельная ценность
-    закачки была нулём везде, и R1 всё равно ничего не раздавал. С настоящей
-    λ тот же лимит превратился в раздачу десяти миллионов кубов в сутки —
-    режим отказа перевернулся с «душит» на «заливает», и OPM ответил тем,
-    что оставил скважины закрытыми.
-    """
 
     per_well: dict[str, float] = {}
     by_step_injection: dict[int, float] = {}
@@ -649,13 +565,6 @@ def _interval_produced_water_rate_m3_per_day(
     control_dates: Sequence[date],
     oil_density_t_per_m3: float,
 ) -> float:
-    """Average produced-water rate in one control interval.
-
-    The source-water budget must be based on produced volumes, rather than on
-    an instantaneous state that can be noisy close to a shut-in.  Oil mass is
-    converted back to reservoir liquid volume with the same density used by
-    the economics and policy layers.
-    """
 
     if oil_density_t_per_m3 <= 0.0:
         raise ScheduleSearchError("плотность нефти должна быть положительной")
@@ -681,7 +590,6 @@ def _field_limit_for_step(
     control_step: int,
     produced_water_by_step: Sequence[float],
 ) -> float:
-    """Intersection of physical, scenario and source-water field limits."""
 
     limits = [physical_limit_m3_per_day]
     explicit = constraints.injection_limits.get(year)
@@ -744,14 +652,6 @@ def _outage_events(
 
 
 def _baseline_injection_by_step(schedule: Schedule) -> tuple[dict[str, float], ...]:
-    """Уставка закачки базового расписания на каждом шаге, плотно.
-
-    Базовое расписание разрежено: событие пишется только там, где величина
-    меняется. R1 же спрашивает про конкретный шаг, поэтому значения
-    протягиваются вперёд от `initial_state`. Закрытие скважины обнуляет
-    уставку до следующего `SET_RATE`: закачки у закрытой нет, и подставлять
-    ей прежний уровень значило бы обещать воду, которой не будет.
-    """
 
     current: dict[str, float] = {
         well: (
@@ -777,7 +677,6 @@ def _baseline_injection_by_step(schedule: Schedule) -> tuple[dict[str, float], .
 
 
 def _baseline_conversion_steps(schedule: Schedule) -> dict[str, int]:
-    """Шаг перевода под закачку в базовом расписании, по скважинам."""
 
     steps: dict[str, int] = {}
     for event in schedule.control_events:
@@ -794,12 +693,6 @@ def _admit(
     hard: HardConstraints,
     projection: Projection = project_to_hard_constraints,
 ) -> ControlEvent:
-    """Единственный вход в расписание: предложение → проекция → `pending`.
-
-    Ни один агент не пишет уставку мимо этой функции — на этом держится
-    протокол «агенты предлагают, проекция отсекает, OPM решает», и это
-    проверяет `policy/tests/test_projection_gate.py`.
-    """
 
     admitted = projection(event, hard)
     pending[(admitted.control_step, admitted.well, admitted.kind)] = admitted
@@ -817,22 +710,6 @@ def _emit_dense_layer(
     hard: HardConstraints,
     projection: Projection = project_to_hard_constraints,
 ) -> None:
-    """Дописать шаг до плотного слоя: у каждой скважины статус и уставка.
-
-    Правила решают не про каждую скважину на каждом шаге — они молчат там,
-    где менять нечего, и это правильно. Но `OpmDeckEmitter` требует плотный
-    слой: «control_step=0, well='1': плотный слой требует уставку и статус».
-    Разреженное расписание проходит `validate_static` и не эмитится в дек,
-    то есть до симулятора не доходит вовсе — на этом и остановился первый
-    прогон G7.
-
-    Плотность достраивается **из состояния, которое ведёт сам цикл**, а не
-    переносом событий базового расписания: перенос смешал бы наши решения с
-    чужими и на переведённой под закачку скважине оставил бы уставку отбора
-    организаторов. Молчание правила означает «оставить как есть» — ровно это
-    и записывается: текущий статус и текущая уставка в том виде, который
-    даёт роль скважины на этом шаге.
-    """
 
     for well in state.wells:
         role = current_role.get(well, Role.PROD)
@@ -870,20 +747,6 @@ def _close_producing_side_on_conversion(
     hard: HardConstraints,
     projection: Projection = project_to_hard_constraints,
 ) -> None:
-    """На шаге перевода уставка добывающей стороны — только ноль.
-
-    Правила совещаются на состоянии *до* решения: R2 назначает скважине
-    уровень отбора, а R6 в том же шаге переводит её под закачку. Оба решения
-    законны по отдельности, вместе дают `SET_LRAT` ненулевого значения
-    скважине, которая на этом же шаге стала нагнетательной, и
-    `validate_static` справедливо это отвергает.
-
-    Дек организаторов на своих переводах пишет ровно это: `CONVERT_INJ`,
-    `SET_LRAT 0.0` — закрытие добывающей стороны — и `SET_RATE` с целью
-    нового нагнетателя (`bridge/dataset_plan.py::materialize` следует тому же
-    правилу). Событие не выбрасывается, а обнуляется: выброшенное оставило бы
-    скважину с прежней уставкой отбора, то есть добывающей по смыслу.
-    """
 
     converted = {
         event.well for event in decisions if event.kind is EventKind.CONVERT_INJ
@@ -905,7 +768,6 @@ def _scale_step_injection_to_limit(
     hard: HardConstraints = UNCONSTRAINED_WELLS,
     projection: Projection = project_to_hard_constraints,
 ) -> float:
-    """Final material-balance guard for the dense command layer."""
 
     keys = [
         key
@@ -942,13 +804,6 @@ def _scale_step_injection_to_limit(
 
 
 def _relax_rate_layer(previous: Schedule, proposed: Schedule) -> Schedule:
-    """Damp continuous policy feedback while preserving physical water limits.
-
-    Production targets move halfway toward the fresh policy proposal and are
-    quantized down. Injection targets can only decrease from the previously
-    evaluated schedule; because the fresh proposal already obeys available
-    water, their component-wise minimum cannot violate that balance.
-    """
 
     rate_kinds = (EventKind.SET_LRAT, EventKind.SET_RATE)
     previous_rates = {
@@ -964,8 +819,6 @@ def _relax_rate_layer(previous: Schedule, proposed: Schedule) -> Schedule:
             continue
         value = float(event.value or 0.0)
         prior = previous_rates.get((event.control_step, event.well, event.kind))
-        # A zero proposed by conversion/outage/water shutdown is a hard
-        # discrete boundary, not a continuous target to damp.
         if prior is not None and value > 0.0:
             if event.kind is EventKind.SET_RATE:
                 value = min(value, prior)
@@ -998,12 +851,6 @@ def make_policy(
     water_reference_response: ResponseArtifact | None = None,
     projection: Projection = project_to_hard_constraints,
 ):
-    """Возвращает `Policy` (`object -> Schedule`) для одной θ.
-
-    `resolve()` (`policy/fixed_point.py`) не возвращает ничего, кроме
-    `Schedule`, из вызова `Policy` — `trace_sink` выносит последнюю собранную
-    `RunTrace` наружу через замыкание, чтобы её можно было прочитать после.
-    """
 
     wells = env.base_schedule.meta.wells
     commission_step = _commission_steps(env.base_schedule)
@@ -1016,8 +863,6 @@ def make_policy(
     hard_constraints = HardConstraints(well_cap_m3_per_day=well_caps)
     baseline_injection = _baseline_injection_by_step(env.base_schedule)
     baseline_conversion = _baseline_conversion_steps(env.base_schedule)
-    # Уставка, с которой дек вводит скважину: с неё начинается наша, иначе
-    # только что введённая скважина стоит с нулём и закрытой.
     commissioning_setpoint: dict[str, float] = {}
     for event in env.base_schedule.control_events:
         if event.kind in (EventKind.SET_RATE, EventKind.SET_LRAT) and event.value:
@@ -1048,23 +893,10 @@ def make_policy(
             groups=env.groups,
             memory=PolicyMemory(),
         )
-        # Внутри одного шага несколько правил могут предложить SET_LRAT/SET_RATE
-        # для одной и той же скважины (R2 задаёт уровень, R4 его же ограничивает
-        # потолком ЭЦН) — это не конфликт данных, а совещание: правило, стоящее
-        # позже в IMPLEMENTED_RULES (`policy/flags.py`), имеет приоритет, потому
-        # что R4/R6 по смыслу ограничивают то, что предложил R1/R2. Берём
-        # последнее решение на (шаг, скважина, вид события); `canonicalize`
-        # иначе видит это как несовместимые дубликаты и падает.
         pending: dict[tuple[int, str, EventKind], ControlEvent] = {}
         trace_entries = []
         produced_water_by_step: list[float] = []
         for step in range(N_INTERVALS):
-            # Дек вводит скважину в работу — значит на этом шаге она открыта
-            # и стоит на своей вводной уставке. Без этого 22 скважины,
-            # входящие внутрь горизонта, оставались закрытыми весь горизонт:
-            # прогон G7 20.08 дал по ним 1553 нарушения
-            # MODE_CONTRADICTS_SCHEDULE — расписание считает их введёнными,
-            # отклик держит выключенными.
             for well, entry in flow_start_step.items():
                 if entry == step and not current_is_open.get(well, False):
                     current_is_open[well] = True
@@ -1097,9 +929,6 @@ def make_policy(
                 control_step=step,
                 produced_water_by_step=produced_water_by_step,
             )
-            # The trajectory model predicts achieved injection separately
-            # from the command. Keep a reserve so small response/target
-            # mismatch cannot overdraw the produced-water material balance.
             if water_supply_policy(env.constraints).enabled:
                 step_field_limit *= WATER_COMMAND_SAFETY_FACTOR
             injection, offtake = _group_injection_offtake(state, env.groups)
@@ -1189,7 +1018,6 @@ def make_policy(
 
 
 def predict_economics(env: SearchEnvironment, model_input, response: ResponseArtifact) -> dict[str, float]:
-    """One economic path shared by search and diagnostic component reports."""
     physical = analyze_base_case(
         response, env.deck_dates, env.t0_deck_date_index, env.normatives, env.policies,
     ).npv_methodology
@@ -1236,4 +1064,6 @@ def make_evaluator(env: SearchEnvironment):
             ood_score=ood_score,
         )
 
+    evaluator.reference_schedule = env.reference_schedule  # type: ignore[attr-defined]
+    evaluator.reference_response = env.reference_response  # type: ignore[attr-defined]
     return evaluator

@@ -1,28 +1,9 @@
-"""CMA-ES поверх суррогата на измеренной λ — вторая половина задачи G5.
-
-`schedule_search.py` собирает один прогон θ → `Schedule*`; здесь по θ идёт
-поиск. Каждая оценка — сквозной прогон через неподвижную точку и суррогат,
-симулятор не участвует: прогноз стоит секунды, прогон Flow — десятки минут.
-
-**Потолок неподвижной точки в поиске занижен до двух итераций.** Такая
-на этапе поиска допустимость означает статический контракт: двух итераций
-недостаточно, чтобы отвергать большинство θ как несошедшиеся. Лучшие θ
-пересчитываются с полным потолком 24; наружу выходит только
-самосогласованный кандидат без статических нарушений.
-
-ЧДД поиска остаётся прогнозом production-ансамбля и отдельной экономической
-головы. Он служит для ранжирования планов; честный итог фиксирует только
-последующий прогон OPM/Flow.
-
-Запуск: `PYTHONPATH=. python -m backend.application.optimization.search_run [бюджет оценок]`.
-Нужны `torch` (extras `ml`), чекпойнт суррогата и измеренная λ.
-"""
-
 from __future__ import annotations
 
 import json
 import math
 import os
+import random
 import sys
 import time
 from dataclasses import dataclass, replace
@@ -54,6 +35,7 @@ from backend.application.optimization.runtime_artifacts import (
 from backend.application.optimization.search import optimize
 from backend.domain.policy.fixed_point import resolve
 from backend.domain.policy.theta import default_theta
+from backend.domain.schedule.case_limits import apply_case_limits
 from backend.domain.schedule import (
     ViolationKind,
     canonicalize,
@@ -69,6 +51,7 @@ CONSTRAINTS = Path(
     os.environ.get("AIOS_CONSTRAINTS_PATH", "config/competition-constraints.json")
 )
 SEARCH_DIAGNOSTICS = Path(os.environ.get("AIOS_SEARCH_DIAGNOSTICS_PATH", "data/lambda-window-2007/cmaes-diagnostics.json"))
+SEARCH_RESULT = Path(os.environ.get("AIOS_SEARCH_RESULT_PATH", "data/lambda-window-2007/cmaes.json"))
 BASE_NPV = 11_873_676_459.64
 SEED = 20260816
 SEARCH_CAP = 2
@@ -77,10 +60,6 @@ FINALIST_CAP = 4
 OOD_THRESHOLD = float(os.environ.get("AIOS_OOD_THRESHOLD", "0.0"))
 BUDGET = 120
 
-# Pressure is a simulator-side safety gate: the production surrogate is used
-# to rank trajectories, but its BHP head is not accurate enough to reject a
-# deck. All constraints that are already definitive from the predicted
-# volumes, axes and roles remain blocking before OPM.
 SURROGATE_NONBLOCKING_KINDS = frozenset(
     {
         ViolationKind.BHP_BELOW_PRODUCER_LIMIT,
@@ -91,7 +70,6 @@ SURROGATE_NONBLOCKING_KINDS = frozenset(
 
 @dataclass(frozen=True, slots=True)
 class SearchOutcome:
-    """The one plan selected by the fast-model search."""
 
     schedule: Schedule
     theta: Theta
@@ -101,14 +79,15 @@ class SearchOutcome:
     evaluations: int
     converged: bool
     self_consistent: bool
+    static_violations: int | None = None
+    dynamic_blocking_violations: int | None = None
 
 
 class SearchRunError(RuntimeError):
-    """No candidate is safe to hand to the simulator or UI."""
+    pass
 
 
 def _repair_predicted_water_balance(env, evaluator, schedule: Schedule, rounds: int = 8):
-    """Project a selected schedule into its own predicted water budget."""
 
     policy = water_supply_policy(env.constraints)
     if not policy.enabled:
@@ -187,7 +166,6 @@ def _repair_predicted_water_balance(env, evaluator, schedule: Schedule, rounds: 
 
 
 def _search_theta(constraints) -> Theta:
-    """Restrict R5 tuning to the case's declared compensation corridor."""
 
     base = default_theta()
     corridor = compensation_policy(constraints)
@@ -217,14 +195,7 @@ def _search_theta(constraints) -> Theta:
 
 
 def _search_near_baseline(env, evaluator, budget: int, provenance: dict[str, str]) -> SearchOutcome:
-    """Bounded fallback, with the same OOD, physics and case gates as finalists.
-
-    This is open-loop schedule search, not a converged multi-agent policy.
-    The baseline competes fairly and may win; constraints are never dropped.
-    """
-    import random
     rng = random.Random(SEED)
-    from backend.domain.schedule.case_limits import apply_case_limits
     baseline = apply_case_limits(env.base_schedule, env.constraints, getattr(env, "control_dates", ()))
     candidates = [baseline]
     wells = sorted({event.well for event in baseline.control_events
@@ -261,7 +232,7 @@ def _search_near_baseline(env, evaluator, budget: int, provenance: dict[str, str
                                        'what': 'План вне области обучения.'})
                 else:
                     npv = evaluated.npv
-                    accepted.append((npv, schedule, index))
+                    accepted.append((npv, schedule, index, len(static.violations), len(blocking)))
         except (OutOfDomainScheduleError, PhysicallyImpossibleScheduleError) as error:
             violations.append({'scenario_id': 'surrogate-rejected', 'regret': 1, 'what': str(error)})
         records.append({'strategy': 'baseline-neighborhood', 'theta': {}, 'npv_predicted': npv,
@@ -273,18 +244,18 @@ def _search_near_baseline(env, evaluator, budget: int, provenance: dict[str, str
     SEARCH_DIAGNOSTICS.write_text(json.dumps(diagnostics, ensure_ascii=False, indent=2, allow_nan=False))
     if not accepted:
         raise SearchRunError('Ни политика, ни локальные изменения исходного плана не прошли проверки условий и области обучения.')
-    npv, schedule, index = max(accepted, key=lambda item: item[0])
+    npv, schedule, index, static_count, blocking_count = max(accepted, key=lambda item: item[0])
     provenance = dict(provenance, search_strategy='baseline-neighborhood',
                       selected_candidate='baseline' if index == 0 else 'local-change',
                       policy_equilibrium='not-claimed')
     return SearchOutcome(schedule, default_theta(), npv, hash_schedule(schedule), provenance,
-                         len(diagnostics['evaluations']), False, False)
+                         len(diagnostics['evaluations']), False, False,
+                         static_count, blocking_count)
 
 
 def run_search(
     *, budget: int = BUDGET, case_path: Path | None = None
 ) -> SearchOutcome:
-    """Run CMA-ES and return the plan instead of deciding where to save it."""
     artifacts = resolve_runtime_artifacts()
     if artifacts.scenario_ood is None:
         raise SearchRunError("production search requires a versioned scenario OOD artifact")
@@ -509,6 +480,8 @@ def run_search(
         evaluations=report.evaluations,
         converged=final.converged,
         self_consistent=final.self_consistent,
+        static_violations=len(check.violations),
+        dynamic_blocking_violations=len(surrogate_blocking),
     )
 
 
@@ -516,7 +489,7 @@ def main() -> int:
     budget = int(sys.argv[1]) if len(sys.argv) > 1 else BUDGET
     case_path = Path(sys.argv[2]) if len(sys.argv) > 2 else None
     outcome = run_search(budget=budget, case_path=case_path)
-    out = Path("data/lambda-window-2007/cmaes.json")
+    out = SEARCH_RESULT
     schedule_path = out.with_name('cmaes-schedule.json')
     schedule_path.parent.mkdir(parents=True, exist_ok=True)
     schedule_path.write_bytes(canonical_bytes(outcome.schedule))
@@ -533,8 +506,8 @@ def main() -> int:
                 "npv_predicted": outcome.predicted_npv,
                 "npv_baseline": BASE_NPV,
                 "canonical_schedule_hash": outcome.schedule_hash,
-                "static_violations": 0,
-                "dynamic_blocking_violations": 0,
+                "static_violations": outcome.static_violations,
+                "dynamic_blocking_violations": outcome.dynamic_blocking_violations,
                 "converged": outcome.converged,
                 "self_consistent": outcome.self_consistent,
                 "provenance": outcome.provenance,
