@@ -1,11 +1,3 @@
-"""Build and verify a no-external-water baseline without throttling production.
-
-This is an active-learning control point, not a submission shortcut: the
-organizer's production controls are preserved, injection is projected into
-the surrogate-predicted produced-water budget, and the exact resulting
-schedule is then run through OPM and the official economics tract.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -17,6 +9,10 @@ from dataclasses import replace
 from pathlib import Path
 
 from backend.core.contracts import EventKind, ResponseArtifact, Schedule, hash_schedule
+from backend.core.contracts.constraints import (
+    DEFAULT_WATER_SAFETY_FACTOR,
+    water_safety_factor as case_water_safety_factor,
+)
 from backend.domain.economics import load_response_artifact
 from backend.domain.schedule import canonicalize, validate_dynamic, validate_static
 from backend.infrastructure.resources import chdd_python_dir, model_z_dir
@@ -40,7 +36,7 @@ from .verification_run import (
 )
 
 WORK_ROOT = Path("data/water-baseline-submission")
-WATER_SAFETY_FACTOR = 0.85
+WATER_SAFETY_FACTOR = DEFAULT_WATER_SAFETY_FACTOR
 ACTIVE_CALIBRATION = Path("config/opm-active-npv-calibration.json")
 
 
@@ -52,13 +48,6 @@ def _project_injection_to_reference_water(
     oil_density_t_per_m3: float,
     water_safety_factor: float,
 ) -> Schedule:
-    """Cap commands once against measured baseline produced water.
-
-    Unlike the old iterative repair, this projection cannot multiply a model
-    error through repeated floor operations until all injection disappears.
-    Production commands remain byte-for-byte semantic equivalents of the
-    organizer baseline.
-    """
 
     available = {
         step: water_safety_factor
@@ -114,9 +103,7 @@ def _parse_args() -> argparse.Namespace:
         type=Path,
         help="previous OPM observation directory used for feedback projection",
     )
-    parser.add_argument(
-        "--water-safety-factor", type=float, default=WATER_SAFETY_FACTOR
-    )
+    parser.add_argument("--water-safety-factor", type=float, default=None)
     parser.add_argument(
         "--reseed-injection-from-baseline",
         action="store_true",
@@ -130,10 +117,15 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = _parse_args()
-    if not 0.0 < args.water_safety_factor <= 1.0:
-        raise ValueError("water-safety-factor должен лежать в (0, 1]")
     runtime = resolve_runtime_artifacts()
     constraints = _load_constraints()
+    safety_factor = (
+        case_water_safety_factor(constraints)
+        if args.water_safety_factor is None
+        else float(args.water_safety_factor)
+    )
+    if not 0.0 < safety_factor <= 1.0:
+        raise ValueError("water-safety-factor должен лежать в (0, 1]")
     env = load_environment(
         model_dir=model_z_dir(),
         normatives_path=chdd_python_dir() / "input" / "Нормативы_ЧДД.xlsx",
@@ -181,7 +173,7 @@ def main() -> int:
         reference_response,
         env.control_dates,
         oil_density_t_per_m3=OIL_DENSITY_T_PER_M3,
-        water_safety_factor=args.water_safety_factor,
+        water_safety_factor=safety_factor,
     )
     prediction = evaluator(schedule)
     calibrated = calibration.predict(prediction.npv)
@@ -253,7 +245,10 @@ def main() -> int:
         metadata={
             "candidate": candidate_name,
             "water_repair_rounds": repair_rounds,
-            "water_safety_factor": args.water_safety_factor,
+            "water_safety_factor": safety_factor,
+            "water_safety_factor_source": (
+                "cli" if args.water_safety_factor is not None else "assumption"
+            ),
             "raw_predicted_npv": prediction.npv,
             "active_calibrated_npv": calibrated.npv_rub,
             "active_calibration_domain_score": calibrated.domain_score,

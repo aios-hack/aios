@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from backend.domain.configuration.constraints_io import constraints_from_json, constraints_to_json
 from backend.core.contracts import water_supply_policy, compensation_policy
 
-PARAMETERS = {'water_supply_unlimited', 'water_reinjection_fraction', 'water_reinjection_lag_steps', 'external_water_m3_per_day',
+PARAMETERS = {'water_supply_unlimited', 'water_reinjection_fraction', 'water_reinjection_lag_steps', 'external_water_m3_per_day', 'water_safety_factor',
               'compensation_min', 'compensation_max', 'compensation_enforcement', 'compensation_scope'}
 
 

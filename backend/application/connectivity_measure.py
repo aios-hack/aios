@@ -1,8 +1,7 @@
-"""Build the measured λ artifact from cached OPM campaign runs."""
-
 from __future__ import annotations
 
 import os
+from datetime import date
 from pathlib import Path
 
 from backend.core.paths import data_root
@@ -29,6 +28,11 @@ def main() -> int:
         print(f"упавших прогонов {len(report.failed)} — λ не считается", flush=True)
         return 3
     measured = measure(prepared, report.samples, load_response_artifact(data_root() / "base_case" / "response.json"), n_steps=n_steps)
-    out = save_lambda(measured, root / "lambda.json")
+    out = save_lambda(
+        measured,
+        root / "lambda.json",
+        measured_at=date.today(),
+        source_run_ids=sorted({sample.metadata.run_id for sample in report.samples}),
+    )
     print(f"матрица записана: {out}", flush=True)
     return 0

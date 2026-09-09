@@ -25,6 +25,8 @@ from backend.core.contracts import (
 from backend.core.contracts.schedule import MAX_LRAT_M3_PER_DAY
 from backend.domain.economics import load_response_artifact
 from backend.application.optimization.schedule_search import (
+    SOURCE_WATER_BALANCE_REPAIR,
+    injection_budget_for_step,
     load_environment, make_evaluator, make_policy,
     OutOfDomainScheduleError, PhysicallyImpossibleScheduleError,
 )
@@ -64,6 +66,9 @@ FINALIST_CAP = 4
 OOD_THRESHOLD = float(os.environ.get("AIOS_OOD_THRESHOLD", "0.0"))
 BUDGET = 120
 
+WATER_REPAIR_MARGIN = 0.98
+WATER_REPAIR_CEILING = 0.95
+
 SURROGATE_NONBLOCKING_KINDS = frozenset(
     {
         ViolationKind.BHP_BELOW_PRODUCER_LIMIT,
@@ -91,7 +96,13 @@ class SearchRunError(RuntimeError):
     pass
 
 
-def _repair_predicted_water_balance(env, evaluator, schedule: Schedule, rounds: int = 8):
+def _repair_predicted_water_balance(
+    env,
+    evaluator,
+    schedule: Schedule,
+    rounds: int = 8,
+    budget_trace: list[dict[str, object]] | None = None,
+):
 
     policy = water_supply_policy(env.constraints)
     if not policy.enabled:
@@ -146,7 +157,29 @@ def _repair_predicted_water_balance(env, evaluator, schedule: Schedule, rounds: 
                 * produced_water.get(source_step, 0.0)
             )
             actual = injected.get(step, 0.0)
-            factors[step] = 0.0 if actual <= 0.0 else min(0.95, 0.98 * available / actual)
+            factors[step] = (
+                0.0
+                if actual <= 0.0
+                else min(
+                    WATER_REPAIR_CEILING, WATER_REPAIR_MARGIN * available / actual
+                )
+            )
+            if budget_trace is not None:
+                budget_trace.append(
+                    {
+                        "control_step": step,
+                        "round": round_index,
+                        "binding_source": SOURCE_WATER_BALANCE_REPAIR,
+                        "limit_m3": available * WATER_REPAIR_MARGIN,
+                        "contributions": {
+                            "available_m3": available,
+                            "commanded_m3": actual,
+                            "repair_margin": WATER_REPAIR_MARGIN,
+                            "repair_ceiling": WATER_REPAIR_CEILING,
+                            "factor": factors[step],
+                        },
+                    }
+                )
 
         values: dict[tuple[int, str], float] = {}
         repaired = []

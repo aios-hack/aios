@@ -87,25 +87,45 @@ class _StubFinder(importlib.abc.MetaPathFinder):
         return None
 
 
-def _install_torch_stub() -> None:
+def _install_torch_stub() -> list[str]:
     if "torch" in sys.modules:
-        return
-    sys.meta_path.insert(0, _StubFinder())
-    for name in TORCH_PACKAGES:
-        importlib.import_module(name)
-    for name in TORCH_PACKAGES[1:]:
-        parent, _, leaf = name.rpartition(".")
-        setattr(sys.modules[parent], leaf, sys.modules[name])
+        return []
+    finder = _StubFinder()
+    sys.meta_path.insert(0, finder)
+    installed: list[str] = []
+    try:
+        for name in TORCH_PACKAGES:
+            importlib.import_module(name)
+            installed.append(name)
+        for name in TORCH_PACKAGES[1:]:
+            parent, _, leaf = name.rpartition(".")
+            setattr(sys.modules[parent], leaf, sys.modules[name])
+    finally:
+        sys.meta_path.remove(finder)
+    return installed
 
 
 def _load_module() -> Any:
+    stubbed: list[str] = []
     try:
         import torch  # noqa: F401
     except ImportError:
-        _install_torch_stub()
-    return importlib.import_module(
-        "backend.application.optimization.verification_run"
-    )
+        stubbed = _install_torch_stub()
+    try:
+        return importlib.import_module(
+            "backend.application.optimization.verification_run"
+        )
+    finally:
+        if stubbed:
+            for name in [
+                module
+                for module in sys.modules
+                if module.startswith("backend.ml")
+                or module.startswith("backend.application.optimization.schedule_search")
+            ]:
+                sys.modules.pop(name, None)
+            for name in reversed(stubbed):
+                sys.modules.pop(name, None)
 
 
 verification_run = _load_module()

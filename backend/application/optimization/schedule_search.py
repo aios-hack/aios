@@ -49,6 +49,7 @@ from backend.core.contracts import (
 from backend.domain.connectivity.groups import GroupingParams, build_groups, group_hash, lambda_hash
 from backend.domain.connectivity.measure import load_lambda
 from backend.domain.economics import analyze_base_case, load_normatives, load_response_artifact
+from backend.domain.policy.budget import liquid_limit_for_step
 from backend.domain.policy.agents.projection import (
     HardConstraints,
     project_to_hard_constraints,
@@ -623,19 +624,59 @@ def _interval_produced_water_rate_m3_per_day(
     return water_volume / days
 
 
-def _field_limit_for_step(
+SOURCE_PHYSICAL_HEADROOM = "physical_headroom"
+SOURCE_CASE_INJECTION_LIMIT = "case_injection_limit"
+SOURCE_WATER_BALANCE = "water_balance"
+SOURCE_COMMAND_MARGIN = "command_margin"
+SOURCE_WATER_BALANCE_REPAIR = "water_balance_repair"
+
+UNCONSTRAINED_BUDGET_M3_PER_DAY = float("inf")
+
+
+@dataclass(frozen=True, slots=True)
+class InjectionBudget:
+
+    control_step: int
+    limit_m3_per_day: float
+    binding_source: str
+    contributions: tuple[tuple[str, float], ...]
+
+    @property
+    def unconstrained(self) -> bool:
+        return not math.isfinite(self.limit_m3_per_day)
+
+    def as_trace_entry(self) -> dict[str, object]:
+        return {
+            "control_step": self.control_step,
+            "limit_m3_per_day": self.limit_m3_per_day,
+            "binding_source": self.binding_source,
+            "contributions": {name: value for name, value in self.contributions},
+        }
+
+
+def injection_budget_for_step(
     *,
-    physical_limit_m3_per_day: float,
+    control_step: int,
     constraints: Constraints,
     year: int,
-    control_step: int,
     produced_water_by_step: Sequence[float],
-) -> float:
+    physical_limit_m3_per_day: float | None = None,
+    command_margin: float = 1.0,
+) -> InjectionBudget:
 
-    limits = [physical_limit_m3_per_day]
+    if not 0.0 < command_margin <= 1.0:
+        raise ScheduleSearchError(
+            f"control_step={control_step}: запас команды закачки должен лежать "
+            f"в диапазоне (0, 1], получено {command_margin}"
+        )
+    contributions: list[tuple[str, float]] = []
+    if physical_limit_m3_per_day is not None:
+        contributions.append(
+            (SOURCE_PHYSICAL_HEADROOM, float(physical_limit_m3_per_day))
+        )
     explicit = constraints.injection_limits.get(year)
     if explicit is not None:
-        limits.append(float(explicit))
+        contributions.append((SOURCE_CASE_INJECTION_LIMIT, float(explicit)))
 
     water = water_supply_policy(constraints)
     if water.enabled:
@@ -646,9 +687,51 @@ def _field_limit_for_step(
             else 0.0
         )
         water_limit = water.limit(produced)
-        assert water_limit is not None
-        limits.append(water_limit)
-    return max(0.0, min(limits))
+        if water_limit is None:
+            raise ScheduleSearchError(
+                f"control_step={control_step}: политика воды включена, но "
+                "потолок закачки по водному балансу не посчитан"
+            )
+        contributions.append((SOURCE_WATER_BALANCE, float(water_limit)))
+
+    if not contributions:
+        return InjectionBudget(
+            control_step=control_step,
+            limit_m3_per_day=UNCONSTRAINED_BUDGET_M3_PER_DAY,
+            binding_source="none",
+            contributions=(),
+        )
+
+    binding_source, raw_limit = min(contributions, key=lambda item: item[1])
+    limit = max(0.0, raw_limit)
+    if command_margin < 1.0:
+        limit *= command_margin
+        contributions.append((SOURCE_COMMAND_MARGIN, limit))
+        binding_source = SOURCE_COMMAND_MARGIN
+    return InjectionBudget(
+        control_step=control_step,
+        limit_m3_per_day=limit,
+        binding_source=binding_source,
+        contributions=tuple(contributions),
+    )
+
+
+def _field_limit_for_step(
+    *,
+    physical_limit_m3_per_day: float,
+    constraints: Constraints,
+    year: int,
+    control_step: int,
+    produced_water_by_step: Sequence[float],
+) -> float:
+
+    return injection_budget_for_step(
+        control_step=control_step,
+        constraints=constraints,
+        year=year,
+        produced_water_by_step=produced_water_by_step,
+        physical_limit_m3_per_day=physical_limit_m3_per_day,
+    ).limit_m3_per_day
 
 
 def _active_outage_wells(
@@ -816,7 +899,7 @@ def _scale_step_injection_to_limit(
         if key[0] == step and key[2] is EventKind.SET_RATE
     ]
     total = sum(float(pending[key].value or 0.0) for key in keys)
-    if total <= limit_m3_per_day + 1.0e-9:
+    if not math.isfinite(limit_m3_per_day) or total <= limit_m3_per_day + 1.0e-9:
         return total
     factor = 0.0 if total <= 0.0 else limit_m3_per_day / total
     for key in keys:
@@ -844,7 +927,17 @@ def _scale_step_injection_to_limit(
     return sum(float(pending[key].value or 0.0) for key in keys)
 
 
-def _relax_rate_layer(previous: Schedule, proposed: Schedule) -> Schedule:
+DAMPER_STEP_FRACTION = 0.5
+
+
+def _damped_value(prior: float, proposed: float) -> float:
+    blended = prior + (proposed - prior) * DAMPER_STEP_FRACTION
+    return math.floor(blended / SETPOINT_STEP_M3_PER_DAY) * SETPOINT_STEP_M3_PER_DAY
+
+
+def _relax_rate_layer(
+    previous: Schedule, proposed: Schedule, *, symmetric: bool = True
+) -> Schedule:
 
     rate_kinds = (EventKind.SET_LRAT, EventKind.SET_RATE)
     previous_rates = {
@@ -861,12 +954,10 @@ def _relax_rate_layer(previous: Schedule, proposed: Schedule) -> Schedule:
         value = float(event.value or 0.0)
         prior = previous_rates.get((event.control_step, event.well, event.kind))
         if prior is not None and value > 0.0:
-            if event.kind is EventKind.SET_RATE:
+            if event.kind is EventKind.SET_RATE and not symmetric:
                 value = min(value, prior)
             else:
-                value = math.floor(
-                    ((prior + value) * 0.5) / SETPOINT_STEP_M3_PER_DAY
-                ) * SETPOINT_STEP_M3_PER_DAY
+                value = _damped_value(prior, value)
         value = max(0.0, value)
         events.append(replace(event, value=value))
         relaxed_rates[(event.control_step, event.well)] = value
@@ -891,8 +982,19 @@ def make_policy(
     *,
     water_reference_response: ResponseArtifact | None = None,
     projection: Projection = project_to_hard_constraints,
+    command_margin: float | None = None,
+    symmetric_damper: bool = True,
 ):
 
+    command_margin = (
+        (
+            WATER_COMMAND_SAFETY_FACTOR
+            if water_supply_policy(env.constraints).enabled
+            else 1.0
+        )
+        if command_margin is None
+        else command_margin
+    )
     wells = env.base_schedule.meta.wells
     commission_step = _commission_steps(env.base_schedule)
     flow_start_step = _flow_start_steps(
@@ -936,6 +1038,7 @@ def make_policy(
         )
         pending: dict[tuple[int, str, EventKind], ControlEvent] = {}
         trace_entries = []
+        budget_entries: list[InjectionBudget] = []
         produced_water_by_step: list[float] = []
         for step in range(N_INTERVALS):
             for well, entry in flow_start_step.items():
@@ -963,15 +1066,19 @@ def make_policy(
             )
             if not state.wells:
                 continue
-            step_field_limit = _field_limit_for_step(
-                physical_limit_m3_per_day=field_limit,
+            budget = injection_budget_for_step(
+                control_step=step,
                 constraints=env.constraints,
                 year=env.control_dates[step].year,
-                control_step=step,
                 produced_water_by_step=produced_water_by_step,
+                physical_limit_m3_per_day=field_limit,
+                command_margin=command_margin,
             )
-            if water_supply_policy(env.constraints).enabled:
-                step_field_limit *= WATER_COMMAND_SAFETY_FACTOR
+            budget_entries.append(budget)
+            step_field_limit = budget.limit_m3_per_day
+            step_liquid_limit = liquid_limit_for_step(
+                env.constraints, env.control_dates[step].year, step
+            )
             injection, offtake = _group_injection_offtake(state, env.groups)
             result = run_step(
                 state,
@@ -986,6 +1093,7 @@ def make_policy(
                 theta,
                 env.flags,
                 field_limit_m3_per_day=step_field_limit,
+                field_liquid_limit_m3_per_day=step_liquid_limit,
                 setpoint_step_m3_per_day=SETPOINT_STEP_M3_PER_DAY,
             )
             trace_entries.extend(leveled.entry for leveled in result.trace.entries)
@@ -1036,13 +1144,17 @@ def make_policy(
             if commanded_injection > step_field_limit + 1.0e-9:
                 raise ScheduleSearchError(
                     f"control_step={step}: команда закачки {commanded_injection} "
-                    f"м³/сут превышает доступную воду {step_field_limit} м³/сут"
+                    f"м³/сут превышает потолок {step_field_limit} м³/сут, "
+                    f"ограничение {budget.binding_source}"
                 )
             context = replace(
                 context,
                 memory=_advance_memory(state, context, esp_catalog=env.normatives.esp_catalog),
             )
         trace_sink["trace"] = RunTrace(entries=tuple(trace_entries), flags=env.flags)
+        trace_sink["injection_budget"] = tuple(
+            entry.as_trace_entry() for entry in budget_entries
+        )
         candidate = replace(
             env.base_schedule,
             control_events=tuple(pending.values()),
@@ -1052,7 +1164,9 @@ def make_policy(
         return (
             candidate
             if previous_schedule is None
-            else _relax_rate_layer(previous_schedule, candidate)
+            else _relax_rate_layer(
+                previous_schedule, candidate, symmetric=symmetric_damper
+            )
         )
 
     return policy

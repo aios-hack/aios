@@ -8,10 +8,13 @@ WATER_SUPPLY_UNLIMITED = "water_supply_unlimited"
 WATER_REINJECTION_FRACTION = "water_reinjection_fraction"
 WATER_REINJECTION_LAG_STEPS = "water_reinjection_lag_steps"
 EXTERNAL_WATER_M3_PER_DAY = "external_water_m3_per_day"
+WATER_SAFETY_FACTOR = "water_safety_factor"
 COMPENSATION_MIN = "compensation_min"
 COMPENSATION_MAX = "compensation_max"
 COMPENSATION_ENFORCEMENT = "compensation_enforcement"
 COMPENSATION_SCOPE = "compensation_scope"
+
+DEFAULT_WATER_SAFETY_FACTOR = 1.0
 
 COMPENSATION_ENFORCEMENTS = frozenset({"diagnostic", "hard"})
 COMPENSATION_SCOPES = frozenset({"field", "groups", "field_and_groups"})
@@ -127,6 +130,19 @@ def water_supply_policy(constraints: Constraints) -> WaterSupplyPolicy:
     return WaterSupplyPolicy(
         fraction, raw_lag, external, fraction_defaulted, False
     )
+
+
+def water_safety_factor(constraints: Constraints) -> float:
+    source = constraints.infrastructure
+    if WATER_SAFETY_FACTOR not in source:
+        return DEFAULT_WATER_SAFETY_FACTOR
+    value = _finite_number(source, WATER_SAFETY_FACTOR, DEFAULT_WATER_SAFETY_FACTOR)
+    if not 0.0 < value <= 1.0:
+        raise ValueError(
+            f"infrastructure.{WATER_SAFETY_FACTOR}: запас должен лежать в "
+            f"диапазоне (0, 1], получено {value}"
+        )
+    return value
 
 
 def compensation_policy(constraints: Constraints) -> CompensationPolicy:
