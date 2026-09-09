@@ -16,6 +16,17 @@ IMPLEMENTED_RULES: tuple[Rule, ...] = (
     Rule.R7,
 )
 
+WATERCUT_CAP_FEATURE = "r0_watercut_cap"
+
+WATERCUT_CAP_UNMEASURED = (
+    "Глушение по потолку обводнённости прироста ЧДД на замере не показало: "
+    "признак по умолчанию выключен и включается только явным разрешением."
+)
+
+DEFAULT_FEATURE_FLAGS: Mapping[str, bool] = {
+    WATERCUT_CAP_FEATURE: False,
+}
+
 DEFAULT_RULE_FLAGS: Mapping[Rule, bool] = {
     Rule.R0: True,
     Rule.R1: True,
@@ -33,6 +44,9 @@ class RuleFlags:
     enabled: dict[Rule, bool] = field(
         default_factory=lambda: dict(DEFAULT_RULE_FLAGS)
     )
+    features: dict[str, bool] = field(
+        default_factory=lambda: dict(DEFAULT_FEATURE_FLAGS)
+    )
 
     def __post_init__(self) -> None:
         missing = set(Rule) - set(self.enabled)
@@ -40,22 +54,42 @@ class RuleFlags:
             raise ValueError(
                 f"флаги объявлены не для всех правил: {sorted(r.value for r in missing)}"
             )
+        unknown = set(self.features) - set(DEFAULT_FEATURE_FLAGS)
+        if unknown:
+            raise ValueError(
+                f"неизвестные признаки: {sorted(unknown)}"
+            )
 
     def is_on(self, rule: Rule) -> bool:
         return self.enabled[rule]
+
+    def feature_on(self, name: str) -> bool:
+        if name not in DEFAULT_FEATURE_FLAGS:
+            raise ValueError(f"неизвестный признак {name!r}")
+        return self.features.get(name, DEFAULT_FEATURE_FLAGS[name])
 
     def with_disabled(self, *rules: Rule) -> "RuleFlags":
         updated = dict(self.enabled)
         for rule in rules:
             updated[rule] = False
-        return RuleFlags(enabled=updated)
+        return RuleFlags(enabled=updated, features=dict(self.features))
 
     def with_enabled(self, *rules: Rule) -> "RuleFlags":
         updated = dict(self.enabled)
         for rule in rules:
             updated[rule] = True
-        return RuleFlags(enabled=updated)
+        return RuleFlags(enabled=updated, features=dict(self.features))
+
+    def with_feature(self, name: str, on: bool) -> "RuleFlags":
+        if name not in DEFAULT_FEATURE_FLAGS:
+            raise ValueError(f"неизвестный признак {name!r}")
+        updated = dict(self.features)
+        updated[name] = on
+        return RuleFlags(enabled=dict(self.enabled), features=updated)
 
 
 def all_off() -> RuleFlags:
-    return RuleFlags(enabled={rule: False for rule in Rule})
+    return RuleFlags(
+        enabled={rule: False for rule in Rule},
+        features={name: False for name in DEFAULT_FEATURE_FLAGS},
+    )

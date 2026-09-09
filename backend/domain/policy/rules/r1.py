@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Mapping
+
 from backend.core.contracts import ControlEvent, EventKind, Role, Rule, Theta, TraceEntry
 
 from backend.domain.policy.economics import oil_margin_rub_per_m3_liquid, oil_margin_rub_per_t
@@ -52,6 +54,23 @@ def marginal_value_rub_per_m3(
     return value, inputs
 
 
+def held_target(
+    baseline: Mapping[str, float],
+    caps: Mapping[str, float],
+    well: str,
+) -> float:
+    target = max(0.0, float(baseline.get(well, 0.0)))
+    cap = caps.get(well)
+    if cap is None:
+        return target
+    ceiling = float(cap)
+    if ceiling < 0.0:
+        raise ValueError(
+            f"{well}: отрицательный потолок приёмистости {ceiling} м³/сут"
+        )
+    return min(target, ceiling)
+
+
 def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome:
     lag_months = read(theta, "r1_lag_months")
     budget = context.injection_budget_m3_per_day
@@ -82,25 +101,14 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
         values[injector] = value
         inputs_by_well[injector] = inputs
 
-    # Вода, уже занятая скважинами вне окна замера. Их уставка не решение
-    # правила, а удержанный базовый уровень, но фонд воды у месторождения
-    # один: если не вычесть его из бюджета, измеренным скважинам раздаётся
-    # весь лимит целиком, сумма выходит за лимит участка, и агент участка
-    # срезает множителем уже всех — включая тех, кого трогать было незачем.
     baseline = context.baseline_injection_m3_per_day
-    held = float(sum(max(0.0, float(baseline.get(well, 0.0))) for well in unmeasured))
+    caps = context.injection_cap_m3_per_day
+    held_by_well = {
+        well: held_target(baseline, caps, well) for well in unmeasured
+    }
+    held = float(sum(held_by_well.values()))
     budget_for_measured = max(0.0, budget - held)
 
-    # Раздача жадная по убыванию предельной ценности, до потолка приёмистости
-    # каждой скважины. Пропорциональный дележ, стоявший здесь раньше, делил
-    # бюджет по величине ценности — величине руб/м³, а не ёмкости, — и
-    # скважина с высокой ценностью получала воду сверх того, что физически
-    # берёт. Срез потолком дальше по тракту эту воду не отдавал никому:
-    # на прогоне G7 восемнадцать из двадцати двух измеренных скважин стояли
-    # на своём потолке все 224 шага, а 683 м³/сут свободной ёмкости у
-    # остальных не использовались. Здесь остаток переходит следующей по
-    # ценности, и бюджет расходуется целиком, пока есть куда лить.
-    caps = context.injection_cap_m3_per_day
     ranked = sorted(
         (well for well in injectors if values[well] > 0.0),
         key=lambda well: (-values[well], well),
@@ -116,8 +124,6 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
             continue
         allocation[well] = target
         remaining -= target
-    weight_total = sum(value for value in values.values() if value > 0.0)
-
     decisions: list[ControlEvent] = []
     trace: list[TraceEntry] = []
     for injector in injectors:
@@ -157,16 +163,11 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
             )
         )
 
-    # Нагнетательная вне окна измерения λ. Предельная ценность её закачки не
-    # определена — не равна нулю, а именно неизвестна, — поэтому правило её не
-    # ранжирует и бюджет между такими скважинами не делит. Но и молчать про
-    # них нельзя: без уставки плотный слой оставляет скважину на нуле, и
-    # отсутствие замера превращается в решение заглушить. Кампания Плакетта—
-    # Бермана покрыла 22 нагнетательных из 41, а невошедшие несут 46% закачки
-    # месторождения — на прогоне G7 из-за этого потеряно около 662 м³/сут из
-    # 835 всей недокачки. Держим базовую уставку: нет основания менять.
     for injector in unmeasured:
-        target = float(baseline.get(injector, 0.0))
+        requested = max(0.0, float(baseline.get(injector, 0.0)))
+        target = held_by_well[injector]
+        capped = target < requested
+        cap = caps.get(injector)
         decisions.append(
             ControlEvent(
                 control_step=state.control_step,
@@ -182,14 +183,22 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
                 rule=RULE,
                 inputs={
                     "target_rate_m3_per_day": target,
-                    "baseline_rate_m3_per_day": target,
+                    "baseline_rate_m3_per_day": requested,
+                    "injection_cap_m3_per_day": (
+                        float(cap) if cap is not None else requested
+                    ),
+                    "capped_by_injectivity": float(capped),
                     "previous_setpoint_m3_per_day": state.wells[
                         injector
                     ].setpoint_m3_per_day,
                     "outside_lambda_window": 1.0,
                     "producers_covered": 0.0,
                 },
-                decision="HOLD_BASELINE_OUTSIDE_LAMBDA",
+                decision=(
+                    "HOLD_BASELINE_CAPPED_OUTSIDE_LAMBDA"
+                    if capped
+                    else "HOLD_BASELINE_OUTSIDE_LAMBDA"
+                ),
             )
         )
     return RuleOutcome(decisions=tuple(decisions), trace=tuple(trace))

@@ -1,6 +1,14 @@
 from __future__ import annotations
 
-from backend.core.contracts import ControlEvent, EventKind, Role, Rule, Theta, TraceEntry
+from backend.core.contracts import (
+    ControlEvent,
+    EventKind,
+    Role,
+    Rule,
+    Theta,
+    TraceEntry,
+    compensation_policy,
+)
 
 from backend.domain.policy.rules.base import RuleOutcome
 from backend.domain.policy.state import PolicyState, RuleContext
@@ -42,13 +50,38 @@ def _group_of(context: RuleContext, well: str) -> str | None:
     return None
 
 
-def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome:
-    low = read(theta, "r5_compensation_low")
-    high = read(theta, "r5_compensation_high")
-    if low > high:
+def corridor_bounds(
+    context: RuleContext, low: float, high: float
+) -> tuple[float, float, bool]:
+    policy = compensation_policy(context.constraints)
+    if not policy.enabled or not policy.hard:
+        return low, high, False
+    minimum = policy.minimum
+    maximum = policy.maximum
+    if minimum is None or maximum is None:
         raise ValueError(
-            f"коридор компенсации пуст: нижняя граница {low} выше верхней {high}"
+            "коридор компенсации объявлен обязательным, но границы кейса "
+            "не заданы: сузить θ не по чему"
         )
+    bounded_low = min(max(low, minimum), maximum)
+    bounded_high = min(max(high, minimum), maximum)
+    if bounded_low > bounded_high:
+        raise ValueError(
+            f"коридор кейса {minimum}..{maximum} несовместим с θ "
+            f"{low}..{high}: пересечение пусто"
+        )
+    return bounded_low, bounded_high, True
+
+
+def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome:
+    theta_low = read(theta, "r5_compensation_low")
+    theta_high = read(theta, "r5_compensation_high")
+    if theta_low > theta_high:
+        raise ValueError(
+            f"коридор компенсации пуст: нижняя граница {theta_low} выше "
+            f"верхней {theta_high}"
+        )
+    low, high, enforced = corridor_bounds(context, theta_low, theta_high)
     if context.groups is None:
         raise ValueError(
             "R5 требует нарезку на участки: компенсация — величина участка, "
@@ -106,8 +139,11 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
                         "group_injection_m3_per_day": injection,
                         "group_offtake_m3_per_day": offtake,
                         "compensation": current,
-                        "theta_r5_compensation_low": low,
-                        "theta_r5_compensation_high": high,
+                        "theta_r5_compensation_low": theta_low,
+                        "theta_r5_compensation_high": theta_high,
+                        "corridor_low": low,
+                        "corridor_high": high,
+                        "corridor_enforced": float(enforced),
                         "target_group_injection_m3_per_day": target_total,
                         "target_compensation": target_total / offtake,
                         "share_of_group": share,

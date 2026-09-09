@@ -16,7 +16,11 @@ from backend.core.contracts import (
 )
 
 from backend.domain.policy.economics import oil_margin_rub_per_m3_liquid
-from backend.domain.policy.flags import IMPLEMENTED_RULES, RuleFlags
+from backend.domain.policy.flags import (
+    IMPLEMENTED_RULES,
+    WATERCUT_CAP_FEATURE,
+    RuleFlags,
+)
 from backend.domain.policy.rules import apply_rule, superseded
 from backend.domain.policy.rules.base import RuleOutcome
 from backend.domain.policy.rules.r1 import marginal_value_rub_per_m3
@@ -555,6 +559,195 @@ def _scale_entry(entry: TraceEntry, factor: float) -> TraceEntry:
     return replace(entry, inputs=inputs)
 
 
+PRODUCTION_FLOOR_UNREACHABLE = "PRODUCTION_FLOOR_UNREACHABLE"
+PRODUCTION_FLOOR_NOT_SET = "PRODUCTION_FLOOR_NOT_SET"
+PRODUCTION_FLOOR_MET = "PRODUCTION_FLOOR_MET"
+
+
+@dataclass(frozen=True, slots=True)
+class ProductionFloorCheck:
+    year: int | None
+    floor_t_per_day: float | None
+    predicted_t_per_day: float | None
+    status: str
+
+    @property
+    def attempted(self) -> bool:
+        return self.status != PRODUCTION_FLOOR_NOT_SET
+
+    @property
+    def unreachable(self) -> bool:
+        return self.status == PRODUCTION_FLOOR_UNREACHABLE
+
+    def as_entry(self, control_step: int, agent: str) -> TraceEntry:
+        if self.floor_t_per_day is None or self.predicted_t_per_day is None:
+            raise ValueError(
+                "пол добычи не измерялся: записи в трассу для него нет"
+            )
+        return TraceEntry(
+            control_step=control_step,
+            well=agent,
+            rule=Rule.R0,
+            inputs={
+                "production_floor_t_per_day": self.floor_t_per_day,
+                "predicted_oil_t_per_day": self.predicted_t_per_day,
+                "production_floor_shortfall_t_per_day": (
+                    self.floor_t_per_day - self.predicted_t_per_day
+                ),
+                "production_floor_year": float(self.year or 0),
+            },
+            decision=self.status,
+        )
+
+
+def predicted_oil_t_per_day(
+    state: PolicyState,
+    events: Sequence[ControlEvent],
+    context: RuleContext,
+    wells: Sequence[str],
+) -> float:
+    density = context.oil_density_t_per_m3
+    total = 0.0
+    shut = _shut_wells(events)
+    for well in sorted(wells):
+        observation = state.wells.get(well)
+        if observation is None or observation.role is not Role.PROD:
+            continue
+        if not observation.is_open or well in shut:
+            continue
+        if observation.liquid_rate_m3_per_day <= 0.0:
+            continue
+        liquid = _effective_liquid(events, state, well)
+        share = liquid / observation.liquid_rate_m3_per_day
+        total += observation.oil_rate_t_per_day * share
+    return total
+
+
+def check_production_floor(
+    state: PolicyState,
+    context: RuleContext,
+    events: Sequence[ControlEvent],
+    wells: Sequence[str],
+    year: int | None,
+) -> ProductionFloorCheck:
+    floors = context.constraints.production_floors
+    if not floors:
+        return ProductionFloorCheck(
+            year=year,
+            floor_t_per_day=None,
+            predicted_t_per_day=None,
+            status=PRODUCTION_FLOOR_NOT_SET,
+        )
+    if year is None:
+        floor = max(float(value) for value in floors.values())
+    else:
+        declared = floors.get(year)
+        if declared is None:
+            return ProductionFloorCheck(
+                year=year,
+                floor_t_per_day=None,
+                predicted_t_per_day=None,
+                status=PRODUCTION_FLOOR_NOT_SET,
+            )
+        floor = float(declared)
+    predicted = predicted_oil_t_per_day(state, events, context, wells)
+    status = (
+        PRODUCTION_FLOOR_UNREACHABLE if predicted < floor else PRODUCTION_FLOOR_MET
+    )
+    return ProductionFloorCheck(
+        year=year,
+        floor_t_per_day=floor,
+        predicted_t_per_day=predicted,
+        status=status,
+    )
+
+
+def binding_watercut_limit(context: RuleContext) -> float | None:
+    limits = context.constraints.watercut_limits
+    if not limits:
+        return None
+    return min(float(value) for value in limits.values())
+
+
+def _effective_liquid(
+    events: Sequence[ControlEvent], state: PolicyState, well: str
+) -> float:
+    observation = state.wells[well]
+    liquid = observation.liquid_rate_m3_per_day
+    for event in events:
+        if event.well != well:
+            continue
+        if event.kind is EventKind.SHUT:
+            return 0.0
+        if event.kind is EventKind.SET_LRAT and event.value is not None:
+            liquid = event.value
+    return liquid
+
+
+def _shut_wells(events: Sequence[ControlEvent]) -> frozenset[str]:
+    return frozenset(
+        event.well for event in events if event.kind is EventKind.SHUT
+    )
+
+
+def watercut_cap_shutins(
+    state: PolicyState,
+    context: RuleContext,
+    events: Sequence[ControlEvent],
+    wells: Sequence[str],
+    limit: float,
+) -> tuple[tuple[str, ...], float, float]:
+    density = context.oil_density_t_per_m3
+    already_shut = _shut_wells(events)
+    candidates: list[tuple[float, str, float, float]] = []
+    oil_total = 0.0
+    liquid_total = 0.0
+    for well in sorted(wells):
+        observation = state.wells.get(well)
+        if observation is None or observation.role is not Role.PROD:
+            continue
+        if not observation.is_open or well in already_shut:
+            continue
+        if observation.liquid_rate_m3_per_day <= 0.0:
+            continue
+        liquid = _effective_liquid(events, state, well)
+        if liquid <= 0.0:
+            continue
+        share = liquid / observation.liquid_rate_m3_per_day
+        oil_volume = (
+            observation.oil_rate_t_per_day / density
+        ) * share
+        oil_total += oil_volume
+        liquid_total += liquid
+        candidates.append(
+            (observation.watercut(density), well, liquid, oil_volume)
+        )
+    if liquid_total <= 0.0:
+        return (), 0.0, 0.0
+    before = 1.0 - oil_total / liquid_total
+    if before <= limit:
+        return (), before, before
+    ordered = sorted(candidates, key=lambda item: (-item[0], item[1]))
+    shut: list[str] = []
+    current = before
+    for _watercut, well, liquid, oil_volume in ordered:
+        if current <= limit:
+            break
+        liquid_total -= liquid
+        oil_total -= oil_volume
+        shut.append(well)
+        if liquid_total <= 0.0:
+            current = 0.0
+            break
+        current = 1.0 - oil_total / liquid_total
+    if current > limit:
+        raise ValueError(
+            f"потолок обводнённости {limit} недостижим глушением: "
+            f"на участке остаётся {current}"
+        )
+    return tuple(shut), before, current
+
+
 def rules_for_group(flags: RuleFlags) -> tuple[Rule, ...]:
     blocked = superseded(flags)
     return tuple(
@@ -681,6 +874,52 @@ def decide_group(
             ]
         liquid_granted = _requested_liquid(tuple(decisions), inside, wells)
 
+    watercut_entries: list[TraceEntry] = []
+    if flags.feature_on(WATERCUT_CAP_FEATURE) and flags.is_on(Rule.R0):
+        watercut_limit = binding_watercut_limit(context)
+        if watercut_limit is not None:
+            shut, before, after = watercut_cap_shutins(
+                inside, context, tuple(decisions), wells, watercut_limit
+            )
+            for well in shut:
+                observation = inside.wells[well]
+                decisions.append(
+                    ControlEvent(
+                        control_step=state.control_step,
+                        well=well,
+                        kind=EventKind.SHUT,
+                    )
+                )
+                rule_by_decision.append(Rule.R0)
+                watercut_entries.append(
+                    TraceEntry(
+                        control_step=state.control_step,
+                        well=well,
+                        rule=Rule.R0,
+                        inputs={
+                            "watercut": observation.watercut(
+                                context.oil_density_t_per_m3
+                            ),
+                            "watercut_limit": watercut_limit,
+                            "group_watercut_before": before,
+                            "group_watercut_after": after,
+                            "liquid_rate_m3_per_day": (
+                                observation.liquid_rate_m3_per_day
+                            ),
+                        },
+                        decision="SHUT_TO_WATERCUT_LIMIT",
+                    )
+                )
+
+    entries.extend(watercut_entries)
+    if flags.is_on(Rule.R0):
+        floor_check = check_production_floor(
+            inside, context, tuple(decisions), wells, None
+        )
+        if floor_check.attempted:
+            entries.append(
+                floor_check.as_entry(state.control_step, limit.group_id)
+            )
     trace = [
         LeveledTraceEntry(level=Level.GROUP, agent=limit.group_id, entry=entry)
         for entry in entries
