@@ -4,7 +4,15 @@ from backend.ml.surrogate.npv_block_head import BlockKernelNpvHead, load_direct_
 from backend.ml.surrogate.npv_economic_features import scenario_feature_vector
 from backend.ml.surrogate.model import _features
 from backend.ml.surrogate.ood import OodScore
-from backend.ml.surrogate.physics_checks import PhysicsReport, Severity, severity_of, check_prediction
+from backend.ml.surrogate.physics_checks import (
+    Invariant,
+    PhysicsCheckError,
+    PhysicsReport,
+    Severity,
+    check_pair,
+    check_prediction,
+    severity_of,
+)
 from backend.ml.surrogate.scenario_ood import ScenarioDensityDomain
 from backend.ml.surrogate.npv_calibration import NpvCalibration
 from backend.ml.surrogate.raw_model_output import RawModelOutput
@@ -72,6 +80,10 @@ SETPOINT_STEP_M3_PER_DAY = 1.0
 WATER_COMMAND_SAFETY_FACTOR = 0.95
 _HISTORY_DECK_OFFSET = 146
 _SCHEDULE_INCLUDE = "Model_Z_sch.inc"
+_DIFFERENTIAL_INVARIANT_NAMES: tuple[str, ...] = (
+    Invariant.INJECTION_RESPONSE.value,
+    Invariant.MATERIAL_BALANCE.value,
+)
 
 
 class ScheduleSearchError(ValueError):
@@ -122,10 +134,34 @@ class OutOfDomainScheduleError(ScheduleSearchError):
 
 class PhysicallyImpossibleScheduleError(ScheduleSearchError):
 
-    def __init__(self, counts: Mapping[str, int], description: str) -> None:
+    def __init__(
+        self,
+        counts: Mapping[str, int],
+        description: str,
+        missing_invariants: Sequence[str] = (),
+    ) -> None:
         self.counts = dict(counts)
         self.description = description
+        self.missing_invariants = tuple(missing_invariants)
         super().__init__(f"кандидат физически невозможен: {description}")
+
+
+def missing_invariants(report: PhysicsReport) -> tuple[str, ...]:
+    evaluated = {invariant.value for invariant in report.evaluated}
+    return tuple(
+        invariant.value for invariant in Invariant if invariant.value not in evaluated
+    )
+
+
+def _incompleteness_description(report: PhysicsReport) -> str:
+    parts: list[str] = []
+    for name in missing_invariants(report):
+        reason = report.skipped.get(name)
+        parts.append(name if reason is None else f"{name} ({reason})")
+    return (
+        "physics_complete=false: проверка неполная, не посчитаны инварианты: "
+        + "; ".join(parts)
+    )
 
 
 def _enforce_physics(
@@ -134,16 +170,21 @@ def _enforce_physics(
     baseline: Mapping[str, int] | None = None,
 ) -> None:
 
-    if not enabled or report.blocking_count == 0:
+    if not enabled or report.admissible:
         return
+    if not report.complete:
+        missing = missing_invariants(report)
+        raise PhysicallyImpossibleScheduleError(
+            {}, _incompleteness_description(report), missing
+        )
     blocking = {
         name: count
         for name, count in sorted(report.counts.items())
         if severity_of(name) is Severity.BLOCKING
     }
-    if not blocking:
-        return
-    description = ", ".join(f"{name}×{count}" for name, count in blocking.items())
+    description = "physics_complete=true; " + ", ".join(
+        f"{name}×{count}" for name, count in blocking.items()
+    )
     example = next(
         (flag for flag in report.examples if flag.severity is Severity.BLOCKING), None
     )
@@ -1029,6 +1070,59 @@ def predict_economics(env: SearchEnvironment, model_input, response: ResponseArt
     return {"direct": direct, "physical": physical, "blended": (1.0 - weight) * direct + weight * physical}
 
 
+class MissingReferenceError(PhysicallyImpossibleScheduleError):
+
+    def __init__(self, reason: str) -> None:
+        description = (
+            "опора недоступна, дифференциальные инварианты не проверены: "
+            f"{', '.join(_DIFFERENTIAL_INVARIANT_NAMES)}; {reason}"
+        )
+        super().__init__({}, description, _DIFFERENTIAL_INVARIANT_NAMES)
+
+
+def full_physics_report(
+    env: SearchEnvironment, schedule: Schedule, candidate: RawModelOutput
+) -> PhysicsReport:
+    if env.reference_schedule is None or env.reference_response is None:
+        raise MissingReferenceError(
+            "провенанс опоры: "
+            + env.provenance.get("reference", "absent: опора не строилась")
+        )
+    single = check_prediction(
+        candidate, schedule=schedule, oil_density_t_per_m3=env.oil_density_t_per_m3
+    )
+    try:
+        pair = check_pair(
+            env.reference_response,
+            candidate,
+            reference_schedule=env.reference_schedule,
+            candidate_schedule=schedule,
+            lam=env.lambda_,
+            oil_density_t_per_m3=env.oil_density_t_per_m3,
+        )
+    except PhysicsCheckError as error:
+        raise MissingReferenceError(
+            f"пара опора/кандидат непригодна для проверки: {error}"
+        ) from error
+    counts = dict(single.counts)
+    for name, count in pair.counts.items():
+        counts[name] = counts.get(name, 0) + count
+    skipped = {
+        name: reason
+        for name, reason in single.skipped.items()
+        if name not in _DIFFERENTIAL_INVARIANT_NAMES
+    }
+    skipped.update(pair.skipped)
+    return PhysicsReport(
+        counts=counts,
+        examples=single.examples + pair.examples,
+        evaluated=single.evaluated + pair.evaluated,
+        skipped=skipped,
+        n_nodes=single.n_nodes,
+        n_wells=single.n_wells,
+    )
+
+
 def make_evaluator(env: SearchEnvironment):
     featureizer = ScheduleFeatureizer()
     adapter = ResponseAdapter()
@@ -1041,7 +1135,9 @@ def make_evaluator(env: SearchEnvironment):
         _enforce_scenario_ood(model_input, env.model, env.scenario_ood)
         scored = env.model.predict(model_input)
         _enforce_ood_threshold(scored.ood, env.ood_threshold)
-        _enforce_physics(check_prediction(scored.output, schedule=schedule, oil_density_t_per_m3=env.oil_density_t_per_m3), env.physics_gate)
+        physics = full_physics_report(env, schedule, scored.output)
+        _enforce_physics(physics, env.physics_gate)
+        evaluator.physics_report = physics  # type: ignore[attr-defined]
         states, intervals = adapter.adapt(
             scored.output, schedule, env.real_history, env.control_dates
         )

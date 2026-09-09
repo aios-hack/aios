@@ -4,14 +4,22 @@ import ast
 import inspect
 import json
 from dataclasses import dataclass, fields
+from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Mapping, Sequence
 
 import pytest
 
 from backend.core.contracts import (
     Availability,
     canonical_bytes,
+    ControlEvent,
+    EventKind,
+    FixedDeckEvent,
+    hash_schedule,
+    Lambda,
+    N_INTERVALS,
     OperatingStatus,
     Role,
     Schedule,
@@ -230,3 +238,333 @@ def test_selected_finalist_counts_reach_the_outcome() -> None:
 
     assert "static_violations=len(check.violations)" in source
     assert "dynamic_blocking_violations=len(surrogate_blocking)" in source
+
+
+_PHYSICS_CLASSES = (
+    "ScheduleSearchError",
+    "PhysicallyImpossibleScheduleError",
+    "MissingReferenceError",
+)
+
+
+_PHYSICS_FUNCTIONS = (
+    "missing_invariants",
+    "_incompleteness_description",
+    "_enforce_physics",
+    "full_physics_report",
+)
+
+_PHYSICS_WELLS = ("I", "N", "P")
+_PHYSICS_LATE_OPEN_STEP = 50
+
+
+def _search_namespace() -> dict[str, object]:
+    physics = pytest.importorskip(
+        "backend.ml.surrogate.physics_checks",
+        reason="физические проверки суррогата требуют torch (extras ml)",
+    )
+    module = _module_ast(SEARCH_SOURCE)
+    wanted = set(_PHYSICS_FUNCTIONS)
+    body = [
+        node
+        for node in module.body
+        if (isinstance(node, ast.FunctionDef) and node.name in wanted)
+        or (isinstance(node, ast.ClassDef) and node.name in _PHYSICS_CLASSES)
+    ]
+    found = {node.name for node in body}
+    assert found == wanted | set(_PHYSICS_CLASSES), f"не найдено: {sorted((wanted | set(_PHYSICS_CLASSES)) - found)}"
+    namespace: dict[str, object] = {
+        "Invariant": physics.Invariant,
+        "PhysicsReport": physics.PhysicsReport,
+        "PhysicsCheckError": physics.PhysicsCheckError,
+        "Severity": physics.Severity,
+        "severity_of": physics.severity_of,
+        "check_pair": physics.check_pair,
+        "check_prediction": physics.check_prediction,
+        "Mapping": Mapping,
+        "Sequence": Sequence,
+        "Schedule": Schedule,
+        "RawModelOutput": physics.RawModelOutput,
+        "ScheduleSearchError": ValueError,
+        "SearchEnvironment": object,
+        "_DIFFERENTIAL_INVARIANT_NAMES": (
+            physics.Invariant.INJECTION_RESPONSE.value,
+            physics.Invariant.MATERIAL_BALANCE.value,
+        ),
+    }
+    exec(
+        compile(ast.Module(body=body, type_ignores=[]), str(SEARCH_SOURCE), "exec"),
+        namespace,
+    )
+    return namespace
+
+
+def _physics_schedule(
+    *, injector_setpoint: float = 15.0, producer_setpoint: float = 10.0
+) -> Schedule:
+    return Schedule(
+        meta=ScheduleMeta(wells=_PHYSICS_WELLS, provenance="test"),
+        initial_state={
+            "I": WellState(
+                Availability.AVAILABLE, Role.INJ, OperatingStatus.OPEN, injector_setpoint
+            ),
+            "N": WellState(
+                Availability.NOT_COMMISSIONED, Role.NONE, OperatingStatus.SHUT, 0.0
+            ),
+            "P": WellState(
+                Availability.AVAILABLE, Role.PROD, OperatingStatus.OPEN, producer_setpoint
+            ),
+        },
+        fixed_deck_events=(
+            FixedDeckEvent(
+                control_step=0,
+                well="P",
+                operator="WCONPROD",
+                raw_args=(
+                    "OPEN", "LRAT", "1*", "1*", "1*", "10.0", "1*", "50", "1*", "1*",
+                ),
+            ),
+            FixedDeckEvent(
+                control_step=0,
+                well="I",
+                operator="WCONINJE",
+                raw_args=("WATER", "OPEN", "RATE", "15.0", "1*", "300", "1*", "1*"),
+            ),
+        ),
+        control_events=(
+            ControlEvent(_PHYSICS_LATE_OPEN_STEP, "N", EventKind.SET_LRAT, value=5.0),
+            ControlEvent(_PHYSICS_LATE_OPEN_STEP, "N", EventKind.OPEN),
+            ControlEvent(10, "I", EventKind.SET_RATE, value=injector_setpoint),
+            ControlEvent(10, "P", EventKind.SET_LRAT, value=producer_setpoint),
+        ),
+    )
+
+
+def _physics_node(well: str, step: int, **overrides):
+    raw_module = pytest.importorskip("backend.ml.surrogate.raw_model_output")
+    commissioned = well != "N" or step >= _PHYSICS_LATE_OPEN_STEP
+    values: dict[str, object] = {"well": well, "control_step": step}
+    if not commissioned:
+        values.update(
+            oil_mass_delta=0.0,
+            liquid_volume_delta=0.0,
+            injection_volume_delta=0.0,
+            liquid_rate=0.0,
+            injection_rate=0.0,
+            bhp=120.0,
+        )
+    elif well == "I":
+        values.update(
+            oil_mass_delta=0.0,
+            liquid_volume_delta=0.0,
+            injection_volume_delta=450.0,
+            liquid_rate=0.0,
+            injection_rate=15.0,
+            bhp=250.0,
+        )
+    else:
+        values.update(
+            oil_mass_delta=5.0,
+            liquid_volume_delta=20.0,
+            injection_volume_delta=0.0,
+            liquid_rate=10.0,
+            injection_rate=0.0,
+            bhp=80.0,
+        )
+    values.update(overrides)
+    return raw_module.RawWellStepPrediction(**values)
+
+
+def _physics_raw(schedule: Schedule, overrides=None):
+    raw_module = pytest.importorskip("backend.ml.surrogate.raw_model_output")
+    overrides = overrides or {}
+    nodes = tuple(
+        overrides.get((well, step), _physics_node(well, step))
+        for well in _PHYSICS_WELLS
+        for step in range(N_INTERVALS)
+    )
+    return raw_module.RawModelOutput(
+        canonical_schedule_hash=hash_schedule(schedule),
+        wells=_PHYSICS_WELLS,
+        nodes=nodes,
+    )
+
+
+def _physics_lambda() -> Lambda:
+    return Lambda(
+        window_start=date(2007, 1, 1),
+        window_end=date(2025, 9, 1),
+        producers=("N", "P"),
+        injectors=("I",),
+        matrix=((0.2,), (0.5,)),
+        lag_months=0,
+        amplitude=1.0,
+        stability=1.0,
+        rank=1,
+        condition_number=1.0,
+        achievability_ok={"I": True},
+    )
+
+
+class _Env:
+    def __init__(
+        self,
+        reference_schedule: Schedule | None,
+        reference_response: object | None,
+        lambda_: Lambda,
+        provenance: Mapping[str, str],
+    ) -> None:
+        self.reference_schedule = reference_schedule
+        self.reference_response = reference_response
+        self.lambda_ = lambda_
+        self.oil_density_t_per_m3 = 0.9131
+        self.provenance = provenance
+
+
+def _differential_names(physics) -> tuple[str, str]:
+    return (
+        physics.Invariant.INJECTION_RESPONSE.value,
+        physics.Invariant.MATERIAL_BALANCE.value,
+    )
+
+
+def test_evaluator_calls_check_pair_not_check_prediction_alone() -> None:
+    module = _module_ast(SEARCH_SOURCE)
+    evaluator_source = ast.unparse(_function_def(module, "make_evaluator"))
+    report_source = ast.unparse(_function_def(module, "full_physics_report"))
+
+    assert "full_physics_report(env, schedule, scored.output)" in evaluator_source
+    assert "check_prediction" not in evaluator_source
+    assert "check_pair(" in report_source
+    assert "check_prediction(" in report_source
+
+
+def test_incomplete_report_is_not_admitted_even_without_blocking_flags() -> None:
+    namespace = _search_namespace()
+    physics = pytest.importorskip("backend.ml.surrogate.physics_checks")
+    differential = _differential_names(physics)
+    single_only = tuple(
+        invariant
+        for invariant in physics.Invariant
+        if invariant.value not in differential
+    )
+    report = physics.PhysicsReport(
+        counts={},
+        examples=(),
+        evaluated=single_only,
+        skipped={name: "опоры нет" for name in differential},
+        n_nodes=1,
+        n_wells=1,
+    )
+
+    assert report.blocking_count == 0
+    assert report.complete is False
+    with pytest.raises(namespace["PhysicallyImpossibleScheduleError"]) as error:
+        namespace["_enforce_physics"](report, True)
+
+    assert error.value.missing_invariants == differential
+    assert all(name in error.value.description for name in differential)
+    assert "physics_complete=false" in error.value.description
+
+
+def test_complete_clean_report_is_admitted() -> None:
+    namespace = _search_namespace()
+    physics = pytest.importorskip("backend.ml.surrogate.physics_checks")
+    report = physics.PhysicsReport(
+        counts={},
+        examples=(),
+        evaluated=tuple(physics.Invariant),
+        skipped={},
+        n_nodes=1,
+        n_wells=1,
+    )
+
+    assert report.admissible is True
+    namespace["_enforce_physics"](report, True)
+
+
+def test_blocking_flag_on_a_complete_report_names_completeness() -> None:
+    namespace = _search_namespace()
+    physics = pytest.importorskip("backend.ml.surrogate.physics_checks")
+    report = physics.PhysicsReport(
+        counts={physics.Invariant.SHUT_WELL_FLOW.value: 3},
+        examples=(),
+        evaluated=tuple(physics.Invariant),
+        skipped={},
+        n_nodes=1,
+        n_wells=1,
+    )
+
+    with pytest.raises(namespace["PhysicallyImpossibleScheduleError"]) as error:
+        namespace["_enforce_physics"](report, True)
+
+    assert "physics_complete=true" in error.value.description
+    assert error.value.counts == {physics.Invariant.SHUT_WELL_FLOW.value: 3}
+    assert error.value.missing_invariants == ()
+
+
+def test_absent_anchor_rejects_the_candidate_with_a_named_reason() -> None:
+    namespace = _search_namespace()
+    physics = pytest.importorskip("backend.ml.surrogate.physics_checks")
+    schedule = _physics_schedule(injector_setpoint=16.0)
+    env = _Env(
+        None,
+        None,
+        _physics_lambda(),
+        {"reference": "absent: прогноз суррогата на опоре не построен: чекпойнт"},
+    )
+
+    with pytest.raises(namespace["MissingReferenceError"]) as error:
+        namespace["full_physics_report"](env, schedule, _physics_raw(schedule))
+
+    assert "опора недоступна" in error.value.description
+    assert "absent:" in error.value.description
+    assert error.value.missing_invariants == _differential_names(physics)
+
+
+def test_absent_anchor_is_never_silently_downgraded_to_check_prediction() -> None:
+    source = ast.unparse(_function_def(_module_ast(SEARCH_SOURCE), "full_physics_report"))
+    guard = source.split("MissingReferenceError")[0]
+
+    assert "check_prediction" not in guard
+    assert "reference_schedule is None" in guard
+
+
+def test_working_path_with_an_anchor_yields_a_complete_report() -> None:
+    namespace = _search_namespace()
+    physics = pytest.importorskip("backend.ml.surrogate.physics_checks")
+    reference_schedule = _physics_schedule()
+    candidate_schedule = _physics_schedule(injector_setpoint=16.0)
+    env = _Env(
+        reference_schedule,
+        _physics_raw(reference_schedule),
+        _physics_lambda(),
+        {"reference": "base-case-schedule+surrogate-prediction"},
+    )
+
+    report = namespace["full_physics_report"](
+        env, candidate_schedule, _physics_raw(candidate_schedule)
+    )
+
+    assert report.complete is True
+    assert set(report.evaluated) == set(physics.Invariant)
+    assert report.skipped == {}
+    assert report.as_dict()["complete"] is True
+    assert report.as_dict()["admissible"] is True
+    namespace["_enforce_physics"](report, True)
+
+
+def test_unusable_pair_is_rejected_and_never_crashes_the_search() -> None:
+    namespace = _search_namespace()
+    schedule = _physics_schedule()
+    env = _Env(
+        schedule,
+        _physics_raw(schedule),
+        _physics_lambda(),
+        {"reference": "base-case-schedule+surrogate-prediction"},
+    )
+
+    with pytest.raises(namespace["MissingReferenceError"]) as error:
+        namespace["full_physics_report"](env, schedule, _physics_raw(schedule))
+
+    assert "непригодна" in error.value.description
