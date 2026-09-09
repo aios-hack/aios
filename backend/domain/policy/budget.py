@@ -44,3 +44,27 @@ def production_floor_for_step(
             f"{value} т/сут"
         )
     return value
+
+
+def injection_ceiling_for_well(
+    well_cap_m3_per_day: float | None,
+    field_budget_m3_per_day: float | None,
+) -> float | None:
+    candidates: list[float] = []
+    if well_cap_m3_per_day is not None:
+        value = float(well_cap_m3_per_day)
+        if value < 0.0:
+            raise ValueError(
+                f"потолок закачки скважины отрицателен: {value} м³/сут"
+            )
+        candidates.append(value)
+    if field_budget_m3_per_day is not None:
+        value = float(field_budget_m3_per_day)
+        if value < 0.0:
+            raise ValueError(
+                f"водный бюджет поля отрицателен: {value} м³/сут"
+            )
+        candidates.append(value)
+    if not candidates:
+        return None
+    return min(candidates)

@@ -21,8 +21,19 @@ from backend.domain.policy.agents.registry import (
     DEFAULT_AGENTS,
     DEFAULT_REGISTRY,
     LEVEL_ORDER,
+    WATER_AGENTS,
+    WATER_REGISTRY,
     AgentRegistry,
     rank_of,
+    with_agents,
+)
+from backend.domain.policy.agents.water import (
+    WATER_AGENT,
+    WATER_AGENT_RANK,
+    WATER_CEILING_DECISION,
+    WaterAgent,
+    WaterCeiling,
+    water_ceiling_for,
 )
 from backend.domain.policy.agents.well import WELL_EXECUTOR, WellExecutor
 
@@ -46,7 +57,16 @@ __all__ = [
     "LEVEL_ORDER",
     "Proposal",
     "RATE_KINDS",
+    "WATER_AGENT",
+    "WATER_AGENTS",
+    "WATER_AGENT_RANK",
+    "WATER_CEILING_DECISION",
+    "WATER_REGISTRY",
+    "WaterAgent",
+    "WaterCeiling",
     "WELL_EXECUTOR",
     "WellExecutor",
     "project_to_hard_constraints",
+    "water_ceiling_for",
+    "with_agents",
 ]

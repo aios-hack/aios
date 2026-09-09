@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping
+from typing import Iterable, Mapping
 
 from backend.core.contracts import Rule, Theta
 from backend.core.contracts.policy import MAX_THETA_PARAMS
+
+THETA_CAP = MAX_THETA_PARAMS
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,7 +115,7 @@ def read(theta: Theta, name: str) -> float:
 
 
 def total_budget_ok() -> bool:
-    return len(SPECS) <= MAX_THETA_PARAMS
+    return len(SPECS) <= THETA_CAP
 
 
 def budget_by_rule() -> dict[Rule, int]:
@@ -125,4 +127,70 @@ def budget_used() -> int:
 
 
 def budget_free() -> int:
-    return MAX_THETA_PARAMS - len(SPECS)
+    return THETA_CAP - len(SPECS)
+
+
+@dataclass(frozen=True, slots=True)
+class ThetaRegistry:
+    specs: tuple[ThetaSpec, ...]
+    cap: int = THETA_CAP
+
+    def __post_init__(self) -> None:
+        if self.cap <= 0:
+            raise ValueError(
+                f"потолок θ равен {self.cap}: искать нечего, размерность "
+                f"пространства поиска не положительна"
+            )
+        names = [spec.name for spec in self.specs]
+        duplicated = sorted({name for name in names if names.count(name) > 1})
+        if duplicated:
+            raise ValueError(f"параметр θ объявлен дважды: {duplicated}")
+        if len(self.specs) > self.cap:
+            raise ValueError(
+                f"θ: {len(self.specs)} параметров > {self.cap} — CMA-ES "
+                f"строит ковариацию размера {len(self.specs)}², и цена оценки "
+                f"растёт быстрее, чем бюджет прогонов; выбор, что выкинуть, "
+                f"принимается явно, а не молча"
+            )
+
+    def by_name(self) -> Mapping[str, ThetaSpec]:
+        return {spec.name: spec for spec in self.specs}
+
+    def names(self) -> tuple[str, ...]:
+        return tuple(spec.name for spec in self.specs)
+
+    def used(self) -> int:
+        return len(self.specs)
+
+    def free(self) -> int:
+        return self.cap - len(self.specs)
+
+    def for_rule(self, rule: Rule) -> tuple[ThetaSpec, ...]:
+        return tuple(spec for spec in self.specs if spec.rule is rule)
+
+    def bounds(self) -> dict[str, tuple[float, float]]:
+        return {spec.name: (spec.low, spec.high) for spec in self.specs}
+
+    def defaults(self) -> Theta:
+        return Theta(
+            values={spec.name: spec.default for spec in self.specs},
+            bounds=self.bounds(),
+        )
+
+    def without(self, *names: str) -> "ThetaRegistry":
+        unknown = sorted(set(names) - set(self.names()))
+        if unknown:
+            raise ValueError(f"незаявленные параметры θ: {unknown}")
+        dropped = set(names)
+        return ThetaRegistry(
+            specs=tuple(
+                spec for spec in self.specs if spec.name not in dropped
+            ),
+            cap=self.cap,
+        )
+
+    def extended_with(self, added: Iterable[ThetaSpec]) -> "ThetaRegistry":
+        return ThetaRegistry(specs=self.specs + tuple(added), cap=self.cap)
+
+
+DEFAULT_THETA_REGISTRY = ThetaRegistry(specs=SPECS)

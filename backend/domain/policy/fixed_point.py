@@ -39,10 +39,19 @@ class Visited:
     sigma: float | None = None
     physics: Mapping[str, int] = field(default=_EMPTY_COUNTS)
     ood_worst: str | None = None
+    reaction_hash: str | None = None
 
     def __post_init__(self) -> None:
         if self.iteration < 0:
             raise ValueError(f"номер итерации {self.iteration} отрицателен")
+
+    def is_quiet(self) -> bool:
+        if self.reaction_hash is None:
+            raise ValueError(
+                f"итерация {self.iteration}: отклик политики не записан — "
+                f"судить, изменили правила расписание или нет, не по чему"
+            )
+        return self.reaction_hash == self.schedule_hash
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +88,75 @@ class FixedPointResult:
     def best_visited(self) -> Visited:
         return max(self.visited, key=lambda entry: (entry.npv, -entry.iteration))
 
+    def quiet_steps(self) -> int:
+        silent = [
+            entry.iteration
+            for entry in self.visited
+            if entry.reaction_hash is None
+        ]
+        if silent:
+            raise ValueError(
+                f"итерации {silent} без записанного отклика политики: долю "
+                f"неизменённых шагов посчитать не из чего"
+            )
+        return sum(1 for entry in self.visited if entry.is_quiet())
+
+    def quiet_step_fraction(self) -> float:
+        return self.quiet_steps() / len(self.visited)
+
+    def as_equilibrium(self) -> "PolicyEquilibrium":
+        return PolicyEquilibrium(
+            iterations=self.iterations,
+            converged=self.converged,
+            self_consistent=self.self_consistent,
+            quiet_steps=self.quiet_steps(),
+            observed_steps=len(self.visited),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class PolicyEquilibrium:
+    iterations: int
+    converged: bool
+    self_consistent: bool
+    quiet_steps: int
+    observed_steps: int
+
+    def __post_init__(self) -> None:
+        if self.observed_steps <= 0:
+            raise ValueError(
+                "равновесие политики без единого наблюдённого шага: доля "
+                "неизменённых шагов не определена"
+            )
+        if not (0 <= self.quiet_steps <= self.observed_steps):
+            raise ValueError(
+                f"неизменённых шагов {self.quiet_steps} из "
+                f"{self.observed_steps}: доля вне 0…1"
+            )
+        if self.iterations < 0:
+            raise ValueError(f"число итераций {self.iterations} отрицательно")
+        if self.converged and not self.self_consistent:
+            raise ValueError(
+                "сошедшаяся политика обязана быть самосогласованной"
+            )
+
+    def quiet_step_fraction(self) -> float:
+        return self.quiet_steps / self.observed_steps
+
+    def settled(self) -> bool:
+        return self.converged and self.self_consistent
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "iterations": self.iterations,
+            "converged": self.converged,
+            "self_consistent": self.self_consistent,
+            "quiet_steps": self.quiet_steps,
+            "observed_steps": self.observed_steps,
+            "quiet_step_fraction": self.quiet_step_fraction(),
+            "settled": self.settled(),
+        }
+
 
 def resolve(
     policy: Policy,
@@ -97,6 +175,8 @@ def resolve(
     seen_hashes = {current_hash}
     for iteration in range(iteration_cap):
         evaluation = evaluator(schedule)
+        proposed = policy(evaluation.state)
+        proposed_hash = hash_schedule(proposed)
         visited.append(
             Visited(
                 iteration=iteration,
@@ -108,10 +188,9 @@ def resolve(
                 sigma=evaluation.sigma,
                 physics=evaluation.physics,
                 ood_worst=evaluation.ood_worst,
+                reaction_hash=proposed_hash,
             )
         )
-        proposed = policy(evaluation.state)
-        proposed_hash = hash_schedule(proposed)
         if proposed_hash == current_hash:
             return FixedPointResult(
                 schedule=schedule,

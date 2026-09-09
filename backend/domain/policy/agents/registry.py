@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from backend.domain.policy.agents.base import DEFAULT_RANK, Agent
 from backend.domain.policy.agents.field import FieldCoordinator
 from backend.domain.policy.agents.group import GroupAllocator
+from backend.domain.policy.agents.water import WaterAgent
 from backend.domain.policy.agents.well import WellExecutor
 from backend.domain.policy.levels import Level
 
@@ -89,11 +90,28 @@ DEFAULT_AGENTS: tuple[Agent, ...] = (
 
 DEFAULT_REGISTRY = AgentRegistry(agents=DEFAULT_AGENTS)
 
+
+def with_agents(registry: AgentRegistry, *added: Agent) -> AgentRegistry:
+    if not added:
+        raise ValueError(
+            "расширение реестра без единого агента: что именно добавляется, "
+            "не объявлено"
+        )
+    return AgentRegistry(agents=registry.agents + added)
+
+
+WATER_AGENTS: tuple[Agent, ...] = DEFAULT_AGENTS + (WaterAgent(),)
+
+WATER_REGISTRY = AgentRegistry(agents=WATER_AGENTS)
+
 __all__ = [
     "DEFAULT_AGENTS",
     "DEFAULT_RANK",
     "DEFAULT_REGISTRY",
     "LEVEL_ORDER",
+    "WATER_AGENTS",
+    "WATER_REGISTRY",
     "AgentRegistry",
     "rank_of",
+    "with_agents",
 ]

@@ -11,6 +11,7 @@ from backend.domain.policy.fixed_point import (
     Evaluation,
     Evaluator,
     FixedPointResult,
+    PolicyEquilibrium,
     Visited,
     resolve,
 )
@@ -29,8 +30,12 @@ from backend.domain.policy.agents import (
     GroupAllocator,
     HardConstraints,
     Proposal,
+    WATER_AGENTS,
+    WATER_REGISTRY,
+    WaterAgent,
     WellExecutor,
     project_to_hard_constraints,
+    with_agents,
 )
 from backend.domain.policy.hierarchy import (
     FIELD_AGENT,
@@ -88,7 +93,10 @@ from backend.domain.policy.trace import (
     trace_hash,
 )
 from backend.domain.policy.theta import (
+    DEFAULT_THETA_REGISTRY,
     SPECS,
+    THETA_CAP,
+    ThetaRegistry,
     ThetaSpec,
     budget_by_rule,
     budget_free,
@@ -110,7 +118,15 @@ __all__ = [
     "Evaluation",
     "Evaluator",
     "FIELD_AGENT",
+    "DEFAULT_THETA_REGISTRY",
     "FixedPointResult",
+    "THETA_CAP",
+    "ThetaRegistry",
+    "PolicyEquilibrium",
+    "WATER_AGENTS",
+    "WATER_REGISTRY",
+    "WaterAgent",
+    "with_agents",
     "FieldAllocation",
     "FieldCoordinator",
     "GroupDecision",
