@@ -1,0 +1,165 @@
+{
+  "constraints_hash": "0e09608eff6103696c4dc05759db25b4121d66afeeda447e5c9df9e4c5a2ef84",
+  "checks": [
+    {
+      "constraint": "infrastructure.bhp_limits",
+      "status": "checked",
+      "n_violations": 0,
+      "blocking": true,
+      "kinds": [
+        "BHP_BELOW_PRODUCER_LIMIT",
+        "BHP_ABOVE_INJECTOR_LIMIT"
+      ],
+      "enforcement": null,
+      "detail": "коридор забойного давления 50.0…300.0 бар: нижний предел добывающих infrastructure.bhp_producer_min_bar, источник organizer (условие организаторов), кейс config/competition-constraints.json; верхний предел нагнетательных infrastructure.bhp_injector_max_bar, источник organizer (условие организаторов), кейс config/competition-constraints.json"
+    },
+    {
+      "constraint": "infrastructure.compensation",
+      "status": "checked",
+      "n_violations": 224,
+      "blocking": false,
+      "kinds": [
+        "COMPENSATION_OUT_OF_CORRIDOR",
+        "COMPENSATION_UNDEFINED"
+      ],
+      "enforcement": "diagnostic",
+      "detail": "коридор компенсации 0.85…1.15, режим diagnostic: C(k) = закачка / отбор проверена по полю на 224 шагах в поверхностные условия; объёмные коэффициенты B_o/B_w в валидатор не переданы: C(k) считается в поверхностных условиях, пересчёт в пластовые не выполнялся"
+    },
+    {
+      "constraint": "infrastructure.compensation_scope",
+      "status": "checked",
+      "n_violations": 224,
+      "blocking": false,
+      "kinds": [
+        "COMPENSATION_OUT_OF_CORRIDOR",
+        "COMPENSATION_UNDEFINED"
+      ],
+      "enforcement": "diagnostic",
+      "detail": "infrastructure.compensation_scope = 'field_and_groups': коридор 0.85…1.15 проверен по участкам в поверхностные условия, нарезка cf41ef7f9b79301a6f98f6f5dec9a67050e361fad2f73021352bcc268dc87e49 из 1 участков, 224 пар шаг-участок; объёмные коэффициенты B_o/B_w в валидатор не переданы: C(k) считается в поверхностных условиях, пересчёт в пластовые не выполнялся"
+    },
+    {
+      "constraint": "infrastructure.field_pressure",
+      "status": "not_set",
+      "n_violations": null,
+      "blocking": false,
+      "kinds": [
+        "FIELD_PRESSURE_BELOW_FLOOR",
+        "FIELD_PRESSURE_ABOVE_CEILING"
+      ],
+      "enforcement": null,
+      "detail": "ни infrastructure.pressure_floor_bar, ни infrastructure.pressure_ceiling_bar в кейсе не заданы: пластовое давление не проверялось, предел назначать за организаторов нельзя"
+    },
+    {
+      "constraint": "infrastructure.region_pressure",
+      "status": "not_set",
+      "n_violations": null,
+      "blocking": false,
+      "kinds": [
+        "REGION_PRESSURE_BELOW_FLOOR",
+        "REGION_PRESSURE_ABOVE_CEILING"
+      ],
+      "enforcement": null,
+      "detail": "ни infrastructure.region_pressure_floor_bar, ни infrastructure.region_pressure_ceiling_bar в кейсе не заданы: региональное пластовое давление не проверялось, предел назначать за организаторов нельзя"
+    },
+    {
+      "constraint": "infrastructure.water_supply",
+      "status": "checked",
+      "n_violations": 0,
+      "blocking": true,
+      "kinds": [
+        "WATER_SUPPLY_LIMIT_EXCEEDED"
+      ],
+      "enforcement": null,
+      "detail": "доля возврата 1.0, лаг 0 шагов, внешний приток 0.0 м³/сут: закачка сверена с балансом воды на 224 шагах"
+    },
+    {
+      "constraint": "injection_limits",
+      "status": "not_set",
+      "n_violations": null,
+      "blocking": false,
+      "kinds": [
+        "INJECTION_LIMIT_EXCEEDED"
+      ],
+      "enforcement": null,
+      "detail": "injection_limits в кейсе не заданы: верхний предел суммарной закачки по годам не проверялся"
+    },
+    {
+      "constraint": "liquid_limits",
+      "status": "not_set",
+      "n_violations": null,
+      "blocking": false,
+      "kinds": [
+        "LIQUID_LIMIT_EXCEEDED"
+      ],
+      "enforcement": null,
+      "detail": "liquid_limits в кейсе не заданы: верхний предел суммарной добычи жидкости по годам не проверялся"
+    },
+    {
+      "constraint": "material_balance",
+      "status": "not_set",
+      "n_violations": null,
+      "blocking": false,
+      "kinds": [
+        "MATERIAL_BALANCE_BROKEN"
+      ],
+      "enforcement": null,
+      "detail": "полевые серии FOIP/FWIP/FOPT/FWPT/FWIT не переданы: материальный баланс пласта не проверялся"
+    },
+    {
+      "constraint": "oil_limits",
+      "status": "not_set",
+      "n_violations": null,
+      "blocking": false,
+      "kinds": [
+        "OIL_LIMIT_EXCEEDED"
+      ],
+      "enforcement": null,
+      "detail": "oil_limits в кейсе не заданы: верхний предел суммарной добычи нефти по годам не проверялся"
+    },
+    {
+      "constraint": "production_floors",
+      "status": "not_set",
+      "n_violations": null,
+      "blocking": false,
+      "kinds": [
+        "PRODUCTION_FLOOR_MISSED"
+      ],
+      "enforcement": null,
+      "detail": "production_floors в кейсе не заданы: нижняя граница суммарной добычи нефти по годам не проверялся"
+    },
+    {
+      "constraint": "watercut_limits",
+      "status": "not_set",
+      "n_violations": null,
+      "blocking": false,
+      "kinds": [
+        "WATERCUT_LIMIT_EXCEEDED"
+      ],
+      "enforcement": null,
+      "detail": "watercut_limits в кейсе не заданы: обводнённость не проверялась"
+    },
+    {
+      "constraint": "well_outages",
+      "status": "not_set",
+      "n_violations": null,
+      "blocking": false,
+      "kinds": [
+        "OUTAGE_WELL_PRODUCED"
+      ],
+      "enforcement": null,
+      "detail": "well_outages в кейсе не заданы: работа скважин внутри окон простоя не проверялась"
+    },
+    {
+      "constraint": "well_outages (static)",
+      "status": "not_set",
+      "n_violations": null,
+      "blocking": true,
+      "kinds": [
+        "WELL_OUTAGE_VIOLATED"
+      ],
+      "enforcement": null,
+      "detail": "well_outages в кейсе не заданы: статическая проверка событий внутри окон простоя не запускалась"
+    }
+  ],
+  "unavailable_reason": null
+}
