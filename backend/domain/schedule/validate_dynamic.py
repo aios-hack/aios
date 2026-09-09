@@ -23,14 +23,20 @@ from backend.core.contracts import (
     water_supply_policy,
 )
 from backend.core.contracts.constraints import (
+    BHP_INJECTOR_MAX_BAR,
+    BHP_PRODUCER_MIN_BAR,
     COMPENSATION_ENFORCEMENT,
     COMPENSATION_MAX,
     COMPENSATION_MIN,
     COMPENSATION_SCOPE,
+    DEFAULT_BHP_INJECTOR_MAX_BAR,
+    DEFAULT_BHP_PRODUCER_MIN_BAR,
     EXTERNAL_WATER_M3_PER_DAY,
     WATER_REINJECTION_FRACTION,
     WATER_REINJECTION_LAG_STEPS,
     WATER_SUPPLY_UNLIMITED,
+    bhp_limits,
+    limit_origin,
 )
 from backend.core.contracts.response import N_DECK_DATES
 
@@ -48,6 +54,7 @@ from .validate import (
     CONSTRAINT_WATER_SUPPLY,
     CONSTRAINT_WATERCUT_LIMITS,
     CONSTRAINT_WELL_OUTAGES,
+    CONSTRAINT_BHP_LIMITS,
     ConstraintCheck,
     ValidationReport,
     Violation,
@@ -57,8 +64,8 @@ from .validate import (
     check_constraints,
 )
 
-PRODUCER_MIN_BHP_BAR: float = 50.0
-INJECTOR_MAX_BHP_BAR: float = 300.0
+PRODUCER_MIN_BHP_BAR: float = DEFAULT_BHP_PRODUCER_MIN_BAR
+INJECTOR_MAX_BHP_BAR: float = DEFAULT_BHP_INJECTOR_MAX_BAR
 ACHIEVEMENT_THRESHOLD: float = 0.999
 FIRST_CONTROL_DECK_DATE_INDEX: int = N_DECK_DATES - N_INTERVALS - 1
 
@@ -381,12 +388,41 @@ def check_target_ratio(
     return tuple(found), tuple(ratios)
 
 
+def bhp_constraint_check(
+    constraints: Constraints | None, found: Sequence[Violation]
+) -> ConstraintCheck:
+    case = constraints if constraints is not None else Constraints()
+    limits = bhp_limits(case)
+    return _checked(
+        CONSTRAINT_BHP_LIMITS,
+        found,
+        (
+            f"коридор забойного давления {limits.producer_min_bar}…"
+            f"{limits.injector_max_bar} бар: нижний предел добывающих "
+            f"infrastructure.{BHP_PRODUCER_MIN_BAR}, "
+            f"{limit_origin(case, BHP_PRODUCER_MIN_BAR)}; верхний предел "
+            f"нагнетательных infrastructure.{BHP_INJECTOR_MAX_BAR}, "
+            f"{limit_origin(case, BHP_INJECTOR_MAX_BAR)}"
+        ),
+        blocking_kinds=BLOCKING_DYNAMIC_VIOLATION_KINDS,
+    )
+
+
 def check_bhp_limits(
     schedule: Schedule,
     states: Sequence[StateAtDate],
-    producer_min_bar: float = PRODUCER_MIN_BHP_BAR,
-    injector_max_bar: float = INJECTOR_MAX_BHP_BAR,
+    constraints: Constraints | None = None,
+    producer_min_bar: float | None = None,
+    injector_max_bar: float | None = None,
 ) -> tuple[Violation, ...]:
+    case = constraints if constraints is not None else Constraints()
+    limits = bhp_limits(case)
+    if producer_min_bar is None:
+        producer_min_bar = limits.producer_min_bar
+    if injector_max_bar is None:
+        injector_max_bar = limits.injector_max_bar
+    producer_origin = limit_origin(case, BHP_PRODUCER_MIN_BAR)
+    injector_origin = limit_origin(case, BHP_INJECTOR_MAX_BAR)
     timelines = _target_timeline(schedule)
     indexed = _states_by_step(states)
     found: list[Violation] = []
@@ -414,7 +450,9 @@ def check_bhp_limits(
                         value=state.bhp,
                         detail=(
                             f"забойное давление нагнетательной {state.bhp} бар "
-                            f"выше предела {injector_max_bar} бар"
+                            f"выше предела {injector_max_bar} бар; предел "
+                            f"infrastructure.{BHP_INJECTOR_MAX_BAR}, "
+                            f"{injector_origin}"
                         ),
                     )
                 )
@@ -430,7 +468,9 @@ def check_bhp_limits(
                         value=state.bhp,
                         detail=(
                             f"забойное давление добывающей {state.bhp} бар "
-                            f"ниже предела {producer_min_bar} бар"
+                            f"ниже предела {producer_min_bar} бар; предел "
+                            f"infrastructure.{BHP_PRODUCER_MIN_BAR}, "
+                            f"{producer_origin}"
                         ),
                     )
                 )
@@ -735,6 +775,10 @@ DYNAMIC_CONSTRAINT_NAMES: tuple[str, ...] = (
 )
 
 _CONSTRAINT_KINDS: dict[str, tuple[ViolationKind, ...]] = {
+    CONSTRAINT_BHP_LIMITS: (
+        ViolationKind.BHP_BELOW_PRODUCER_LIMIT,
+        ViolationKind.BHP_ABOVE_INJECTOR_LIMIT,
+    ),
     CONSTRAINT_LIQUID_LIMITS: (ViolationKind.LIQUID_LIMIT_EXCEEDED,),
     CONSTRAINT_INJECTION_LIMITS: (ViolationKind.INJECTION_LIMIT_EXCEEDED,),
     CONSTRAINT_PRODUCTION_FLOORS: (ViolationKind.PRODUCTION_FLOOR_MISSED,),
@@ -774,12 +818,18 @@ CONSTRAINT_FIELD_COVERAGE: dict[str, tuple[str, ...]] = {
     COMPENSATION_MAX: (CONSTRAINT_COMPENSATION,),
     COMPENSATION_ENFORCEMENT: (CONSTRAINT_COMPENSATION,),
     COMPENSATION_SCOPE: (CONSTRAINT_COMPENSATION_SCOPE,),
+    BHP_PRODUCER_MIN_BAR: (CONSTRAINT_BHP_LIMITS,),
+    BHP_INJECTOR_MAX_BAR: (CONSTRAINT_BHP_LIMITS,),
 }
+
+PROVENANCE_FIELDS: frozenset[str] = frozenset({"infrastructure", "case_path"})
 
 
 def constraint_fields_to_cover() -> tuple[str, ...]:
     fields = tuple(
-        name for name in Constraints.__dataclass_fields__ if name != "infrastructure"
+        name
+        for name in Constraints.__dataclass_fields__
+        if name not in PROVENANCE_FIELDS
     )
     return fields + (
         WATER_SUPPLY_UNLIMITED,
@@ -790,6 +840,8 @@ def constraint_fields_to_cover() -> tuple[str, ...]:
         COMPENSATION_MAX,
         COMPENSATION_ENFORCEMENT,
         COMPENSATION_SCOPE,
+        BHP_PRODUCER_MIN_BAR,
+        BHP_INJECTOR_MAX_BAR,
     )
 
 
@@ -888,8 +940,8 @@ def _check_compensation(
             "C(k) не с чем сравнивать"
         )
     source = (
-        f"infrastructure.{COMPENSATION_MIN}/{COMPENSATION_MAX} кейса, "
-        f"режим {policy.enforcement}"
+        f"infrastructure.{COMPENSATION_MIN}/{COMPENSATION_MAX}, "
+        f"режим {policy.enforcement}, {limit_origin(constraints, COMPENSATION_MIN)}"
     )
     totals: dict[int, tuple[float, float]] = {}
     for item in interval_responses:
@@ -1042,6 +1094,7 @@ def _check_water_supply(
         step: max(0.0, liquid - oil / oil_density_t_per_m3)
         for step, (oil, liquid, _) in totals.items()
     }
+    origin = limit_origin(constraints, WATER_REINJECTION_FRACTION)
     found: list[Violation] = []
     for control_step in range(schedule.meta.n_intervals):
         injection = totals.get(control_step, (0.0, 0.0, 0.0))[2]
@@ -1064,7 +1117,9 @@ def _check_water_supply(
                     f"закачано {injection:.3f} м³ при доступном материальном "
                     f"балансе воды {available:.3f} м³; источник: "
                     f"{policy.reinjection_fraction} × добытая вода шага "
-                    f"{source_step} + {policy.external_water_m3_per_day} м³/сут"
+                    f"{source_step} + {policy.external_water_m3_per_day} м³/сут; "
+                    f"предел infrastructure.{WATER_REINJECTION_FRACTION}, "
+                    f"{origin}"
                 ),
             )
         )
@@ -1323,7 +1378,8 @@ def validate_dynamic(
     if report_undershoot:
         violations.extend(undershoot)
     violations.extend(check_control_modes(schedule, states))
-    violations.extend(check_bhp_limits(schedule, states))
+    bhp_violations = check_bhp_limits(schedule, states, constraints)
+    violations.extend(bhp_violations)
     violations.extend(check_role_consistency(schedule, states))
     violations.extend(check_intent_versus_fact(schedule, states))
     violations.extend(check_response_axes(schedule, states, interval_responses))
@@ -1339,7 +1395,10 @@ def validate_dynamic(
     _, static_outage_check = check_constraints(
         candidates(schedule.control_events), constraints
     )
-    checks = verified_constraint_checks(dynamic_checks + (static_outage_check,))
+    checks = verified_constraint_checks(
+        dynamic_checks
+        + (static_outage_check, bhp_constraint_check(constraints, bhp_violations))
+    )
     violations.sort(
         key=lambda item: (
             -1 if item.control_step is None else item.control_step,

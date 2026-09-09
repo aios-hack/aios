@@ -7,6 +7,20 @@ from backend.core.contracts import (
     compensation_policy,
     water_supply_policy,
 )
+from backend.core.contracts.constraints import (
+    BHP_INJECTOR_MAX_BAR,
+    BHP_PRODUCER_MIN_BAR,
+    COMPENSATION_MAX,
+    COMPENSATION_MIN,
+    DEFAULT_BHP_INJECTOR_MAX_BAR,
+    DEFAULT_BHP_PRODUCER_MIN_BAR,
+    SOURCE_DIAGNOSTIC,
+    SOURCE_ORGANIZER,
+    bhp_limits,
+    constraint_source,
+    limit_origin,
+    source_key,
+)
 
 
 def test_water_supply_is_disabled_only_when_no_water_keys_are_present() -> None:
@@ -116,3 +130,82 @@ def test_compensation_contract_parses_hackathon_defaults() -> None:
     assert not policy.hard
     assert policy.minimum == pytest.approx(0.85)
     assert policy.maximum == pytest.approx(1.15)
+
+
+def test_bhp_limits_fall_back_to_the_deck_defaults() -> None:
+    limits = bhp_limits(Constraints())
+    assert limits.producer_min_bar == pytest.approx(DEFAULT_BHP_PRODUCER_MIN_BAR)
+    assert limits.injector_max_bar == pytest.approx(DEFAULT_BHP_INJECTOR_MAX_BAR)
+    assert limits.producer_min_defaulted
+    assert limits.injector_max_defaulted
+
+
+def test_bhp_limits_come_from_the_case_when_declared() -> None:
+    limits = bhp_limits(
+        Constraints(
+            infrastructure={
+                BHP_PRODUCER_MIN_BAR: 90.0,
+                BHP_INJECTOR_MAX_BAR: 260.0,
+            }
+        )
+    )
+    assert limits.producer_min_bar == pytest.approx(90.0)
+    assert limits.injector_max_bar == pytest.approx(260.0)
+    assert not limits.producer_min_defaulted
+    assert not limits.injector_max_defaulted
+
+
+def test_empty_bhp_corridor_is_refused() -> None:
+    with pytest.raises(ValueError, match="коридор забойного давления пуст"):
+        bhp_limits(
+            Constraints(
+                infrastructure={
+                    BHP_PRODUCER_MIN_BAR: 300.0,
+                    BHP_INJECTOR_MAX_BAR: 300.0,
+                }
+            )
+        )
+
+
+def test_declared_source_is_available_to_the_consumer() -> None:
+    constraints = Constraints(
+        infrastructure={
+            BHP_PRODUCER_MIN_BAR: 60.0,
+            source_key(BHP_PRODUCER_MIN_BAR): SOURCE_ORGANIZER,
+        }
+    )
+    assert constraint_source(constraints, BHP_PRODUCER_MIN_BAR) == SOURCE_ORGANIZER
+
+
+def test_declared_limit_without_a_source_reports_no_source() -> None:
+    constraints = Constraints(infrastructure={BHP_PRODUCER_MIN_BAR: 60.0})
+    assert constraint_source(constraints, BHP_PRODUCER_MIN_BAR) is None
+
+
+def test_unset_bhp_limit_keeps_the_deck_source() -> None:
+    assert constraint_source(Constraints(), BHP_PRODUCER_MIN_BAR) == SOURCE_ORGANIZER
+
+
+def test_unknown_source_value_is_refused() -> None:
+    constraints = Constraints(
+        infrastructure={
+            BHP_PRODUCER_MIN_BAR: 60.0,
+            source_key(BHP_PRODUCER_MIN_BAR): "нашлось",
+        }
+    )
+    with pytest.raises(ValueError, match="bhp_producer_min_bar_source"):
+        constraint_source(constraints, BHP_PRODUCER_MIN_BAR)
+
+
+def test_limit_origin_names_the_source_and_the_case_file() -> None:
+    constraints = Constraints(
+        infrastructure={
+            COMPENSATION_MIN: 0.85,
+            COMPENSATION_MAX: 1.15,
+            source_key(COMPENSATION_MIN): SOURCE_DIAGNOSTIC,
+        },
+        case_path="config/cases/base.json",
+    )
+    origin = limit_origin(constraints, COMPENSATION_MIN)
+    assert SOURCE_DIAGNOSTIC in origin
+    assert "config/cases/base.json" in origin

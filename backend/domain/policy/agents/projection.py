@@ -1,32 +1,42 @@
-"""Единственный шлюз между предложением агента и расписанием.
-
-Протокол: агенты предлагают, проекция отсекает, OPM решает. Уставка, не
-прошедшая `project_to_hard_constraints`, в расписание попадать не должна —
-это проверяет тест шлюза.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from typing import Mapping
 
 from backend.core.contracts import MAX_LRAT_M3_PER_DAY, ControlEvent, EventKind
+from backend.core.contracts.constraints import (
+    Constraints,
+    DEFAULT_BHP_INJECTOR_MAX_BAR,
+    DEFAULT_BHP_PRODUCER_MIN_BAR,
+    bhp_limits,
+)
 
 RATE_KINDS: tuple[EventKind, ...] = (EventKind.SET_LRAT, EventKind.SET_RATE)
 
 
 @dataclass(frozen=True, slots=True)
 class HardConstraints:
-    """Жёсткие пределы уставки: то, что нельзя обойти ни одному агенту."""
-
     well_cap_m3_per_day: Mapping[str, float]
     lrat_ceiling_m3_per_day: float = MAX_LRAT_M3_PER_DAY
+    bhp_producer_min_bar: float = DEFAULT_BHP_PRODUCER_MIN_BAR
+    bhp_injector_max_bar: float = DEFAULT_BHP_INJECTOR_MAX_BAR
 
     def __post_init__(self) -> None:
         if self.lrat_ceiling_m3_per_day <= 0.0:
             raise ValueError(
                 f"потолок дебита жидкости {self.lrat_ceiling_m3_per_day} "
                 f"не положителен: отсекать нечем"
+            )
+        if self.bhp_producer_min_bar <= 0.0:
+            raise ValueError(
+                f"нижний предел забойного давления добывающей "
+                f"{self.bhp_producer_min_bar} бар не положителен"
+            )
+        if self.bhp_injector_max_bar <= self.bhp_producer_min_bar:
+            raise ValueError(
+                f"коридор забойного давления пуст: верхний предел "
+                f"{self.bhp_injector_max_bar} бар не выше нижнего "
+                f"{self.bhp_producer_min_bar} бар"
             )
         for well, cap in self.well_cap_m3_per_day.items():
             if cap < 0.0:
@@ -39,11 +49,23 @@ class HardConstraints:
         return cap
 
 
+def hard_constraints_from_case(
+    well_cap_m3_per_day: Mapping[str, float],
+    constraints: Constraints | None = None,
+    lrat_ceiling_m3_per_day: float = MAX_LRAT_M3_PER_DAY,
+) -> HardConstraints:
+    limits = bhp_limits(constraints if constraints is not None else Constraints())
+    return HardConstraints(
+        well_cap_m3_per_day=well_cap_m3_per_day,
+        lrat_ceiling_m3_per_day=lrat_ceiling_m3_per_day,
+        bhp_producer_min_bar=limits.producer_min_bar,
+        bhp_injector_max_bar=limits.injector_max_bar,
+    )
+
+
 def project_to_hard_constraints(
     event: ControlEvent, constraints: HardConstraints
 ) -> ControlEvent:
-    """Спроецировать одно предложение на жёсткие ограничения скважины."""
-
     if event.kind not in RATE_KINDS:
         return event
     if event.value is None:

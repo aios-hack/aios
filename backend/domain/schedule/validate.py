@@ -98,6 +98,7 @@ CONSTRAINT_WELL_OUTAGES_STATIC: str = "well_outages (static)"
 CONSTRAINT_WATER_SUPPLY: str = "infrastructure.water_supply"
 CONSTRAINT_COMPENSATION: str = "infrastructure.compensation"
 CONSTRAINT_COMPENSATION_SCOPE: str = "infrastructure.compensation_scope"
+CONSTRAINT_BHP_LIMITS: str = "infrastructure.bhp_limits"
 
 
 @dataclass(frozen=True, slots=True)

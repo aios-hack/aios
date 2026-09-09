@@ -27,6 +27,7 @@ from backend.core.contracts.constraints import (
     WATER_SUPPLY_UNLIMITED,
 )
 from backend.domain.schedule.validate import (
+    CONSTRAINT_BHP_LIMITS,
     CONSTRAINT_COMPENSATION,
     CONSTRAINT_COMPENSATION_SCOPE,
     CONSTRAINT_INJECTION_LIMITS,
@@ -47,6 +48,7 @@ from backend.domain.schedule.validate import (
 from backend.domain.schedule.validate_dynamic import (
     CONSTRAINT_FIELD_COVERAGE,
     FIRST_CONTROL_DECK_DATE_INDEX,
+    PROVENANCE_FIELDS,
     constraint_fields_to_cover,
     constraint_kinds,
     validate_dynamic,
@@ -191,7 +193,7 @@ def test_the_field_list_follows_the_constraints_dataclass() -> None:
     covered = constraint_fields_to_cover()
 
     for name in Constraints.__dataclass_fields__:
-        if name == "infrastructure":
+        if name in PROVENANCE_FIELDS:
             continue
         assert name in covered, (
             f"поле {name} объявлено в Constraints, но не попало в список "
@@ -403,8 +405,22 @@ def test_absent_constraints_still_produce_a_complete_report() -> None:
     report = report_for(None)
     checks = by_name(report.constraint_checks)
 
-    assert all(item.status == STATUS_NOT_SET for item in checks.values())
+    assert all(
+        item.status == STATUS_NOT_SET
+        for name, item in checks.items()
+        if name != CONSTRAINT_BHP_LIMITS
+    )
     assert len(checks) == len(report.constraint_checks)
+
+
+def test_bhp_corridor_is_checked_even_without_a_case() -> None:
+    check = by_name(report_for(None).constraint_checks)[CONSTRAINT_BHP_LIMITS]
+
+    assert check.status == STATUS_CHECKED
+    assert check.blocking
+    assert "50.0" in check.detail
+    assert "300.0" in check.detail
+    assert "organizer" in check.detail
 
 
 def test_checks_are_sorted_by_constraint_name() -> None:

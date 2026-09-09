@@ -23,6 +23,15 @@ from backend.core.contracts import (
     WellOutage,
     WellState,
 )
+from backend.core.contracts.constraints import (
+    BHP_INJECTOR_MAX_BAR,
+    BHP_PRODUCER_MIN_BAR,
+    DEFAULT_BHP_INJECTOR_MAX_BAR,
+    DEFAULT_BHP_PRODUCER_MIN_BAR,
+    SOURCE_DIAGNOSTIC,
+    SOURCE_ORGANIZER,
+    source_key,
+)
 from backend.domain.schedule import load_schedule
 from backend.domain.schedule.validate import ViolationKind
 
@@ -784,3 +793,135 @@ def test_real_response_open_without_flow_stops_at_first_perforation() -> None:
         first_perforation = perforations.get(well)
         assert first_perforation is not None
         assert max(steps) < first_perforation
+
+
+def _bhp_case(producer_min: float, injector_max: float) -> Constraints:
+    return Constraints(
+        infrastructure={
+            BHP_PRODUCER_MIN_BAR: producer_min,
+            source_key(BHP_PRODUCER_MIN_BAR): SOURCE_ORGANIZER,
+            BHP_INJECTOR_MAX_BAR: injector_max,
+            source_key(BHP_INJECTOR_MAX_BAR): SOURCE_ORGANIZER,
+        },
+        case_path="config/cases/base.json",
+    )
+
+
+def test_bhp_defaults_are_the_deck_values_when_the_case_is_silent() -> None:
+    schedule = make_schedule(
+        {"P1": producer(50.0), "I1": injector(80.0)}, n_intervals=1
+    )
+    states = (
+        state(0, "P1", liquid_rate=50.0, bhp=DEFAULT_BHP_PRODUCER_MIN_BAR),
+        state(0, "I1", injection_rate=80.0, bhp=DEFAULT_BHP_INJECTOR_MAX_BAR),
+    )
+    counts = validate_dynamic(schedule, states, ()).counts()
+    assert ViolationKind.BHP_BELOW_PRODUCER_LIMIT not in counts
+    assert ViolationKind.BHP_ABOVE_INJECTOR_LIMIT not in counts
+
+    below = (
+        state(0, "P1", liquid_rate=50.0, bhp=DEFAULT_BHP_PRODUCER_MIN_BAR - 1.0),
+        state(0, "I1", injection_rate=80.0, bhp=DEFAULT_BHP_INJECTOR_MAX_BAR + 1.0),
+    )
+    counts = validate_dynamic(schedule, below, ()).counts()
+    assert counts[ViolationKind.BHP_BELOW_PRODUCER_LIMIT] == 1
+    assert counts[ViolationKind.BHP_ABOVE_INJECTOR_LIMIT] == 1
+
+
+def test_raising_the_producer_limit_in_the_case_flips_the_verdict() -> None:
+    schedule = make_schedule({"P1": producer(50.0)}, n_intervals=1)
+    states = (state(0, "P1", liquid_rate=50.0, bhp=70.0),)
+
+    assert ViolationKind.BHP_BELOW_PRODUCER_LIMIT not in validate_dynamic(
+        schedule, states, ()
+    ).counts()
+
+    tightened = validate_dynamic(schedule, states, (), _bhp_case(90.0, 300.0))
+    assert tightened.counts()[ViolationKind.BHP_BELOW_PRODUCER_LIMIT] == 1
+
+
+def test_lowering_the_injector_limit_in_the_case_flips_the_verdict() -> None:
+    schedule = make_schedule({"I1": injector(80.0)}, n_intervals=1)
+    states = (state(0, "I1", injection_rate=80.0, bhp=280.0),)
+
+    assert ViolationKind.BHP_ABOVE_INJECTOR_LIMIT not in validate_dynamic(
+        schedule, states, ()
+    ).counts()
+
+    tightened = validate_dynamic(schedule, states, (), _bhp_case(50.0, 260.0))
+    assert tightened.counts()[ViolationKind.BHP_ABOVE_INJECTOR_LIMIT] == 1
+
+
+def test_relaxing_the_producer_limit_in_the_case_clears_the_violation() -> None:
+    schedule = make_schedule({"P1": producer(50.0)}, n_intervals=1)
+    states = (state(0, "P1", liquid_rate=50.0, bhp=40.0),)
+
+    assert validate_dynamic(schedule, states, ()).counts()[
+        ViolationKind.BHP_BELOW_PRODUCER_LIMIT
+    ] == 1
+
+    relaxed = validate_dynamic(schedule, states, (), _bhp_case(30.0, 300.0))
+    assert ViolationKind.BHP_BELOW_PRODUCER_LIMIT not in relaxed.counts()
+
+
+def test_bhp_violation_text_names_the_source_and_the_case_file() -> None:
+    schedule = make_schedule(
+        {"P1": producer(50.0), "I1": injector(80.0)}, n_intervals=1
+    )
+    states = (
+        state(0, "P1", liquid_rate=50.0, bhp=10.0),
+        state(0, "I1", injection_rate=80.0, bhp=400.0),
+    )
+    report = validate_dynamic(schedule, states, (), _bhp_case(90.0, 260.0))
+    details = {
+        item.kind: item.detail
+        for item in report.report.violations
+        if item.kind
+        in (
+            ViolationKind.BHP_BELOW_PRODUCER_LIMIT,
+            ViolationKind.BHP_ABOVE_INJECTOR_LIMIT,
+        )
+    }
+    producer_detail = details[ViolationKind.BHP_BELOW_PRODUCER_LIMIT]
+    injector_detail = details[ViolationKind.BHP_ABOVE_INJECTOR_LIMIT]
+    assert BHP_PRODUCER_MIN_BAR in producer_detail
+    assert SOURCE_ORGANIZER in producer_detail
+    assert "config/cases/base.json" in producer_detail
+    assert BHP_INJECTOR_MAX_BAR in injector_detail
+    assert SOURCE_ORGANIZER in injector_detail
+    assert "config/cases/base.json" in injector_detail
+
+
+def test_bhp_violation_text_says_when_no_source_was_declared() -> None:
+    schedule = make_schedule({"P1": producer(50.0)}, n_intervals=1)
+    states = (state(0, "P1", liquid_rate=50.0, bhp=10.0),)
+    constraints = Constraints(infrastructure={BHP_PRODUCER_MIN_BAR: 90.0})
+    report = validate_dynamic(schedule, states, (), constraints)
+    detail = next(
+        item.detail
+        for item in report.report.violations
+        if item.kind is ViolationKind.BHP_BELOW_PRODUCER_LIMIT
+    )
+    assert "не объявлен" in detail
+
+
+def test_compensation_violation_text_names_the_source() -> None:
+    schedule = make_schedule({"P1": producer(50.0)}, n_intervals=1)
+    constraints = Constraints(
+        infrastructure={
+            "compensation_min": 0.9,
+            "compensation_max": 1.1,
+            source_key("compensation_min"): SOURCE_DIAGNOSTIC,
+            source_key("compensation_max"): SOURCE_DIAGNOSTIC,
+        },
+        case_path="config/cases/base.json",
+    )
+    responses = (interval(0, "P1", liquid=100.0, injection=500.0),)
+    report = validate_dynamic(schedule, (), responses, constraints)
+    detail = next(
+        item.detail
+        for item in report.report.violations
+        if item.kind is ViolationKind.COMPENSATION_OUT_OF_CORRIDOR
+    )
+    assert SOURCE_DIAGNOSTIC in detail
+    assert "config/cases/base.json" in detail

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -22,15 +23,23 @@ from backend.core.contracts import (
     water_supply_policy,
 )
 from backend.core.contracts.constraints import (
+    BHP_INJECTOR_MAX_BAR,
+    BHP_PRODUCER_MIN_BAR,
+    BLOCKING_INFRASTRUCTURE_KEYS,
     COMPENSATION_ENFORCEMENT,
     COMPENSATION_MAX,
     COMPENSATION_MIN,
     COMPENSATION_SCOPE,
+    CONSTRAINT_SOURCES,
     EXTERNAL_WATER_M3_PER_DAY,
+    SOURCED_INFRASTRUCTURE_KEYS,
+    SOURCE_SUFFIX,
     WATER_REINJECTION_FRACTION,
     WATER_REINJECTION_LAG_STEPS,
     WATER_SAFETY_FACTOR,
     WATER_SUPPLY_UNLIMITED,
+    bhp_limits,
+    source_key,
 )
 
 YEAR_SECTIONS: tuple[str, ...] = (
@@ -42,7 +51,7 @@ YEAR_SECTIONS: tuple[str, ...] = (
 
 TOP_LEVEL_SECTIONS: tuple[str, ...] = YEAR_SECTIONS + ("well_outages", "infrastructure")
 
-INFRASTRUCTURE_KEYS: tuple[str, ...] = (
+INFRASTRUCTURE_VALUE_KEYS: tuple[str, ...] = (
     WATER_SUPPLY_UNLIMITED,
     WATER_REINJECTION_FRACTION,
     WATER_REINJECTION_LAG_STEPS,
@@ -52,6 +61,16 @@ INFRASTRUCTURE_KEYS: tuple[str, ...] = (
     COMPENSATION_MAX,
     COMPENSATION_ENFORCEMENT,
     COMPENSATION_SCOPE,
+    BHP_PRODUCER_MIN_BAR,
+    BHP_INJECTOR_MAX_BAR,
+)
+
+INFRASTRUCTURE_SOURCE_KEYS: tuple[str, ...] = tuple(
+    source_key(key) for key in SOURCED_INFRASTRUCTURE_KEYS
+)
+
+INFRASTRUCTURE_KEYS: tuple[str, ...] = (
+    INFRASTRUCTURE_VALUE_KEYS + INFRASTRUCTURE_SOURCE_KEYS
 )
 
 REFUSED_SECTIONS: dict[str, str] = {
@@ -170,6 +189,32 @@ def _check_infrastructure(infrastructure: dict[str, Any]) -> None:
                 f"infrastructure.{key}: неизвестный параметр; допустимы "
                 f"{', '.join(INFRASTRUCTURE_KEYS)}"
             )
+    for key in INFRASTRUCTURE_SOURCE_KEYS:
+        if key not in infrastructure:
+            continue
+        value = infrastructure[key]
+        if not isinstance(value, str) or value not in CONSTRAINT_SOURCES:
+            raise CaseError(
+                f"infrastructure.{key}: источник ограничения — одно из "
+                f"{', '.join(sorted(CONSTRAINT_SOURCES))}, получено {value!r}"
+            )
+    for key in BLOCKING_INFRASTRUCTURE_KEYS:
+        if key not in infrastructure:
+            continue
+        if source_key(key) in infrastructure:
+            continue
+        raise CaseError(
+            f"infrastructure.{source_key(key)}: ограничение "
+            f"infrastructure.{key} блокирует расписание, поэтому его источник "
+            f"обязателен; укажите одно из "
+            f"{', '.join(sorted(CONSTRAINT_SOURCES))}"
+        )
+    for key in INFRASTRUCTURE_SOURCE_KEYS:
+        if key in infrastructure and key[: -len(SOURCE_SUFFIX)] not in infrastructure:
+            raise CaseError(
+                f"infrastructure.{key}: источник объявлен без самого "
+                f"ограничения infrastructure.{key[: -len(SOURCE_SUFFIX)]}"
+            )
 
 
 def constraints_from_json(d: dict[str, Any], n_intervals: int = N_INTERVALS) -> Constraints:
@@ -276,6 +321,7 @@ def load_case(path: str | Path, n_intervals: int = N_INTERVALS) -> Constraints:
         constraints = constraints_from_json(document, n_intervals=n_intervals)
         water_supply_policy(constraints)
         compensation_policy(constraints)
+        bhp_limits(constraints)
     except ValueError as error:
         raise CaseError(f"{case_path}: {error}") from error
-    return constraints
+    return replace(constraints, case_path=str(case_path))
