@@ -250,3 +250,13 @@ OPENROUTER_API_KEY=sk-or-... docker compose up jarvis web
 
 История исследований и устаревшие handoff-документы сохранены в теге
 `docs-before-minimal-2026-08-23`; рабочей инструкцией они не являются.
+
+### Веса и сохранённые расчёты
+
+Для локального поиска и экрана расчёта установите опубликованный пакет:
+
+```bash
+python3 scripts/install_surrogate_runtime.py
+```
+
+Состав, зависимости и запуск: [инструкция](artifacts/surrogate-20260906/README.md).
