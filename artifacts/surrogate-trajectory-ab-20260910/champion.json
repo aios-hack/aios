@@ -1,14 +1,14 @@
 {
-  "run_id": "candidate-014",
+  "run_id": "candidate-018",
   "label": "recovered-completed-run",
-  "schedule_hash": "aa99f529e148e1a0833716962e75482793aed1d929b34d82ff517473a66ed396",
+  "schedule_hash": "6e72c59b4fd802adbbf331eacc688b2310efb2277027b966a71aba6042963d0f",
   "sound": true,
-  "verified_npv_rub": 2761764744.842919,
+  "verified_npv_rub": 2763840887.814991,
   "constraints_hash": "0e09608eff6103696c4dc05759db25b4121d66afeeda447e5c9df9e4c5a2ef84",
   "deck_hash": "2e7741d9bdf151920c15dcf99f0def62b75ceb47c5021e88d53264e00e62273e",
   "opm_image": "openporousmedia/opmreleases@sha256:18c497f6a918c160cd290081d4163abf6e2c349797e18e3b5669c9095044adff",
   "groups_hash": "cf41ef7f9b79301a6f98f6f5dec9a67050e361fad2f73021352bcc268dc87e49",
   "economics_config_hash": "44a24e2ac0c700ad50228a414c56235c948a4edea30a0cca34d0a2d6186ef2af",
   "methodology_version_hash": "74f2872e1d1e52b0774454e92ebcf0030701c6fe21845de01a1b33e6917f984c",
-  "submission": "/Users/andreykuronskin/PycharmProjects/aios/aios-final-audit/out/final-campaign-20260909-01/runs/candidate-014/submission"
+  "submission": "/Users/andreykuronskin/PycharmProjects/aios/aios-final-audit/out/final-campaign-20260909-01/runs/candidate-018/submission"
 }

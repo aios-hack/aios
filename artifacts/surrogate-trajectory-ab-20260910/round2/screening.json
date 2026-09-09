@@ -1,0 +1,110 @@
+{
+  "kind": "prospective-screening-experiment",
+  "anchor": {
+    "run_id": "candidate-014",
+    "label": "recovered-completed-run",
+    "schedule_hash": "aa99f529e148e1a0833716962e75482793aed1d929b34d82ff517473a66ed396",
+    "sound": true,
+    "verified_npv_rub": 2761764744.842919,
+    "constraints_hash": "0e09608eff6103696c4dc05759db25b4121d66afeeda447e5c9df9e4c5a2ef84",
+    "deck_hash": "2e7741d9bdf151920c15dcf99f0def62b75ceb47c5021e88d53264e00e62273e",
+    "opm_image": "openporousmedia/opmreleases@sha256:18c497f6a918c160cd290081d4163abf6e2c349797e18e3b5669c9095044adff",
+    "groups_hash": "cf41ef7f9b79301a6f98f6f5dec9a67050e361fad2f73021352bcc268dc87e49",
+    "economics_config_hash": "44a24e2ac0c700ad50228a414c56235c948a4edea30a0cca34d0a2d6186ef2af",
+    "methodology_version_hash": "74f2872e1d1e52b0774454e92ebcf0030701c6fe21845de01a1b33e6917f984c",
+    "submission": "/Users/andreykuronskin/PycharmProjects/aios/aios-final-audit/out/final-campaign-20260909-01/runs/candidate-014/submission"
+  },
+  "anchor_response_sha256": "c3c4fa1f5e1e471016b3b77ba51ae737d70b2b818fc0e0dc5e8b2a8fb38e2458",
+  "head_version": "2eea7cac24b3b6140107fffd9ff5cd8fab54e3dc824b8f3628533c0fa4d74d30",
+  "domain_version": "be71b6447054c7157004048754ab65665de6bd28c1011f988c57932dca0d6a4d",
+  "trajectory_model_version": "4a5a1d0cf13c242554952e299bc6529acfbfbe30f75598b096d6c1dc116aed28",
+  "domain_threshold": 11.416658306122834,
+  "seed": 20260911,
+  "allow_ood_experiment": true,
+  "max_water_margin": 0.95,
+  "known_measurement_count": 8,
+  "rows": [
+    {
+      "label": "measured-water-0.7",
+      "schedule_hash": "d0aa6722424468cf6d53a03ee414c6f9245268f17ad63837ec43d99ac957a89a",
+      "ranking_score": -9916945660.958519,
+      "physical_npv": 2218156830.2305546,
+      "ood_score": 75.78754871479356,
+      "inside_domain": false,
+      "inference_seconds": 1.6284237499930896
+    },
+    {
+      "label": "measured-water-0.75",
+      "schedule_hash": "080a7068893d5384843a6ad0659783c60eb287c048458e91b9551128ea26190f",
+      "ranking_score": -9670075950.790855,
+      "physical_npv": 2295004428.607783,
+      "ood_score": 75.13737991082617,
+      "inside_domain": false,
+      "inference_seconds": 1.6376327909965767
+    },
+    {
+      "label": "measured-water-0.8",
+      "schedule_hash": "b8986c548cdc26dda9b5c2cab511ea1c4187c95d5f987f9f7cab3effeff33332",
+      "ranking_score": -9433824746.82316,
+      "physical_npv": 2371212946.165432,
+      "ood_score": 74.51652844110193,
+      "inside_domain": false,
+      "inference_seconds": 1.753788165995502
+    },
+    {
+      "label": "measured-water-0.85",
+      "schedule_hash": "1ded9e279a5ee6dc282382d39ce23be4f8185b9480eaa596559b97472273230a",
+      "ranking_score": -9207290609.833086,
+      "physical_npv": 2446794569.0729427,
+      "ood_score": 73.92231062017508,
+      "inside_domain": false,
+      "inference_seconds": 1.6709395420039073
+    },
+    {
+      "label": "measured-water-0.9",
+      "schedule_hash": "eb5cffef66abe122706000bcee3ad87dab33d67be8677ea3b35ce8486dfcc16e",
+      "ranking_score": -8989688426.85429,
+      "physical_npv": 2521713374.776761,
+      "ood_score": 73.35242041544691,
+      "inside_domain": false,
+      "inference_seconds": 1.577687084005447
+    },
+    {
+      "label": "measured-water-0.95",
+      "schedule_hash": "274905fad846c4934e3c11e35a75beb65de13481b72f573d6c89f97397eb6d38",
+      "ranking_score": -8780330119.63229,
+      "physical_npv": 2596001780.0769224,
+      "ood_score": 72.8048593476874,
+      "inside_domain": false,
+      "inference_seconds": 1.6865474999940488
+    }
+  ],
+  "rejected": [],
+  "selection": [
+    {
+      "label": "measured-water-0.95",
+      "schedule_hash": "274905fad846c4934e3c11e35a75beb65de13481b72f573d6c89f97397eb6d38",
+      "ranking_score": -8780330119.63229,
+      "physical_npv": 2596001780.0769224,
+      "ood_score": 72.8048593476874,
+      "inside_domain": false,
+      "inference_seconds": 1.6865474999940488,
+      "arm": "trajectory-top",
+      "run_id": "candidate-016"
+    },
+    {
+      "label": "measured-water-0.9",
+      "schedule_hash": "eb5cffef66abe122706000bcee3ad87dab33d67be8677ea3b35ce8486dfcc16e",
+      "ranking_score": -8989688426.85429,
+      "physical_npv": 2521713374.776761,
+      "ood_score": 73.35242041544691,
+      "inside_domain": false,
+      "inference_seconds": 1.577687084005447,
+      "arm": "direct-head-control",
+      "run_id": "candidate-017"
+    }
+  ],
+  "blocked_reason": null,
+  "screening_seconds": 25.622387333001825,
+  "warning": "ranking_score is NOT calibrated NPV. OPM required for both arms; no claimed acceleration yet."
+}

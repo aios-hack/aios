@@ -1,0 +1,13 @@
+{
+  "arm": "trajectory-top",
+  "run_id": "candidate-018",
+  "schedule_hash": "6e72c59b4fd802adbbf331eacc688b2310efb2277027b966a71aba6042963d0f",
+  "screening_sha256": "92b339062aa916806c62bdfd22e63620473562c2b9f321c5c5a64a247d9a7eec",
+  "sound": true,
+  "verified_npv": 2763840887.814991,
+  "measured_npv": 2763840887.814991,
+  "opm_source_run_id": "20260909T224413-fe1f9f764bef",
+  "verification_seconds": 488.26175237500865,
+  "started_with_cache": false,
+  "anchor_verified_npv": 2763603576.618822
+}
