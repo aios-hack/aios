@@ -102,6 +102,36 @@ def choose_model_comparison(rows, seed, allow_ood=False):
     return physical, direct
 
 
+def add_hybrid_scores(rows):
+    if len(rows) < 2:
+        raise ValueError("hybrid ranking requires at least two candidates")
+    for key in ("ranking_score", "physical_npv"):
+        values = [row[key] for row in rows]
+        mean = math.fsum(values) / len(values)
+        scale = (math.fsum((value - mean) ** 2 for value in values) / len(values)) ** .5
+        if not math.isfinite(scale) or scale <= 0:
+            raise ValueError(f"hybrid ranking has no finite spread for {key}")
+        for row, value in zip(rows, values):
+            row[f"{key}_z"] = (value - mean) / scale
+    for row in rows:
+        row["hybrid_score"] = .5 * (row["ranking_score_z"] + row["physical_npv_z"])
+    return rows
+
+
+def choose_hybrid_comparison(rows, seed, allow_ood=False):
+    eligible = [row for row in rows if all(math.isfinite(row[key]) for key in
+                ("hybrid_score", "ranking_score", "physical_npv", "ood_score")) and
+                (row["inside_domain"] or allow_ood)]
+    eligible = list({row["schedule_hash"]: row for row in eligible}.values())
+    if len(eligible) < 2:
+        raise ValueError("At least two eligible candidates required; OOD gate was not relaxed")
+    hybrid = max(eligible, key=lambda row: row["hybrid_score"])
+    direct = max(eligible, key=lambda row: row["ranking_score"])
+    if direct["schedule_hash"] == hybrid["schedule_hash"]:
+        direct = random.Random(seed).choice([row for row in eligible if row["schedule_hash"] != hybrid["schedule_hash"]])
+    return hybrid, direct
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--campaign", type=Path, required=True)
@@ -114,6 +144,7 @@ def main(argv=None):
     parser.add_argument("--trajectory-model", type=Path,
                         help="research checkpoint: choose its physical-NPV top against direct-head control")
     parser.add_argument("--proposal-family", choices=("all", "water", "transfers"), default="all")
+    parser.add_argument("--trajectory-ranking", choices=("physical", "hybrid"), default="physical")
     args = parser.parse_args(argv)
     minimum = 6 if args.proposal_family in {"all", "water"} else 2
     if args.out.exists() or args.count < minimum:
@@ -206,17 +237,25 @@ def main(argv=None):
         (args.out / "candidates" / f"{digest}.json").write_bytes(canonical_bytes(schedule))
         print(json.dumps(row), flush=True)
     # The file is frozen before any new OPM observation exists.
+    if trajectory is not None and args.trajectory_ranking == "hybrid":
+        try:
+            add_hybrid_scores(rows)
+        except ValueError as error:
+            parser.error(str(error))
     selection = []
     reason = None
     try:
-        top, control = (choose_model_comparison(rows, args.seed, args.allow_ood_experiment)
+        top, control = (choose_hybrid_comparison(rows, args.seed, args.allow_ood_experiment)
+                        if trajectory and args.trajectory_ranking == "hybrid" else
+                        choose_model_comparison(rows, args.seed, args.allow_ood_experiment)
                         if trajectory else choose_pair(rows, args.seed, args.allow_ood_experiment))
     except ValueError as error:
         reason = str(error)
     else:
         next_id = max(int(p.name.split("-")[-1]) for p in runs.glob("candidate-*")) + 1
         workflow = RunWorkflow(runs)
-        arms = (("trajectory-top", top), ("direct-head-control", control)) if trajectory else (
+        primary_arm = "hybrid-top" if args.trajectory_ranking == "hybrid" else "trajectory-top"
+        arms = ((primary_arm, top), ("direct-head-control", control)) if trajectory else (
             ("model-top", top), ("unranked-control", control))
         for offset, (arm, row) in enumerate(arms):
             run_id = f"candidate-{next_id + offset:03d}"
@@ -235,6 +274,7 @@ def main(argv=None):
                "anchor_response_sha256": hashlib.sha256(measured_path.read_bytes()).hexdigest(),
                "head_version": head.version, "domain_version": domain.version,
                "trajectory_model_version": trajectory.version if trajectory else None,
+               "trajectory_ranking": args.trajectory_ranking if trajectory else None,
                "domain_threshold": domain.threshold, "seed": args.seed,
                "allow_ood_experiment": args.allow_ood_experiment,
                "max_water_margin": args.max_water_margin,

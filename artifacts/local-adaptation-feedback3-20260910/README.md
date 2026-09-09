@@ -13,4 +13,7 @@ Loss на 020 — 0,00626227; дополнительная audit loss на 009 �
 SHA-256 файла:
 `d0aa63bf22cc88605c8d4d3ec07713bb4617e3da10ecdeed3122101559cb95db`.
 
-Production не изменён; единственный следующий gate — новый frozen prospective OPM.
+Prospective A/B этот checkpoint **не прошёл**: trajectory выбрал 022 с
+2 763 623 896,54 ₽, direct-head выбрал 023 с 2 772 289 226,37 ₽. Поэтому v3
+не заменяет v2 и не включается в production. Результат показывает, что локальная
+trajectory-адаптация должна использоваться совместно с direct-head, а не вместо неё.

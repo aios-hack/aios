@@ -4,7 +4,9 @@ import pytest
 
 from backend.core.contracts import ControlEvent, EventKind
 from backend.presentation.cli.surrogate_audit import ranking_metrics
-from backend.presentation.cli.surrogate_screen import choose_model_comparison, choose_pair, transfer_fraction, water_margins, known_schedule_hashes
+from backend.presentation.cli.surrogate_screen import (add_hybrid_scores,
+    choose_hybrid_comparison, choose_model_comparison, choose_pair,
+    transfer_fraction, water_margins, known_schedule_hashes)
 from tests.application.test_run_workflow import historical_schedule
 
 
@@ -34,6 +36,17 @@ def test_model_comparison_uses_physical_top_and_direct_head_control():
     physical, direct = choose_model_comparison(rows, 42)
     assert physical["schedule_hash"] == "physical"
     assert direct["schedule_hash"] == "direct"
+
+
+def test_hybrid_standardizes_scales_and_uses_complementary_signals():
+    rows = [dict(schedule_hash="hybrid", ranking_score=50., physical_npv=100., ood_score=0., inside_domain=True),
+            dict(schedule_hash="direct", ranking_score=100., physical_npv=0., ood_score=0., inside_domain=True),
+            dict(schedule_hash="low", ranking_score=-100., physical_npv=-100., ood_score=0., inside_domain=True)]
+    add_hybrid_scores(rows)
+    top, control = choose_hybrid_comparison(rows, 42)
+    assert top["schedule_hash"] == "hybrid"
+    assert control["schedule_hash"] == "direct"
+    assert all("hybrid_score" in row for row in rows)
 
 
 def test_transfer_conserves_each_interval_even_when_donor_rate_is_tiny():
