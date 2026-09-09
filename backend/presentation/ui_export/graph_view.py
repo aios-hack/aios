@@ -1,38 +1,23 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from pathlib import Path
 from typing import Any
 
 from backend.core.contracts import Groups, Lambda, RunArtifact
+from backend.domain.connectivity.groups import lambda_hash
 
 LAYOUT_SEED: int = 20070101
 LAYOUT_ITERATIONS: int = 420
 LAYOUT_SIZE: float = 100.0
 
-# Раскладка нормируется на LAYOUT_SIZE в конце, поэтому «сделать пошире»
-# изменением размера поля нельзя: рамка растянется вместе с комком. Плотность
-# задаёт только **отношение** отталкивания к притяжению и длины пружин.
-#
-# Прежние значения (_REPULSION 320, _ATTRACTION 0.12) стягивали 103 узла в
-# центральную треть поля: поля пустые, середина нечитаема. Отталкивание
-# усилено втрое, притяжение ослаблено вдвое — узлы расходятся до краёв, а
-# структура связей сохраняется, потому что относительные длины пружин
-# (сильная связь короче слабой) не изменились.
 _SPRING_MIN: float = 20.0
 _SPRING_MAX: float = 62.0
 _REPULSION: float = 1000.0
 _ATTRACTION: float = 0.06
 
-# Минимальное расстояние между узлами: ниже него отталкивание перестаёт
-# слабеть с расстоянием и работает как жёсткий разделитель. Без этого пара
-# случайно сблизившихся узлов слипается намертво — сила ~1/d² на малых d
-# огромна по величине, но шаг ограничен _MAX_STEP, и вытолкнуть их не успевает.
-#
-# Значение задаёт запас над диаметром узла на экране. При 6.0 ближайшие узлы
-# сходились на 5.2 — вплотную к диаметру символа, и кольца участков
-# перекрывались. 11.0 оставляет зазор примерно в диаметр.
 _MIN_SEPARATION: float = 11.0
 
 _MAX_STEP: float = 6.0
@@ -114,8 +99,6 @@ def _layout(
                 distance = math.hypot(dx, dy)
                 if distance < _EPS:
                     dx, dy, distance = 0.01, 0.01, 0.0141
-                # Ниже порога отталкивание не растёт дальше, а держится на
-                # значении порога: так узлы разъезжаются, а не выстреливают.
                 effective = max(distance, _MIN_SEPARATION)
                 push = _REPULSION / (effective * effective)
                 ux, uy = dx / distance, dy / distance
@@ -167,7 +150,36 @@ def _normalize(
     }
 
 
-def build_lambda_graph(artifact: RunArtifact) -> dict[str, Any]:
+def file_sha256(path: str | Path) -> str:
+    resolved = Path(path)
+    if not resolved.is_file():
+        raise FileNotFoundError(
+            f"файла λ нет по пути {resolved}: витрина не может подписать "
+            f"граф хешем несуществующего артефакта"
+        )
+    return hashlib.sha256(resolved.read_bytes()).hexdigest()
+
+
+def lambda_provenance(
+    lambda_: Lambda, lambda_path: str | Path | None
+) -> dict[str, Any]:
+    return {
+        "artifact_id": lambda_hash(lambda_),
+        "lambda_path": None if lambda_path is None else str(lambda_path),
+        "lambda_file_sha256": (
+            None if lambda_path is None else file_sha256(lambda_path)
+        ),
+        "window_start": lambda_.window_start.isoformat(),
+        "window_end": lambda_.window_end.isoformat(),
+        "lag_months": lambda_.lag_months,
+        "producers": len(lambda_.producers),
+        "injectors": len(lambda_.injectors),
+    }
+
+
+def build_lambda_graph(
+    artifact: RunArtifact, lambda_path: str | Path | None = None
+) -> dict[str, Any]:
     lambda_ = artifact.lambda_
     edges = _edges(lambda_)
     membership = _group_of(artifact.groups)
@@ -209,15 +221,23 @@ def build_lambda_graph(artifact: RunArtifact) -> dict[str, Any]:
             "condition_number": lambda_.condition_number,
         },
         "layout": {"size": LAYOUT_SIZE, "seed": LAYOUT_SEED},
+        "provenance": lambda_provenance(lambda_, lambda_path),
     }
 
 
-def export_graph_json(artifact: RunArtifact, out_path: str | Path) -> Path:
+def export_graph_json(
+    artifact: RunArtifact,
+    out_path: str | Path,
+    lambda_path: str | Path | None = None,
+) -> Path:
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(
         json.dumps(
-            build_lambda_graph(artifact), ensure_ascii=False, indent=2, sort_keys=True
+            build_lambda_graph(artifact, lambda_path),
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
         ),
         encoding="utf-8",
     )

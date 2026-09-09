@@ -16,6 +16,7 @@ class GroupingParams:
     merge_overlap: float = MERGE_OVERLAP_DEFAULT
     membership_share: float = MEMBERSHIP_SHARE_DEFAULT
     seed: int = 0
+    weight_quantile: float | None = None
 
     def __post_init__(self) -> None:
         if not (0.0 < self.merge_overlap <= 1.0):
@@ -26,6 +27,14 @@ class GroupingParams:
         if not (0.0 < self.membership_share <= 1.0):
             raise ValueError(
                 f"порог принадлежности {self.membership_share} вне (0, 1]"
+            )
+        if self.weight_quantile is not None and not (
+            0.0 <= self.weight_quantile < 1.0
+        ):
+            raise ValueError(
+                f"квантиль веса {self.weight_quantile} вне [0, 1): при единице "
+                f"отсекаются все связи, включая самую сильную, и слипаться "
+                f"будет нечему"
             )
 
 
@@ -41,6 +50,14 @@ class GroupingReport:
     dual_role_wells: tuple[str, ...]
     merged_injector_pairs: tuple[tuple[str, str], ...]
     degenerate: bool
+    weight_quantile: float | None = None
+    weight_cut: float | None = None
+    largest_group: int = 0
+    kept_edges: int = 0
+
+    @property
+    def collapsed(self) -> bool:
+        return self.n_groups == 1
 
     def __post_init__(self) -> None:
         if self.coverage != self.n_wells:
@@ -68,12 +85,50 @@ def _overlap(left: Sequence[float], right: Sequence[float]) -> float:
     return shared / smaller
 
 
+def weight_threshold(influence: Lambda, quantile: float) -> float:
+    if not (0.0 <= quantile < 1.0):
+        raise ValueError(
+            f"квантиль веса {quantile} вне [0, 1): порог, отсекающий все "
+            f"связи без исключения, не является порогом"
+        )
+    weights = sorted(
+        value for row in influence.matrix for value in row if value > 0.0
+    )
+    if not weights:
+        raise ValueError(
+            "в λ нет ни одного положительного веса: квантиль считать не по "
+            "чему, а подставлять нулевой порог значит объявить плотной "
+            "матрицу без единой связи"
+        )
+    position = quantile * (len(weights) - 1)
+    low = int(position)
+    high = min(low + 1, len(weights) - 1)
+    share = position - low
+    return weights[low] + (weights[high] - weights[low]) * share
+
+
+def _thresholded(
+    influence: Lambda, params: GroupingParams
+) -> tuple[tuple[tuple[float, ...], ...], float | None]:
+    if params.weight_quantile is None:
+        return tuple(tuple(row) for row in influence.matrix), None
+    cut = weight_threshold(influence, params.weight_quantile)
+    return (
+        tuple(
+            tuple(value if value >= cut else 0.0 for value in row)
+            for row in influence.matrix
+        ),
+        cut,
+    )
+
+
 def _merge_injectors(
     influence: Lambda, params: GroupingParams
 ) -> tuple[tuple[tuple[str, ...], ...], tuple[tuple[str, str], ...]]:
     injectors = influence.injectors
+    matrix, _ = _thresholded(influence, params)
     columns = {
-        well: _positive(_column(influence.matrix, index))
+        well: _positive(_column(matrix, index))
         for index, well in enumerate(injectors)
     }
     parent = {well: well for well in injectors}
@@ -115,13 +170,14 @@ def _producer_membership(
     params: GroupingParams,
 ) -> tuple[dict[int, list[str]], tuple[str, ...]]:
     index_of = {well: i for i, well in enumerate(influence.injectors)}
+    matrix, _ = _thresholded(influence, params)
     assigned: dict[int, list[str]] = {i: [] for i in range(len(clusters))}
     isolated: list[str] = []
     for row, producer in enumerate(influence.producers):
         weights: list[float] = []
         for cluster in clusters:
             weight = sum(
-                max(influence.matrix[row][index_of[well]], 0.0)
+                max(matrix[row][index_of[well]], 0.0)
                 for well in cluster
             )
             weights.append(weight)
@@ -168,6 +224,8 @@ def build_groups(
             "содержать нагнетательную, а брать её неоткуда"
         )
 
+    matrix, cut = _thresholded(influence, settings)
+    kept_edges = sum(1 for row in matrix for value in row if value > 0.0)
     clusters, merged_pairs = _merge_injectors(influence, settings)
     assigned, isolated = _producer_membership(influence, clusters, settings)
 
@@ -208,6 +266,10 @@ def build_groups(
         dual_role_wells=dual_role,
         merged_injector_pairs=merged_pairs,
         degenerate=degenerate,
+        weight_quantile=settings.weight_quantile,
+        weight_cut=cut,
+        largest_group=max(len(members) for members in groups.values()),
+        kept_edges=kept_edges,
     )
     artifact = Groups(
         groups=groups,
@@ -245,6 +307,8 @@ def group_hash(
         "membership_share": params.membership_share,
         "seed": params.seed,
     }
+    if params.weight_quantile is not None:
+        payload["weight_quantile"] = params.weight_quantile
     return hashlib.sha256(canonical_bytes(payload)).hexdigest()
 
 
@@ -299,3 +363,95 @@ def moved_share(before: Groups, after: Groups) -> float:
         return 0.0
     moved = sum(1 for well in wells if left.get(well) != right.get(well))
     return moved / len(wells)
+
+
+DEFAULT_QUANTILE_GRID: tuple[float, ...] = (
+    0.0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    0.95,
+    0.99,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class QuantileStep:
+    quantile: float
+    weight_cut: float
+    n_groups: int
+    largest_group: int
+    kept_edges: int
+    isolated_producers: int
+
+
+@dataclass(frozen=True, slots=True)
+class QuantileSweep:
+    steps: tuple[QuantileStep, ...]
+    n_wells: int
+    baseline_groups: int
+
+    @property
+    def split_quantile(self) -> float | None:
+        for step in self.steps:
+            if step.n_groups > 1:
+                return step.quantile
+        return None
+
+    @property
+    def split_cut(self) -> float | None:
+        for step in self.steps:
+            if step.n_groups > 1:
+                return step.weight_cut
+        return None
+
+
+def sweep_quantiles(
+    influence: Lambda,
+    quantiles: Sequence[float] = DEFAULT_QUANTILE_GRID,
+    params: GroupingParams | None = None,
+    extra_wells: Sequence[str] = (),
+) -> QuantileSweep:
+    if not quantiles:
+        raise ValueError(
+            "сетка квантилей пуста: сообщить, при каком пороге фонд перестаёт "
+            "быть одним участком, не по чему"
+        )
+    base = GroupingParams() if params is None else params
+    baseline_artifact, baseline_report = build_groups(influence, base, extra_wells)
+    steps: list[QuantileStep] = []
+    for quantile in sorted(quantiles):
+        settings = GroupingParams(
+            merge_overlap=base.merge_overlap,
+            membership_share=base.membership_share,
+            seed=base.seed,
+            weight_quantile=quantile,
+        )
+        artifact, report = build_groups(influence, settings, extra_wells)
+        cut = report.weight_cut
+        if cut is None:
+            raise ValueError(
+                f"квантиль {quantile}: порог не посчитан, отчёт о нарезке "
+                f"нельзя заполнить выдуманным значением"
+            )
+        steps.append(
+            QuantileStep(
+                quantile=quantile,
+                weight_cut=cut,
+                n_groups=report.n_groups,
+                largest_group=report.largest_group,
+                kept_edges=report.kept_edges,
+                isolated_producers=len(report.isolated_producers),
+            )
+        )
+    return QuantileSweep(
+        steps=tuple(steps),
+        n_wells=baseline_report.n_wells,
+        baseline_groups=baseline_report.n_groups,
+    )

@@ -356,7 +356,9 @@ def test_new_view_files_are_written_for_every_scenario(demo_dir: Path) -> None:
         for name in ("hierarchy.json", "ablation.json"):
             data = _read(root / name)
             assert data["meta"]["kind"] in ("hierarchy", "ablation")
-            assert data["meta"]["synthetic"] is True
+            synthetic = data["meta"]["synthetic"]
+            assert isinstance(synthetic, bool)
+            assert (data["meta"]["provenance"] == "synthetic-demo") is synthetic
 
 
 @needs_base_run
