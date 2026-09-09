@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import random
 from dataclasses import replace
@@ -81,6 +82,9 @@ def main(argv=None):
         npv_head_path=artifacts.npv_head, npv_calibration_path=artifacts.npv_calibration,
         scenario_ood_path=artifacts.scenario_ood, lambda_path=selection.path,
         constraints=constraints, ood_threshold=resolve_ood_threshold().value,
+        # Mixed controls cannot satisfy injection-only differential tests.
+        # This evaluator proposes OPM trials; it never certifies a submission.
+        physics_gate=False,
     )
     validate_runtime_economic_head(artifacts, env.npv_head)
     evaluator = make_evaluator(env)
@@ -132,7 +136,13 @@ def main(argv=None):
             return
         attempted += 1
         run_id = f"candidate-{attempted:03d}"
-        outcome = SimpleNamespace(provenance={"seed": str(args.seed), "search_strategy": label})
+        outcome = SimpleNamespace(provenance={
+            "seed": str(args.seed), "search_strategy": label,
+            "model_version": env.model.version,
+            "npv_head_version": env.npv_head.version if env.npv_head else None,
+            "scenario_ood_version": env.scenario_ood.version if env.scenario_ood else None,
+            "feature_context_sha256": hashlib.sha256(artifacts.feature_context.read_bytes()).hexdigest(),
+        })
         request = RunRequest(run_id, candidate, predicted, constraints, build_provenance(outcome, constraints))
         workflow.search(request)
         print(f"OPM {attempted}/{args.opm_budget}: {label}, {digest}", flush=True)
@@ -144,6 +154,7 @@ def main(argv=None):
                 "sound": manifest.sound, "verified_npv_rub": manifest.verified_npv,
                 "predicted_npv_rub": predicted, "constraints_hash": manifest.constraints_hash,
                 "deck_hash": manifest.deck_hash, "opm_image": manifest.opm_image,
+                "groups_hash": env.groups.group_hash,
                 "economics_config_hash": economics["economics_config_hash"],
                 "methodology_version_hash": economics["methodology_version_hash"]}
         if manifest.sound:
@@ -178,10 +189,20 @@ def main(argv=None):
                 repaired, evaluation, _, _ = _repair_predicted_water_balance(env, evaluator, candidate)
                 repaired = expressible(repaired)
                 # Rank the exact schedule that will go to OPM, after include normalization.
-                score = evaluator(repaired).npv
+                scored = evaluator(repaired)
+                score = scored.npv
+                impossible = ("NON_NEGATIVE", "WATERCUT_RANGE", "CUMULATIVE_MONOTONIC", "SHUT_WELL_FLOW")
+                if any(scored.physics.get(name, 0) for name in impossible):
+                    raise ValueError(f"invalid surrogate output: {scored.physics}")
                 digest = hash_schedule(repaired)
                 if digest not in seen and validate_static(repaired, constraints).ok:
                     ranked[digest] = (score, repaired)
+                    physics = getattr(evaluator, "physics_report", None)
+                    record({"round": round_index, "candidate": index, "stage": "surrogate-ranked-not-verified",
+                            "schedule_hash": digest, "predicted_npv_rub": score,
+                            "physics_counts": dict(scored.physics),
+                            "physics_not_checked": dict(physics.skipped) if physics else {},
+                            "requires_opm": True})
             except ValueError as error:
                 record({"round": round_index, "candidate": index, "stage": "surrogate-rejected", "reason": str(error)})
             if index % 10 == 0:

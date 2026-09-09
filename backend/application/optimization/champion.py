@@ -8,7 +8,7 @@ from pathlib import Path
 
 CONDITION_KEYS = (
     "constraints_hash", "deck_hash", "economics_config_hash",
-    "methodology_version_hash", "opm_image",
+    "methodology_version_hash", "opm_image", "groups_hash",
 )
 
 
