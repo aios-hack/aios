@@ -1,6 +1,15 @@
 from __future__ import annotations
 
-from backend.domain.policy.agents.base import Agent, Proposal
+from backend.domain.policy.agents.base import (
+    Agent,
+    Bound,
+    BoundSense,
+    Proposal,
+    RankedAgent,
+    Verdict,
+    merge_bounds,
+    merge_proposals,
+)
 from backend.domain.policy.agents.field import FIELD_COORDINATOR, FieldCoordinator
 from backend.domain.policy.agents.group import GROUP_ALLOCATOR, GroupAllocator
 from backend.domain.policy.agents.projection import (
@@ -13,10 +22,18 @@ from backend.domain.policy.agents.registry import (
     DEFAULT_REGISTRY,
     LEVEL_ORDER,
     AgentRegistry,
+    rank_of,
 )
 from backend.domain.policy.agents.well import WELL_EXECUTOR, WellExecutor
 
 __all__ = [
+    "Bound",
+    "BoundSense",
+    "RankedAgent",
+    "Verdict",
+    "merge_bounds",
+    "merge_proposals",
+    "rank_of",
     "Agent",
     "AgentRegistry",
     "DEFAULT_AGENTS",

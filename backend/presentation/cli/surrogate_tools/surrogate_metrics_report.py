@@ -1,31 +1,3 @@
-"""Воспроизведение метрик карточки суррогата — S-02.
-
-Собирает три таблицы §6.2 (4) плана одной командой и кладёт их в
-`metrics.json` с провенансом. Числа в `SURROGATE.md` берутся отсюда; всё, что
-не воспроизвелось этой командой, в карточку не попадает.
-
-Таблицы:
-
-* **held_out** — отложенные сценарии знакомого распределения. Spearman, R²,
-  MAE и относительная ошибка ЧДД на сплите, зафиксированном в отчёте обучения.
-* **optimizer_manifold** — кандидаты, которые контур действительно предлагал,
-  с настоящим ЧДД OPM. Это отдельная популяция, и мерить её отдельно —
-  главный урок G10: общий holdout шире локального manifold оптимизатора и
-  пригодности для отбора не доказывает.
-* **crm_baseline** — та же выборка, но предсказанная линейной CRM-моделью.
-  Без неё «Spearman 0.8» ничего не значит: неизвестно, сколько из этого даёт
-  простая физика.
-
-Единица счёта везде — сценарий, а не узел `скважина × месяц`.
-
-Команда только читает кеш: отсутствующие метки или тензоры — ошибка с
-текстом, а не пустая таблица (CLAUDE.md §3).
-
-Запуск:
-
-    PYTHONPATH=. python tools/surrogate_metrics_report.py \\
-        --output data/surrogate/metrics.json
-"""
 
 from __future__ import annotations
 
@@ -35,6 +7,7 @@ import json
 import math
 import statistics
 import sys
+from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
 
@@ -44,12 +17,16 @@ import torch
 from backend.ml.surrogate.model import _legacy_checkpoint_modules
 
 from backend.infrastructure.resources import model_z_dir, normatives_xlsx
-from backend.core.contracts import ResponseArtifact, canonical_bytes, hash_schedule
-from backend.domain.economics.base_case import analyze_base_case
+from backend.core.contracts import (
+    ResponseArtifact,
+    StateAtDate,
+    canonical_bytes,
+    hash_schedule,
+)
+from backend.domain.economics.base_case import analyze_base_case, load_response_artifact
 from backend.application.optimization.runtime_artifacts import resolve_runtime_artifacts
 from backend.application.optimization.schedule_search import load_environment, predict_economics
 from backend.application.optimization.search_run import LAMBDA, RESPONSE
-NORMATIVES = normatives_xlsx()
 from backend.ml.surrogate.adapter import ResponseAdapter
 from backend.ml.surrogate.features import ScheduleFeatureizer
 from backend.ml.surrogate.metrics import ranking_metrics
@@ -57,11 +34,17 @@ from backend.infrastructure.opm.dataset_plan import baseline_profile, build_plan
 from backend.ml.surrogate.cycle import PILOT_CONFIG, EXTRA_CONFIG
 from backend.presentation.ui_export.artifact_io import _load_schedule
 
-FORMAT = "aios.surrogate-metrics.v1"
+NORMATIVES = normatives_xlsx()
+FORMAT = "aios.surrogate-metrics.v2"
 DEFAULT_LABELS = Path("data/model-night-20260826-v2/npv_labels.json")
 DEFAULT_TENSORS = Path("data/lean700/tensors_context_490_canonical.pt")
 DEFAULT_MANIFOLD = Path("data")
 MANIFOLD_GLOB = "constrained-opm-*"
+EFFECT_THRESHOLD_RUB = 1_000_000.0
+DESCRIPTION = (
+    "Метрики карточки суррогата: абсолютная ошибка ЧДД, ошибка предсказания "
+    "разницы ЧДД между соседями по ранжированию и распределение ошибки канала bhp."
+)
 
 
 class MetricsReportError(RuntimeError):
@@ -69,7 +52,7 @@ class MetricsReportError(RuntimeError):
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument("--labels", type=Path, default=DEFAULT_LABELS)
     parser.add_argument("--tensors", type=Path, default=DEFAULT_TENSORS)
     parser.add_argument("--split", default="test", choices=("train", "validation", "test"))
@@ -93,8 +76,6 @@ def _require(path: Path, what: str) -> Path:
 
 
 def _regression(actual: list[float], predicted: list[float]) -> dict[str, float]:
-    """R², MAE и относительная ошибка ЧДД в процентах."""
-
     if len(actual) < 2:
         raise MetricsReportError("регрессионные метрики требуют минимум двух сценариев")
     mean = statistics.fmean(actual)
@@ -137,7 +118,7 @@ def _ranking(actual: list[float], predicted: list[float]) -> dict[str, object]:
     }
 
 
-def _score_schedule(env, schedule) -> dict[str, float]:
+def _predict_response(env, schedule) -> tuple[dict[str, float], ResponseArtifact]:
     model_input = replace(ScheduleFeatureizer().transform(schedule, env.feature_context.context), lambda_edges=())
     scored = env.model.predict(model_input)
     states, intervals = ResponseAdapter().adapt(scored.output, schedule, env.real_history, env.control_dates)
@@ -146,7 +127,195 @@ def _score_schedule(env, schedule) -> dict[str, float]:
         response_hash=hashlib.sha256(canonical_bytes({"schedule": hash_schedule(schedule)})).hexdigest(),
         state_at_date=states, interval_response=intervals,
     )
-    return predict_economics(env, model_input, response)
+    return predict_economics(env, model_input, response), response
+
+
+def _score_schedule(env, schedule) -> dict[str, float]:
+    components, _ = _predict_response(env, schedule)
+    return components
+
+
+def _quantile(ordered: list[float], share: float) -> float:
+    if not ordered:
+        raise MetricsReportError(
+            "квантиль пустой выборки не определён; ноль вместо числа запрещён"
+        )
+    return ordered[min(len(ordered) - 1, int(share * len(ordered)))]
+
+
+def _distribution(values: list[float], what: str) -> dict[str, float]:
+    if not values:
+        raise MetricsReportError(
+            f"{what}: выборка пуста, распределение не считается; "
+            "ноль вместо числа запрещён"
+        )
+    ordered = sorted(values)
+    return {
+        "n": float(len(ordered)),
+        "median": statistics.median(ordered),
+        "p95": _quantile(ordered, 0.95),
+        "max": ordered[-1],
+    }
+
+
+def _scaled_distribution(values: list[float], what: str, scale: float) -> dict[str, float]:
+    distribution = _distribution(values, what)
+    scaled = {name: value / scale for name, value in distribution.items() if name != "n"}
+    scaled["n"] = float(len(values))
+    return scaled
+
+
+def _adjacent_pairs(actual: list[float]) -> list[tuple[int, int]]:
+    if len(actual) < 2:
+        raise MetricsReportError(
+            "ошибка эффекта требует минимум двух сценариев: разницы между "
+            "одним сценарием не существует"
+        )
+    order = sorted(range(len(actual)), key=lambda i: actual[i], reverse=True)
+    return list(zip(order, order[1:]))
+
+
+def _effect_error(
+    actual: list[float],
+    predicted: list[float],
+    *,
+    threshold_rub: float = EFFECT_THRESHOLD_RUB,
+) -> dict[str, object]:
+    if len(actual) != len(predicted):
+        raise MetricsReportError(
+            f"сценариев {len(actual)} по факту и {len(predicted)} по прогнозу"
+        )
+    if threshold_rub <= 0.0:
+        raise MetricsReportError(
+            "порог значимости разницы ЧДД должен быть положительным"
+        )
+    pairs = _adjacent_pairs(actual)
+    relative: list[float] = []
+    absolute: list[float] = []
+    degenerate: list[float] = []
+    rows: list[dict[str, object]] = []
+    for position, (high, low) in enumerate(pairs, start=1):
+        true_delta = actual[high] - actual[low]
+        predicted_delta = predicted[high] - predicted[low]
+        error = abs(predicted_delta - true_delta)
+        absolute.append(error)
+        significant = abs(true_delta) >= threshold_rub
+        share = error / abs(true_delta) * 100.0 if significant else None
+        if significant:
+            relative.append(share)
+        else:
+            degenerate.append(error)
+        rows.append(
+            {
+                "pair_rank": position,
+                "index_high": high,
+                "index_low": low,
+                "true_delta_rub": true_delta,
+                "predicted_delta_rub": predicted_delta,
+                "absolute_error_rub": error,
+                "relative_error_pct": share,
+                "significant": significant,
+                "sign_agrees": (predicted_delta > 0.0) == (true_delta > 0.0),
+            }
+        )
+    payload: dict[str, object] = {
+        "pairing": "adjacent pairs in the true-NPV ranking",
+        "pairing_rationale": (
+            "оптимизатор выбирает между соседями по ранжированию, поэтому "
+            "мерится ошибка ровно той разницы, по которой принимается решение; "
+            "все пары выборки завышают качество за счёт далёких пар, а близость "
+            "по расписанию из артефакта не восстанавливается"
+        ),
+        "n_pairs": len(pairs),
+        "significance_threshold_rub": threshold_rub,
+        "n_significant_pairs": len(relative),
+        "n_degenerate_pairs": len(degenerate),
+        "degenerate_policy": (
+            "пара с |истинной разницей| ниже порога в относительную ошибку не "
+            "входит и считается отдельно по абсолютной: деление на почти ноль "
+            "меряет не модель, а деление"
+        ),
+        "absolute_error_mln_rub": _scaled_distribution(
+            absolute, "абсолютная ошибка эффекта", 1e6
+        ),
+        "sign_agreement": sum(1 for row in rows if row["sign_agrees"]) / len(rows),
+        "rows": rows,
+    }
+    if relative:
+        distribution = _distribution(relative, "относительная ошибка эффекта")
+        payload["effect_error_pct_median"] = distribution["median"]
+        payload["effect_error_pct_p95"] = distribution["p95"]
+        payload["effect_error_pct_max"] = distribution["max"]
+    else:
+        payload["effect_error_pct_median"] = None
+        payload["effect_error_pct_p95"] = None
+        payload["effect_error_pct_max"] = None
+        payload["relative_error_unavailable"] = (
+            f"ни одна из {len(pairs)} пар не имеет истинной разницы ЧДД выше "
+            f"{threshold_rub:.0f} ₽: относительная ошибка эффекта на этой "
+            "выборке не определена, читать абсолютную"
+        )
+    if degenerate:
+        payload["degenerate_absolute_error_mln_rub"] = _scaled_distribution(
+            degenerate, "абсолютная ошибка вырожденных пар", 1e6
+        )
+    return payload
+
+
+def _bhp_absolute_errors(
+    predicted_states: Sequence[StateAtDate], actual_states: Sequence[StateAtDate]
+) -> list[float]:
+    by_key = {(state.well, state.deck_date_index): state for state in actual_states}
+    if len(by_key) != len(actual_states):
+        raise MetricsReportError(
+            "в фактических состояниях пара (скважина, дата дека) встречается дважды"
+        )
+    errors: list[float] = []
+    for state in predicted_states:
+        fact = by_key.get((state.well, state.deck_date_index))
+        if fact is None:
+            raise MetricsReportError(
+                f"нет фактического состояния для {state.well} на шаге дека "
+                f"{state.deck_date_index}: канал bhp сравнить не с чем"
+            )
+        errors.append(abs(state.bhp - fact.bhp))
+    if not errors:
+        raise MetricsReportError(
+            "канал bhp: ни одного предсказанного состояния, распределение не считается"
+        )
+    return errors
+
+
+def _bhp_channel(per_scenario: list[tuple[str, list[float]]]) -> dict[str, object]:
+    if not per_scenario:
+        raise MetricsReportError(
+            "канал bhp: ни одного сценария с откликом OPM; δ для SRCH-14 без "
+            "факта не выводится"
+        )
+    pooled: list[float] = []
+    for _, errors in per_scenario:
+        pooled.extend(errors)
+    distribution = _distribution(pooled, "ошибка канала bhp")
+    return {
+        "channel": "bhp",
+        "unit": "bar",
+        "source": "StateAtDate.bhp: прогноз суррогата против отклика OPM",
+        "consumer": "SRCH-14: δ для согласования гейтов по BHP между поиском и сдачей",
+        "n_states": int(distribution["n"]),
+        "n_scenarios": len(per_scenario),
+        "bhp_error_bar_median": distribution["median"],
+        "bhp_error_bar_p95": distribution["p95"],
+        "bhp_error_bar_max": distribution["max"],
+        "per_scenario": [
+            {
+                "run": name,
+                "n_states": int(_distribution(errors, "ошибка канала bhp")["n"]),
+                "bhp_error_bar_median": _distribution(errors, "ошибка канала bhp")["median"],
+                "bhp_error_bar_p95": _distribution(errors, "ошибка канала bhp")["p95"],
+            }
+            for name, errors in per_scenario
+        ],
+    }
 
 
 def _component_metrics(rows):
@@ -159,7 +328,6 @@ def _component_metrics(rows):
 
 
 def _held_out(args, env, labels: dict) -> dict[str, object]:
-    """Reconstruct exact schedules and evaluate the same blend used by search."""
     with _legacy_checkpoint_modules():
         bundle = torch.load(args.tensors, map_location="cpu", weights_only=False, mmap=True)
     identities = bundle["identities"].get(args.split)
@@ -191,10 +359,17 @@ def _held_out(args, env, labels: dict) -> dict[str, object]:
         if (index + 1) % 10 == 0:
             print(f"{args.split}: {index + 1}/{len(identities)}", flush=True)
     components = _component_metrics(rows)
+    actual = [row["npv_opm_rub"] for row in rows]
     return {
         "population": f"{args.split}: unique schedules, current production blend",
         "note": "diagnostic disclosed split; all predictions evaluated, including OOD",
-        **components["blended"], "components": components, "rows": rows,
+        **components["blended"],
+        "effect": _effect_error(actual, [row["blended"] for row in rows]),
+        "bhp_channel_unavailable": (
+            "метки сплита содержат только ЧДД OPM, отклика StateAtDate в них нет: "
+            "ошибка канала bhp считается там, где на диске лежит response.json OPM"
+        ),
+        "components": components, "rows": rows,
         "by_family": {family: _component_metrics([r for r in rows if r["family"] == family])
                       for family in sorted({r["family"] for r in rows})
                       if sum(r["family"] == family for r in rows) >= 2},
@@ -202,8 +377,6 @@ def _held_out(args, env, labels: dict) -> dict[str, object]:
 
 
 def _manifold(args, env) -> dict[str, object]:
-    """Таблица (б): кандидаты, которые предлагал контур, с настоящим ЧДД OPM."""
-
     directories = sorted(
         path
         for path in args.manifold_root.glob(args.manifold_glob)
@@ -216,18 +389,49 @@ def _manifold(args, env) -> dict[str, object]:
         )
     physical_weight = float(getattr(env.npv_head, "physical_npv_weight", 0.0))
     actual, predicted, rows = [], [], []
+    bhp_per_scenario: list[tuple[str, list[float]]] = []
+    missing_response: list[str] = []
     for directory in directories:
         schedule = _load_schedule(json.loads((directory / "schedule.json").read_text()))
         result = json.loads((directory / "result.json").read_text())
         if result["canonical_schedule_hash"] != hash_schedule(schedule):
             raise MetricsReportError(f"{directory}: schedule hash differs from OPM result")
-        components = _score_schedule(env, schedule)
+        components, response = _predict_response(env, schedule)
         actual.append(float(result["npv_opm"]))
         predicted.append(components["blended"])
         rows.append({"run": directory.name, "npv_opm_rub": actual[-1],
                      "npv_surrogate_rub": predicted[-1], **components})
+        opm_response = directory / "response.json"
+        if opm_response.is_file():
+            bhp_per_scenario.append((
+                directory.name,
+                _bhp_absolute_errors(
+                    response.state_at_date,
+                    load_response_artifact(opm_response).state_at_date,
+                ),
+            ))
+        else:
+            missing_response.append(directory.name)
+
+    bhp: dict[str, object]
+    if bhp_per_scenario:
+        bhp = _bhp_channel(bhp_per_scenario)
+        if missing_response:
+            bhp["scenarios_without_opm_response"] = missing_response
+    else:
+        bhp = {
+            "channel": "bhp",
+            "unit": "bar",
+            "unavailable": (
+                "ни в одном прогоне нет response.json с откликом OPM: ошибку "
+                "канала bhp не с чем сравнивать, число не выводится"
+            ),
+            "scenarios_without_opm_response": missing_response,
+        }
 
     return {
+        "effect": _effect_error(actual, predicted),
+        "bhp_channel": bhp,
         "population": "кандидаты контура с настоящим ЧДД OPM",
         "physical_npv_weight": physical_weight,
         "caveat": (
@@ -240,6 +444,30 @@ def _manifold(args, env) -> dict[str, object]:
         "rows": rows,
         "components": _component_metrics(rows),
     }
+
+
+def _print_effect(effect: dict[str, object]) -> None:
+    print(f"  пар соседей по рангу {effect['n_pairs']}"
+          f" (значимых {effect['n_significant_pairs']},"
+          f" вырожденных {effect['n_degenerate_pairs']})")
+    median, p95 = effect["effect_error_pct_median"], effect["effect_error_pct_p95"]
+    if median is None or p95 is None:
+        print(f"  ошибка эффекта      {effect['relative_error_unavailable']}")
+    else:
+        print(f"  ошибка эффекта, медиана {median:.3f}%")
+        print(f"  ошибка эффекта, P95     {p95:.3f}%")
+    absolute = effect["absolute_error_mln_rub"]
+    print(f"  ошибка эффекта, абс. медиана {absolute['median']:.3f} млн ₽,"
+          f" P95 {absolute['p95']:.3f} млн ₽")
+
+
+def _print_bhp(bhp: dict[str, object]) -> None:
+    if "unavailable" in bhp:
+        print(f"  канал bhp           {bhp['unavailable']}")
+        return
+    print(f"  ошибка bhp, медиана {bhp['bhp_error_bar_median']:.3f} бар"
+          f" по {bhp['n_states']} состояниям")
+    print(f"  ошибка bhp, P95     {bhp['bhp_error_bar_p95']:.3f} бар")
 
 
 def main() -> int:
@@ -300,6 +528,9 @@ def main() -> int:
         print(f"  MAE                 {regression['mae_mln_rub']:.1f} млн ₽")
         print(f"  ошибка ЧДД, медиана {regression['npv_error_pct_median']:.3f}%")
         print(f"  ошибка ЧДД, P95     {regression['npv_error_pct_p95']:.3f}%")
+        _print_effect(table["effect"])
+        if name == "optimizer_manifold":
+            _print_bhp(table["bhp_channel"])
     print(f"\nотчёт: {args.output}")
     return 0
 

@@ -1,20 +1,24 @@
-"""Реестр агентов и порядок их вызова на шаге управления.
-
-Точка расширения: новый агент — новый файл, реализующий `Agent`, плюс
-строка в `AGENTS`. Ядро иерархии при этом не меняется.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from backend.domain.policy.agents.base import Agent
+from backend.domain.policy.agents.base import DEFAULT_RANK, Agent
 from backend.domain.policy.agents.field import FieldCoordinator
 from backend.domain.policy.agents.group import GroupAllocator
 from backend.domain.policy.agents.well import WellExecutor
 from backend.domain.policy.levels import Level
 
 LEVEL_ORDER: tuple[Level, ...] = (Level.FIELD, Level.GROUP, Level.WELL)
+
+
+def rank_of(agent: Agent) -> int:
+    rank = getattr(agent, "rank", DEFAULT_RANK)
+    if not isinstance(rank, int) or isinstance(rank, bool):
+        raise ValueError(
+            f"{getattr(agent, 'name', '<без имени>')}: rank={rank!r} не целое "
+            f"число — порядок вызова не сравним"
+        )
+    return rank
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +29,7 @@ class AgentRegistry:
         if not self.agents:
             raise ValueError("реестр агентов пуст: шаг иерархии некому исполнить")
         seen: set[str] = set()
+        ranks: dict[tuple[Level, int], str] = {}
         for agent in self.agents:
             if not agent.name:
                 raise ValueError("агент без имени: реестр не адресуем")
@@ -38,6 +43,14 @@ class AgentRegistry:
                 )
             if agent.level not in LEVEL_ORDER:
                 raise ValueError(f"{agent.name}: неизвестный уровень {agent.level}")
+            slot = (agent.level, rank_of(agent))
+            taken = ranks.get(slot)
+            if taken is not None:
+                raise ValueError(
+                    f"{agent.name} и {taken} заявили ранг {slot[1]} на уровне "
+                    f"{agent.level.value}: кто кого ограничивает — не определено"
+                )
+            ranks[slot] = agent.name
 
     def names(self) -> tuple[str, ...]:
         return tuple(agent.name for agent in self.agents)
@@ -49,7 +62,8 @@ class AgentRegistry:
         raise ValueError(f"агента {name} нет в реестре")
 
     def by_level(self, level: Level) -> tuple[Agent, ...]:
-        return tuple(agent for agent in self.agents if agent.level is level)
+        found = [agent for agent in self.agents if agent.level is level]
+        return tuple(sorted(found, key=lambda agent: (rank_of(agent), agent.name)))
 
     def one_of_level(self, level: Level) -> Agent:
         found = self.by_level(level)
@@ -74,3 +88,12 @@ DEFAULT_AGENTS: tuple[Agent, ...] = (
 )
 
 DEFAULT_REGISTRY = AgentRegistry(agents=DEFAULT_AGENTS)
+
+__all__ = [
+    "DEFAULT_AGENTS",
+    "DEFAULT_RANK",
+    "DEFAULT_REGISTRY",
+    "LEVEL_ORDER",
+    "AgentRegistry",
+    "rank_of",
+]
