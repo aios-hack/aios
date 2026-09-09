@@ -15,6 +15,8 @@ COMPENSATION_ENFORCEMENT = "compensation_enforcement"
 COMPENSATION_SCOPE = "compensation_scope"
 BHP_PRODUCER_MIN_BAR = "bhp_producer_min_bar"
 BHP_INJECTOR_MAX_BAR = "bhp_injector_max_bar"
+PRESSURE_FLOOR_BAR = "pressure_floor_bar"
+PRESSURE_CEILING_BAR = "pressure_ceiling_bar"
 
 SOURCE_SUFFIX = "_source"
 
@@ -43,6 +45,8 @@ BLOCKING_INFRASTRUCTURE_KEYS: tuple[str, ...] = (
     EXTERNAL_WATER_M3_PER_DAY,
     BHP_PRODUCER_MIN_BAR,
     BHP_INJECTOR_MAX_BAR,
+    PRESSURE_FLOOR_BAR,
+    PRESSURE_CEILING_BAR,
 )
 
 DIAGNOSTIC_INFRASTRUCTURE_KEYS: tuple[str, ...] = (
@@ -85,7 +89,7 @@ class Constraints:
     watercut_limits: dict[int, float] = field(default_factory=dict)
     well_outages: tuple[WellOutage, ...] = field(default_factory=tuple)
     infrastructure: dict[str, object] = field(default_factory=dict)
-    case_path: str | None = None
+    case_path: str | None = field(default=None, compare=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,6 +126,16 @@ class CompensationPolicy:
     @property
     def hard(self) -> bool:
         return self.enforcement == "hard"
+
+
+@dataclass(frozen=True, slots=True)
+class FieldPressureLimits:
+    floor_bar: float | None
+    ceiling_bar: float | None
+
+    @property
+    def enabled(self) -> bool:
+        return self.floor_bar is not None or self.ceiling_bar is not None
 
 
 @dataclass(frozen=True, slots=True)
@@ -305,3 +319,33 @@ def compensation_policy(constraints: Constraints) -> CompensationPolicy:
             f"{sorted(COMPENSATION_SCOPES)}, получено {scope!r}"
         )
     return CompensationPolicy(minimum, maximum, str(enforcement), str(scope))
+
+
+def field_pressure_limits(constraints: Constraints) -> FieldPressureLimits:
+    source = constraints.infrastructure
+    has_floor = PRESSURE_FLOOR_BAR in source
+    has_ceiling = PRESSURE_CEILING_BAR in source
+    if not (has_floor or has_ceiling):
+        return FieldPressureLimits(None, None)
+    floor = (
+        _finite_number(source, PRESSURE_FLOOR_BAR, 0.0) if has_floor else None
+    )
+    ceiling = (
+        _finite_number(source, PRESSURE_CEILING_BAR, 0.0) if has_ceiling else None
+    )
+    if floor is not None and floor <= 0.0:
+        raise ValueError(
+            f"infrastructure.{PRESSURE_FLOOR_BAR}: пол пластового давления "
+            f"должен быть положительным, получено {floor}"
+        )
+    if ceiling is not None and ceiling <= 0.0:
+        raise ValueError(
+            f"infrastructure.{PRESSURE_CEILING_BAR}: потолок пластового "
+            f"давления должен быть положительным, получено {ceiling}"
+        )
+    if floor is not None and ceiling is not None and ceiling <= floor:
+        raise ValueError(
+            f"infrastructure.{PRESSURE_CEILING_BAR}: потолок {ceiling} бар "
+            f"не выше пола {floor} бар: коридор пластового давления пуст"
+        )
+    return FieldPressureLimits(floor, ceiling)

@@ -27,7 +27,9 @@ from backend.presentation.ui_export.artifact_io import load_schedule_json
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="AIOS optimisation workflow")
-    parser.add_argument("mode", choices=("search", "verify", "full", "submit"))
+    parser.add_argument(
+        "mode", choices=("search", "verify", "full", "submit", "compare")
+    )
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--runs-root", type=Path, default=out_root() / "runs")
     parser.add_argument("--model-dir", type=Path, default=None)
@@ -177,6 +179,10 @@ def main(argv: list[str] | None = None) -> int:
         manifest = workflow.verify(request, verify_schedule)
         export_run_summary(manifest, args.runs_root / args.run_id / "ui")
         return 0
+    if mode == "compare":
+        if not args.run_id:
+            raise SystemExit("compare требует --run-id проверяемого прогона")
+        return compare(args.runs_root, args.run_id, args.case)
     if mode == "submit":
         if not args.run_id:
             raise SystemExit("submit требует --run-id проверенного прогона")
@@ -186,6 +192,60 @@ def main(argv: list[str] | None = None) -> int:
                 "проверенного прогона вместе с кейсом, на котором он найден"
             )
         return submit(args.runs_root, args.run_id, args.model_dir)
+    return 0
+
+
+def resolve_comparison_case(
+    runs_root: Path, run_id: str, case_path: Path | None
+) -> tuple[Path, Constraints]:
+    run_dir = runs_root / run_id
+    saved = load_saved_constraints(run_dir)
+    chosen = Path(case_path) if case_path is not None else default_case_path()
+    constraints = resolve_constraints(chosen)
+    if constraints is None:
+        if saved is None:
+            raise SystemExit(
+                f"сравнение не собрано — кейс не найден ни в {chosen}, ни в "
+                f"{run_dir / 'inputs' / 'constraints.json'}"
+            )
+        return run_dir / "inputs" / "constraints.json", saved
+    if saved is not None and constraints_hash(saved) != constraints_hash(constraints):
+        raise SystemExit(
+            "сравнение не собрано — кейс "
+            f"{chosen} расходится с кейсом прогона {run_id}: "
+            f"{constraints_hash(constraints)} против {constraints_hash(saved)}. "
+            "База и кандидат обязаны идти под одним кейсом"
+        )
+    return chosen, constraints
+
+
+def compare(runs_root: Path, run_id: str, case_path: Path | None) -> int:
+    from backend.application.optimization.verification_run import (
+        ComparisonError,
+        compare_baseline_to_candidate,
+        load_comparison_inputs,
+        print_comparison,
+    )
+
+    chosen, constraints = resolve_comparison_case(runs_root, run_id, case_path)
+    request = load_run_request(runs_root, run_id)
+    try:
+        inputs = load_comparison_inputs(constraints)
+        document = compare_baseline_to_candidate(
+            run_id=run_id,
+            case_path=chosen,
+            constraints=constraints,
+            baseline_schedule=inputs.baseline_schedule,
+            candidate_schedule=request.schedule,
+            control_dates=inputs.control_dates,
+            forecast=inputs.forecast,
+            runs_root=runs_root,
+            model_dir=inputs.model_dir,
+        )
+    except ComparisonError as error:
+        raise SystemExit(f"сравнение не собрано — {error}") from error
+    print_comparison(document)
+    print(f"сравнение записано: {runs_root / run_id / 'comparison.json'}")
     return 0
 
 

@@ -5,7 +5,9 @@ import sys
 import tempfile
 import time
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
+from typing import Callable, Sequence
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -31,6 +33,7 @@ from backend.application.optimization.search_run import (
     CONSTRAINTS,
     FINAL_CAP,
     SEED,
+    _peak_step_production,
     _repair_predicted_water_balance,
 )
 from backend.domain.policy.fixed_point import resolve
@@ -40,6 +43,13 @@ from backend.domain.configuration.constraints_io import (
     constraints_from_json,
     constraints_hash,
 )
+from backend.domain.schedule.case_limits import (
+    CaseLimitsError,
+    CaseLimitsOutcome,
+    ProductionForecastFn,
+    apply_case_limits_report,
+)
+from backend.core.provenance import git_commit, opm_image
 
 LAMBDA = Path("data/lambda-window-2007/lambda.json")
 RESPONSE = Path("data/base_case/response.json")
@@ -364,6 +374,455 @@ def persist_observation(
         encoding="utf-8",
     )
     return observation_dir
+
+
+COMPARISON_SCHEMA_VERSION = "1.0"
+
+
+class ComparisonError(RuntimeError):
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class ComparisonSide:
+    name: str
+    schedule: Schedule
+    result: SubmissionResult
+    guard: GuardReport
+    wallclock_seconds: float
+    opm_runs: int
+    projection: CaseLimitsOutcome | None = None
+
+    @property
+    def npv(self) -> float | None:
+        if self.result.final_npv is None:
+            return None
+        return float(self.result.final_npv.npv_methodology)
+
+    @property
+    def blocking_violations(self) -> int | None:
+        if self.result.dynamic_report is None:
+            return None
+        return len(self.result.dynamic_report.blocking_violations)
+
+    @property
+    def dynamic_violations(self) -> int | None:
+        if self.result.dynamic_report is None:
+            return None
+        return len(self.result.dynamic_report.violations)
+
+    @property
+    def static_violations(self) -> int:
+        return len(self.result.static_report.violations)
+
+    def violations_by_kind(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        if self.result.dynamic_report is None:
+            return counts
+        for violation in self.result.dynamic_report.violations:
+            key = str(getattr(violation.kind, "name", violation.kind))
+            counts[key] = counts.get(key, 0) + 1
+        return counts
+
+
+def _side_npv_or_refuse(side: ComparisonSide) -> float:
+    npv = side.npv
+    if npv is None:
+        raise ComparisonError(
+            f"сторона «{side.name}» не дала ЧДД: тракт остановился на статусе "
+            f"{side.result.opm_run.status}, экономика не посчитана. Сравнение "
+            "прекращено — подставлять ноль вместо непосчитанного числа запрещено"
+        )
+    return npv
+
+
+def project_baseline(
+    baseline: Schedule,
+    constraints: Constraints,
+    control_dates: Sequence[date],
+    forecast: ProductionForecastFn | None,
+) -> CaseLimitsOutcome:
+    if forecast is None:
+        raise ComparisonError(
+            "проекция базового расписания на кейс невозможна: оценщик годового "
+            "отбора (ProductionForecastFn) не передан. Резка по сумме уставок даёт "
+            "заниженную базу, и сравнение станет недобросовестным — подключите "
+            "оценщик или откажитесь от сравнения"
+        )
+    try:
+        return apply_case_limits_report(baseline, constraints, control_dates, forecast)
+    except CaseLimitsError as error:
+        raise ComparisonError(
+            f"базовое расписание не спроецировано на кейс: {error}"
+        ) from error
+
+
+def _deck_template_hash(schedule: Schedule, model_dir: Path) -> str:
+    emitter = OpmDeckEmitter(model_dir)
+    with tempfile.TemporaryDirectory() as scratch:
+        deck = emitter.emit(schedule, Path(scratch) / "deck")
+        return deck_hashes(deck, schedule).deck_hash
+
+
+@dataclass(frozen=True, slots=True)
+class ConditionCheck:
+    name: str
+    baseline: str
+    candidate: str
+
+    @property
+    def holds(self) -> bool:
+        return self.baseline == self.candidate
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "holds": self.holds,
+            "baseline": self.baseline,
+            "candidate": self.candidate,
+        }
+
+
+def equal_conditions(
+    baseline: ComparisonSide,
+    candidate: ComparisonSide,
+    *,
+    case_hash: str,
+    baseline_deck_hash: str,
+    candidate_deck_hash: str,
+    image: str,
+) -> tuple[ConditionCheck, ...]:
+    return (
+        ConditionCheck(
+            name="constraints_hash",
+            baseline=baseline.guard.constraints.actual,
+            candidate=candidate.guard.constraints.actual,
+        ),
+        ConditionCheck(name="case_hash", baseline=case_hash, candidate=case_hash),
+        ConditionCheck(
+            name="deck_hash",
+            baseline=baseline_deck_hash,
+            candidate=candidate_deck_hash,
+        ),
+        ConditionCheck(name="opm_image", baseline=image, candidate=image),
+    )
+
+
+def refuse_unequal_conditions(checks: Sequence[ConditionCheck]) -> None:
+    broken = [check for check in checks if not check.holds]
+    if not broken:
+        return
+    details = "; ".join(
+        f"{check.name}: база {check.baseline}, кандидат {check.candidate}"
+        for check in broken
+    )
+    raise ComparisonError(
+        "сравнение прекращено: прогоны шли не в одних условиях — " + details
+    )
+
+
+def _count_text(value: int | None) -> str:
+    return "—" if value is None else str(value)
+
+
+def _delta_text(baseline: int | None, candidate: int | None) -> str:
+    if baseline is None or candidate is None:
+        return "—"
+    return f"{candidate - baseline:+d}"
+
+
+def _side_document(side: ComparisonSide, npv: float) -> dict[str, object]:
+    projection = side.projection
+    return {
+        "name": side.name,
+        "canonical_schedule_hash": hash_schedule(side.schedule),
+        "npv_rub": npv,
+        "npv_bln_rub": npv / 1e9,
+        "run_id": side.result.opm_run.run_id,
+        "run_status": str(side.result.opm_run.status),
+        "sound": side.result.sound,
+        "violations": {
+            "static": side.static_violations,
+            "dynamic": side.dynamic_violations,
+            "blocking": side.blocking_violations,
+            "by_kind": side.violations_by_kind(),
+        },
+        "failed_identities": [check.name for check in side.result.failed_identities],
+        "wallclock_seconds": side.wallclock_seconds,
+        "opm_runs": side.opm_runs,
+        "case_projection": None
+        if projection is None
+        else {
+            "applied": True,
+            "forecast_used": projection.forecast_used,
+            "setpoint_sum_fallback": projection.setpoint_sum_fallback,
+            "rounds": projection.rounds,
+            "trimmed_years": {
+                kind.name: list(years) for kind, years in projection.trimmed_years.items()
+            },
+        },
+    }
+
+
+def _comparison_table(
+    baseline: ComparisonSide,
+    candidate: ComparisonSide,
+    baseline_npv: float,
+    candidate_npv: float,
+) -> list[dict[str, str]]:
+    delta = candidate_npv - baseline_npv
+    return [
+        {
+            "metric": "ЧДД, млрд руб",
+            "baseline": f"{baseline_npv / 1e9:.3f}",
+            "candidate": f"{candidate_npv / 1e9:.3f}",
+            "delta": f"{delta / 1e9:+.3f}",
+        },
+        {
+            "metric": "Прирост к базе, %",
+            "baseline": "—",
+            "candidate": f"{100.0 * delta / baseline_npv:+.2f}",
+            "delta": "—",
+        },
+        {
+            "metric": "Блокирующих нарушений",
+            "baseline": _count_text(baseline.blocking_violations),
+            "candidate": _count_text(candidate.blocking_violations),
+            "delta": _delta_text(
+                baseline.blocking_violations, candidate.blocking_violations
+            ),
+        },
+        {
+            "metric": "Нарушений динамики",
+            "baseline": _count_text(baseline.dynamic_violations),
+            "candidate": _count_text(candidate.dynamic_violations),
+            "delta": _delta_text(
+                baseline.dynamic_violations, candidate.dynamic_violations
+            ),
+        },
+        {
+            "metric": "Время, с",
+            "baseline": f"{baseline.wallclock_seconds:.1f}",
+            "candidate": f"{candidate.wallclock_seconds:.1f}",
+            "delta": f"{candidate.wallclock_seconds - baseline.wallclock_seconds:+.1f}",
+        },
+        {
+            "metric": "Прогонов OPM",
+            "baseline": str(baseline.opm_runs),
+            "candidate": str(candidate.opm_runs),
+            "delta": str(baseline.opm_runs + candidate.opm_runs),
+        },
+    ]
+
+
+def build_comparison_document(
+    baseline: ComparisonSide,
+    candidate: ComparisonSide,
+    *,
+    case_path: Path,
+    case_hash: str,
+    baseline_deck_hash: str,
+    candidate_deck_hash: str,
+    image: str,
+    run_id: str,
+) -> dict[str, object]:
+    checks = equal_conditions(
+        baseline,
+        candidate,
+        case_hash=case_hash,
+        baseline_deck_hash=baseline_deck_hash,
+        candidate_deck_hash=candidate_deck_hash,
+        image=image,
+    )
+    refuse_unequal_conditions(checks)
+    baseline_npv = _side_npv_or_refuse(baseline)
+    candidate_npv = _side_npv_or_refuse(candidate)
+    if baseline_npv == 0.0:
+        raise ComparisonError(
+            "базовый ЧДД равен нулю: относительный прирост не определён, "
+            "печатать проценты нечем"
+        )
+    delta = candidate_npv - baseline_npv
+    return {
+        "schema_version": COMPARISON_SCHEMA_VERSION,
+        "run_id": run_id,
+        "conditions": {
+            "equal": True,
+            "case_path": str(case_path),
+            "case_hash": case_hash,
+            "constraints_hash": candidate.guard.constraints.actual,
+            "deck_hash": candidate_deck_hash,
+            "opm_image": image,
+            "git_commit": git_commit(),
+            "checks": [check.as_dict() for check in checks],
+        },
+        "baseline": _side_document(baseline, baseline_npv),
+        "candidate": _side_document(candidate, candidate_npv),
+        "delta": {
+            "npv_rub": delta,
+            "npv_bln_rub": delta / 1e9,
+            "npv_percent": 100.0 * delta / baseline_npv,
+            "blocking_violations": None
+            if baseline.blocking_violations is None
+            or candidate.blocking_violations is None
+            else candidate.blocking_violations - baseline.blocking_violations,
+            "wallclock_seconds": candidate.wallclock_seconds - baseline.wallclock_seconds,
+        },
+        "totals": {
+            "opm_runs": baseline.opm_runs + candidate.opm_runs,
+            "wallclock_seconds": baseline.wallclock_seconds + candidate.wallclock_seconds,
+        },
+        "table": _comparison_table(baseline, candidate, baseline_npv, candidate_npv),
+    }
+
+
+VerifierFn = Callable[[Schedule, Path], GuardedVerification]
+
+
+def _run_side(
+    name: str,
+    schedule: Schedule,
+    work_root: Path,
+    verifier: VerifierFn,
+    projection: CaseLimitsOutcome | None,
+) -> ComparisonSide:
+    started = time.monotonic()
+    guarded = verifier(schedule, work_root)
+    return ComparisonSide(
+        name=name,
+        schedule=schedule,
+        result=guarded.result,
+        guard=guarded.guard,
+        wallclock_seconds=time.monotonic() - started,
+        opm_runs=1,
+        projection=projection,
+    )
+
+
+def compare_baseline_to_candidate(
+    *,
+    run_id: str,
+    case_path: Path,
+    constraints: Constraints,
+    baseline_schedule: Schedule,
+    candidate_schedule: Schedule,
+    control_dates: Sequence[date],
+    forecast: ProductionForecastFn | None,
+    runs_root: Path,
+    model_dir: Path,
+    verifier: VerifierFn | None = None,
+) -> dict[str, object]:
+    run_dir = Path(runs_root) / run_id
+    projection = project_baseline(baseline_schedule, constraints, control_dates, forecast)
+    if projection.setpoint_sum_fallback:
+        raise ComparisonError(
+            "проекция базы прошла по сумме уставок, а не по прогнозу отбора: "
+            "такая база занижена и сравнивать с ней нельзя"
+        )
+    projected = projection.schedule
+    baseline_deck_hash = _deck_template_hash(projected, model_dir)
+    candidate_deck_hash = _deck_template_hash(candidate_schedule, model_dir)
+    case_hash = constraints_hash(constraints)
+    image = opm_image()
+
+    def _default_verifier(schedule: Schedule, work_root: Path) -> GuardedVerification:
+        return verify_schedule_with_guard(
+            schedule,
+            work_root,
+            run_dir=run_dir,
+            expected_schedule_hash=hash_schedule(schedule),
+            expected_constraints_hash=case_hash,
+            constraints=constraints,
+        )
+
+    used = verifier if verifier is not None else _default_verifier
+    baseline_side = _run_side(
+        "baseline", projected, run_dir / "opm-baseline", used, projection
+    )
+    candidate_side = _run_side(
+        "candidate", candidate_schedule, run_dir / "opm-candidate", used, None
+    )
+    document = build_comparison_document(
+        baseline_side,
+        candidate_side,
+        case_path=case_path,
+        case_hash=case_hash,
+        baseline_deck_hash=baseline_deck_hash,
+        candidate_deck_hash=candidate_deck_hash,
+        image=image,
+        run_id=run_id,
+    )
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "comparison.json").write_text(
+        json.dumps(document, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return document
+
+
+COMPARISON_COLUMNS: tuple[str, ...] = ("metric", "baseline", "candidate", "delta")
+COMPARISON_HEADER: tuple[str, ...] = ("Показатель", "База", "Кандидат", "Δ")
+
+
+def print_comparison(document: dict[str, object]) -> None:
+    table = document["table"]
+    if not isinstance(table, list):
+        raise ComparisonError("в документе сравнения нет таблицы для печати")
+    widths = [
+        max([len(title)] + [len(str(row[key])) for row in table])
+        for key, title in zip(COMPARISON_COLUMNS, COMPARISON_HEADER)
+    ]
+    line = "  ".join(
+        title.ljust(width) for title, width in zip(COMPARISON_HEADER, widths)
+    )
+    print(line, flush=True)
+    print("-" * len(line), flush=True)
+    for row in table:
+        print(
+            "  ".join(
+                str(row[key]).ljust(width)
+                for key, width in zip(COMPARISON_COLUMNS, widths)
+            ),
+            flush=True,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ComparisonInputs:
+    baseline_schedule: Schedule
+    control_dates: tuple[date, ...]
+    forecast: ProductionForecastFn
+    model_dir: Path
+
+
+def load_comparison_inputs(constraints: Constraints) -> ComparisonInputs:
+    try:
+        runtime = resolve_runtime_artifacts()
+    except Exception as error:
+        raise ComparisonError(
+            "сравнение невозможно: артефакты быстрой модели недоступны, "
+            f"а без них не построить оценщик отбора для проекции базы — {error}"
+        ) from error
+    model_dir = model_z_dir()
+    env = load_environment(
+        model_dir=model_dir,
+        normatives_path=chdd_python_dir() / "input" / "Нормативы_ЧДД.xlsx",
+        response_path=RESPONSE,
+        checkpoint_path=runtime.checkpoint,
+        feature_context_path=runtime.feature_context,
+        npv_head_path=runtime.npv_head,
+        scenario_ood_path=runtime.scenario_ood,
+        lambda_path=LAMBDA,
+        constraints=constraints,
+        oil_density_t_per_m3=OIL_DENSITY_T_PER_M3,
+    )
+    validate_runtime_economic_head(runtime, env.npv_head)
+    return ComparisonInputs(
+        baseline_schedule=env.base_schedule,
+        control_dates=tuple(env.control_dates),
+        forecast=_peak_step_production(env, make_evaluator(env)),
+        model_dir=model_dir,
+    )
 
 
 def main() -> int:

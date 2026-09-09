@@ -16,6 +16,7 @@ from backend.presentation.cli.run import (
     load_run_request,
     main,
     resolve_case,
+    resolve_comparison_case,
     resolve_constraints,
 )
 from tests.application.test_run_workflow import prepare_submittable_run, sample_schedule
@@ -145,7 +146,9 @@ def test_negative_external_water_is_refused_at_load_time(tmp_path) -> None:
         {
             "infrastructure": {
                 "water_reinjection_fraction": 1.0,
+                "water_reinjection_fraction_source": "assumption",
                 "external_water_m3_per_day": -5.0,
+                "external_water_m3_per_day_source": "organizer",
             }
         },
     )
@@ -163,7 +166,10 @@ def test_case_with_outages_and_limits_is_accepted(tmp_path) -> None:
             "well_outages": [
                 {"well": "P12", "control_step_from": 48, "control_step_to": 51}
             ],
-            "infrastructure": {"external_water_m3_per_day": 5000.0},
+            "infrastructure": {
+                "external_water_m3_per_day": 5000.0,
+                "external_water_m3_per_day_source": "organizer",
+            },
         },
     )
 
@@ -183,7 +189,12 @@ def test_case_with_outages_and_limits_is_accepted(tmp_path) -> None:
 def test_case_may_declare_the_water_source_unlimited(tmp_path) -> None:
     case = write_case(
         tmp_path / "unlimited.json",
-        {"infrastructure": {"water_supply_unlimited": True}},
+        {
+            "infrastructure": {
+                "water_supply_unlimited": True,
+                "water_supply_unlimited_source": "assumption",
+            }
+        },
     )
 
     policy = water_supply_policy(load_case(case))
@@ -198,7 +209,9 @@ def test_case_refuses_unlimited_water_together_with_an_external_volume(tmp_path)
         {
             "infrastructure": {
                 "water_supply_unlimited": True,
+                "water_supply_unlimited_source": "assumption",
                 "external_water_m3_per_day": 5000.0,
+                "external_water_m3_per_day_source": "organizer",
             }
         },
     )
@@ -400,3 +413,71 @@ def test_a_run_without_a_manifest_reloads_with_empty_provenance(tmp_path) -> Non
     (tmp_path / "plain" / "manifest.json").unlink()
 
     assert load_run_request(tmp_path, "plain").provenance == RunProvenance()
+
+
+def test_compare_is_one_of_the_workflow_modes() -> None:
+    parser = build_parser()
+    assert parser.parse_args(["compare", "--run-id", "r1"]).mode == "compare"
+
+
+def test_compare_without_a_run_id_is_refused() -> None:
+    with pytest.raises(SystemExit, match="--run-id"):
+        main(["compare"])
+
+
+def test_compare_refuses_a_case_that_differs_from_the_case_of_the_run(
+    tmp_path,
+) -> None:
+    runs_root = tmp_path / "runs"
+    saved = load_case(BASE_CASE)
+    RunWorkflow(runs_root).search(
+        RunRequest("compared", sample_schedule(), constraints=saved)
+    )
+    other = write_case(
+        tmp_path / "other.json",
+        {**constraints_to_json(saved), "liquid_limits": {"2010": 1.0}},
+    )
+
+    with pytest.raises(SystemExit) as error:
+        resolve_comparison_case(runs_root, "compared", other)
+
+    message = str(error.value)
+    assert "расходится с кейсом прогона" in message
+    assert constraints_hash(saved) in message
+
+
+def test_compare_accepts_the_case_that_matches_the_run(tmp_path) -> None:
+    runs_root = tmp_path / "runs"
+    saved = load_case(BASE_CASE)
+    RunWorkflow(runs_root).search(
+        RunRequest("compared", sample_schedule(), constraints=saved)
+    )
+
+    path, constraints = resolve_comparison_case(runs_root, "compared", BASE_CASE)
+
+    assert path == BASE_CASE
+    assert constraints_hash(constraints) == constraints_hash(saved)
+
+
+def test_compare_falls_back_to_the_case_stored_with_the_run(tmp_path) -> None:
+    runs_root = tmp_path / "runs"
+    saved = load_case(BASE_CASE)
+    RunWorkflow(runs_root).search(
+        RunRequest("compared", sample_schedule(), constraints=saved)
+    )
+    missing = tmp_path / "absent.json"
+
+    path, constraints = resolve_comparison_case(runs_root, "compared", missing)
+
+    assert path == runs_root / "compared" / "inputs" / "constraints.json"
+    assert constraints_hash(constraints) == constraints_hash(saved)
+
+
+def test_compare_without_any_case_at_all_is_refused(tmp_path) -> None:
+    runs_root = tmp_path / "runs"
+    RunWorkflow(runs_root).search(RunRequest("bare", sample_schedule()))
+
+    with pytest.raises(SystemExit) as error:
+        resolve_comparison_case(runs_root, "bare", tmp_path / "absent.json")
+
+    assert "кейс не найден" in str(error.value)
