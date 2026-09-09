@@ -3,7 +3,7 @@ from __future__ import annotations
 from backend.ml.surrogate.npv_block_head import BlockKernelNpvHead, load_direct_npv_head
 from backend.ml.surrogate.npv_economic_features import scenario_feature_vector
 from backend.ml.surrogate.model import _features
-from backend.ml.surrogate.ood import OodScore
+from backend.ml.surrogate.ood import Exceedance, OodScore, worst_offenders
 from backend.ml.surrogate.physics_checks import (
     Invariant,
     PhysicsCheckError,
@@ -86,6 +86,7 @@ _DIFFERENTIAL_INVARIANT_NAMES: tuple[str, ...] = (
     Invariant.INJECTION_RESPONSE.value,
     Invariant.MATERIAL_BALANCE.value,
 )
+OOD_EXCEEDANCE_LIMIT = 5
 
 
 class ScheduleSearchError(ValueError):
@@ -252,9 +253,15 @@ def _validate_npv_scoring_is_unambiguous(
 
 class OutOfDomainScheduleError(ScheduleSearchError):
 
-    def __init__(self, score: float, description: str) -> None:
+    def __init__(
+        self,
+        score: float,
+        description: str,
+        exceedances: Sequence[Mapping[str, object]] = (),
+    ) -> None:
         self.score = float(score)
         self.description = description
+        self.exceedances = tuple(dict(item) for item in exceedances)
         super().__init__(
             f"кандидат вне области обучения: ood_score={score:.6g}; {description}"
         )
@@ -352,9 +359,30 @@ def _enforce_scenario_ood(
     raise OutOfDomainScheduleError(*exceeded)
 
 
+def exceedance_record(item: Exceedance) -> dict[str, object]:
+    return {
+        "feature": item.feature,
+        "well": item.well,
+        "control_step": int(item.control_step),
+        "value": None if math.isnan(item.value) else float(item.value),
+        "train_low": None if math.isnan(item.low) else float(item.low),
+        "train_high": None if math.isnan(item.high) else float(item.high),
+        "score": None if math.isinf(item.score) else float(item.score),
+        "unbounded": bool(math.isinf(item.score)),
+    }
+
+
+def format_ood_exceedances(
+    ood: OodScore, limit: int = OOD_EXCEEDANCE_LIMIT
+) -> tuple[dict[str, object], ...]:
+    if not ood.exceedances:
+        return ()
+    return tuple(exceedance_record(item) for item in worst_offenders(ood, limit))
+
+
 def _ood_threshold_excess(
     ood: OodScore, threshold: float | None
-) -> tuple[float, str] | None:
+) -> tuple[float, str, tuple[dict[str, object], ...]] | None:
     if threshold is None or ood.inside(threshold):
         return None
     worst = ood.worst
@@ -367,7 +395,7 @@ def _ood_threshold_excess(
             f"train [{worst.low:.6g}, {worst.high:.6g}]"
         )
     )
-    return ood.score, description
+    return ood.score, description, format_ood_exceedances(ood)
 
 
 def _enforce_ood_threshold(ood: OodScore, threshold: float | None) -> None:
@@ -1388,6 +1416,12 @@ def predict_economics(env: SearchEnvironment, model_input, response: ResponseArt
 
 class MissingReferenceError(PhysicallyImpossibleScheduleError):
 
+    SELF_REFERENCE = (
+        "опора и кандидат — одно расписание: differential-инварианты сравнивают "
+        "кандидата с опорой, при совпадении все разности тождественно нулевые и "
+        "инвариант ничего не утверждает; он не нарушен, он не определён"
+    )
+
     def __init__(self, reason: str) -> None:
         description = (
             "опора недоступна, дифференциальные инварианты не проверены: "
@@ -1407,6 +1441,30 @@ def full_physics_report(
     single = check_prediction(
         candidate, schedule=schedule, oil_density_t_per_m3=env.oil_density_t_per_m3
     )
+    if (
+        candidate.canonical_schedule_hash
+        == env.reference_response.canonical_schedule_hash
+        and not getattr(env, "physics_gate", True)
+    ):
+        skipped = {
+            name: reason
+            for name, reason in single.skipped.items()
+            if name not in _DIFFERENTIAL_INVARIANT_NAMES
+        }
+        skipped.update(
+            {
+                name: MissingReferenceError.SELF_REFERENCE
+                for name in _DIFFERENTIAL_INVARIANT_NAMES
+            }
+        )
+        return PhysicsReport(
+            counts=dict(single.counts),
+            examples=single.examples,
+            evaluated=single.evaluated,
+            skipped=skipped,
+            n_nodes=single.n_nodes,
+            n_wells=single.n_wells,
+        )
     try:
         pair = check_pair(
             env.reference_response,
@@ -1437,6 +1495,9 @@ def full_physics_report(
         n_nodes=single.n_nodes,
         n_wells=single.n_wells,
     )
+
+
+SELF_REFERENCE_SKIP_REASON = MissingReferenceError.SELF_REFERENCE
 
 
 def format_ood_worst(ood: OodScore) -> str | None:
@@ -1569,6 +1630,9 @@ def make_evaluator(env: SearchEnvironment, *, with_sigma: bool = False):
             scored = env.model.predict(model_input)
             _enforce_ood_threshold(scored.ood, env.ood_threshold)
             penalty_excess = 0.0
+        evaluator.ood_exceedances = format_ood_exceedances(  # type: ignore[attr-defined]
+            scored.ood
+        )
         physics = full_physics_report(env, schedule, scored.output)
         _enforce_physics(physics, env.physics_gate)
         evaluator.physics_report = physics  # type: ignore[attr-defined]
@@ -1618,4 +1682,5 @@ def make_evaluator(env: SearchEnvironment, *, with_sigma: bool = False):
 
     evaluator.reference_schedule = env.reference_schedule  # type: ignore[attr-defined]
     evaluator.reference_response = env.reference_response  # type: ignore[attr-defined]
+    evaluator.ood_exceedances = ()  # type: ignore[attr-defined]
     return evaluator

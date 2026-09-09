@@ -25,6 +25,7 @@ from backend.core.contracts import (
     water_supply_policy,
 )
 from backend.core.contracts.schedule import MAX_LRAT_M3_PER_DAY
+from backend.core.contracts.constraints import Constraints, bhp_limits
 from backend.domain.economics import load_response_artifact
 from backend.application.optimization.schedule_search import (
     SOURCE_WATER_BALANCE_REPAIR,
@@ -46,6 +47,7 @@ from backend.domain.schedule import (
     validate_dynamic,
     validate_static,
 )
+from backend.domain.schedule.validate import Violation
 from backend.domain.schedule.validate_dynamic import (
     FIRST_CONTROL_DECK_DATE_INDEX,
     year_of_step,
@@ -277,6 +279,189 @@ SURROGATE_NONBLOCKING_KINDS = frozenset(
     }
 )
 
+BHP_KINDS = SURROGATE_NONBLOCKING_KINDS
+SURROGATE_METRICS_FORMAT = "aios.surrogate-metrics.v2"
+DEFAULT_SURROGATE_METRICS = "out/surrogate-metrics.json"
+
+
+class BhpToleranceError(SearchRunError):
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class BhpTolerance:
+
+    delta_bar: float | None
+    origin: str
+    source: str
+    n_states: int
+    detail: str
+
+    @property
+    def measured(self) -> bool:
+        return self.delta_bar is not None
+
+    def as_provenance(self) -> dict[str, str]:
+        return {
+            "bhp_gate_delta_bar": (
+                "unmeasured" if self.delta_bar is None else repr(self.delta_bar)
+            ),
+            "bhp_gate_delta_origin": self.origin,
+            "bhp_gate_delta_source": self.source,
+            "bhp_gate_delta_states": str(self.n_states),
+            "bhp_gate_agreement": (
+                "same-definition-as-submission"
+                if self.measured
+                else "documented-difference-search-lets-bhp-through"
+            ),
+            "bhp_gate_detail": self.detail,
+        }
+
+
+def _bhp_tolerance_decision(
+    environ: Mapping[str, str] | None = None,
+) -> BhpTolerance:
+    env = os.environ if environ is None else environ
+    override = env.get("AIOS_BHP_GATE_DELTA_BAR")
+    configured = env.get("AIOS_SURROGATE_METRICS_PATH")
+    root = env.get("AIOS_PROJECT_ROOT")
+    metrics_path = (
+        Path(configured)
+        if configured
+        else (Path(root) if root else Path.cwd()) / DEFAULT_SURROGATE_METRICS
+    )
+    if override is not None:
+        try:
+            value = float(override)
+        except ValueError as error:
+            raise BhpToleranceError(
+                f"AIOS_BHP_GATE_DELTA_BAR={override!r} — допуск канала BHP "
+                "задаётся числом в барах"
+            ) from error
+        if not math.isfinite(value) or value < 0.0:
+            raise BhpToleranceError(
+                f"AIOS_BHP_GATE_DELTA_BAR={override!r} — допуск обязан быть "
+                "конечным и неотрицательным"
+            )
+        return BhpTolerance(
+            delta_bar=value,
+            origin="environment-override",
+            source=str(metrics_path) if metrics_path.is_file() else "none",
+            n_states=0,
+            detail=(
+                f"AIOS_BHP_GATE_DELTA_BAR={override!r} перекрывает отчёт метрик; "
+                "происхождение допуска — явное переопределение оператором"
+            ),
+        )
+    if configured and not metrics_path.is_file():
+        raise BhpToleranceError(
+            f"AIOS_SURROGATE_METRICS_PATH={configured} указывает на отсутствующий "
+            "отчёт метрик суррогата"
+        )
+    if not metrics_path.is_file():
+        return BhpTolerance(
+            delta_bar=None,
+            origin="unmeasured-report-absent",
+            source="none",
+            n_states=0,
+            detail=(
+                f"отчёт метрик {metrics_path} не считался: P95 ошибки канала BHP "
+                "не измерена, придумывать её нельзя. Прежнее поведение сохранено — "
+                "поиск пропускает нарушения BHP, сдача их блокирует; различие "
+                "гейтов задокументировано этой пометкой"
+            ),
+        )
+    try:
+        payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise BhpToleranceError(
+            f"отчёт метрик суррогата {metrics_path} не читается: {error}"
+        ) from error
+    if not isinstance(payload, dict) or payload.get("format") != SURROGATE_METRICS_FORMAT:
+        raise BhpToleranceError(
+            f"неподдерживаемый отчёт метрик суррогата: {metrics_path}"
+        )
+    manifold = payload.get("optimizer_manifold")
+    channel = manifold.get("bhp_channel") if isinstance(manifold, dict) else None
+    if not isinstance(channel, dict):
+        raise BhpToleranceError(
+            f"{metrics_path}: в отчёте нет optimizer_manifold.bhp_channel — "
+            "допуск канала BHP выводить не из чего"
+        )
+    if "unavailable" in channel:
+        return BhpTolerance(
+            delta_bar=None,
+            origin="unmeasured-no-opm-response",
+            source=str(metrics_path),
+            n_states=0,
+            detail=(
+                f"{metrics_path}: {channel['unavailable']}. Прежнее поведение "
+                "сохранено — поиск пропускает нарушения BHP, сдача их блокирует; "
+                "различие гейтов задокументировано этой пометкой"
+            ),
+        )
+    raw = channel.get("bhp_error_bar_p95")
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        raise BhpToleranceError(
+            f"{metrics_path}: bhp_error_bar_p95 не число — допуск не выводится"
+        )
+    value = float(raw)
+    if not math.isfinite(value) or value < 0.0:
+        raise BhpToleranceError(
+            f"{metrics_path}: bhp_error_bar_p95={value} не конечен или отрицателен"
+        )
+    states = channel.get("n_states")
+    if isinstance(states, bool) or not isinstance(states, int) or states < 1:
+        raise BhpToleranceError(
+            f"{metrics_path}: канал BHP без единого измеренного состояния "
+            "не задаёт допуск"
+        )
+    return BhpTolerance(
+        delta_bar=value,
+        origin="metrics-report-p95",
+        source=str(metrics_path),
+        n_states=states,
+        detail=(
+            f"δ={value} бар — P95 ошибки канала BHP по {states} состояниям из "
+            f"{metrics_path}; кандидат отклоняется, когда предсказанное BHP "
+            "выходит за предел больше чем на δ"
+        ),
+    )
+
+
+def bhp_exceedance_bar(violation: Violation, constraints: Constraints) -> float:
+    value = violation.value
+    if value is None or not math.isfinite(float(value)):
+        raise BhpToleranceError(
+            f"нарушение {violation.kind.value} без измеренного забойного давления: "
+            "выход за предел посчитать не по чему"
+        )
+    limits = bhp_limits(constraints)
+    if violation.kind is ViolationKind.BHP_BELOW_PRODUCER_LIMIT:
+        return max(0.0, float(limits.producer_min_bar) - float(value))
+    if violation.kind is ViolationKind.BHP_ABOVE_INJECTOR_LIMIT:
+        return max(0.0, float(value) - float(limits.injector_max_bar))
+    raise BhpToleranceError(
+        f"{violation.kind.value} — не нарушение канала BHP, допуск неприменим"
+    )
+
+
+def surrogate_blocking_violations(
+    violations: Sequence[Violation],
+    constraints: Constraints,
+    tolerance: BhpTolerance,
+) -> tuple[Violation, ...]:
+    kept: list[Violation] = []
+    for item in violations:
+        if item.kind not in BHP_KINDS:
+            kept.append(item)
+            continue
+        if not tolerance.measured:
+            continue
+        if bhp_exceedance_bar(item, constraints) > tolerance.delta_bar:
+            kept.append(item)
+    return tuple(kept)
+
 
 @dataclass(frozen=True, slots=True)
 class IncumbentRecord:
@@ -292,6 +477,7 @@ class IncumbentRecord:
     dynamic_blocking_violations: int
     physics_admissible: bool
     self_consistent: bool
+    ood_exceedances: tuple[dict[str, object], ...] = ()
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -302,6 +488,7 @@ class IncumbentRecord:
             "theta": dict(self.theta),
             "ood_score": self.ood_score,
             "ood_worst": self.ood_worst,
+            "ood_exceedances": [dict(item) for item in self.ood_exceedances],
             "static_violations": self.static_violations,
             "dynamic_blocking_violations": self.dynamic_blocking_violations,
             "physics_admissible": self.physics_admissible,
@@ -327,6 +514,7 @@ class IncumbentRegistry:
         dynamic_blocking_violations: int,
         physics_admissible: bool,
         self_consistent: bool,
+        ood_exceedances: Sequence[Mapping[str, object]] = (),
     ) -> IncumbentRecord:
         record = IncumbentRecord(
             sequence=len(self._records),
@@ -340,6 +528,7 @@ class IncumbentRegistry:
             dynamic_blocking_violations=int(dynamic_blocking_violations),
             physics_admissible=bool(physics_admissible),
             self_consistent=bool(self_consistent),
+            ood_exceedances=tuple(dict(item) for item in ood_exceedances),
         )
         self._records.append(record)
         return record
@@ -399,6 +588,7 @@ def candidate_card(
     feasible: bool,
     violations: Sequence[Mapping[str, object]],
     strategy: str,
+    ood_exceedances: Sequence[Mapping[str, object]] = (),
 ) -> dict[str, object]:
     counts = {name: int(value) for name, value in sorted(physics.items())}
     return {
@@ -411,6 +601,7 @@ def candidate_card(
         },
         "ood_score": ood_score,
         "ood_worst": ood_worst,
+        "ood_exceedances": [dict(item) for item in ood_exceedances],
         "scenario_ood": scenario_ood,
         "physics_counts": counts,
         "physics_complete": bool(counts.get("complete", 0)),
@@ -467,6 +658,105 @@ def _evaluation_cards(
     return merged
 
 
+OPM_BUDGET_JOURNAL = "out/opm-budget.jsonl"
+
+
+class OpmBudgetError(SearchRunError):
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class RunBudget:
+
+    wallclock_seconds: float
+    surrogate_evaluations: int
+    opm_runs: int
+    opm_runs_source: str
+    opm_wallclock_seconds: float | None
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "wallclock_seconds": self.wallclock_seconds,
+            "surrogate_evaluations": self.surrogate_evaluations,
+            "opm_runs": self.opm_runs,
+            "opm_runs_source": self.opm_runs_source,
+            "opm_wallclock_seconds": self.opm_wallclock_seconds,
+        }
+
+    def as_provenance(self) -> dict[str, str]:
+        return {
+            "run_wallclock_seconds": repr(self.wallclock_seconds),
+            "run_surrogate_evaluations": str(self.surrogate_evaluations),
+            "run_opm_runs": str(self.opm_runs),
+            "run_opm_runs_source": self.opm_runs_source,
+            "run_opm_wallclock_seconds": (
+                "unrecorded"
+                if self.opm_wallclock_seconds is None
+                else repr(self.opm_wallclock_seconds)
+            ),
+        }
+
+
+def _opm_budget_path(environ: Mapping[str, str] | None = None) -> Path:
+    env = os.environ if environ is None else environ
+    override = env.get("AIOS_OPM_BUDGET_JOURNAL")
+    if override is not None and override.strip():
+        return Path(override).expanduser()
+    root = env.get("AIOS_PROJECT_ROOT")
+    return (Path(root) if root else Path.cwd()) / OPM_BUDGET_JOURNAL
+
+
+def read_opm_budget(
+    path: Path, since_line: int = 0
+) -> tuple[int, float | None, int]:
+    if since_line < 0:
+        raise OpmBudgetError(
+            f"since_line={since_line} отрицателен: журнал бюджета OPM читается "
+            "с начала или с записанной отметки"
+        )
+    if not path.is_file():
+        return 0, None, since_line
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as error:
+        raise OpmBudgetError(
+            f"журнал бюджета OPM {path} не читается: {error}"
+        ) from error
+    runs = 0
+    seconds = 0.0
+    measured = 0
+    for number, raw in enumerate(lines):
+        if number < since_line or not raw.strip():
+            continue
+        try:
+            entry = json.loads(raw)
+        except ValueError as error:
+            raise OpmBudgetError(
+                f"{path}, строка {number + 1}: запись журнала не разбирается — {error}"
+            ) from error
+        if not isinstance(entry, dict) or "run_id" not in entry:
+            raise OpmBudgetError(
+                f"{path}, строка {number + 1}: запись без run_id — прогон не опознан"
+            )
+        runs += 1
+        wallclock = entry.get("wallclock_seconds")
+        if isinstance(wallclock, (int, float)) and not isinstance(wallclock, bool):
+            seconds += float(wallclock)
+            measured += 1
+    return runs, (seconds if measured else None), len(lines)
+
+
+def _journal_line_count(path: Path) -> int:
+    if not path.is_file():
+        return 0
+    try:
+        return len(path.read_text(encoding="utf-8").splitlines())
+    except OSError as error:
+        raise OpmBudgetError(
+            f"журнал бюджета OPM {path} не читается: {error}"
+        ) from error
+
+
 @dataclass(frozen=True, slots=True)
 class SearchOutcome:
 
@@ -481,6 +771,7 @@ class SearchOutcome:
     static_violations: int | None = None
     dynamic_blocking_violations: int | None = None
     incumbent_history: tuple[IncumbentRecord, ...] = ()
+    budget: RunBudget | None = None
 
 
 def _repair_predicted_water_balance(
@@ -656,6 +947,7 @@ def _search_near_baseline(
     registry: "IncumbentRegistry | None" = None,
 ) -> SearchOutcome:
     registry = IncumbentRegistry() if registry is None else registry
+    tolerance = _bhp_tolerance_decision()
     rng = random.Random(SEED)
     baseline = apply_case_limits(
         env.base_schedule,
@@ -688,6 +980,7 @@ def _search_near_baseline(
         physics: Mapping[str, int] = {}
         ood_score = None
         ood_worst = None
+        ood_exceedances: tuple[dict[str, object], ...] = ()
         static_count = None
         blocking_count = None
         schedule_hash = hash_schedule(schedule)
@@ -701,13 +994,18 @@ def _search_near_baseline(
                 schedule, evaluated, dynamic, _ = _repair_predicted_water_balance(env, evaluator, schedule)
                 schedule_hash = hash_schedule(schedule)
                 static = validate_static(schedule, env.constraints)
-                blocking = [v for v in dynamic.blocking_violations if v.kind not in SURROGATE_NONBLOCKING_KINDS]
+                blocking = surrogate_blocking_violations(
+                    dynamic.blocking_violations, env.constraints, tolerance
+                )
                 static_count = len(static.violations)
                 blocking_count = len(blocking)
                 npv_parts = evaluated.npv_parts
                 physics = evaluated.physics
                 ood_score = evaluated.ood_score
                 ood_worst = evaluated.ood_worst
+                ood_exceedances = tuple(
+                    getattr(evaluator, 'ood_exceedances', ()) or ()
+                )
                 admissible = _physics_admissible(physics)
                 if not static.ok or blocking:
                     violations.append({'scenario_id': 'case-constraints', 'regret': len(blocking) + len(static.violations),
@@ -736,10 +1034,12 @@ def _search_near_baseline(
                             dynamic_blocking_violations=blocking_count,
                             physics_admissible=admissible,
                             self_consistent=False,
+                            ood_exceedances=ood_exceedances,
                         )
         except (OutOfDomainScheduleError, PhysicallyImpossibleScheduleError) as error:
             ood_score = getattr(error, 'score', None)
             physics = getattr(error, 'counts', {}) or {}
+            ood_exceedances = tuple(getattr(error, 'exceedances', ()) or ())
             violations.append({'scenario_id': 'surrogate-rejected', 'regret': 1, 'what': str(error)})
         records.append(
             candidate_card(
@@ -756,6 +1056,7 @@ def _search_near_baseline(
                 feasible=not violations,
                 violations=violations,
                 strategy='baseline-neighborhood',
+                ood_exceedances=ood_exceedances,
             )
         )
         print(f'локальный вариант {index + 1}/{budget}: допустим={not violations}, ЧДД={npv}', flush=True)
@@ -772,10 +1073,13 @@ def _search_near_baseline(
     npv, schedule, index, static_count, blocking_count = max(accepted, key=lambda item: item[0])
     provenance = dict(provenance, search_strategy='baseline-neighborhood',
                       selected_candidate='baseline' if index == 0 else 'local-change',
-                      policy_equilibrium='not-claimed')
+                      policy_equilibrium='not-claimed',
+                      **tolerance.as_provenance())
+    run_budget = close_run_clock(len(diagnostics['evaluations']))
+    provenance = dict(provenance, **run_budget.as_provenance())
     return SearchOutcome(schedule, default_theta(), npv, hash_schedule(schedule), provenance,
                          len(diagnostics['evaluations']), False, False,
-                         static_count, blocking_count, registry.records)
+                         static_count, blocking_count, registry.records, run_budget)
 
 
 def _risk_adjusted_npv(npv: float, sigma: float | None, beta: float) -> float:
@@ -807,6 +1111,42 @@ def select_finalist(finalists: Sequence[tuple], beta: float = RISK_AVERSION_BETA
     )
 
 
+RUN_CLOCK: dict[str, object] = {"journal": None, "mark": 0, "started": None}
+
+
+def start_run_clock() -> None:
+    journal = _opm_budget_path()
+    RUN_CLOCK["journal"] = journal
+    RUN_CLOCK["mark"] = _journal_line_count(journal)
+    RUN_CLOCK["started"] = time.monotonic()
+
+
+def close_run_clock(evaluations: int) -> RunBudget:
+    journal = RUN_CLOCK["journal"]
+    started = RUN_CLOCK["started"]
+    if journal is None or started is None:
+        raise OpmBudgetError(
+            "учёт бюджета прогона не начат: измерить время и число прогонов OPM "
+            "не по чему — вызовите start_run_clock перед поиском"
+        )
+    return measure_run_budget(
+        journal, int(RUN_CLOCK["mark"]), time.monotonic() - started, evaluations
+    )
+
+
+def measure_run_budget(
+    journal: Path, mark: int, wallclock: float, evaluations: int
+) -> RunBudget:
+    opm_runs, opm_seconds, _ = read_opm_budget(journal, mark)
+    return RunBudget(
+        wallclock_seconds=float(wallclock),
+        surrogate_evaluations=int(evaluations),
+        opm_runs=int(opm_runs),
+        opm_runs_source=str(journal),
+        opm_wallclock_seconds=None if opm_seconds is None else float(opm_seconds),
+    )
+
+
 def run_search(
     *,
     budget: int = BUDGET,
@@ -819,12 +1159,14 @@ def run_search(
             f"потолок неподвижной точки должен быть положительным: "
             f"поиск {search_cap}, финал {final_cap}"
         )
+    start_run_clock()
     artifacts = resolve_runtime_artifacts()
     if artifacts.scenario_ood is None:
         raise SearchRunError("production search requires a versioned scenario OOD artifact")
     constraints_path = Path(case_path) if case_path is not None else CONSTRAINTS
     constraints = load_case(constraints_path)
     threshold_decision = _ood_threshold_decision()
+    bhp_tolerance = _bhp_tolerance_decision()
     soft_penalty = _soft_penalty_enabled()
     penalty_rate = _soft_penalty_rate() if soft_penalty else 0.0
     env = load_environment(
@@ -865,6 +1207,7 @@ def run_search(
         "npv_head_version": env.npv_head.version if env.npv_head else "none",
         "constraints_path": str(constraints_path),
         **threshold_decision.as_provenance(),
+        **bhp_tolerance.as_provenance(),
         "ood_soft_penalty": "true" if soft_penalty else "false",
         "ood_penalty_per_unit": repr(penalty_rate),
         "search_fixed_point_cap": str(search_cap),
@@ -904,6 +1247,7 @@ def run_search(
                     feasible=False,
                     violations=[rejection],
                     strategy="cma-es",
+                    ood_exceedances=getattr(error, "exceedances", ()) or (),
                 )
             )
             return OptimizerResult(
@@ -966,6 +1310,7 @@ def run_search(
                     for item in violations
                 ],
                 strategy="cma-es",
+                ood_exceedances=getattr(evaluator, "ood_exceedances", ()) or (),
             )
         )
         if npv > calls["best"]:
@@ -1012,6 +1357,9 @@ def run_search(
                 "ood_threshold_calibrated": threshold_decision.calibrated,
                 "ood_soft_penalty": soft_penalty,
                 "ood_penalty_per_unit": penalty_rate,
+                "bhp_gate_delta_bar": bhp_tolerance.delta_bar,
+                "bhp_gate_delta_origin": bhp_tolerance.origin,
+                "bhp_gate_delta_detail": bhp_tolerance.detail,
                 "evaluations": _evaluation_cards(report.history, cards),
                 "incumbents": registry.as_list(),
             },
@@ -1051,12 +1399,13 @@ def run_search(
         except (OutOfDomainScheduleError, PhysicallyImpossibleScheduleError) as error:
             print(f"  finalist rejected: {error}", flush=True)
             continue
-        surrogate_blocking = tuple(
-            item
-            for item in dynamic.blocking_violations
-            if item.kind not in SURROGATE_NONBLOCKING_KINDS
+        surrogate_blocking = surrogate_blocking_violations(
+            dynamic.blocking_violations, env.constraints, bhp_tolerance
         )
         repaired_hash = hash_schedule(repaired_schedule)
+        finalist_exceedances = tuple(
+            getattr(final_evaluator, "ood_exceedances", ()) or ()
+        )
         admissible = _physics_admissible(evaluated.physics)
         passed = incumbent_gate_passed(
             static_violations=len(check.violations),
@@ -1081,6 +1430,7 @@ def run_search(
                 feasible=passed,
                 violations=[],
                 strategy="finalist",
+                ood_exceedances=finalist_exceedances,
             )
         )
         print(
@@ -1118,6 +1468,7 @@ def run_search(
                     dynamic_blocking_violations=len(surrogate_blocking),
                     physics_admissible=admissible,
                     self_consistent=final.self_consistent,
+                    ood_exceedances=finalist_exceedances,
                 )
         if len(seen) >= FINALIST_CAP:
             break
@@ -1146,6 +1497,7 @@ def run_search(
     )
     print(f"canonical_schedule_hash: {schedule_hash}", flush=True)
 
+    run_budget = close_run_clock(report.evaluations)
     return SearchOutcome(
         schedule=schedule,
         theta=best_theta,
@@ -1162,6 +1514,7 @@ def run_search(
             policy_equilibrium=(
                 "reached" if final.self_consistent else "not-claimed"
             ),
+            **run_budget.as_provenance(),
         ),
         evaluations=report.evaluations,
         converged=final.converged,
@@ -1169,6 +1522,7 @@ def run_search(
         static_violations=len(check.violations),
         dynamic_blocking_violations=len(surrogate_blocking),
         incumbent_history=registry.records,
+        budget=run_budget,
     )
 
 
@@ -1204,6 +1558,17 @@ def main() -> int:
                 "incumbents": [
                     record.as_dict() for record in outcome.incumbent_history
                 ],
+                **(
+                    {
+                        "wallclock_seconds": None,
+                        "surrogate_evaluations": None,
+                        "opm_runs": None,
+                        "opm_runs_source": None,
+                        "opm_wallclock_seconds": None,
+                    }
+                    if getattr(outcome, "budget", None) is None
+                    else outcome.budget.as_dict()
+                ),
                 "provenance": outcome.provenance,
             },
             ensure_ascii=False,
