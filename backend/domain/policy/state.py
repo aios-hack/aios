@@ -81,6 +81,9 @@ class RuleContext:
     baseline_injection_m3_per_day: Mapping[str, float] = field(default_factory=dict)
     injection_cap_m3_per_day: Mapping[str, float] = field(default_factory=dict)
     baseline_conversion_step: Mapping[str, int] = field(default_factory=dict)
+    field_pressure_bar: float | None = None
+    pressure_floor_bar: float | None = None
+    pressure_ceiling_bar: float | None = None
 
     def __post_init__(self) -> None:
         if self.oil_density_t_per_m3 <= 0:
@@ -105,3 +108,27 @@ class RuleContext:
                 raise ValueError(
                     f"участок {group_id}: отрицательная квота жидкости {quota}"
                 )
+        if self.field_pressure_bar is not None and self.field_pressure_bar <= 0.0:
+            raise ValueError(
+                f"пластовое давление {self.field_pressure_bar} бар неположительно: "
+                f"уровень пласта так не выглядит"
+            )
+        if self.pressure_floor_bar is not None and self.pressure_floor_bar <= 0.0:
+            raise ValueError(
+                f"пол пластового давления {self.pressure_floor_bar} бар "
+                f"неположителен"
+            )
+        if self.pressure_ceiling_bar is not None and self.pressure_ceiling_bar <= 0.0:
+            raise ValueError(
+                f"потолок пластового давления {self.pressure_ceiling_bar} бар "
+                f"неположителен"
+            )
+        if (
+            self.pressure_floor_bar is not None
+            and self.pressure_ceiling_bar is not None
+            and self.pressure_ceiling_bar <= self.pressure_floor_bar
+        ):
+            raise ValueError(
+                f"потолок пластового давления {self.pressure_ceiling_bar} бар "
+                f"не выше пола {self.pressure_floor_bar} бар: коридор пуст"
+            )

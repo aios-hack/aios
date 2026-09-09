@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from backend.domain.policy.agents.base import DEFAULT_RANK, Agent
 from backend.domain.policy.agents.field import FieldCoordinator
 from backend.domain.policy.agents.group import GroupAllocator
+from backend.domain.policy.agents.pressure import PressureAgent
 from backend.domain.policy.agents.water import WaterAgent
 from backend.domain.policy.agents.well import WellExecutor
 from backend.domain.policy.levels import Level
@@ -104,11 +105,17 @@ WATER_AGENTS: tuple[Agent, ...] = DEFAULT_AGENTS + (WaterAgent(),)
 
 WATER_REGISTRY = AgentRegistry(agents=WATER_AGENTS)
 
+PRESSURE_AGENTS: tuple[Agent, ...] = WATER_AGENTS + (PressureAgent(),)
+
+PRESSURE_REGISTRY = AgentRegistry(agents=PRESSURE_AGENTS)
+
 __all__ = [
     "DEFAULT_AGENTS",
     "DEFAULT_RANK",
     "DEFAULT_REGISTRY",
     "LEVEL_ORDER",
+    "PRESSURE_AGENTS",
+    "PRESSURE_REGISTRY",
     "WATER_AGENTS",
     "WATER_REGISTRY",
     "AgentRegistry",

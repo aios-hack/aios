@@ -535,7 +535,7 @@ class WindowApplicability:
             )
         return (
             f"окно измерения λ {window} покрывает "
-            f"{self.covered_share * 100.0:.1f}% горизонта {horizon}: "
+            f"{self.covered_share:.1%} горизонта {horizon}: "
             f"{self.months_before} мес. до окна и {self.months_after} мес. "
             f"после него — экстраполяция"
         )

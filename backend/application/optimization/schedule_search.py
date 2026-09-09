@@ -50,7 +50,13 @@ from backend.core.contracts import (
 from backend.domain.connectivity.groups import GroupingParams, build_groups, group_hash, lambda_hash
 from backend.domain.connectivity.measure import load_lambda
 from backend.domain.economics import analyze_base_case, load_normatives, load_response_artifact
-from backend.domain.policy.budget import liquid_limit_for_step
+from backend.domain.policy.budget import (
+    baseline_injection_by_step,
+    interval_produced_water_rate_m3_per_day,
+    liquid_limit_for_step,
+)
+from backend.core.contracts.constraints import field_pressure_limits
+from backend.domain.policy.agents import PRESSURE_REGISTRY
 from backend.domain.policy.agents.projection import (
     HardConstraints,
     project_to_hard_constraints,
@@ -830,27 +836,7 @@ def _physical_caps(schedule: Schedule) -> tuple[dict[str, float], float]:
     return per_well, field_limit
 
 
-def _interval_produced_water_rate_m3_per_day(
-    response: ResponseArtifact,
-    control_step: int,
-    control_dates: Sequence[date],
-    oil_density_t_per_m3: float,
-) -> float:
-
-    if oil_density_t_per_m3 <= 0.0:
-        raise ScheduleSearchError("плотность нефти должна быть положительной")
-    days = (control_dates[control_step + 1] - control_dates[control_step]).days
-    if days <= 0:
-        raise ScheduleSearchError(
-            f"control_step={control_step}: неположительная длина интервала"
-        )
-    water_volume = 0.0
-    for item in response.interval_response:
-        if item.control_step != control_step:
-            continue
-        oil_volume = max(0.0, item.oil_mass_delta) / oil_density_t_per_m3
-        water_volume += max(0.0, item.liquid_volume_delta - oil_volume)
-    return water_volume / days
+_interval_produced_water_rate_m3_per_day = interval_produced_water_rate_m3_per_day
 
 
 SOURCE_PHYSICAL_HEADROOM = "physical_headroom"
@@ -1004,29 +990,6 @@ def _outage_events(
     return tuple(events)
 
 
-def _baseline_injection_by_step(schedule: Schedule) -> tuple[dict[str, float], ...]:
-
-    current: dict[str, float] = {
-        well: (
-            float(state.setpoint or 0.0)
-            if state.operating_status is OperatingStatus.OPEN
-            else 0.0
-        )
-        for well, state in schedule.initial_state.items()
-    }
-    by_step: dict[int, list[ControlEvent]] = {}
-    for event in schedule.control_events:
-        by_step.setdefault(event.control_step, []).append(event)
-
-    dense: list[dict[str, float]] = []
-    for step in range(schedule.meta.n_intervals):
-        for event in by_step.get(step, ()):
-            if event.kind is EventKind.SET_RATE:
-                current[event.well] = float(event.value or 0.0)
-            elif event.kind is EventKind.SHUT:
-                current[event.well] = 0.0
-        dense.append(dict(current))
-    return tuple(dense)
 
 
 def _baseline_conversion_steps(schedule: Schedule) -> dict[str, int]:
@@ -1233,7 +1196,8 @@ def make_policy(
     role_at_commission = _role_at_commission(env.base_schedule)
     well_caps, field_limit = _physical_caps(env.base_schedule)
     hard_constraints = HardConstraints(well_cap_m3_per_day=well_caps)
-    baseline_injection = _baseline_injection_by_step(env.base_schedule)
+    baseline_injection = baseline_injection_by_step(env.base_schedule)
+    pressure_limits = field_pressure_limits(env.constraints)
     baseline_conversion = _baseline_conversion_steps(env.base_schedule)
     commissioning_setpoint: dict[str, float] = {}
     for event in env.base_schedule.control_events:
@@ -1318,12 +1282,15 @@ def make_policy(
                     baseline_injection_m3_per_day=baseline_injection[step],
                     injection_cap_m3_per_day=well_caps,
                     baseline_conversion_step=baseline_conversion,
+                    pressure_floor_bar=pressure_limits.floor_bar,
+                    pressure_ceiling_bar=pressure_limits.ceiling_bar,
                 ),
                 theta,
                 env.flags,
                 field_limit_m3_per_day=step_field_limit,
                 field_liquid_limit_m3_per_day=step_liquid_limit,
                 setpoint_step_m3_per_day=SETPOINT_STEP_M3_PER_DAY,
+                registry=PRESSURE_REGISTRY,
             )
             trace_entries.extend(leveled.entry for leveled in result.trace.entries)
             outage_wells = _active_outage_wells(env.constraints, step)

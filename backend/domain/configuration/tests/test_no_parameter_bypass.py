@@ -40,7 +40,11 @@ TECHNICAL_TOLERANCE_LITERALS: dict[str, frozenset[str]] = {
     "domain/configuration/schema.py": frozenset(
         {"injection_shortfall_tolerance", "separation_floor_share"}
     ),
+    "domain/connectivity/groups.py": frozenset({"DEFAULT_QUANTILE_GRID"}),
+    "domain/policy/agents/pressure.py": frozenset({"APPROACH_FRACTION"}),
 }
+
+PERCENT_SCALE_VALUES: frozenset[float] = frozenset({100.0})
 
 DECK_SCALE_VALUES: frozenset[float] = frozenset(
     {146.0, 147.0, 225.0, 224.0, 103.0, 371.0, 27.0, 41.0}
@@ -88,6 +92,33 @@ def allowed_technical_tolerance_lines(path: Path) -> set[int]:
     tree = ast.parse(path.read_text(encoding="utf-8"))
     lines: set[int] = set()
     for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Tuple):
+            assigned = {
+                target.id for target in node.targets if isinstance(target, ast.Name)
+            }
+            if assigned & names:
+                for element in node.value.elts:
+                    if isinstance(element, ast.Constant) and isinstance(
+                        element.value, (int, float)
+                    ):
+                        lines.add(element.lineno)
+            continue
+        if isinstance(node, ast.AnnAssign) and isinstance(node.value, ast.Tuple):
+            if isinstance(node.target, ast.Name) and node.target.id in names:
+                for element in node.value.elts:
+                    if isinstance(element, ast.Constant) and isinstance(
+                        element.value, (int, float)
+                    ):
+                        lines.add(element.lineno)
+            continue
+        if isinstance(node, ast.AnnAssign) and isinstance(node.value, ast.Constant):
+            if isinstance(node.target, ast.Name) and node.target.id in names:
+                value = node.value
+                if isinstance(value.value, (int, float)) and not isinstance(
+                    value.value, bool
+                ):
+                    lines.add(value.lineno)
+            continue
         if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant):
             value = node.value
             if not isinstance(value.value, (int, float)) or isinstance(value.value, bool):

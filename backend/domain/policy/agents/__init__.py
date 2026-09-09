@@ -12,6 +12,17 @@ from backend.domain.policy.agents.base import (
 )
 from backend.domain.policy.agents.field import FIELD_COORDINATOR, FieldCoordinator
 from backend.domain.policy.agents.group import GROUP_ALLOCATOR, GroupAllocator
+from backend.domain.policy.agents.pressure import (
+    APPROACH_FRACTION,
+    PRESSURE_AGENT,
+    PRESSURE_AGENT_RANK,
+    PRESSURE_CEILING_DECISION,
+    PressureAgent,
+    PressureCorridor,
+    PressureRestriction,
+    pressure_corridor_of,
+    restriction_for,
+)
 from backend.domain.policy.agents.projection import (
     RATE_KINDS,
     HardConstraints,
@@ -21,6 +32,8 @@ from backend.domain.policy.agents.registry import (
     DEFAULT_AGENTS,
     DEFAULT_REGISTRY,
     LEVEL_ORDER,
+    PRESSURE_AGENTS,
+    PRESSURE_REGISTRY,
     WATER_AGENTS,
     WATER_REGISTRY,
     AgentRegistry,
@@ -55,6 +68,17 @@ __all__ = [
     "GroupAllocator",
     "HardConstraints",
     "LEVEL_ORDER",
+    "APPROACH_FRACTION",
+    "PRESSURE_AGENT",
+    "PRESSURE_AGENTS",
+    "PRESSURE_AGENT_RANK",
+    "PRESSURE_CEILING_DECISION",
+    "PRESSURE_REGISTRY",
+    "PressureAgent",
+    "PressureCorridor",
+    "PressureRestriction",
+    "pressure_corridor_of",
+    "restriction_for",
     "Proposal",
     "RATE_KINDS",
     "WATER_AGENT",

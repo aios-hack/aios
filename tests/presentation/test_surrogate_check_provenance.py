@@ -183,6 +183,28 @@ def test_check_payload_carries_blend_and_lambda_sync(monkeypatch, tmp_path) -> N
         lambda _env: lambda _schedule: SimpleNamespace(npv=1.0, ood_score=0.1),
     )
     monkeypatch.setattr(
+        surrogate_check,
+        "_prediction_block",
+        lambda _env, _evaluator, _schedule, note: {
+            "schedule_hash": "s" * 64,
+            "predicted_npv_rub": 1.0,
+            "npv_parts": {},
+            "ood_score": 0.1,
+            "ood_worst": None,
+            "ood_exceedances": [],
+            "blocking_physics": 0,
+            "physics_counts": {},
+            "physics_complete": True,
+            "physics_admissible": True,
+            "physics_gate": "off",
+            "physics_gate_note": note,
+            "invariants_evaluated": [],
+            "invariants_not_checked": [],
+            "invariants_skip_reasons": {},
+            "differential_invariants_checked": False,
+        },
+    )
+    monkeypatch.setattr(
         surrogate_check, "ScheduleFeatureizer",
         lambda: SimpleNamespace(
             transform=lambda *_: SimpleNamespace(lambda_edges=("x",))

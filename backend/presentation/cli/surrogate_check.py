@@ -92,7 +92,7 @@ def _prediction_block(
     note: str,
 ) -> dict:
     result = evaluator(schedule)
-    report = getattr(evaluator, "physics_report")
+    report = getattr(evaluator, "physics_report", None)
     scored = env.model.predict(
         replace(
             ScheduleFeatureizer().transform(schedule, env.feature_context.context),
