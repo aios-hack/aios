@@ -118,6 +118,21 @@ cmd_selfcheck() {
     python -m backend.presentation.cli.selfcheck "$@"
 }
 
+cmd_repeat() {
+    if ! have_docs; then
+        warn_no_docs
+        echo "Холодный повтор невозможен без данных организаторов." >&2
+        exit 2
+    fi
+    if [ ! -x /app/scripts/cold_repeat.sh ]; then
+        echo "Скрипт /app/scripts/cold_repeat.sh отсутствует или не исполняемый." >&2
+        exit 2
+    fi
+    # exec не используется: скрипт снимает за собой временный каталог сам,
+    # а его код возврата пробрасывается наружу через set -e.
+    bash /app/scripts/cold_repeat.sh "$@"
+}
+
 usage() {
     cat >&2 <<'USAGE'
 Использование: docker run ... aios <команда> [аргументы]
@@ -131,6 +146,8 @@ usage() {
   webdata                    собрать полный JSON-набор для интерфейса
   selfcheck [--submission D] что найдено в образе и в смонтированных данных;
                              с --submission сверяет пакет сдачи с заявленными хешами
+  repeat --run-id <id>       холодный повтор: чистый клон, установка, verify
+                             и сверка ЧДД с пакетом сдачи (--help для опций)
   shell                      интерактивная оболочка
 
 Данные организаторов монтируются снаружи:
@@ -155,6 +172,7 @@ main() {
         jarvis) cmd_jarvis "$@" ;;
         webdata) cmd_webdata "$@" ;;
         selfcheck) cmd_selfcheck "$@" ;;
+        repeat) cmd_repeat "$@" ;;
         shell) exec /bin/bash "$@" ;;
         help | --help | -h) usage ;;
         *) exec "$command" "$@" ;;

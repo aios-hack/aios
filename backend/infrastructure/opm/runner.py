@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import shlex
 import subprocess
@@ -19,11 +20,16 @@ from backend.core.contracts import (
     canonical_bytes,
     hash_schedule,
 )
+from backend.core.paths import out_root
 from backend.core.provenance import DEFAULT_OPM_IMAGE, OPM_IMAGE_ENV
 
 from .opm_deck import EmittedOpmDeck, bundle_hash
 
 __all__ = [
+    "BUDGET_CASE_ENV",
+    "BUDGET_INITIATOR_ENV",
+    "BUDGET_JOURNAL_ENV",
+    "BUDGET_JOURNAL_NAME",
     "DEFAULT_FLOW_ARGS",
     "DEFAULT_OPM_IMAGE",
     "DeckHashes",
@@ -31,9 +37,13 @@ __all__ = [
     "OPM_USER_ENV",
     "OpmRunner",
     "OpmRunnerError",
+    "budget_journal_path",
     "deck_hashes",
     "default_run_as_user",
     "mount_path",
+    "record_budget_entry",
+    "resolve_case",
+    "resolve_initiator",
     "static_deck_hash",
     "summary_spec_hash",
 ]
@@ -90,8 +100,70 @@ _RECOVERABLE_MARKERS: tuple[str, ...] = (
 )
 
 
+BUDGET_JOURNAL_NAME = "opm-budget.jsonl"
+BUDGET_JOURNAL_ENV = "AIOS_OPM_BUDGET_JOURNAL"
+BUDGET_INITIATOR_ENV = "AIOS_RUN_INITIATOR"
+BUDGET_CASE_ENV = "AIOS_CONSTRAINTS_PATH"
+
+_PYTEST_ENV = "PYTEST_CURRENT_TEST"
+_INITIATOR_TEST = "test"
+_INITIATOR_UNKNOWN = "unknown"
+_KNOWN_INITIATORS: frozenset[str] = frozenset({"cli", "ui", _INITIATOR_TEST})
+
+
 class OpmRunnerError(ValueError):
     pass
+
+
+def budget_journal_path() -> Path:
+    override = os.environ.get(BUDGET_JOURNAL_ENV)
+    if override is not None and override.strip():
+        return Path(override).expanduser()
+    return out_root() / BUDGET_JOURNAL_NAME
+
+
+def resolve_initiator() -> str:
+    declared = os.environ.get(BUDGET_INITIATOR_ENV, "").strip().lower()
+    if declared in _KNOWN_INITIATORS:
+        return declared
+    if os.environ.get(_PYTEST_ENV):
+        return _INITIATOR_TEST
+    if declared:
+        return declared
+    return _INITIATOR_UNKNOWN
+
+
+def resolve_case() -> str | None:
+    case = os.environ.get(BUDGET_CASE_ENV, "").strip()
+    if not case:
+        return None
+    return Path(case).name
+
+
+def record_budget_entry(result: RunResult, *, journal: Path | None = None) -> None:
+    wallclock = result.wallclock_seconds
+    if not isinstance(wallclock, (int, float)) or isinstance(wallclock, bool):
+        wallclock = None
+    elif wallclock != wallclock or wallclock in (float("inf"), float("-inf")) or wallclock < 0.0:
+        wallclock = None
+    else:
+        wallclock = float(wallclock)
+    entry = {
+        "recorded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "run_id": result.run_id,
+        "canonical_schedule_hash": result.canonical_schedule_hash,
+        "case": resolve_case(),
+        "wallclock_seconds": wallclock,
+        "status": result.status.value,
+        "initiator": resolve_initiator(),
+    }
+    path = journal if journal is not None else budget_journal_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as journal_file:
+            journal_file.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
+    except OSError:
+        return
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,6 +253,7 @@ class OpmRunner:
         flow_args: Sequence[str] = DEFAULT_FLOW_ARGS,
         timeout_seconds: float | None = None,
         run_as_user: str | None = _UNSET,
+        budget_journal: Path | str | None = None,
     ) -> None:
         self.work_root = Path(work_root).resolve()
         self.work_root.mkdir(parents=True, exist_ok=True)
@@ -189,6 +262,7 @@ class OpmRunner:
         self.flow_args = tuple(flow_args)
         self.timeout_seconds = timeout_seconds
         self.run_as_user = default_run_as_user() if run_as_user is _UNSET else run_as_user
+        self.budget_journal = Path(budget_journal) if budget_journal is not None else None
 
 
     def run(
@@ -205,7 +279,7 @@ class OpmRunner:
         try:
             hashes = deck_hashes(deck, schedule)
         except (OpmRunnerError, OSError, ValueError) as error:
-            return RunResult(
+            failed = RunResult(
                 run_id=run_id,
                 status=RunStatus.FAILED,
                 deck_hash="",
@@ -215,6 +289,8 @@ class OpmRunner:
                 wallclock_seconds=time.perf_counter() - started,
                 message=f"ключ прогона не собран: {error}",
             )
+            record_budget_entry(failed, journal=self.budget_journal)
+            return failed
         return self.run_data_file(
             deck.data_file,
             deck_hash=hashes.deck_hash,
@@ -239,7 +315,7 @@ class OpmRunner:
         started = time.perf_counter()
 
         def result(status: RunStatus, message: str, workdir: Path | None) -> RunResult:
-            return RunResult(
+            run_result = RunResult(
                 run_id=run_id,
                 status=status,
                 deck_hash=deck_hash,
@@ -249,6 +325,8 @@ class OpmRunner:
                 wallclock_seconds=time.perf_counter() - started,
                 message=message,
             )
+            record_budget_entry(run_result, journal=self.budget_journal)
+            return run_result
 
         data_file = Path(data_file).resolve()
         try:
