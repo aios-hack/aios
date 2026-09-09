@@ -1,5 +1,3 @@
-"""Чтение кейса: файл ограничений и сохранённое расписание."""
-
 from __future__ import annotations
 
 import json
@@ -31,6 +29,7 @@ from backend.core.contracts.constraints import (
     EXTERNAL_WATER_M3_PER_DAY,
     WATER_REINJECTION_FRACTION,
     WATER_REINJECTION_LAG_STEPS,
+    WATER_SUPPLY_UNLIMITED,
 )
 
 YEAR_SECTIONS: tuple[str, ...] = (
@@ -43,6 +42,7 @@ YEAR_SECTIONS: tuple[str, ...] = (
 TOP_LEVEL_SECTIONS: tuple[str, ...] = YEAR_SECTIONS + ("well_outages", "infrastructure")
 
 INFRASTRUCTURE_KEYS: tuple[str, ...] = (
+    WATER_SUPPLY_UNLIMITED,
     WATER_REINJECTION_FRACTION,
     WATER_REINJECTION_LAG_STEPS,
     EXTERNAL_WATER_M3_PER_DAY,
@@ -70,7 +70,7 @@ REFUSED_SECTIONS: dict[str, str] = {
 
 
 class CaseError(ValueError):
-    """Файл кейса нельзя принять: назван конкретный раздел и причина."""
+    pass
 
 
 def _require_mapping(document: Any, section: str) -> dict[str, Any]:
@@ -252,12 +252,10 @@ def _load_schedule(data: dict[str, Any]) -> Schedule:
 
 
 def load_schedule_json(path: str | Path) -> Schedule:
-    """Load a canonical schedule written by the run workflow."""
     return _load_schedule(json.loads(Path(path).read_text(encoding="utf-8")))
 
 
 def load_case(path: str | Path, n_intervals: int = N_INTERVALS) -> Constraints:
-    """Прочитать файл кейса и проверить его целиком до запуска поиска."""
     case_path = Path(path)
     if not case_path.is_file():
         raise CaseError(f"файл кейса не найден: {case_path}")

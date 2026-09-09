@@ -1,11 +1,10 @@
-"""Constraints — условия кейса. README.md §5."""
-
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
 from typing import Any
 
+WATER_SUPPLY_UNLIMITED = "water_supply_unlimited"
 WATER_REINJECTION_FRACTION = "water_reinjection_fraction"
 WATER_REINJECTION_LAG_STEPS = "water_reinjection_lag_steps"
 EXTERNAL_WATER_M3_PER_DAY = "external_water_m3_per_day"
@@ -27,27 +26,21 @@ class WellOutage:
 
 @dataclass(frozen=True, slots=True)
 class Constraints:
-    """Сериализуемый документ: порождает интерфейс, читает политика.
-
-    Пустой документ (все поля пустые словари/кортежи) означает отсутствие
-    ограничений сверх физических, а не отсутствие данных.
-    """
-
-    injection_limits: dict[int, float] = field(default_factory=dict)  # год -> м³/сут
-    liquid_limits: dict[int, float] = field(default_factory=dict)  # год -> м³/сут
-    production_floors: dict[int, float] = field(default_factory=dict)  # год -> т/сут
-    watercut_limits: dict[int, float] = field(default_factory=dict)  # год -> доля
+    injection_limits: dict[int, float] = field(default_factory=dict)
+    liquid_limits: dict[int, float] = field(default_factory=dict)
+    production_floors: dict[int, float] = field(default_factory=dict)
+    watercut_limits: dict[int, float] = field(default_factory=dict)
     well_outages: tuple[WellOutage, ...] = field(default_factory=tuple)
-    infrastructure: dict[str, object] = field(default_factory=dict)  # свободные пары
+    infrastructure: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
 class WaterSupplyPolicy:
-    """Material-balance source of injection water for the whole field."""
-
     reinjection_fraction: float | None
     lag_steps: int
     external_water_m3_per_day: float
+    fraction_defaulted: bool = False
+    unlimited: bool = False
 
     @property
     def enabled(self) -> bool:
@@ -63,8 +56,6 @@ class WaterSupplyPolicy:
 
 @dataclass(frozen=True, slots=True)
 class CompensationPolicy:
-    """Target voidage-replacement corridor, separate from water supply."""
-
     minimum: float | None
     maximum: float | None
     enforcement: str
@@ -89,19 +80,34 @@ def _finite_number(source: dict[str, object], key: str, default: float) -> float
     return value
 
 
+def _unlimited_flag(source: dict[str, object]) -> bool:
+    raw = source.get(WATER_SUPPLY_UNLIMITED, False)
+    if not isinstance(raw, bool):
+        raise ValueError(
+            f"infrastructure.{WATER_SUPPLY_UNLIMITED}: ожидается true или false"
+        )
+    return raw
+
+
 def water_supply_policy(constraints: Constraints) -> WaterSupplyPolicy:
     source = constraints.infrastructure
-    if WATER_REINJECTION_FRACTION not in source:
-        if (
-            WATER_REINJECTION_LAG_STEPS in source
-            or EXTERNAL_WATER_M3_PER_DAY in source
-        ):
-            raise ValueError(
-                f"infrastructure.{WATER_REINJECTION_FRACTION} обязателен, "
-                "если задан лаг или внешний приток воды"
-            )
-        return WaterSupplyPolicy(None, 0, 0.0)
-    fraction = _finite_number(source, WATER_REINJECTION_FRACTION, 0.0)
+    unlimited = _unlimited_flag(source)
+    has_fraction = WATER_REINJECTION_FRACTION in source
+    has_lag = WATER_REINJECTION_LAG_STEPS in source
+    has_external = EXTERNAL_WATER_M3_PER_DAY in source
+    if unlimited and (has_fraction or has_lag or has_external):
+        raise ValueError(
+            f"infrastructure.{WATER_SUPPLY_UNLIMITED}: источник воды объявлен "
+            "неограниченным, поэтому вместе с ним нельзя задавать "
+            f"{WATER_REINJECTION_FRACTION}, {WATER_REINJECTION_LAG_STEPS} или "
+            f"{EXTERNAL_WATER_M3_PER_DAY}"
+        )
+    if unlimited:
+        return WaterSupplyPolicy(None, 0, 0.0, False, True)
+    if not (has_fraction or has_lag or has_external):
+        return WaterSupplyPolicy(None, 0, 0.0, False, False)
+    fraction_defaulted = not has_fraction
+    fraction = _finite_number(source, WATER_REINJECTION_FRACTION, 1.0)
     if not 0.0 <= fraction <= 1.0:
         raise ValueError(
             f"infrastructure.{WATER_REINJECTION_FRACTION}: доля должна быть "
@@ -118,12 +124,12 @@ def water_supply_policy(constraints: Constraints) -> WaterSupplyPolicy:
             f"infrastructure.{EXTERNAL_WATER_M3_PER_DAY}: внешний приток "
             "не может быть отрицательным"
         )
-    return WaterSupplyPolicy(fraction, raw_lag, external)
+    return WaterSupplyPolicy(
+        fraction, raw_lag, external, fraction_defaulted, False
+    )
 
 
 def compensation_policy(constraints: Constraints) -> CompensationPolicy:
-    """Parse and validate the field/group compensation target corridor."""
-
     source = constraints.infrastructure
     has_min = COMPENSATION_MIN in source
     has_max = COMPENSATION_MAX in source

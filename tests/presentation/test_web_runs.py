@@ -29,7 +29,7 @@ def test_search_freezes_constraints_and_rejects_concurrent_run(tmp_path):
 
 def test_bad_infrastructure_never_starts_job(tmp_path):
     jobs = WebRuns(tmp_path)
-    for infrastructure in ({'external_water_m3_per_day': 1}, {'compensation_min': .8}, {'unknown': 10}):
+    for infrastructure in ({'compensation_min': .8}, {'unknown': 10}, {'water_supply_unlimited': True, 'external_water_m3_per_day': 1}):
         with pytest.raises(ValueError):
             jobs.start({'constraints': {'infrastructure': infrastructure}})
     assert jobs.list() == []

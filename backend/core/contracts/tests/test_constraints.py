@@ -10,10 +10,57 @@ from backend.core.contracts import (
 
 
 def test_water_supply_is_disabled_only_when_no_water_keys_are_present() -> None:
-    assert not water_supply_policy(Constraints()).enabled
-    with pytest.raises(ValueError, match="water_reinjection_fraction"):
+    policy = water_supply_policy(Constraints())
+    assert not policy.enabled
+    assert not policy.unlimited
+    assert not policy.fraction_defaulted
+
+
+def test_external_water_alone_defaults_the_reinjection_fraction_to_one() -> None:
+    policy = water_supply_policy(
+        Constraints(infrastructure={"external_water_m3_per_day": 5000.0})
+    )
+    assert policy.enabled
+    assert not policy.unlimited
+    assert policy.reinjection_fraction == pytest.approx(1.0)
+    assert policy.fraction_defaulted
+    assert policy.external_water_m3_per_day == pytest.approx(5000.0)
+    assert policy.limit(100.0) == pytest.approx(5100.0)
+
+
+def test_explicit_fraction_is_not_marked_as_defaulted() -> None:
+    policy = water_supply_policy(
+        Constraints(
+            infrastructure={
+                "external_water_m3_per_day": 5000.0,
+                "water_reinjection_fraction": 0.4,
+            }
+        )
+    )
+    assert policy.enabled
+    assert not policy.fraction_defaulted
+    assert policy.reinjection_fraction == pytest.approx(0.4)
+
+
+def test_unlimited_water_supply_disables_the_source_limit() -> None:
+    policy = water_supply_policy(
+        Constraints(infrastructure={"water_supply_unlimited": True})
+    )
+    assert not policy.enabled
+    assert policy.unlimited
+    assert not policy.fraction_defaulted
+    assert policy.limit(100.0) is None
+
+
+def test_unlimited_water_supply_contradicts_an_external_volume() -> None:
+    with pytest.raises(ValueError, match="water_supply_unlimited"):
         water_supply_policy(
-            Constraints(infrastructure={"external_water_m3_per_day": 1.0})
+            Constraints(
+                infrastructure={
+                    "water_supply_unlimited": True,
+                    "external_water_m3_per_day": 5000.0,
+                }
+            )
         )
 
 
@@ -36,6 +83,7 @@ def test_water_limit_combines_reinjection_and_explicit_external_source() -> None
         )
     )
     assert policy.enabled
+    assert not policy.fraction_defaulted
     assert policy.lag_steps == 1
     assert policy.limit(100.0) == pytest.approx(85.0)
 

@@ -5,6 +5,7 @@ import pytest
 
 from backend.application.cases import CaseError, load_case
 from backend.application.runs import RunRequest, RunWorkflow
+from backend.core.contracts import water_supply_policy
 from backend.presentation.cli.run import build_parser, load_run_request, main, resolve_case
 from tests.application.test_run_workflow import sample_schedule
 
@@ -161,6 +162,38 @@ def test_case_with_outages_and_limits_is_accepted(tmp_path) -> None:
     assert constraints.watercut_limits == {2012: 0.95}
     assert constraints.well_outages[0].well == "P12"
     assert constraints.infrastructure["external_water_m3_per_day"] == 5000.0
+
+    policy = water_supply_policy(constraints)
+    assert policy.enabled
+    assert policy.reinjection_fraction == pytest.approx(1.0)
+    assert policy.fraction_defaulted
+
+
+def test_case_may_declare_the_water_source_unlimited(tmp_path) -> None:
+    case = write_case(
+        tmp_path / "unlimited.json",
+        {"infrastructure": {"water_supply_unlimited": True}},
+    )
+
+    policy = water_supply_policy(load_case(case))
+
+    assert policy.unlimited
+    assert not policy.enabled
+
+
+def test_case_refuses_unlimited_water_together_with_an_external_volume(tmp_path) -> None:
+    case = write_case(
+        tmp_path / "contradiction.json",
+        {
+            "infrastructure": {
+                "water_supply_unlimited": True,
+                "external_water_m3_per_day": 5000.0,
+            }
+        },
+    )
+
+    with pytest.raises(CaseError, match="water_supply_unlimited"):
+        load_case(case)
 
 
 def test_verify_refuses_a_case_instead_of_ignoring_it(tmp_path) -> None:
