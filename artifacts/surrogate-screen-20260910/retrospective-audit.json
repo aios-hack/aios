@@ -1,0 +1,96 @@
+{
+  "kind": "retrospective-not-blind",
+  "head_version": "2eea7cac24b3b6140107fffd9ff5cd8fab54e3dc824b8f3628533c0fa4d74d30",
+  "domain_version": "be71b6447054c7157004048754ab65665de6bd28c1011f988c57932dca0d6a4d",
+  "domain_threshold": 11.416658306122834,
+  "rows": [
+    {
+      "run_id": "candidate-004",
+      "predicted_npv": -5896924943.4349375,
+      "measured_npv": 1466397653.7924547,
+      "sound": false,
+      "ood_score": 129.76065730150347,
+      "inside_domain": false,
+      "inference_seconds": 1.462019540995243
+    },
+    {
+      "run_id": "candidate-005",
+      "predicted_npv": -18668131086.7528,
+      "measured_npv": 1464123030.4381707,
+      "sound": true,
+      "ood_score": 145.14784590491854,
+      "inside_domain": false,
+      "inference_seconds": 1.4502938329969766
+    },
+    {
+      "run_id": "candidate-006",
+      "predicted_npv": -9553923094.632233,
+      "measured_npv": 2572738950.6450777,
+      "sound": true,
+      "ood_score": 75.23666138286899,
+      "inside_domain": false,
+      "inference_seconds": 1.474244417011505
+    },
+    {
+      "run_id": "candidate-007",
+      "predicted_npv": -9256235557.88799,
+      "measured_npv": 2660790404.349281,
+      "sound": true,
+      "ood_score": 74.11500529719174,
+      "inside_domain": false,
+      "inference_seconds": 1.5056154589983635
+    },
+    {
+      "run_id": "candidate-008",
+      "predicted_npv": -8807625381.606344,
+      "measured_npv": 2754126065.485184,
+      "sound": true,
+      "ood_score": 72.90703635318677,
+      "inside_domain": false,
+      "inference_seconds": 1.4582057499937946
+    },
+    {
+      "run_id": "candidate-009",
+      "predicted_npv": -9545036254.093523,
+      "measured_npv": 2572114950.9770484,
+      "sound": true,
+      "ood_score": 75.19523213950413,
+      "inside_domain": false,
+      "inference_seconds": 1.5714949170069303
+    }
+  ],
+  "excluded": [
+    {
+      "run_id": "candidate-001",
+      "reason": "missing pinned groups artifact"
+    },
+    {
+      "run_id": "candidate-002",
+      "reason": "missing pinned groups artifact"
+    },
+    {
+      "run_id": "candidate-003",
+      "reason": "missing pinned groups artifact"
+    }
+  ],
+  "all_runs": {
+    "n": 6,
+    "pairs": 15,
+    "correct_pairs": 10,
+    "pairwise_accuracy": 0.6666666666666666,
+    "top1_run_id": "candidate-004",
+    "best_measured_run_id": "candidate-008",
+    "top1_regret_rub": 1287728411.6927295
+  },
+  "known_feasible_only_oracle": {
+    "n": 5,
+    "pairs": 10,
+    "correct_pairs": 9,
+    "pairwise_accuracy": 0.9,
+    "top1_run_id": "candidate-008",
+    "best_measured_run_id": "candidate-008",
+    "top1_regret_rub": 0.0
+  },
+  "total_seconds": 9.571530916990014,
+  "warning": "OOD predictions are diagnostics, not approved screening. Feasibility subset uses known OPM labels."
+}
