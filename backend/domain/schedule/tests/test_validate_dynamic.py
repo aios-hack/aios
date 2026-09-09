@@ -35,6 +35,7 @@ from backend.domain.schedule.validate_dynamic import (
     FIRST_CONTROL_DECK_DATE_INDEX,
     INJECTOR_MAX_BHP_BAR,
     PRODUCER_MIN_BHP_BAR,
+    blocking_dynamic_violation_kinds,
     check_interval_signs,
     check_response_axes,
     validate_dynamic,
@@ -507,6 +508,169 @@ def test_violations_are_sorted_and_addressable() -> None:
         assert item.well is not None
         assert str(item).startswith("[")
     assert report.violations[0].control_step is None
+
+
+def compensation_constraints(
+    enforcement: str = "diagnostic",
+    minimum: float = 0.85,
+    maximum: float = 1.15,
+) -> Constraints:
+    return Constraints(
+        infrastructure={
+            "compensation_min": minimum,
+            "compensation_max": maximum,
+            "compensation_enforcement": enforcement,
+            "compensation_scope": "field_and_groups",
+        }
+    )
+
+
+def compensation_case(
+    injection: float, withdrawal: float = 100.0
+) -> tuple[Schedule, tuple[StateAtDate, ...], tuple[IntervalResponse, ...]]:
+    schedule = make_schedule(
+        {"P1": producer(50.0), "I1": injector(80.0)}, n_intervals=1
+    )
+    rates = {"P1": (50.0, 0.0), "I1": (0.0, 80.0)}
+    states = tuple(
+        StateAtDate(
+            deck_date_index=index,
+            well=well,
+            liquid_rate=rates[well][0],
+            oil_rate=0.0,
+            injection_rate=rates[well][1],
+            thp=20.0,
+            bhp=120.0,
+            well_efficiency=1.0,
+            active_control_mode=ActiveControlMode.RATE_TARGET,
+        )
+        for well in schedule.meta.wells
+        for index in range(
+            schedule.meta.n_intervals + FIRST_CONTROL_DECK_DATE_INDEX + 1
+        )
+    )
+    responses = (
+        interval(0, "P1", oil=0.0, liquid=withdrawal),
+        interval(0, "I1", injection=injection),
+    )
+    return schedule, states, responses
+
+
+def test_compensation_inside_corridor_is_clean_in_both_modes() -> None:
+    schedule, states, responses = compensation_case(injection=100.0)
+    for enforcement in ("diagnostic", "hard"):
+        report = validate_dynamic(
+            schedule, states, responses, compensation_constraints(enforcement)
+        )
+        counts = report.counts()
+        assert ViolationKind.COMPENSATION_OUT_OF_CORRIDOR not in counts
+        assert ViolationKind.COMPENSATION_UNDEFINED not in counts
+        assert report.blocking_ok
+
+
+def test_compensation_below_the_floor_is_reported() -> None:
+    schedule, states, responses = compensation_case(injection=50.0)
+    report = validate_dynamic(
+        schedule, states, responses, compensation_constraints("diagnostic")
+    )
+    assert report.counts()[ViolationKind.COMPENSATION_OUT_OF_CORRIDOR] == 1
+    detail = report.by_kind()[ViolationKind.COMPENSATION_OUT_OF_CORRIDOR][0].detail
+    assert "0.5000" in detail
+    assert "0.85" in detail and "1.15" in detail
+    assert "compensation_min" in detail
+
+
+def test_compensation_above_the_ceiling_is_reported() -> None:
+    schedule, states, responses = compensation_case(injection=140.0)
+    report = validate_dynamic(
+        schedule, states, responses, compensation_constraints("diagnostic")
+    )
+    violations = report.by_kind()[ViolationKind.COMPENSATION_OUT_OF_CORRIDOR]
+    assert len(violations) == 1
+    assert violations[0].value == pytest.approx(1.4)
+    assert "выше верхней" in violations[0].detail
+
+
+def test_compensation_corridor_edges_are_inclusive() -> None:
+    for injection in (85.0, 115.0):
+        schedule, states, responses = compensation_case(injection=injection)
+        report = validate_dynamic(
+            schedule, states, responses, compensation_constraints("diagnostic")
+        )
+        assert ViolationKind.COMPENSATION_OUT_OF_CORRIDOR not in report.counts()
+
+
+def test_compensation_is_diagnostic_by_default_and_blocks_only_when_hard() -> None:
+    for injection in (50.0, 140.0):
+        schedule, states, responses = compensation_case(injection=injection)
+
+        quiet = validate_dynamic(
+            schedule, states, responses, compensation_constraints("diagnostic")
+        )
+        assert quiet.counts()[ViolationKind.COMPENSATION_OUT_OF_CORRIDOR] == 1
+        assert quiet.blocking_ok
+        assert not quiet.ok
+
+        loud = validate_dynamic(
+            schedule, states, responses, compensation_constraints("hard")
+        )
+        assert loud.counts()[ViolationKind.COMPENSATION_OUT_OF_CORRIDOR] == 1
+        assert not loud.blocking_ok
+        assert [item.kind for item in loud.blocking_violations] == [
+            ViolationKind.COMPENSATION_OUT_OF_CORRIDOR
+        ]
+
+
+def test_compensation_is_not_checked_without_a_corridor() -> None:
+    schedule, states, responses = compensation_case(injection=140.0)
+    report = validate_dynamic(schedule, states, responses, Constraints())
+    counts = report.counts()
+    assert ViolationKind.COMPENSATION_OUT_OF_CORRIDOR not in counts
+    assert ViolationKind.COMPENSATION_UNDEFINED not in counts
+
+
+def test_zero_withdrawal_is_a_separate_diagnostic_not_a_fake_ratio() -> None:
+    schedule, states, responses = compensation_case(
+        injection=140.0, withdrawal=0.0
+    )
+    report = validate_dynamic(
+        schedule, states, responses, compensation_constraints("diagnostic")
+    )
+    counts = report.counts()
+    assert ViolationKind.COMPENSATION_OUT_OF_CORRIDOR not in counts
+    assert counts[ViolationKind.COMPENSATION_UNDEFINED] == 1
+    detail = report.by_kind()[ViolationKind.COMPENSATION_UNDEFINED][0].detail
+    assert "не определена" in detail
+    assert report.blocking_ok
+
+
+def test_zero_withdrawal_blocks_under_hard_enforcement() -> None:
+    schedule, states, responses = compensation_case(
+        injection=140.0, withdrawal=0.0
+    )
+    report = validate_dynamic(
+        schedule, states, responses, compensation_constraints("hard")
+    )
+    assert not report.blocking_ok
+    assert [item.kind for item in report.blocking_violations] == [
+        ViolationKind.COMPENSATION_UNDEFINED
+    ]
+
+
+def test_blocking_kinds_are_a_function_of_the_compensation_policy() -> None:
+    assert blocking_dynamic_violation_kinds() == BLOCKING_DYNAMIC_VIOLATION_KINDS
+    assert (
+        blocking_dynamic_violation_kinds(Constraints())
+        == BLOCKING_DYNAMIC_VIOLATION_KINDS
+    )
+    assert (
+        blocking_dynamic_violation_kinds(compensation_constraints("diagnostic"))
+        == BLOCKING_DYNAMIC_VIOLATION_KINDS
+    )
+    hard = blocking_dynamic_violation_kinds(compensation_constraints("hard"))
+    assert ViolationKind.COMPENSATION_OUT_OF_CORRIDOR in hard
+    assert ViolationKind.COMPENSATION_UNDEFINED in hard
+    assert BLOCKING_DYNAMIC_VIOLATION_KINDS < hard
 
 
 def _load_real_response():

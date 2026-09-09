@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from calendar import monthrange
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
 from backend.core.contracts import (
     ActiveControlMode,
     Availability,
+    CompensationPolicy,
     Constraints,
     ControlEvent,
     EventKind,
@@ -16,9 +18,11 @@ from backend.core.contracts import (
     Schedule,
     StateAtDate,
     WellState,
+    compensation_policy,
     is_excluded_by_negative_rule,
     water_supply_policy,
 )
+from backend.core.contracts.constraints import COMPENSATION_MAX, COMPENSATION_MIN
 from backend.core.contracts.response import N_DECK_DATES
 
 from .validate import ValidationReport, Violation, ViolationKind, _well_sort_key
@@ -48,13 +52,11 @@ DYNAMIC_VIOLATION_KINDS: frozenset[ViolationKind] = frozenset(
         ViolationKind.WATERCUT_LIMIT_EXCEEDED,
         ViolationKind.OUTAGE_WELL_PRODUCED,
         ViolationKind.WATER_SUPPLY_LIMIT_EXCEEDED,
+        ViolationKind.COMPENSATION_OUT_OF_CORRIDOR,
+        ViolationKind.COMPENSATION_UNDEFINED,
     }
 )
 
-# Flow may legitimately shut an unreachable open target, and tiny negative
-# export deltas are already excluded by the economics methodology.  Submission
-# is blocked by physical/case contract breaches and response integrity, while
-# the remaining kinds stay visible as diagnostics.
 BLOCKING_DYNAMIC_VIOLATION_KINDS: frozenset[ViolationKind] = frozenset(
     {
         ViolationKind.BHP_BELOW_PRODUCER_LIMIT,
@@ -70,6 +72,26 @@ BLOCKING_DYNAMIC_VIOLATION_KINDS: frozenset[ViolationKind] = frozenset(
         ViolationKind.OUTAGE_WELL_PRODUCED,
     }
 )
+
+
+def blocking_dynamic_violation_kinds(
+    constraints: Constraints | None = None,
+) -> frozenset[ViolationKind]:
+    if constraints is None:
+        return BLOCKING_DYNAMIC_VIOLATION_KINDS
+    policy = compensation_policy(constraints)
+    return blocking_kinds_for_compensation(policy)
+
+
+def blocking_kinds_for_compensation(
+    policy: CompensationPolicy,
+) -> frozenset[ViolationKind]:
+    if not (policy.enabled and policy.hard):
+        return BLOCKING_DYNAMIC_VIOLATION_KINDS
+    return BLOCKING_DYNAMIC_VIOLATION_KINDS | {
+        ViolationKind.COMPENSATION_OUT_OF_CORRIDOR,
+        ViolationKind.COMPENSATION_UNDEFINED,
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,6 +119,7 @@ class DynamicReport:
     n_states: int
     n_intervals_seen: int
     n_wells: int
+    blocking_kinds: frozenset[ViolationKind] = BLOCKING_DYNAMIC_VIOLATION_KINDS
 
     @property
     def ok(self) -> bool:
@@ -107,7 +130,7 @@ class DynamicReport:
         return tuple(
             item
             for item in self.report.violations
-            if item.kind in BLOCKING_DYNAMIC_VIOLATION_KINDS
+            if item.kind in self.blocking_kinds
         )
 
     @property
@@ -664,12 +687,80 @@ def check_dynamic_constraints(
         )
     )
     found.extend(_check_outages(schedule, states, constraints))
+    found.extend(_check_compensation(schedule, interval_responses, constraints))
+    return tuple(found)
+
+
+def _check_compensation(
+    schedule: Schedule,
+    interval_responses: Sequence[IntervalResponse],
+    constraints: Constraints,
+) -> tuple[Violation, ...]:
+    policy = compensation_policy(constraints)
+    if not policy.enabled:
+        return ()
+    minimum = policy.minimum
+    maximum = policy.maximum
+    if minimum is None or maximum is None:
+        raise ValueError(
+            "коридор компенсации объявлен включённым, но границы не заданы: "
+            "C(k) не с чем сравнивать"
+        )
+    source = (
+        f"infrastructure.{COMPENSATION_MIN}/{COMPENSATION_MAX} кейса, "
+        f"режим {policy.enforcement}"
+    )
+    totals: dict[int, tuple[float, float]] = {}
+    for item in interval_responses:
+        withdrawal, injection = totals.get(item.control_step, (0.0, 0.0))
+        totals[item.control_step] = (
+            withdrawal + max(0.0, item.liquid_volume_delta),
+            injection + max(0.0, item.injection_volume_delta),
+        )
+    found: list[Violation] = []
+    for control_step in range(schedule.meta.n_intervals):
+        if control_step not in totals:
+            continue
+        withdrawal, injection = totals[control_step]
+        if withdrawal <= 0.0:
+            found.append(
+                Violation(
+                    kind=ViolationKind.COMPENSATION_UNDEFINED,
+                    control_step=control_step,
+                    well=None,
+                    value=injection,
+                    detail=(
+                        f"шаг {control_step}: отбор жидкости за шаг равен "
+                        f"{withdrawal:.6f} м³, компенсация C(k) = закачка / отбор "
+                        f"не определена и в коридор {minimum}…{maximum} "
+                        f"не проверялась; закачано {injection:.3f} м³; "
+                        f"границы: {source}"
+                    ),
+                )
+            )
+            continue
+        value = injection / withdrawal
+        if minimum <= value <= maximum:
+            continue
+        side = "ниже нижней" if value < minimum else "выше верхней"
+        found.append(
+            Violation(
+                kind=ViolationKind.COMPENSATION_OUT_OF_CORRIDOR,
+                control_step=control_step,
+                well=None,
+                value=value,
+                detail=(
+                    f"шаг {control_step}: компенсация C(k) = {value:.4f} "
+                    f"{side} границы коридора {minimum}…{maximum}; "
+                    f"закачано {injection:.3f} м³ при отборе жидкости "
+                    f"{withdrawal:.3f} м³; границы: {source}"
+                ),
+            )
+        )
     return tuple(found)
 
 
 def _days_in_step(schedule: Schedule, control_step: int) -> int:
-    from calendar import monthrange
-
     month_index = schedule.meta.t0.month - 1 + control_step
     year = schedule.meta.t0.year + month_index // 12
     month = month_index % 12 + 1
@@ -931,4 +1022,5 @@ def validate_dynamic(
         n_states=len(states),
         n_intervals_seen=len(steps),
         n_wells=len(wells),
+        blocking_kinds=blocking_dynamic_violation_kinds(constraints),
     )
