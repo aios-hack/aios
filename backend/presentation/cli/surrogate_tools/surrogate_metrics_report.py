@@ -8,7 +8,7 @@ import math
 import statistics
 import sys
 from collections.abc import Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -36,6 +36,8 @@ from backend.presentation.ui_export.artifact_io import _load_schedule
 
 NORMATIVES = normatives_xlsx()
 FORMAT = "aios.surrogate-metrics.v2"
+HOLDOUT_FORMAT = "aios.surrogate-frozen-holdout.v1"
+DEFAULT_HOLDOUT = Path("config/surrogate-holdout.json")
 DEFAULT_LABELS = Path("data/model-night-20260826-v2/npv_labels.json")
 DEFAULT_TENSORS = Path("data/lean700/tensors_context_490_canonical.pt")
 DEFAULT_MANIFOLD = Path("data")
@@ -51,6 +53,98 @@ class MetricsReportError(RuntimeError):
     pass
 
 
+class FrozenHoldoutError(MetricsReportError):
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class FrozenHoldout:
+    path: Path
+    populated: bool
+    hashes: frozenset[str]
+    reason: str
+
+    def as_provenance(self) -> dict[str, object]:
+        return {
+            "frozen_holdout": str(self.path),
+            "frozen_holdout_populated": self.populated,
+            "frozen_holdout_size": len(self.hashes),
+            "frozen_holdout_note": self.reason,
+        }
+
+
+def load_frozen_holdout(path: Path = DEFAULT_HOLDOUT) -> FrozenHoldout:
+    if not path.is_file():
+        raise FrozenHoldoutError(
+            f"замороженного holdout нет по пути {path}: без него ни тренер, ни "
+            "отчёт метрик не могут доказать, что оценка получена не на "
+            "многократно использованной выборке"
+        )
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise FrozenHoldoutError(
+            f"замороженный holdout {path} не читается: {error}"
+        ) from error
+    if not isinstance(payload, dict) or payload.get("format") != HOLDOUT_FORMAT:
+        raise FrozenHoldoutError(
+            f"неподдерживаемый формат замороженного holdout {path}: "
+            f"{payload.get('format') if isinstance(payload, dict) else type(payload).__name__!r}"
+        )
+    raw = payload.get("canonical_schedule_hashes")
+    if not isinstance(raw, list):
+        raise FrozenHoldoutError(
+            f"{path}: canonical_schedule_hashes не список — исключать из "
+            "обучения нечего, а молчаливый пропуск означал бы утечку"
+        )
+    hashes: set[str] = set()
+    for item in raw:
+        if not isinstance(item, str) or len(item) != 64:
+            raise FrozenHoldoutError(
+                f"{path}: запись {item!r} не является canonical_schedule_hash"
+            )
+        hashes.add(item.lower())
+    if len(hashes) != len(raw):
+        raise FrozenHoldoutError(
+            f"{path}: canonical_schedule_hash повторяется, размер набора "
+            "посчитать по этому списку нельзя"
+        )
+    populated = bool(payload.get("populated", False))
+    if populated != bool(hashes):
+        raise FrozenHoldoutError(
+            f"{path}: поле populated={populated} расходится с {len(hashes)} "
+            "записями — набор обязан честно объявлять, наполнен он или нет"
+        )
+    if populated:
+        reason = f"набор заморожен, {len(hashes)} расписаний исключены из обучения"
+    else:
+        raw_reason = payload.get("unpopulated_reason")
+        if not isinstance(raw_reason, str) or not raw_reason.strip():
+            raise FrozenHoldoutError(
+                f"{path}: ненаполненный набор обязан объяснить, почему в нём нет "
+                "ни одного расписания; пустой список без причины неотличим от "
+                "потерянного файла"
+            )
+        reason = raw_reason.strip()
+    return FrozenHoldout(
+        path=path, populated=populated, hashes=frozenset(hashes), reason=reason
+    )
+
+
+def assert_holdout_excluded(
+    holdout: FrozenHoldout, hashes: Sequence[str], population: str
+) -> None:
+    leaked = sorted({value.lower() for value in hashes} & holdout.hashes)
+    if leaked:
+        raise FrozenHoldoutError(
+            f"{population}: {len(leaked)} расписаний замороженного holdout "
+            f"{holdout.path} попали в выборку — {', '.join(leaked[:3])}"
+            f"{'...' if len(leaked) > 3 else ''}. Обучение или замер на "
+            "замороженном наборе уничтожает единственную независимую оценку, "
+            "поэтому это ошибка, а не предупреждение"
+        )
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument("--labels", type=Path, default=DEFAULT_LABELS)
@@ -58,6 +152,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--split", default="test", choices=("train", "validation", "test"))
     parser.add_argument("--manifold-root", type=Path, default=DEFAULT_MANIFOLD)
     parser.add_argument("--manifold-glob", default=MANIFOLD_GLOB)
+    parser.add_argument("--holdout", type=Path, default=DEFAULT_HOLDOUT)
     parser.add_argument("--output", type=Path, required=True)
     return parser
 
@@ -327,7 +422,7 @@ def _component_metrics(rows):
     }
 
 
-def _held_out(args, env, labels: dict) -> dict[str, object]:
+def _held_out(args, env, labels: dict, holdout: FrozenHoldout) -> dict[str, object]:
     with _legacy_checkpoint_modules():
         bundle = torch.load(args.tensors, map_location="cpu", weights_only=False, mmap=True)
     identities = bundle["identities"].get(args.split)
@@ -358,6 +453,11 @@ def _held_out(args, env, labels: dict) -> dict[str, object]:
                      **_score_schedule(env, schedule)})
         if (index + 1) % 10 == 0:
             print(f"{args.split}: {index + 1}/{len(identities)}", flush=True)
+    assert_holdout_excluded(
+        holdout,
+        [row["canonical_schedule_hash"] for row in rows],
+        f"сплит {args.split!r} тензорного кеша",
+    )
     components = _component_metrics(rows)
     actual = [row["npv_opm_rub"] for row in rows]
     return {
@@ -376,7 +476,7 @@ def _held_out(args, env, labels: dict) -> dict[str, object]:
     }
 
 
-def _manifold(args, env) -> dict[str, object]:
+def _manifold(args, env, holdout: FrozenHoldout) -> dict[str, object]:
     directories = sorted(
         path
         for path in args.manifold_root.glob(args.manifold_glob)
@@ -391,9 +491,11 @@ def _manifold(args, env) -> dict[str, object]:
     actual, predicted, rows = [], [], []
     bhp_per_scenario: list[tuple[str, list[float]]] = []
     missing_response: list[str] = []
+    opm_results: list[dict] = []
     for directory in directories:
         schedule = _load_schedule(json.loads((directory / "schedule.json").read_text()))
         result = json.loads((directory / "result.json").read_text())
+        opm_results.append(result)
         if result["canonical_schedule_hash"] != hash_schedule(schedule):
             raise MetricsReportError(f"{directory}: schedule hash differs from OPM result")
         components, response = _predict_response(env, schedule)
@@ -429,6 +531,11 @@ def _manifold(args, env) -> dict[str, object]:
             "scenarios_without_opm_response": missing_response,
         }
 
+    assert_holdout_excluded(
+        holdout,
+        [result["canonical_schedule_hash"] for result in opm_results],
+        "многообразие оптимизатора",
+    )
     return {
         "effect": _effect_error(actual, predicted),
         "bhp_channel": bhp,
@@ -479,6 +586,7 @@ def main() -> int:
     if labels.get("format") != "aios.surrogate-npv-labels.v1":
         raise MetricsReportError(f"неподдерживаемый формат меток: {args.labels}")
 
+    holdout = load_frozen_holdout(args.holdout)
     artifacts = resolve_runtime_artifacts()
     env = load_environment(
         model_dir=model_z_dir(),
@@ -507,9 +615,10 @@ def main() -> int:
             "labels_dataset_hash": labels.get("dataset_hash"),
             "tensors": str(args.tensors),
             "split": args.split,
+            **holdout.as_provenance(),
         },
-        "held_out": _held_out(args, env, labels),
-        "optimizer_manifold": _manifold(args, env),
+        "held_out": _held_out(args, env, labels, holdout),
+        "optimizer_manifold": _manifold(args, env, holdout),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
@@ -531,6 +640,13 @@ def main() -> int:
         _print_effect(table["effect"])
         if name == "optimizer_manifold":
             _print_bhp(table["bhp_channel"])
+    if holdout.populated:
+        print(
+            f"\nзамороженный holdout: {len(holdout.hashes)} расписаний "
+            f"исключены ({holdout.path})"
+        )
+    else:
+        print(f"\nзамороженный holdout НЕ НАПОЛНЕН: {holdout.reason}")
     print(f"\nотчёт: {args.output}")
     return 0
 

@@ -143,6 +143,184 @@ def resolve_ood_threshold(
     )
 
 
+LAMBDA_SELECTION_FORMAT = "aios.lambda-selection.v1"
+DEFAULT_LAMBDA_SELECTION = "config/lambda-selection.json"
+LAMBDA_PATH_ENV = "AIOS_LAMBDA_PATH"
+LAMBDA_SELECTION_ENV = "AIOS_LAMBDA_SELECTION_PATH"
+
+
+@dataclass(frozen=True, slots=True)
+class LambdaSelection:
+    path: Path
+    name: str
+    origin: str
+    selection_path: Path | None
+    rationale: str
+    expected_feature_context_sha256: str | None
+    feature_context_match: str
+
+    def as_provenance(self) -> dict[str, str]:
+        return {
+            "lambda_path": str(self.path),
+            "lambda_selection": self.name,
+            "lambda_selection_origin": self.origin,
+            "lambda_selection_source": (
+                "none" if self.selection_path is None else str(self.selection_path)
+            ),
+            "lambda_selection_rationale": self.rationale,
+            "lambda_expected_feature_context_sha256": (
+                self.expected_feature_context_sha256 or "unrecorded"
+            ),
+            "lambda_feature_context_match": self.feature_context_match,
+        }
+
+
+def _read_lambda_selection_document(path: Path) -> dict[str, object]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise RuntimeArtifactError(
+            f"конфигурация выбора λ {path} не читается: {error}"
+        ) from error
+    if not isinstance(payload, dict):
+        raise RuntimeArtifactError(
+            f"{path}: конфигурация выбора λ не является объектом"
+        )
+    if payload.get("format") != LAMBDA_SELECTION_FORMAT:
+        raise RuntimeArtifactError(
+            f"неподдерживаемый формат конфигурации выбора λ {path}: "
+            f"{payload.get('format')!r}"
+        )
+    return payload
+
+
+def _lambda_candidate(
+    path: Path, payload: Mapping[str, object]
+) -> tuple[str, Mapping[str, object]]:
+    selected = payload.get("selected")
+    if not isinstance(selected, str) or not selected:
+        raise RuntimeArtifactError(
+            f"{path}: поле selected не называет ни одного кандидата λ — выбор "
+            "обязан быть записан явно, а не подставлен умолчанием"
+        )
+    candidates = payload.get("candidates")
+    if not isinstance(candidates, dict) or not candidates:
+        raise RuntimeArtifactError(
+            f"{path}: раздел candidates пуст, выбирать не из чего"
+        )
+    candidate = candidates.get(selected)
+    if not isinstance(candidate, dict):
+        raise RuntimeArtifactError(
+            f"{path}: выбран кандидат λ {selected!r}, которого нет в candidates"
+        )
+    return selected, candidate
+
+
+def _lambda_rationale(path: Path, name: str, candidate: Mapping[str, object]) -> str:
+    rationale = candidate.get("rationale")
+    if not isinstance(rationale, str) or not rationale.strip():
+        raise RuntimeArtifactError(
+            f"{path}: кандидат λ {name!r} записан без обоснования — выбор без "
+            "причины неотличим от умолчания, а провенанс обязан её нести"
+        )
+    return rationale.strip()
+
+
+def _lambda_feature_context_match(
+    expected: str | None, feature_context: Path | None
+) -> str:
+    if expected is None:
+        return "unrecorded"
+    if feature_context is None:
+        return "not-checked"
+    if not feature_context.is_file():
+        raise RuntimeArtifactError(
+            f"контекст признаков {feature_context} не читается: сверить λ с "
+            "признаками модели нечем"
+        )
+    actual = hashlib.sha256(feature_context.read_bytes()).hexdigest()
+    if actual != expected:
+        raise RuntimeArtifactError(
+            f"λ выбрана как выгрузка из контекста признаков с "
+            f"feature_context_sha256={expected}, а производственный контекст "
+            f"{feature_context} имеет {actual}: связность поиска и признаки "
+            "модели разошлись, и результат поиска относился бы к другой матрице"
+        )
+    return "identical"
+
+
+def resolve_lambda_selection(
+    environ: Mapping[str, str] | None = None,
+    feature_context: Path | None = None,
+) -> LambdaSelection:
+    env = os.environ if environ is None else environ
+    root_override = env.get("AIOS_PROJECT_ROOT")
+    root = Path(root_override).expanduser().resolve() if root_override else project_root()
+    configured = env.get(LAMBDA_SELECTION_ENV)
+    selection_path = Path(configured) if configured else root / DEFAULT_LAMBDA_SELECTION
+    override = env.get(LAMBDA_PATH_ENV)
+    if override:
+        return LambdaSelection(
+            path=Path(override),
+            name="environment-override",
+            origin="environment-override",
+            selection_path=selection_path if selection_path.is_file() else None,
+            rationale=(
+                f"{LAMBDA_PATH_ENV}={override!r} перекрывает конфигурацию выбора "
+                "λ: происхождение матрицы — явное решение оператора, а не запись "
+                "в конфигурации, и сверка с контекстом признаков не выполнялась"
+            ),
+            expected_feature_context_sha256=None,
+            feature_context_match="not-checked",
+        )
+    if configured and not selection_path.is_file():
+        raise RuntimeArtifactError(
+            f"{LAMBDA_SELECTION_ENV}={configured} указывает на отсутствующую "
+            "конфигурацию выбора λ"
+        )
+    if not selection_path.is_file():
+        raise RuntimeArtifactError(
+            f"конфигурации выбора λ нет по пути {selection_path}: путь к матрице "
+            "связности задаётся конфигурацией, и подставлять его константой "
+            "модуля запрещено — поиск оптимизировал бы по неизвестно какой λ"
+        )
+    payload = _read_lambda_selection_document(selection_path)
+    name, candidate = _lambda_candidate(selection_path, payload)
+    raw_path = candidate.get("path")
+    if not isinstance(raw_path, str) or not raw_path:
+        raise RuntimeArtifactError(
+            f"{selection_path}: кандидат λ {name!r} записан без пути к артефакту"
+        )
+    lambda_path = Path(raw_path)
+    if not lambda_path.is_absolute():
+        lambda_path = root / lambda_path
+    if not lambda_path.is_file():
+        raise RuntimeArtifactError(
+            f"{selection_path}: выбранная λ {name!r} отсутствует по пути "
+            f"{lambda_path}"
+        )
+    rationale = _lambda_rationale(selection_path, name, candidate)
+    raw_expected = candidate.get("expected_feature_context_sha256")
+    expected: str | None = None
+    if raw_expected is not None:
+        if not isinstance(raw_expected, str) or len(raw_expected) != 64:
+            raise RuntimeArtifactError(
+                f"{selection_path}: кандидат λ {name!r} объявил "
+                "expected_feature_context_sha256, не являющийся SHA-256"
+            )
+        expected = raw_expected.lower()
+    match = _lambda_feature_context_match(expected, feature_context)
+    return LambdaSelection(
+        path=lambda_path,
+        name=name,
+        origin="selection-config",
+        selection_path=selection_path,
+        rationale=rationale,
+        expected_feature_context_sha256=expected,
+        feature_context_match=match,
+    )
+
+
 RELEASE_FORMAT = "aios.surrogate-release.v1"
 RELEASE_FILENAME = "release.json"
 INSTALL_MANIFEST_FORMAT = "aios.surrogate-runtime.v1"

@@ -363,7 +363,7 @@ def test_both_return_paths_carry_the_strategy_and_the_equilibrium() -> None:
     assert "'search_strategy': 'cma-es'" in run_search
     assert "search_strategy='cma-es'" in run_search
     assert "policy_equilibrium" in run_search
-    assert "search_strategy='baseline-neighborhood'" in fallback
+    assert "search_strategy='lambda-connectivity-transfer'" in fallback
     assert "policy_equilibrium='not-claimed'" in fallback
 
 
@@ -483,7 +483,11 @@ _RUN_SEARCH_IMPORT_SOURCES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("backend.domain.economics", ("load_response_artifact",)),
     (
         "backend.application.optimization.runtime_artifacts",
-        ("resolve_runtime_artifacts", "validate_runtime_economic_head"),
+        (
+            "resolve_runtime_artifacts",
+            "resolve_lambda_selection",
+            "validate_runtime_economic_head",
+        ),
     ),
     ("backend.application.optimization.search", ("optimize",)),
     ("backend.domain.policy.fixed_point", ("FixedPointResult", "resolve")),
@@ -582,6 +586,10 @@ def _run_search_stubs(
         feasible_history=history,
     )
     return {
+        "resolve_lambda_selection": lambda **_: SimpleNamespace(
+            path=Path(path) / "lambda.json",
+            as_provenance=lambda: {},
+        ),
         "resolve_runtime_artifacts": lambda: SimpleNamespace(
             scenario_ood=Path("ood.pt"),
             checkpoint=Path("c.json"),

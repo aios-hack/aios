@@ -1,0 +1,18 @@
+{
+  "format": "aios.lambda-selection.v1",
+  "selected": "feature-context-export",
+  "candidates": {
+    "feature-context-export": {
+      "path": "data/lambda-window-2007/lambda.json",
+      "artifact_format": "aios.lambda-exported-from-feature-context.v1",
+      "window": "2007-01-01..2025-09-01",
+      "lag_months": 0,
+      "stability": 0.5327067980424265,
+      "expected_feature_context_sha256": "164efe9c442a81eebb4663e6fef37efab5a49bb34b6741a8f8576cea5f695190",
+      "rationale": "Единственная λ на диске. Выгружена из контекста признаков, на котором обучены веса: её provenance.feature_context_sha256 совпадает с feature_context производственного манифеста побайтово. Поэтому рассинхронизации между λ поиска и λ признаков модели нет по построению, а не по совпадению. Замер отдельной кампанией сюда не входит: артефакт кампании (artifact_id, measured_at, n_runs) в этом файле не записан, и выдавать выгрузку за независимый замер запрещено."
+    }
+  },
+  "rejected": {
+    "campaign-measurement": "кампания замера связности на диске не отрабатывала: артефакта с artifact_id/measured_at/n_runs нет. Пока его нет, независимого от обучения замера λ у нас не существует, и подставлять выгрузку под видом замера нельзя"
+  }
+}

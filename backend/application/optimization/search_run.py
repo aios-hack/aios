@@ -4,7 +4,6 @@ import hashlib
 import json
 import math
 import os
-import random
 import sys
 import time
 from dataclasses import dataclass, replace
@@ -24,7 +23,6 @@ from backend.core.contracts import (
     canonical_bytes,
     water_supply_policy,
 )
-from backend.core.contracts.schedule import MAX_LRAT_M3_PER_DAY
 from backend.core.contracts.constraints import Constraints, bhp_limits
 from backend.domain.economics import load_response_artifact
 from backend.application.optimization.schedule_search import (
@@ -34,6 +32,8 @@ from backend.application.optimization.schedule_search import (
     OutOfDomainScheduleError, PhysicallyImpossibleScheduleError,
 )
 from backend.application.optimization.runtime_artifacts import (
+    LambdaSelection,
+    resolve_lambda_selection,
     resolve_runtime_artifacts,
     validate_runtime_economic_head,
 )
@@ -56,7 +56,6 @@ from backend.infrastructure.resources import chdd_python_dir, model_z_dir
 from backend.application.cases import load_case
 from backend.domain.configuration.constraints_io import constraints_hash
 
-LAMBDA = Path(os.environ.get("AIOS_LAMBDA_PATH", "data/lambda-window-2007/lambda.json"))
 RESPONSE = Path("data/base_case/response.json")
 CONSTRAINTS = Path(
     os.environ.get("AIOS_CONSTRAINTS_PATH", "config/competition-constraints.json")
@@ -84,6 +83,12 @@ def _artifact_sha256(path: Path, name: str) -> str:
 
 DEFAULT_SEARCH_CAP = 2
 DEFAULT_FINAL_CAP = 8
+
+
+def __getattr__(name: str) -> object:
+    if name == "LAMBDA":
+        return resolve_lambda_selection().path
+    raise AttributeError(name)
 
 
 def _positive_cap(name: str, default: int) -> int:
@@ -939,6 +944,124 @@ def _peak_step_production(env, evaluator):
     return forecast
 
 
+INJECTION_TRANSFER_STEPS_M3_PER_DAY: tuple[float, ...] = (25.0, 50.0, 100.0)
+
+
+class ConnectivitySearchError(SearchRunError):
+    pass
+
+
+def _lambda_connectivity(lambda_) -> dict[str, float]:
+    if lambda_ is None:
+        raise ConnectivitySearchError(
+            "λ не загружена: ранжировать закачку по связности нечем, а перебор "
+            "по номеру скважины оптимизирует не то, что заявлено"
+        )
+    injectors = tuple(lambda_.injectors)
+    if not injectors:
+        raise ConnectivitySearchError(
+            "λ не содержит ни одной нагнетательной: ранжировать закачку по "
+            "связности нечем, а перебор по номеру скважины оптимизирует не то, "
+            "что заявлено"
+        )
+    strength: dict[str, float] = {}
+    for column, injector in enumerate(injectors):
+        total = 0.0
+        for row in lambda_.matrix:
+            value = float(row[column])
+            if not math.isfinite(value):
+                raise ConnectivitySearchError(
+                    f"λ содержит нечисловой коэффициент для нагнетательной "
+                    f"{injector}: предельная ценность закачки не определена"
+                )
+            total += value
+        strength[injector] = total
+    return strength
+
+
+def _connectivity_groups(strength: Mapping[str, float]) -> dict[str, str]:
+    ordered = sorted(strength, key=lambda well: (-strength[well], well))
+    size = max(1, len(ordered) // 3)
+    groups: dict[str, str] = {}
+    for position, well in enumerate(ordered):
+        if position < size:
+            groups[well] = "high"
+        elif position < 2 * size:
+            groups[well] = "medium"
+        else:
+            groups[well] = "low"
+    return groups
+
+
+def _baseline_injection_rates(schedule: Schedule) -> dict[str, float]:
+    rates: dict[str, float] = {}
+    for event in schedule.control_events:
+        if event.kind is not EventKind.SET_RATE or event.value is None:
+            continue
+        rates[event.well] = max(rates.get(event.well, 0.0), float(event.value))
+    return rates
+
+
+def _injection_transfer_plan(
+    lambda_, schedule: Schedule, budget: int
+) -> tuple[tuple[str, str, float], ...]:
+    strength = _lambda_connectivity(lambda_)
+    rates = _baseline_injection_rates(schedule)
+    active = {
+        well: value
+        for well, value in strength.items()
+        if rates.get(well, 0.0) > 0.0
+    }
+    if len(active) < 2:
+        raise ConnectivitySearchError(
+            f"в исходном плане закачка задана {len(active)} нагнетательным из "
+            f"{len(strength)} в окне λ: перераспределять закачку между "
+            "соседями не между кем"
+        )
+    ordered = sorted(active, key=lambda well: (-active[well], well))
+    pairs: list[tuple[str, str, float]] = []
+    depth = len(ordered) // 2
+    for step in INJECTION_TRANSFER_STEPS_M3_PER_DAY:
+        for offset in range(depth):
+            receiver = ordered[offset]
+            donor = ordered[-1 - offset]
+            if active[receiver] <= active[donor]:
+                continue
+            volume = min(step, rates[donor])
+            if volume <= 0.0:
+                continue
+            pairs.append((donor, receiver, volume))
+            if len(pairs) >= budget - 1:
+                return tuple(pairs)
+    if not pairs:
+        raise ConnectivitySearchError(
+            "ни одной пары «донор — получатель» с положительным перепадом "
+            "связности и ненулевой закачкой: перераспределение по λ не "
+            "строится, а слепой перебор по номеру скважины подставлять запрещено"
+        )
+    return tuple(pairs)
+
+
+def _transfer_injection(
+    schedule: Schedule, donor: str, receiver: str, volume: float
+) -> Schedule:
+    events = tuple(
+        replace(event, value=max(0.0, float(event.value) - volume))
+        if event.well == donor
+        and event.kind is EventKind.SET_RATE
+        and event.value is not None
+        else (
+            replace(event, value=float(event.value) + volume)
+            if event.well == receiver
+            and event.kind is EventKind.SET_RATE
+            and event.value is not None
+            else event
+        )
+        for event in schedule.control_events
+    )
+    return canonicalize(replace(schedule, control_events=events))
+
+
 def _search_near_baseline(
     env,
     evaluator,
@@ -948,26 +1071,24 @@ def _search_near_baseline(
 ) -> SearchOutcome:
     registry = IncumbentRegistry() if registry is None else registry
     tolerance = _bhp_tolerance_decision()
-    rng = random.Random(SEED)
     baseline = apply_case_limits(
         env.base_schedule,
         env.constraints,
         env.control_dates,
         _peak_step_production(env, evaluator),
     )
+    strength = _lambda_connectivity(env.lambda_)
+    groups = _connectivity_groups(strength)
+    transfers = _injection_transfer_plan(env.lambda_, baseline, budget)
     candidates = [baseline]
-    wells = sorted({event.well for event in baseline.control_events
-                    if event.kind in (EventKind.SET_LRAT, EventKind.SET_RATE) and event.value})
-    for index in range(budget - 1):
-        well = wells[index % len(wells)] if index < len(wells) else rng.choice(wells)
-        direction = -1 if index % 2 == 0 else 1
-        events = tuple(
-            replace(event, value=max(0.0, min(MAX_LRAT_M3_PER_DAY if event.kind is EventKind.SET_LRAT else float('inf'),
-                float(event.value) + direction * (1.0 if event.kind is EventKind.SET_LRAT else 5.0))))
-            if event.well == well and event.kind in (EventKind.SET_LRAT, EventKind.SET_RATE)
-               and event.value and event.value > (1 if event.kind is EventKind.SET_LRAT else 5)
-            else event for event in baseline.control_events)
-        candidates.append(canonicalize(replace(baseline, control_events=events)))
+    candidate_notes: list[str] = ["baseline"]
+    for donor, receiver, volume in transfers:
+        candidates.append(_transfer_injection(baseline, donor, receiver, volume))
+        candidate_notes.append(
+            f"{donor}({groups[donor]},{strength[donor]:.4f})"
+            f"->{receiver}({groups[receiver]},{strength[receiver]:.4f})"
+            f":{volume:.1f}"
+        )
     scenario_ood_threshold = (
         float(env.scenario_ood.threshold) if env.scenario_ood is not None else None
     )
@@ -1024,7 +1145,7 @@ def _search_near_baseline(
                     best = registry.current
                     if best is None or npv > best.npv_predicted:
                         registry.promote(
-                            stage='baseline-neighborhood',
+                            stage='lambda-connectivity-transfer',
                             schedule_hash=schedule_hash,
                             npv_predicted=npv,
                             theta={},
@@ -1055,7 +1176,7 @@ def _search_near_baseline(
                 dynamic_blocking_violations=blocking_count,
                 feasible=not violations,
                 violations=violations,
-                strategy='baseline-neighborhood',
+                strategy='lambda-connectivity-transfer',
                 ood_exceedances=ood_exceedances,
             )
         )
@@ -1071,8 +1192,14 @@ def _search_near_baseline(
     if not accepted:
         raise SearchRunError('Ни политика, ни локальные изменения исходного плана не прошли проверки условий и области обучения.')
     npv, schedule, index, static_count, blocking_count = max(accepted, key=lambda item: item[0])
-    provenance = dict(provenance, search_strategy='baseline-neighborhood',
-                      selected_candidate='baseline' if index == 0 else 'local-change',
+    provenance = dict(provenance, search_strategy='lambda-connectivity-transfer',
+                      selected_candidate=candidate_notes[index],
+                      candidate_generator='injection transferred from low-lambda '
+                                          'to high-lambda injectors, ranked by '
+                                          'column connectivity',
+                      candidate_groups=','.join(
+                          sorted({groups[donor] + '->' + groups[receiver]
+                                  for donor, receiver, _ in transfers})),
                       policy_equilibrium='not-claimed',
                       **tolerance.as_provenance())
     run_budget = close_run_clock(len(diagnostics['evaluations']))
@@ -1163,6 +1290,9 @@ def run_search(
     artifacts = resolve_runtime_artifacts()
     if artifacts.scenario_ood is None:
         raise SearchRunError("production search requires a versioned scenario OOD artifact")
+    lambda_selection = resolve_lambda_selection(
+        feature_context=artifacts.feature_context
+    )
     constraints_path = Path(case_path) if case_path is not None else CONSTRAINTS
     constraints = load_case(constraints_path)
     threshold_decision = _ood_threshold_decision()
@@ -1178,7 +1308,7 @@ def run_search(
         npv_head_path=artifacts.npv_head,
         npv_calibration_path=artifacts.npv_calibration,
         scenario_ood_path=artifacts.scenario_ood,
-        lambda_path=LAMBDA,
+        lambda_path=lambda_selection.path,
         constraints=constraints,
         ood_threshold=threshold_decision.value,
         ood_soft_penalty=soft_penalty,
@@ -1206,6 +1336,7 @@ def run_search(
         "scenario_ood_version": env.scenario_ood.version if env.scenario_ood else "none",
         "npv_head_version": env.npv_head.version if env.npv_head else "none",
         "constraints_path": str(constraints_path),
+        **lambda_selection.as_provenance(),
         **threshold_decision.as_provenance(),
         **bhp_tolerance.as_provenance(),
         "ood_soft_penalty": "true" if soft_penalty else "false",
