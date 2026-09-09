@@ -113,9 +113,11 @@ def main(argv=None):
     parser.add_argument("--allow-ood-experiment", action="store_true")
     parser.add_argument("--trajectory-model", type=Path,
                         help="research checkpoint: choose its physical-NPV top against direct-head control")
+    parser.add_argument("--proposal-family", choices=("all", "water", "transfers"), default="all")
     args = parser.parse_args(argv)
-    if args.out.exists() or args.count < 6:
-        parser.error("new output directory and at least six candidates required")
+    minimum = 6 if args.proposal_family in {"all", "water"} else 2
+    if args.out.exists() or args.count < minimum:
+        parser.error(f"new output directory and at least {minimum} candidates required")
     try:
         margins = water_margins(args.max_water_margin)
     except ValueError as error:
@@ -147,10 +149,11 @@ def main(argv=None):
         parser.error("model and deck horizons differ")
     proposals = [(f"measured-water-{margin}", repair_from_observation(
         anchor.schedule, observed, dates, anchor.constraints, water_margin=margin,
-        injection_reference=baseline.schedule)) for margin in margins]
+        injection_reference=baseline.schedule)) for margin in margins] if args.proposal_family != "transfers" else []
     rng = random.Random(args.seed)
     injectors = sorted({e.well for e in anchor.schedule.control_events if e.kind is EventKind.SET_RATE and e.value > 0})
-    for _ in range(args.count - 6):
+    transfer_count = args.count - len(proposals) if args.proposal_family != "water" else 0
+    for _ in range(transfer_count):
         donor, receiver = rng.sample(injectors, 2)
         fraction = rng.choice((.05, .10, .20))
         proposals.append((f"transfer-{donor}-to-{receiver}-{fraction}",
@@ -235,6 +238,7 @@ def main(argv=None):
                "domain_threshold": domain.threshold, "seed": args.seed,
                "allow_ood_experiment": args.allow_ood_experiment,
                "max_water_margin": args.max_water_margin,
+               "proposal_family": args.proposal_family,
                "known_measurement_count": len(known),
                "rows": rows, "rejected": rejected, "selection": selection,
                "blocked_reason": reason, "screening_seconds": time.perf_counter() - started,
