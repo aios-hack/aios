@@ -33,6 +33,14 @@
 
 .field-maps-well {
   cursor: pointer;
+  outline: none;
+}
+
+.field-maps-well:focus-visible > circle,
+.field-maps-well:focus-visible > rect {
+  stroke: var(--color-focus);
+  stroke-width: var(--focus-ring-width);
+  vector-effect: non-scaling-stroke;
 }
 
 .field-maps-well[data-shut='true'] {

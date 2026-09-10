@@ -32,7 +32,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-width: 220px;
+  min-width: var(--size-map-layer-min);
 }
 
 .map-layer-label {
@@ -50,13 +50,6 @@
   color: var(--color-text);
   font-size: var(--font-size-xs);
   text-align: right;
-}
-
-.map-toggle {
-  accent-color: var(--color-accent);
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
 }
 
 @media (prefers-reduced-motion: reduce) {

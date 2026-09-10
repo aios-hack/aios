@@ -1,0 +1,63 @@
+.ui-switch {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  vertical-align: middle;
+}
+
+.ui-switch-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.ui-switch-track {
+  display: block;
+  width: var(--size-switch-track);
+  height: var(--size-switch-height);
+  padding: var(--size-switch-pad);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-rail);
+  transition:
+    background var(--duration-state) var(--ease-out),
+    border-color var(--duration-state) var(--ease-out);
+  pointer-events: none;
+}
+
+.ui-switch-thumb {
+  display: block;
+  width: var(--size-switch-thumb);
+  height: var(--size-switch-thumb);
+  border-radius: var(--radius-pill);
+  background: var(--color-text-muted);
+  transition:
+    translate var(--duration-state) var(--ease-emphasis),
+    background var(--duration-state) var(--ease-out);
+}
+
+.ui-switch-input:checked ~ .ui-switch-track {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+.ui-switch-input:checked ~ .ui-switch-track .ui-switch-thumb {
+  translate: var(--size-switch-travel) 0;
+  background: var(--color-accent-contrast);
+}
+
+.ui-switch-input:focus-visible ~ .ui-switch-track {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-switch-track,
+  .ui-switch-thumb {
+    transition: none;
+  }
+}

@@ -206,6 +206,11 @@
   --size-scrollbar: 10px;
   --size-scrollbar-thumb-min: 32px;
   --size-control-height: 26px;
+  --size-switch-track: 32px;
+  --size-switch-height: 18px;
+  --size-switch-thumb: 12px;
+  --size-switch-pad: 2px;
+  --size-switch-travel: 14px;
   --size-control-outer: 32px;
   --size-tap-min: 44px;
   --size-hit-min: 24px;
@@ -215,6 +220,7 @@
   --size-swatch: 10px;
   --size-map-max: 620px;
   --size-stat-min: 130px;
+  --size-map-layer-min: 220px;
   --size-table-min: 640px;
   --size-table-wide-min: 972px;
   --size-card-max: 380px;

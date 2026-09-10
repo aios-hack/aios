@@ -178,6 +178,7 @@ const FieldMapsReady = ({ index }: { index: MapsIndexFile }) => {
               scale={scale}
               onSelectWell={onSelectWell}
               onHoverWell={setHoveredWell}
+              onFocusWell={onMove}
             />
           )}
         </svg>

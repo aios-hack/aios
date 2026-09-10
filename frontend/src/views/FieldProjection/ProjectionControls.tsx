@@ -8,6 +8,7 @@ import type { LegendNote } from '../../ui/Legend';
 import { LegendPopover } from '../../ui/Legend';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { Slider } from '../../ui/Slider';
+import { Switch } from '../../ui/Switch';
 import { formatNumber } from '../../ui/format';
 import { SettingsField, SettingsPopover, ViewToolbar } from '../../ui/ViewToolbar';
 import { roundWeight } from '../shared/graphModel';
@@ -116,20 +117,13 @@ export const ProjectionControls = ({
             <label className="projection-groups-label" htmlFor={groupsId}>
               {translate('projection.groups.label')}
             </label>
-            <span className="projection-switch">
-              <input
-                id={groupsId}
-                type="checkbox"
-                className="projection-switch-input"
-                checked={showGroups}
-                data-guide="projection-groups-toggle"
-                data-testid="projection-groups-toggle"
-                onChange={(event) => onShowGroups(event.target.checked)}
-              />
-              <span className="projection-switch-track" aria-hidden="true">
-                <span className="projection-switch-thumb" />
-              </span>
-            </span>
+            <Switch
+              id={groupsId}
+              checked={showGroups}
+              guide="projection-groups-toggle"
+              testId="projection-groups-toggle"
+              onChange={onShowGroups}
+            />
           </span>
         </>
       }

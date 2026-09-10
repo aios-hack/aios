@@ -49,6 +49,7 @@ interface MapWellLayerProps {
   scale: number;
   onSelectWell: (well: string) => void;
   onHoverWell: (well: string | null) => void;
+  onFocusWell: (point: { clientX: number; clientY: number }) => void;
 }
 
 export const MapWellLayer = ({
@@ -59,7 +60,8 @@ export const MapWellLayer = ({
   showLabels,
   scale,
   onSelectWell,
-  onHoverWell
+  onHoverWell,
+  onFocusWell
 }: MapWellLayerProps) => {
   const radius = WELL_RADIUS / Math.max(scale, 0.2);
   const stroke = radius * 0.34;
@@ -93,11 +95,29 @@ export const MapWellLayer = ({
             data-shut={shut ? 'true' : 'false'}
             data-selected={selected ? 'true' : 'false'}
             transform={`translate(${x} ${y})`}
+            tabIndex={0}
+            role="button"
+            aria-label={well.id}
             onPointerEnter={() => onHoverWell(well.id)}
             onPointerLeave={() => onHoverWell(null)}
+            onFocus={(event) => {
+              onHoverWell(well.id);
+              const spot = event.currentTarget.getBoundingClientRect();
+              onFocusWell({
+                clientX: spot.left + spot.width / 2,
+                clientY: spot.top + spot.height / 2
+              });
+            }}
+            onBlur={() => onHoverWell(null)}
             onClick={(event) => {
               event.stopPropagation();
               onSelectWell(well.id);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onSelectWell(well.id);
+              }
             }}
           >
             {row?.role === 'INJ' ? (

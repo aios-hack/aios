@@ -144,7 +144,21 @@ const NodeLayerView = ({
             });
           }}
           onPointerLeave={() => onHoverWell(null)}
-          onFocus={() => onHoverWell(null)}
+          onFocus={(event) => {
+            const host = event.currentTarget.ownerSVGElement?.parentElement ?? null;
+            const target = event.currentTarget.querySelector('.field-projection-hit');
+            if (host === null || target === null) {
+              return;
+            }
+            const rect = host.getBoundingClientRect();
+            const spot = target.getBoundingClientRect();
+            onHoverWell({
+              well: node.id,
+              x: spot.left + spot.width / 2 - rect.left,
+              y: spot.top + spot.height / 2 - rect.top
+            });
+          }}
+          onBlur={() => onHoverWell(null)}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {
               event.preventDefault();

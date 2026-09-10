@@ -14,6 +14,8 @@ export const CodeBlock = ({ lang, code }: CodeBlockProps) => {
   const [copied, setCopied] = useState(false);
   const language = languageOf(lang);
   const lines = highlight(code, language);
+  const canCopy =
+    typeof navigator !== 'undefined' && typeof navigator.clipboard?.writeText === 'function';
 
   useEffect(() => {
     if (!copied) {
@@ -44,9 +46,10 @@ export const CodeBlock = ({ lang, code }: CodeBlockProps) => {
           type="button"
           className="jarvis-md-code-copy"
           onClick={onCopy}
+          disabled={!canCopy}
           data-copied={copied ? 'true' : undefined}
         >
-          {copied ? t('jarvis.copied') : t('jarvis.copy')}
+          <span aria-live="polite">{copied ? t('jarvis.copied') : t('jarvis.copy')}</span>
         </button>
       </figcaption>
       <pre className="jarvis-md-code-body">

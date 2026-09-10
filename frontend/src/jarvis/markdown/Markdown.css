@@ -137,6 +137,15 @@
   color: var(--color-ok);
 }
 
+.jarvis-md-code-copy:disabled {
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+.jarvis-md-code-copy:disabled:hover {
+  color: var(--color-text-disabled);
+}
+
 .jarvis-md-code-copy:focus-visible {
   outline: var(--focus-ring-width) solid var(--color-focus);
   outline-offset: var(--focus-ring-offset);

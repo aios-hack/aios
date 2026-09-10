@@ -6,6 +6,7 @@ import { mapCategoryColor } from '../../theme/tokens';
 import { LegendPopover } from '../../ui/Legend';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { Slider } from '../../ui/Slider';
+import { Switch } from '../../ui/Switch';
 import { formatNumber } from '../../ui/format';
 import { SettingsField, SettingsPopover, ViewToolbar } from '../../ui/ViewToolbar';
 import { categoryCount, presetsOf } from './mapModel';
@@ -146,13 +147,11 @@ export const MapControls = ({
               label={t('maps.showWells')}
               value={t(showWells ? 'maps.on' : 'maps.off')}
             >
-              <input
+              <Switch
                 id={wellsId}
-                type="checkbox"
-                className="map-toggle"
                 checked={showWells}
-                data-testid="maps-wells-toggle"
-                onChange={(event) => onShowWells(event.target.checked)}
+                testId="maps-wells-toggle"
+                onChange={onShowWells}
               />
             </SettingsField>
             <SettingsField
@@ -160,13 +159,11 @@ export const MapControls = ({
               label={t('maps.showLabels')}
               value={t(showLabels ? 'maps.on' : 'maps.off')}
             >
-              <input
+              <Switch
                 id={labelsId}
-                type="checkbox"
-                className="map-toggle"
                 checked={showLabels}
-                data-testid="maps-labels-toggle"
-                onChange={(event) => onShowLabels(event.target.checked)}
+                testId="maps-labels-toggle"
+                onChange={onShowLabels}
               />
             </SettingsField>
           </SettingsPopover>

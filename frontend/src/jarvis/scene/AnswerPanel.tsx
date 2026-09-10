@@ -34,6 +34,12 @@ export const AnswerPanel = ({ scene }: { scene: Scene | null }) => {
       if (event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLInputElement) {
         return;
       }
+      if (event.target instanceof HTMLElement && event.target.isContentEditable) {
+        return;
+      }
+      if (event.ctrlKey || event.metaKey || event.altKey) {
+        return;
+      }
       if (event.key === 'a' || event.key === 'A' || event.key === 'ф' || event.key === 'Ф') {
         event.preventDefault();
         setExpanded((value) => !value);
