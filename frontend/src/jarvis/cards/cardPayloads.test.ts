@@ -4,6 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { parseEventLine } from '../transport/events';
 import {
   readCompare,
+  readConstraints,
+  readCouncil,
+  readDoc,
   readError,
   readEventStrip,
   readFieldMap,
@@ -12,9 +15,14 @@ import {
   readMetric,
   readMetrics,
   readPattern,
+  readPhysics,
   readRule,
   readRuleSummary,
+  readRun,
+  readRunList,
   readSeries,
+  readStatusBoard,
+  readSystemMap,
   readWell,
   readWellList
 } from './cardPayloads';
@@ -35,7 +43,15 @@ const readers: Record<string, (payload: unknown) => unknown> = {
   'field-map': readFieldMap,
   pattern: readPattern,
   glossary: readGlossary,
-  guide: readGuide
+  guide: readGuide,
+  doc: readDoc,
+  'system-map': (payload: unknown) => readSystemMap(payload, 'ru'),
+  'status-board': readStatusBoard,
+  'run-list': readRunList,
+  run: readRun,
+  constraints: readConstraints,
+  council: readCouncil,
+  physics: readPhysics
 };
 
 interface FixtureCard {

@@ -1,3 +1,6 @@
+export type * from './systemTypes';
+import type { CompareConstraints, CompareStatus } from './systemTypes';
+
 export interface SparkPoint {
   step: number;
   value: number | null;
@@ -71,15 +74,16 @@ export interface RuleSummaryPayload {
 export interface CompareSide {
   id: string;
   npv: number | null;
-  status: string;
-  constraints: number;
+  status: CompareStatus;
+  constraints: CompareConstraints;
 }
 
 export interface ComparePayload {
   a: CompareSide;
   b: CompareSide;
-  delta_npv: number;
+  delta_npv: number | null;
   top_diff_wells: { well: string; delta: number }[];
+  comparison_reason: string | null;
 }
 
 export interface FieldEventRow {

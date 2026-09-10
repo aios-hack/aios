@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_SCENES, activeScene, emptyScenes, selectSceneAt } from './scenes';
+import { activeScene, emptyScenes, selectSceneAt } from './scenes';
 import type { JarvisEvent } from './transport/events';
 import { context, opened, play } from './scenesFixtures';
 
@@ -14,18 +14,16 @@ describe('the stack of previous scenes', () => {
     expect(state.scenes[0].question).toBe('почему');
   });
 
-  it('caps the stack instead of growing without bound', () => {
-    const events: JarvisEvent[] = Array.from({ length: MAX_SCENES + 4 }, (_, index) => ({
+  it('keeps every scene, so the memory rail never loses one', () => {
+    const events: JarvisEvent[] = Array.from({ length: 16 }, (_, index) => ({
       type: 'scene',
       scene_id: `s-${index}`,
       question: `вопрос ${index}`,
       context
     }));
     const state = play(events);
-    expect(state.scenes.length).toBe(MAX_SCENES);
-    expect(state.scenes[state.scenes.length - 1].question).toBe(
-      `вопрос ${MAX_SCENES + 3}`
-    );
+    expect(state.scenes.length).toBe(16);
+    expect(state.scenes[state.scenes.length - 1].question).toBe('вопрос 15');
   });
 
   it('clamps a selection to the ends of the stack', () => {

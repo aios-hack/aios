@@ -13,7 +13,7 @@ export const useWorkspaceData = (workspace: Workspace): WorkspaceDataStatus => {
   const graph = useDataset('graph');
   const scenarios = useDataset('scenarios');
   const ablation = useDataset('ablation');
-  const hierarchy = useDataset('hierarchy');
+  const hierarchyIndex = useDataset('hierarchy-index');
 
   return useMemo(() => {
     const states: Partial<Record<DatasetName, { status: string }>> = {
@@ -24,7 +24,7 @@ export const useWorkspaceData = (workspace: Workspace): WorkspaceDataStatus => {
       graph,
       scenarios,
       ablation,
-      hierarchy
+      'hierarchy-index': hierarchyIndex
     };
     const required = datasetsFor(workspace);
     if (required.some((name) => states[name]?.status === 'error')) {
@@ -34,5 +34,5 @@ export const useWorkspaceData = (workspace: Workspace): WorkspaceDataStatus => {
       return 'loading';
     }
     return 'ready';
-  }, [workspace, timeline, trace, wells, npv, graph, scenarios, ablation, hierarchy]);
+  }, [workspace, timeline, trace, wells, npv, graph, scenarios, ablation, hierarchyIndex]);
 };

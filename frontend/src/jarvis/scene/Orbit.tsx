@@ -21,7 +21,12 @@ export const Orbit = ({ cards, onOpen }: OrbitProps) => {
   const seats = orbitSeats(cards.length, RADIUS, STAGGER_MS);
 
   return (
-    <div className="jarvis-orbit" aria-label={t('jarvis.orbitLabel')} role="group">
+    <div
+      className="jarvis-orbit"
+      aria-label={t('jarvis.orbitLabel')}
+      role="group"
+      data-dense={cards.length > 6 ? 'true' : undefined}
+    >
       {cards.map((entry, index) => {
         const seat = seats[index];
         const open = expanded === entry.id;

@@ -1,0 +1,203 @@
+.jarvis-rail {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: var(--size-jarvis-input-max);
+  min-height: var(--size-jarvis-bead-row);
+}
+
+.jarvis-rail[data-empty='true'] .jarvis-rail-beads {
+  visibility: hidden;
+}
+
+.jarvis-rail-beads {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 0 0 var(--space-1);
+  list-style: none;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: none;
+}
+
+.jarvis-rail-beads::-webkit-scrollbar {
+  display: none;
+}
+
+.jarvis-rail-beads:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-md);
+}
+
+.jarvis-rail-thread {
+  position: absolute;
+  left: calc(var(--size-jarvis-bead-pitch) / 2);
+  bottom: calc(var(--size-jarvis-bead-row) - var(--size-jarvis-bead) / 2 - var(--space-3));
+  display: block;
+  color: var(--color-jarvis-ink);
+  pointer-events: none;
+}
+
+.jarvis-rail-thread-path {
+  stroke: currentColor;
+  stroke-width: 1;
+  stroke-linecap: round;
+  opacity: 0.5;
+  stroke-dasharray: var(--thread-length);
+  stroke-dashoffset: 0;
+  animation: jarvis-thread-draw var(--duration-drawer) var(--ease-out) backwards;
+}
+
+@keyframes jarvis-thread-draw {
+  from {
+    stroke-dashoffset: var(--thread-length);
+  }
+}
+
+.jarvis-rail-bead {
+  position: relative;
+  flex: none;
+  width: var(--size-jarvis-bead-pitch);
+  display: flex;
+  justify-content: center;
+}
+
+.jarvis-rail-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  padding: 0 var(--space-1);
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.jarvis-rail-dot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--size-jarvis-bead);
+  height: var(--size-jarvis-bead);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  transition:
+    transform var(--duration-state) var(--ease-emphasis),
+    border-color var(--duration-state) var(--ease-out),
+    background var(--duration-state) var(--ease-out);
+}
+
+.jarvis-rail-glyph {
+  position: absolute;
+  font-size: var(--font-size-xs);
+  line-height: 1;
+  color: var(--color-jarvis-ink);
+  transform: rotate(calc(var(--glyph-index) * 90deg - 45deg))
+    translateY(calc(-1 * var(--size-jarvis-bead) / 2 + 3px))
+    rotate(calc(var(--glyph-index) * -90deg + 45deg));
+}
+
+.jarvis-rail-question {
+  max-width: 100%;
+  font-size: var(--font-size-xs);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jarvis-rail-time {
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-subtle);
+}
+
+.jarvis-rail-bead:hover .jarvis-rail-dot,
+.jarvis-rail-button:focus-visible .jarvis-rail-dot {
+  border-color: var(--color-jarvis-body);
+}
+
+.jarvis-rail-button:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-md);
+}
+
+.jarvis-rail-bead[data-active='true'] .jarvis-rail-button {
+  color: var(--color-text);
+}
+
+.jarvis-rail-bead[data-active='true'] .jarvis-rail-dot {
+  border-color: var(--color-jarvis-body);
+  background: var(--color-jarvis-halo);
+  transform: scale(calc(1.12 + var(--jarvis-breath, 0.5) * 0.14));
+}
+
+.jarvis-rail-bead:last-child .jarvis-rail-dot {
+  animation: jarvis-bead-exhale var(--duration-drawer) var(--ease-emphasis) backwards;
+}
+
+@keyframes jarvis-bead-exhale {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
+
+.jarvis-rail-preview {
+  position: absolute;
+  bottom: calc(100% + var(--space-2));
+  left: 50%;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: var(--size-jarvis-bead-preview);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-solid);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.jarvis-rail-preview-question {
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.jarvis-rail-preview-glyphs {
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.12em;
+  color: var(--color-jarvis-ink);
+}
+
+.jarvis-rail-preview-caption {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jarvis-rail-thread-path,
+  .jarvis-rail-bead:last-child .jarvis-rail-dot {
+    animation: none;
+  }
+
+  .jarvis-rail-dot {
+    transition: none;
+  }
+
+  .jarvis-rail-bead[data-active='true'] .jarvis-rail-dot {
+    transform: scale(1.12);
+  }
+}

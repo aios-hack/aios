@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '../i18n/I18nContext';
 import type { ConsoleAction } from './actions/consoleAction';
 import { useJarvis } from './JarvisContext';
 import { AnswerPanel } from './scene/AnswerPanel';
 import { Caption } from './scene/Caption';
 import { ContextRibbon } from './scene/ContextRibbon';
+import { HistoryRail } from './scene/HistoryRail';
 import { JarvisDoor } from './scene/JarvisDoor';
 import { InputDock } from './scene/InputDock';
+import { LiveTranscript } from './voice/LiveTranscript';
 import { Orbit } from './scene/Orbit';
 import { SceneStack } from './scene/SceneStack';
 import { SceneStatus } from './scene/SceneStatus';
@@ -14,7 +16,7 @@ import { Suggestions } from './scene/Suggestions';
 import { STAGE_SLOT_ID } from './scene/stageSlot';
 import { activeScene } from './scenes';
 import { useFocusTrap } from './useFocusTrap';
-import { useSpeak } from './voice/useSpeak';
+import { useVoiceOutput } from './voice/useVoiceOutput';
 import './JarvisScreen.css';
 
 const WHEEL_STEP_PX = 24;
@@ -30,19 +32,29 @@ export const JarvisScreen = () => {
     speakEnabled,
     setAudioLevel,
     micOpen,
-    applyAction
+    applyAction,
+    capabilities,
+    voiceAsked,
+    clearVoiceAsked
   } = useJarvis();
   const ref = useRef<HTMLDivElement>(null);
   const [focusSignal, setFocusSignal] = useState(0);
   const open = transition.phase === 'open';
   const scene = activeScene(scenes);
+  const history = useMemo(
+    () => scenes.scenes.map((entry) => entry.question).filter((text) => text.length > 0),
+    [scenes.scenes]
+  );
 
   useFocusTrap(ref, open, close);
-  useSpeak({
-    enabled: speakEnabled,
+  const voice = useVoiceOutput({
+    enabled: speakEnabled || voiceAsked,
     lang,
+    ttsAvailable: capabilities.tts,
     text: scene?.caption ?? null,
-    onEnvelope: setAudioLevel
+    answer: scene?.answer ?? null,
+    onLevel: setAudioLevel,
+    onSpoken: clearVoiceAsked
   });
 
   useEffect(() => {
@@ -71,6 +83,9 @@ export const JarvisScreen = () => {
     };
     const onWheel = (event: WheelEvent) => {
       if (event.target instanceof Element && event.target.closest('.jarvis-card-body')) {
+        return;
+      }
+      if (event.target instanceof Element && event.target.closest('.jarvis-rail')) {
         return;
       }
       if (Math.abs(event.deltaY) < WHEEL_STEP_PX) {
@@ -102,10 +117,13 @@ export const JarvisScreen = () => {
       aria-modal="true"
       aria-label={t('jarvis.dialogLabel')}
     >
-      <ContextRibbon />
+      <JarvisDoor />
+      <ContextRibbon speaking={voice.speaking} onStop={voice.stop} onReadAll={voice.readAll} />
       <div className="jarvis-screen-body">
         <div className="jarvis-screen-orbit">
           <span className="jarvis-screen-slot" id={STAGE_SLOT_ID} aria-hidden="true" />
+          <LiveTranscript />
+          <SceneStack scenes={scenes.scenes} activeIndex={scenes.activeIndex} />
           {scene === null ? null : <Orbit cards={scene.cards} onOpen={onOpen} />}
         </div>
         <div className="jarvis-screen-say">
@@ -127,15 +145,14 @@ export const JarvisScreen = () => {
         </div>
       </div>
       <footer className="jarvis-screen-foot">
-        <SceneStack
+        <HistoryRail
           scenes={scenes.scenes}
           activeIndex={scenes.activeIndex}
           onSelect={selectScene}
         />
         <Suggestions items={scenes.suggestions} onPick={askQuestion} />
-        <InputDock onAsk={askQuestion} focusSignal={focusSignal} />
+        <InputDock onAsk={askQuestion} focusSignal={focusSignal} history={history} />
       </footer>
-      <JarvisDoor />
     </div>
   );
 };

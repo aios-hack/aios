@@ -1,0 +1,27 @@
+.jarvis-transcript {
+  grid-area: 1 / 1;
+  align-self: start;
+  justify-self: center;
+  z-index: 2;
+  max-width: var(--size-jarvis-transcript-max);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-solid);
+  font-size: var(--font-size-sm);
+  text-align: center;
+  pointer-events: none;
+}
+
+.jarvis-transcript-text {
+  color: var(--color-text-muted);
+}
+
+.jarvis-transcript-text[data-final='true'] {
+  color: var(--color-text);
+}
+
+.jarvis-transcript-error {
+  color: var(--color-error);
+}

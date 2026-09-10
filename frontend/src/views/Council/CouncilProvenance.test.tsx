@@ -97,11 +97,19 @@ beforeEach(() => {
   vi.stubGlobal(
     'fetch',
     vi.fn((url: string) => {
-      const payload = url.includes('hierarchy')
-        ? hierarchyPayload
-        : url.includes('timeline')
-          ? timelineFixture
-          : {};
+      const stepMatch = /hierarchy[/](\d+)[.]json/.exec(url);
+      const payload = stepMatch !== null
+        ? hierarchyPayload.steps[Number(stepMatch[1])]
+        : url.includes('hierarchy-index')
+          ? {
+              ...hierarchyPayload,
+              steps: undefined,
+              step_count: hierarchyPayload.steps.length,
+              step_path: 'hierarchy/{step}.json'
+            }
+          : url.includes('timeline')
+            ? timelineFixture
+            : {};
       return Promise.resolve({ ok: true, json: () => Promise.resolve(payload) });
     })
   );

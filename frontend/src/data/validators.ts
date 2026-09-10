@@ -1,5 +1,9 @@
 import type {
   AblationFile,
+  ComparisonFile,
+  HierarchyIndexFile,
+  HierarchyStep,
+  RunsResponse,
   GraphFile,
   HierarchyFile,
   MapLayerFile,
@@ -386,7 +390,7 @@ const isHierarchyWell = (data: unknown): boolean =>
   isNumericRecord(data.inputs) &&
   isStrOrNull(data.constraint);
 
-const isHierarchyStep = (data: unknown): boolean =>
+export const isHierarchyStepFile = (data: unknown): data is HierarchyStep =>
   isRecord(data) &&
   isNum(data.control_step) &&
   isHierarchyFieldLevel(data.field) &&
@@ -406,7 +410,7 @@ export const isHierarchyFile = (data: unknown): data is HierarchyFile =>
   isSafeArray(data.ungrouped) &&
   data.ungrouped.every(isStr) &&
   isFilledArray(data.steps) &&
-  data.steps.every(isHierarchyStep);
+  data.steps.every(isHierarchyStepFile);
 
 const MAP_SCALES = new Set(['linear', 'log', 'categorical']);
 
@@ -456,3 +460,62 @@ export const isMapLayerFile = (data: unknown): data is MapLayerFile =>
   isNum(data.max) &&
   isNum(data.nodata) &&
   isNumArray(data.q);
+
+const isRunManifest = (data: unknown): boolean =>
+  isAbsent(data) ||
+  (isRecord(data) &&
+    isStr(data.run_id) &&
+    isStr(data.status) &&
+    (isAbsent(data.predicted_npv) || isNum(data.predicted_npv)) &&
+    (isAbsent(data.verified_npv) || isNum(data.verified_npv)) &&
+    (isAbsent(data.sound) || isBool(data.sound)));
+
+const isRunRow = (data: unknown): boolean =>
+  isRecord(data) && isStr(data.run_id) && isStr(data.status) && isRunManifest(data.manifest);
+
+export const isRunsResponse = (data: unknown): data is RunsResponse =>
+  isRecord(data) && isSafeArray(data.runs) && data.runs.every(isRunRow);
+
+const isComparisonViolations = (data: unknown): boolean =>
+  isRecord(data) &&
+  isNumOrNull(data.static ?? null) &&
+  isNumOrNull(data.dynamic ?? null) &&
+  isNumOrNull(data.blocking ?? null);
+
+const isComparisonSide = (data: unknown): boolean =>
+  isRecord(data) &&
+  isStr(data.name) &&
+  isNum(data.npv_rub) &&
+  isStr(data.run_status) &&
+  isBoolOrNull(data.sound ?? null) &&
+  isComparisonViolations(data.violations) &&
+  isNum(data.wallclock_seconds) &&
+  isNum(data.opm_runs);
+
+const isComparisonRow = (data: unknown): boolean =>
+  isRecord(data) &&
+  isStr(data.metric) &&
+  isStr(data.baseline) &&
+  isStr(data.candidate) &&
+  isStr(data.delta);
+
+export const isComparisonFile = (data: unknown): data is ComparisonFile =>
+  isRecord(data) &&
+  isStr(data.run_id) &&
+  isRecord(data.conditions) &&
+  isComparisonSide(data.baseline) &&
+  isComparisonSide(data.candidate) &&
+  isRecord(data.delta) &&
+  isNum((data.delta as Record<string, unknown>).npv_rub) &&
+  isSafeArray(data.table) &&
+  data.table.every(isComparisonRow);
+
+export const isHierarchyIndexFile = (data: unknown): data is HierarchyIndexFile =>
+  isRecord(data) &&
+  isNum(data.n_control_dates) &&
+  isSafeArray(data.groups) &&
+  data.groups.every(isStr) &&
+  isSafeArray(data.ungrouped) &&
+  data.ungrouped.every(isStr) &&
+  isNum(data.step_count) &&
+  isStr(data.step_path);

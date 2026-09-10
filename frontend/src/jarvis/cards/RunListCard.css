@@ -1,0 +1,57 @@
+.jarvis-runs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  overflow-x: auto;
+}
+
+.jarvis-runs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-xs);
+}
+
+.jarvis-runs-table th,
+.jarvis-runs-table td {
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.jarvis-runs-table thead th {
+  color: var(--color-text-faint);
+  font-weight: var(--font-weight-medium);
+}
+
+.jarvis-runs-table tbody th {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-weight: var(--font-weight-regular);
+}
+
+.jarvis-runs-id {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  color: var(--color-text);
+}
+
+.jarvis-runs-strategy {
+  color: var(--color-text-faint);
+}
+
+.jarvis-runs-npv {
+  font-family: var(--font-family-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.jarvis-runs-table tbody tr[data-sound='true'] .jarvis-runs-id {
+  color: var(--color-accent);
+}
+
+.jarvis-runs-total {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}

@@ -32,3 +32,14 @@ export const areaRadius = (
   const share = Math.sqrt(clamp01(value / maximum));
   return minRadius + (maxRadius - minRadius) * share;
 };
+
+export const SEQ_STOPS = 7;
+
+export const mapRampColor = (share: number): string => {
+  const bounded = clamp01(share);
+  const position = bounded * (SEQ_STOPS - 1);
+  const low = Math.min(Math.floor(position), SEQ_STOPS - 2);
+  const mix = position - low;
+  const percent = (mix * 100).toFixed(1);
+  return `color-mix(in oklab, var(--color-map-seq-${low + 1}) ${percent}%, var(--color-map-seq-${low}))`;
+};

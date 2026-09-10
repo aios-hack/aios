@@ -1,0 +1,30 @@
+.jarvis-sessions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+  padding-bottom: var(--space-2);
+}
+
+.jarvis-sessions-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-subtle);
+}
+
+.jarvis-sessions-select {
+  max-width: var(--size-jarvis-sessions-max);
+  min-height: var(--size-hit-min);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.jarvis-sessions-select:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}

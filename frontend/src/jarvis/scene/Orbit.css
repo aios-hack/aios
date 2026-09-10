@@ -62,3 +62,9 @@
     );
   }
 }
+
+.jarvis-orbit[data-dense='true'] {
+  --size-orbit-radius: var(--size-orbit-radius-dense);
+  --size-jarvis-card: var(--size-jarvis-card-dense);
+  --size-jarvis-card-max-h: var(--size-jarvis-card-max-h-dense);
+}

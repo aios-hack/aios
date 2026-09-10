@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_ORBIT_CARDS } from '../scenes';
 import {
+  DENSE_FROM,
   RADIUS_SQUEEZE_Y,
   SEAT_ANGLES_DEG,
   clearsSphere,
@@ -9,9 +10,9 @@ import {
   seatAngle
 } from './orbitLayout';
 
-const RADIUS_PX = 420;
-const CARD_W = 280;
-const CARD_H = 240;
+const RADIUS_PX = MAX_ORBIT_CARDS >= DENSE_FROM ? 370 : 420;
+const CARD_W = MAX_ORBIT_CARDS >= DENSE_FROM ? 232 : 280;
+const CARD_H = MAX_ORBIT_CARDS >= DENSE_FROM ? 144 : 240;
 const SPHERE_PX = 280;
 
 const boxOf = (seat: { x: number; y: number }) => ({
@@ -39,7 +40,9 @@ describe('orbit seats', () => {
   });
 
   it('staggers arrival so the cards land in reading order', () => {
-    expect(seats.map((seat) => seat.delayMs)).toEqual([0, 80, 160, 240, 320, 400]);
+    expect(seats.map((seat) => seat.delayMs)).toEqual(
+      seats.map((_, index) => index * 80)
+    );
   });
 
   it('reuses the catalogue of angles and wraps past its end', () => {

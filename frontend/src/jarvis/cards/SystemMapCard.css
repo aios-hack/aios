@@ -1,0 +1,139 @@
+.jarvis-map {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.jarvis-map-svg {
+  width: 100%;
+  height: var(--size-jarvis-map-h);
+  overflow: visible;
+}
+
+.jarvis-map-edge {
+  stroke: var(--color-border-strong);
+  stroke-width: 0.28;
+  opacity: 0.5;
+}
+
+.jarvis-map-edge[data-on='true'] {
+  stroke: var(--color-jarvis-body);
+  stroke-width: 0.5;
+  opacity: 1;
+}
+
+.jarvis-map-node {
+  cursor: pointer;
+}
+
+.jarvis-map-node:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+}
+
+.jarvis-map-dot {
+  fill: var(--color-surface-sunken);
+  stroke: var(--color-border-strong);
+  stroke-width: 0.4;
+  transition: r var(--duration-state) var(--ease-out);
+}
+
+.jarvis-map-node[data-kind='ui'] .jarvis-map-dot,
+.jarvis-map-node[data-kind='service'] .jarvis-map-dot {
+  fill: var(--color-jarvis-halo);
+}
+
+.jarvis-map-node[data-on='true'] .jarvis-map-dot {
+  fill: var(--color-jarvis-body);
+  stroke: var(--color-jarvis-ink);
+}
+
+.jarvis-map-text {
+  fill: var(--color-text-muted);
+  font-size: 2.6px;
+  text-anchor: middle;
+}
+
+.jarvis-map-node[data-on='true'] .jarvis-map-text {
+  fill: var(--color-text);
+  font-weight: var(--font-weight-medium);
+}
+
+.jarvis-map-count {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}
+
+.jarvis-map-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+
+.jarvis-map-detail-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.jarvis-map-detail-kind {
+  margin: 0;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  color: var(--color-text-faint);
+}
+
+.jarvis-map-detail-summary {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-body);
+  color: var(--color-text-muted);
+}
+
+.jarvis-map-detail-files {
+  margin: 0;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  color: var(--color-text-faint);
+  overflow-wrap: anywhere;
+}
+
+.jarvis-map-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.jarvis-map-action {
+  min-height: var(--size-hit-min);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.jarvis-map-action:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.jarvis-map-doc {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  color: var(--color-text-faint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jarvis-map-dot {
+    transition: none;
+  }
+}

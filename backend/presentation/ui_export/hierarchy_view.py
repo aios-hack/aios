@@ -1,15 +1,3 @@
-"""Экран «Решения → Совет» (F11, U-04) из настоящего журнала решений.
-
-Уровни FIELD/GROUP/WELL берутся из `HierarchyTrace`, который возвращает
-`policy/hierarchy.run_step` на состоянии настоящего отклика артефакта.
-Синтетики здесь нет: шаг, для которого журнал не собрался, обрывает
-экспорт ошибкой, а не подставляет придуманные числа.
-
-Реестр агентов читается из `policy/agents/registry.py`: имя, уровень и
-ответственность каждого агента попадают в поле `agents`, а признак
-`fired` на шаге считается по записям журнала этого уровня.
-"""
-
 from __future__ import annotations
 
 import json
@@ -377,3 +365,36 @@ def export_hierarchy_json(
         encoding="utf-8",
     )
     return out
+
+
+def split_hierarchy(document: Mapping[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    steps = list(document.get("steps", ()))
+    index = {key: value for key, value in document.items() if key != "steps"}
+    index["step_count"] = len(steps)
+    index["step_path"] = "hierarchy/{step}.json"
+    return index, steps
+
+
+def export_hierarchy_steps(
+    document: Mapping[str, Any],
+    out_dir: str | Path,
+) -> list[Path]:
+    index, steps = split_hierarchy(document)
+    root = Path(out_dir)
+    steps_dir = root / "hierarchy"
+    steps_dir.mkdir(parents=True, exist_ok=True)
+    written: list[Path] = []
+    index_path = root / "hierarchy-index.json"
+    index_path.write_text(
+        json.dumps(index, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    written.append(index_path)
+    for position, step in enumerate(steps):
+        path = steps_dir / f"{position}.json"
+        path.write_text(
+            json.dumps(step, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+            encoding="utf-8",
+        )
+        written.append(path)
+    return written

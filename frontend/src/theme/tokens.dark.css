@@ -91,6 +91,24 @@
   --color-synthetic-bg: rgba(241, 184, 85, 0.1);
   --color-synthetic-border: rgba(241, 184, 85, 0.3);
 
+  --color-map-seq-0: #2b1a4d;
+  --color-map-seq-1: #3c3a80;
+  --color-map-seq-2: #37619b;
+  --color-map-seq-3: #2f88a1;
+  --color-map-seq-4: #46ae91;
+  --color-map-seq-5: #94ce6f;
+  --color-map-seq-6: #f2e661;
+  --color-map-cat-1: #4f9df7;
+  --color-map-cat-2: #f07a4d;
+  --color-map-cat-3: #46c88a;
+  --color-map-cat-4: #c185ec;
+  --color-map-cat-5: #d7b23c;
+  --color-map-cat-6: #ef6aa8;
+  --color-map-nodata: rgba(221, 227, 234, 0.06);
+  --color-map-grid: rgba(221, 227, 234, 0.14);
+  --color-map-well: #f5f7fa;
+  --color-map-well-shut: rgba(221, 227, 234, 0.45);
+
   --color-jarvis-body: #eaf6ff;
   --color-jarvis-pulse: #3aa2ff;
   --color-jarvis-deep: #b8dcff;

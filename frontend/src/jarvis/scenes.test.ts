@@ -44,7 +44,7 @@ describe('cards arrive in the order the backend reasoned', () => {
     expect(activeScene(state)?.cards.length).toBe(1);
   });
 
-  it('never puts more than six cards on the orbit', () => {
+  it('never puts more than eight cards on the orbit', () => {
     const events: JarvisEvent[] = Array.from({ length: 9 }, (_, index) => ({
       type: 'card',
       scene_id: 's-01',

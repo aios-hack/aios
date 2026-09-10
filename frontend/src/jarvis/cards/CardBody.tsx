@@ -1,6 +1,9 @@
 import type { ConsoleAction } from '../actions/consoleAction';
 import type { JarvisCard } from '../transport/events';
 import { CompareCard } from './CompareCard';
+import { ConstraintsCard } from './ConstraintsCard';
+import { CouncilCard } from './CouncilCard';
+import { DocCard } from './DocCard';
 import { ErrorCard } from './ErrorCard';
 import { EventStripCard } from './EventStripCard';
 import { FieldMapCard } from './FieldMapCard';
@@ -8,6 +11,11 @@ import { GlossaryCard } from './GlossaryCard';
 import { GuideCard } from './GuideCard';
 import { MetricCard } from './MetricCard';
 import { PatternCard } from './PatternCard';
+import { PhysicsCard } from './PhysicsCard';
+import { RunCard } from './RunCard';
+import { RunListCard } from './RunListCard';
+import { StatusBoardCard } from './StatusBoardCard';
+import { SystemMapCard } from './SystemMapCard';
 import { RuleCard } from './RuleCard';
 import { SeriesCard } from './SeriesCard';
 import { WellCard } from './WellCard';
@@ -51,6 +59,30 @@ export const CardBody = ({ card, onOpen }: CardBodyProps) => {
   }
   if (card.type === 'guide') {
     return <GuideCard payload={card.payload} onOpen={onOpen} />;
+  }
+  if (card.type === 'doc') {
+    return <DocCard payload={card.payload} />;
+  }
+  if (card.type === 'system-map') {
+    return <SystemMapCard payload={card.payload} onOpen={onOpen} />;
+  }
+  if (card.type === 'status-board') {
+    return <StatusBoardCard payload={card.payload} />;
+  }
+  if (card.type === 'run-list') {
+    return <RunListCard payload={card.payload} />;
+  }
+  if (card.type === 'run') {
+    return <RunCard payload={card.payload} />;
+  }
+  if (card.type === 'constraints') {
+    return <ConstraintsCard payload={card.payload} />;
+  }
+  if (card.type === 'council') {
+    return <CouncilCard payload={card.payload} />;
+  }
+  if (card.type === 'physics') {
+    return <PhysicsCard payload={card.payload} />;
   }
   return <ErrorCard payload={card.payload} />;
 };

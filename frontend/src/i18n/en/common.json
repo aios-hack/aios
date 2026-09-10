@@ -13,6 +13,7 @@
   "view.label": "Workspace view",
   "view.fund": "Fund",
   "view.projection": "Projection",
+  "view.maps": "Maps",
   "view.matrix": "Matrix",
   "view.wall": "Thumbnails",
   "view.table": "Table",
@@ -38,5 +39,10 @@
   "playback.settings": "Playback settings",
   "playback.speed": "Speed",
   "playback.speedValue": "{value}×",
-  "playback.showDate": "Show the month"
+  "playback.showDate": "Show the month",
+  "askJarvis.label": "Ask Jarvis",
+  "askJarvis.well": "What is happening with well {well} at step {step} and why did the council decide that way?",
+  "askJarvis.rule": "What does rule {rule} ({name}) do and how much money did it bring?",
+  "askJarvis.run": "Tell me about run {run}: how did it end and how does it differ from the champion?",
+  "askJarvis.cell": "What does {prop} mean in cell {i}, {j} at layer {k}?"
 }

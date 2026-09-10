@@ -4,6 +4,7 @@ import { ViewStatus } from '../../ui/ViewStatus';
 import { ScenarioComparison } from '../Scenarios/ScenarioComparison';
 import { ScenarioLibrary } from '../Scenarios/ScenarioLibrary';
 import { MoneyProvenance } from './MoneyProvenance';
+import { RunsPanel } from './RunsPanel';
 
 export const MoneyComparison = () => {
   const t = useT();
@@ -27,6 +28,7 @@ export const MoneyComparison = () => {
           <MoneyProvenance entries={index.data.scenarios} meta={index.data.meta} />
         </>
       )}
+      <RunsPanel />
       <ScenarioLibrary />
     </div>
   );

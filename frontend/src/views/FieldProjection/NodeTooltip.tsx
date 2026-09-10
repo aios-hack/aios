@@ -1,6 +1,7 @@
 import type { TimelineWellRow } from '../../api/types';
 import { actualRate } from '../../data';
 import { useI18n } from '../../i18n/I18nContext';
+import { AskJarvis } from '../../ui/AskJarvis';
 import { DASH, formatNumber, formatPercent } from '../../ui/format';
 
 const TOOLTIP_WIDTH = 232;
@@ -21,6 +22,7 @@ interface NodeTooltipProps {
   hover: NodeHover;
   box: TooltipBox;
   row: TimelineWellRow | undefined;
+  step: number;
 }
 
 export const tooltipStyle = (
@@ -34,7 +36,7 @@ export const tooltipStyle = (
   return { left, top: Math.max(0, Math.min(hover.y, box.height)) };
 };
 
-export const NodeTooltip = ({ hover, box, row }: NodeTooltipProps) => {
+export const NodeTooltip = ({ hover, box, row, step }: NodeTooltipProps) => {
   const { t, lang } = useI18n();
   const place = tooltipStyle(hover, box);
   const role =
@@ -85,6 +87,11 @@ export const NodeTooltip = ({ hover, box, row }: NodeTooltipProps) => {
           <dd className="numeric">{watercut}</dd>
         </div>
       </dl>
+      <AskJarvis
+        question={t('askJarvis.well', { well: hover.well, step })}
+        compact
+        testId={`ask-jarvis-node-${hover.well}`}
+      />
     </div>
   );
 };

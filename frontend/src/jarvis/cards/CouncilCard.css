@@ -1,0 +1,80 @@
+.jarvis-council {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.jarvis-council-when {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}
+
+.jarvis-council-levels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jarvis-council-level {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+}
+
+.jarvis-council-rank {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  color: var(--color-text-faint);
+}
+
+.jarvis-council-agent {
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.jarvis-council-verdict {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.jarvis-council-verdict[data-verdict='VETO'] {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.jarvis-council-bounds,
+.jarvis-council-decisions {
+  grid-column: 2 / -1;
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.jarvis-council-outcome {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.jarvis-council-outcome-label {
+  color: var(--color-text-faint);
+}
+
+.jarvis-council-agents {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}

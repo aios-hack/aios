@@ -18,6 +18,10 @@ export interface SpeechRecognitionEventLike {
   results: SpeechResultList;
 }
 
+export interface SpeechErrorEventLike {
+  error?: string;
+}
+
 export interface SpeechRecognitionLike {
   lang: string;
   continuous: boolean;
@@ -27,7 +31,7 @@ export interface SpeechRecognitionLike {
   abort: () => void;
   onresult: ((event: SpeechRecognitionEventLike) => void) | null;
   onend: (() => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((event: SpeechErrorEventLike) => void) | null;
 }
 
 type RecognitionConstructor = new () => SpeechRecognitionLike;

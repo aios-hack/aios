@@ -32,7 +32,10 @@ from backend.presentation.ui_export.demo_artifact import (
     build_demo_artifact,
 )
 from backend.presentation.ui_export.graph_view import export_graph_json
-from backend.presentation.ui_export.hierarchy_view import export_hierarchy_json
+from backend.presentation.ui_export.hierarchy_view import (
+    export_hierarchy_json,
+    export_hierarchy_steps,
+)
 from backend.presentation.ui_export.maps_view import export_maps
 from backend.presentation.ui_export.npv_view import export_npv_json
 from backend.presentation.ui_export.scenarios import (
@@ -186,6 +189,11 @@ def export_scenario(
     hierarchy_path = export_hierarchy_json(artifact, out_dir / "hierarchy.json")
     _stamp(hierarchy_path, meta_by_kind.get("hierarchy", hierarchy_meta(artifact)))
     written.append(hierarchy_path)
+    written.extend(
+        export_hierarchy_steps(
+            json.loads(hierarchy_path.read_text(encoding="utf-8")), out_dir
+        )
+    )
     ablation_path = export_ablation_json(
         artifact, out_dir / "ablation.json", DEMO_SEED
     )

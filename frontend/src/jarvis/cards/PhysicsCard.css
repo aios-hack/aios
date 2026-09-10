@@ -1,0 +1,74 @@
+.jarvis-physics {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.jarvis-physics-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.jarvis-physics-head[data-ok='false'] {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.jarvis-physics-run {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  overflow-wrap: anywhere;
+}
+
+.jarvis-physics-counts {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-faint);
+}
+
+.jarvis-physics-checks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jarvis-physics-checks li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.jarvis-physics-checks li[data-status='warning'] {
+  border-left-color: var(--color-warning);
+}
+
+.jarvis-physics-checks li[data-status='blocking'] {
+  border-left-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.jarvis-physics-check-id {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  color: var(--color-text);
+}
+
+.jarvis-physics-check-detail {
+  line-height: var(--line-height-body);
+}

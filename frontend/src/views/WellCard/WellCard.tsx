@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useDataset } from '../../data';
 import { useI18n } from '../../i18n/I18nContext';
 import { useTimeline } from '../../state/TimelineContext';
+import { AskJarvis } from '../../ui/AskJarvis';
 import { ViewStatus } from '../../ui/ViewStatus';
 import { formatStepDate } from '../../ui/format';
 import { ConnectivityBlock } from './ConnectivityBlock';
@@ -43,6 +44,12 @@ export const WellCard = ({ well }: WellCardProps) => {
 
   return (
     <div className="wellcard" data-testid="wellcard">
+      <p className="wellcard-ask">
+        <AskJarvis
+          question={t('askJarvis.well', { well, step: stepIndex + 1 })}
+          testId={`ask-jarvis-well-${well}`}
+        />
+      </p>
       {step && steps && (
         <p className="wellcard-step">
           <span>

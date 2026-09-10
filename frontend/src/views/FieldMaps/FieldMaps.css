@@ -1,0 +1,108 @@
+.field-maps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  height: 100%;
+}
+
+.field-maps-canvas {
+  container-type: size;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+  max-height: calc(var(--size-plot-viewport) - var(--space-8) - var(--space-2));
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.field-maps-plot {
+  display: block;
+  width: min(100%, 100cqh);
+  max-width: 100%;
+  aspect-ratio: 1 / 1;
+  background: var(--color-map-nodata);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.field-maps-well {
+  cursor: pointer;
+}
+
+.field-maps-well[data-shut='true'] {
+  opacity: 0.72;
+}
+
+.field-maps-well-label {
+  fill: var(--color-map-well);
+  font-family: var(--font-family-mono);
+  font-size: inherit;
+  paint-order: stroke;
+  stroke: var(--color-surface-solid);
+  stroke-width: 0.25;
+  pointer-events: none;
+}
+
+.field-maps-readout {
+  position: absolute;
+  z-index: var(--z-sticky);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-solid);
+  pointer-events: auto;
+}
+
+.field-maps-readout-facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.field-maps-readout-fact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.field-maps-readout-fact dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.field-maps-readout-fact dd {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+}
+
+.field-maps-hint {
+  position: absolute;
+  top: var(--space-3);
+  left: 50%;
+  translate: -50% 0;
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-solid);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.field-maps-provenance {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}

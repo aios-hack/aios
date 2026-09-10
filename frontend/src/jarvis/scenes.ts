@@ -39,8 +39,7 @@ export interface ScenesState {
   seq: number;
 }
 
-export const MAX_ORBIT_CARDS = 6;
-export const MAX_SCENES = 12;
+export const MAX_ORBIT_CARDS = 8;
 
 export const emptyScenes: ScenesState = {
   scenes: [],
@@ -93,7 +92,7 @@ export const scenesReducer = (state: ScenesState, event: JarvisEvent): ScenesSta
       error: null,
       done: false
     };
-    const scenes = [...state.scenes, scene].slice(-MAX_SCENES);
+    const scenes = [...state.scenes, scene];
     return {
       ...state,
       scenes,

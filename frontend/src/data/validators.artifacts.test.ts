@@ -5,6 +5,8 @@ import {
   isAblationFile,
   isGraphFile,
   isHierarchyFile,
+  isHierarchyIndexFile,
+  isHierarchyStepFile,
   isMapLayerFile,
   isMapsIndexFile,
   isNpvFile,
@@ -48,7 +50,13 @@ describe('shipped artifacts', () => {
     ['maps/index.json', isMapsIndexFile],
     ['maps/PORO/12.json', isMapLayerFile],
     ['maps/PERMX/12.json', isMapLayerFile],
-    ['maps/FIP_ZONE/12.json', isMapLayerFile]
+    ['maps/FIP_ZONE/12.json', isMapLayerFile],
+    ['hierarchy-index.json', isHierarchyIndexFile],
+    ['base/hierarchy-index.json', isHierarchyIndexFile],
+    ['policy-plan/hierarchy-index.json', isHierarchyIndexFile],
+    ['whatif-injection-cut/hierarchy-index.json', isHierarchyIndexFile],
+    ['hierarchy/0.json', isHierarchyStepFile],
+    ['base/hierarchy/0.json', isHierarchyStepFile]
   ];
 
   it.each(cases)('accepts the shipped %s', (name, validate) => {
@@ -80,9 +88,15 @@ describe('shipped artifacts', () => {
 
   const MAP_LAYER = /^maps\/[A-Z_]+\/\d+\.json$/;
 
+  const HIERARCHY_STEP = /^(?:[a-z-]+\/)?hierarchy\/\d+\.json$/;
+
   it('runs every shipped artifact through a validator', () => {
     const missing = walk(root).filter(
-      (name) => !VALIDATED.has(name) && !UNVALIDATED.has(name) && !MAP_LAYER.test(name)
+      (name) =>
+        !VALIDATED.has(name) &&
+        !UNVALIDATED.has(name) &&
+        !MAP_LAYER.test(name) &&
+        !HIERARCHY_STEP.test(name)
     );
     expect(missing).toEqual([]);
   });
@@ -135,6 +149,7 @@ describe('shipped artifacts', () => {
       'bundles/whatif-injection-cut.json',
       'demo-script.json',
       'whatif-injection-cut/graph.json',
+      'whatif-injection-cut/hierarchy-index.json',
       'whatif-injection-cut/hierarchy.json',
       'whatif-injection-cut/npv.json',
       'whatif-injection-cut/timeline.json',

@@ -158,10 +158,10 @@ export const fetchCapabilities = async (
   const call = fetchImpl ?? fetch;
   try {
     const response = await call(HEALTH_URL, { method: 'GET' });
-    if (!response.ok) {
+    if (response.status >= 500 && response.status !== 503) {
       return OFFLINE;
     }
-    return readCapabilities(true, await response.json());
+    return readCapabilities(response.ok, await response.json());
   } catch {
     return OFFLINE;
   }

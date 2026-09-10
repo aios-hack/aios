@@ -1,5 +1,6 @@
 import { memo, type CSSProperties } from 'react';
 import type { Lang, Translate } from '../../i18n/I18nContext';
+import { AskJarvis } from '../../ui/AskJarvis';
 import { formatNumber, formatPercent } from '../../ui/format';
 import type { AblationEntry } from './ablation';
 
@@ -41,6 +42,11 @@ const AblationRowView = ({
       </th>
       <td className="abl-col-name">
         <span className="abl-rule-name">{name}</span>
+        <AskJarvis
+          question={t('askJarvis.rule', { rule: entry.rule, name })}
+          compact
+          testId={`ask-jarvis-rule-${entry.rule}`}
+        />
         {entry.state === 'disabled' && (
           <span className="abl-flag" data-on="false">
             {t('npv.ablation.flag.off')}

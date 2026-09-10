@@ -1,0 +1,96 @@
+.jarvis-board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.jarvis-board-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.jarvis-board-label {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}
+
+.jarvis-board-value {
+  margin: 0;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-md);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.jarvis-board-run,
+.jarvis-board-status,
+.jarvis-board-now,
+.jarvis-board-data {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.jarvis-board-run,
+.jarvis-board-data {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  overflow-wrap: anywhere;
+}
+
+.jarvis-board-missing {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-body);
+  color: var(--color-text-faint);
+}
+
+.jarvis-board-flags {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+  flex-wrap: wrap;
+}
+
+.jarvis-board-flags span {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.jarvis-board-flags span[data-on='false'] {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.jarvis-board-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jarvis-board-alerts li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.jarvis-board-alerts li[data-severity='high'] {
+  color: var(--color-error);
+}
+
+.jarvis-board-alert-well,
+.jarvis-board-alert-step {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  color: var(--color-text-faint);
+}

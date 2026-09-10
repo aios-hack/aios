@@ -11,6 +11,9 @@ import { History } from './History';
 const FieldProjection = lazy(() =>
   import('../views/FieldProjection').then((m) => ({ default: m.FieldProjection }))
 );
+const FieldMaps = lazy(() =>
+  import('../views/FieldMaps').then((m) => ({ default: m.FieldMaps }))
+);
 const Money = lazy(() => import('../views/Money').then((m) => ({ default: m.Money })));
 const Overview = lazy(() => import('../views/Overview').then((m) => ({ default: m.Overview })));
 
@@ -66,7 +69,7 @@ export const Scene = () => {
         {workspace === 'field' && (
           <ErrorBoundary>
             <Suspense fallback={<ViewStatus kind="loading" title={t('app.viewLoading')} />}>
-              <FieldProjection />
+              {view === 'maps' ? <FieldMaps /> : <FieldProjection />}
             </Suspense>
           </ErrorBoundary>
         )}

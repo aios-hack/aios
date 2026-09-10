@@ -4,6 +4,7 @@ import enCommon from './en/common.json';
 import enHistory from './en/history.json';
 import enInspector from './en/inspector.json';
 import enJarvis from './en/jarvis.json';
+import enMaps from './en/maps.json';
 import enNpv from './en/npv.json';
 import enOverview from './en/overview.json';
 import enPalette from './en/palette.json';
@@ -19,6 +20,7 @@ import ruCommon from './ru/common.json';
 import ruHistory from './ru/history.json';
 import ruInspector from './ru/inspector.json';
 import ruJarvis from './ru/jarvis.json';
+import ruMaps from './ru/maps.json';
 import ruNpv from './ru/npv.json';
 import ruOverview from './ru/overview.json';
 import ruPalette from './ru/palette.json';
@@ -66,6 +68,7 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     trust: ruTrust,
     wall: ruWall,
     inspector: ruInspector,
+    maps: ruMaps,
     jarvis: ruJarvis
   }),
   en: buildDictionary(enCommon, {
@@ -82,6 +85,7 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     trust: enTrust,
     wall: enWall,
     inspector: enInspector,
+    maps: enMaps,
     jarvis: enJarvis
   })
 };

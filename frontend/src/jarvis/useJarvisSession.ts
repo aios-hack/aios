@@ -6,17 +6,29 @@ import {
   selectSceneAt,
   type ScenesState
 } from './scenes';
-import { QUESTION_LIMIT, sessionIdOf, type JarvisTransport } from './transport/JarvisTransport';
+import {
+  fetchSessionEvents,
+  rememberSessionId,
+  replayEvents,
+  storedSessionId
+} from './sessions';
+import { QUESTION_LIMIT, type JarvisTransport } from './transport/JarvisTransport';
 import type { JarvisAskContext, JarvisEvent } from './transport/events';
 
 export interface JarvisSession {
   scenes: ScenesState;
+  sessionId: string;
   askQuestion: (question: string) => void;
   pushEvents: (events: readonly JarvisEvent[]) => void;
+  loadSession: (id: string) => void;
+  startSession: () => void;
   cancel: () => void;
   selectScene: (index: number) => void;
   busy: boolean;
 }
+
+const localStore = (): Storage | null =>
+  typeof localStorage === 'undefined' ? null : localStorage;
 
 export const useJarvisSession = (
   transport: JarvisTransport,
@@ -26,9 +38,9 @@ export const useJarvisSession = (
   const [scenes, setScenes] = useState<ScenesState>(emptyScenes);
   const [busy, setBusy] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-  const sessionId = useRef(
-    sessionIdOf(typeof sessionStorage === 'undefined' ? null : sessionStorage)
-  );
+  const [sessionId, setSessionId] = useState(() => storedSessionId(localStore()));
+  const current = useRef(sessionId);
+  current.current = sessionId;
 
   const cancel = useCallback(() => {
     abortRef.current?.abort();
@@ -37,21 +49,43 @@ export const useJarvisSession = (
   }, []);
 
   const selectScene = useCallback(
-    (index: number) => setScenes((current) => selectSceneAt(current, index)),
+    (index: number) => setScenes((state) => selectSceneAt(state, index)),
     []
   );
 
-  const pushEvents = useCallback(
-    (events: readonly JarvisEvent[]) => {
+  const pushEvents = useCallback((events: readonly JarvisEvent[]) => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setBusy(false);
+    setScenes((state) => events.reduce((next, event) => scenesReducer(next, event), state));
+  }, []);
+
+  const loadSession = useCallback(
+    (id: string) => {
       abortRef.current?.abort();
       abortRef.current = null;
       setBusy(false);
-      setScenes((current) =>
-        events.reduce((state, event) => scenesReducer(state, event), current)
-      );
+      setSessionId(id);
+      rememberSessionId(localStore(), id);
+      void fetchSessionEvents(id).then((events) => {
+        if (current.current !== id) {
+          return;
+        }
+        setScenes(replayEvents(events));
+      });
     },
     []
   );
+
+  const startSession = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setBusy(false);
+    const next = storedSessionId(null);
+    setSessionId(next);
+    rememberSessionId(localStore(), next);
+    setScenes(emptyScenes);
+  }, []);
 
   const askQuestion = useCallback(
     (question: string) => {
@@ -64,8 +98,8 @@ export const useJarvisSession = (
       abortRef.current = controller;
       setBusy(true);
       const pending = `pending-${Date.now()}`;
-      setScenes((current) =>
-        scenesReducer(current, {
+      setScenes((state) =>
+        scenesReducer(state, {
           type: 'scene',
           scene_id: pending,
           question: text,
@@ -75,22 +109,22 @@ export const useJarvisSession = (
       const run = async () => {
         try {
           for await (const event of transport.ask(
-            { sessionId: sessionId.current, question: text, lang, context: askContext },
+            { sessionId: current.current, question: text, lang, context: askContext },
             controller.signal
           )) {
             if (controller.signal.aborted) {
               return;
             }
             if (event.type === 'scene') {
-              setScenes((current) => adoptScene(current, pending, event));
+              setScenes((state) => adoptScene(state, pending, event));
               continue;
             }
-            setScenes((current) => scenesReducer(current, event));
+            setScenes((state) => scenesReducer(state, event));
           }
         } catch {
           if (!controller.signal.aborted) {
-            setScenes((current) =>
-              scenesReducer(current, {
+            setScenes((state) =>
+              scenesReducer(state, {
                 type: 'error',
                 code: 'upstream',
                 message: 'transport threw'
@@ -110,7 +144,27 @@ export const useJarvisSession = (
   );
 
   return useMemo(
-    () => ({ scenes, askQuestion, pushEvents, cancel, selectScene, busy }),
-    [scenes, askQuestion, pushEvents, cancel, selectScene, busy]
+    () => ({
+      scenes,
+      sessionId,
+      askQuestion,
+      pushEvents,
+      loadSession,
+      startSession,
+      cancel,
+      selectScene,
+      busy
+    }),
+    [
+      scenes,
+      sessionId,
+      askQuestion,
+      pushEvents,
+      loadSession,
+      startSession,
+      cancel,
+      selectScene,
+      busy
+    ]
   );
 };

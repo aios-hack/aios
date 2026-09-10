@@ -1,0 +1,79 @@
+.runs-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.run-list {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-xs);
+}
+
+.run-list-caption {
+  margin-bottom: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  text-align: start;
+}
+
+.run-list th,
+.run-list td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+  text-align: start;
+  vertical-align: baseline;
+}
+
+.run-list thead th {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+  white-space: nowrap;
+}
+
+.run-list td.numeric,
+.run-list th.numeric {
+  font-family: var(--font-family-mono);
+  text-align: end;
+}
+
+.run-list tbody tr[data-selected='true'] {
+  background: var(--color-surface-sunken);
+}
+
+.run-list-id {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font-family: var(--font-family-mono);
+  font-size: inherit;
+  cursor: pointer;
+}
+
+.run-list-id:hover {
+  text-decoration: underline;
+}
+
+.run-list-champion {
+  margin-inline-start: var(--space-2);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-ok-bg);
+  color: var(--color-submitted);
+  font-size: var(--font-size-xs);
+}
+
+.run-compare {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.run-compare-conditions,
+.run-compare-missing {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}

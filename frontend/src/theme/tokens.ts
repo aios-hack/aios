@@ -35,3 +35,25 @@ export const wallMarkColors = {
   idle: 'var(--color-unknown)',
   cursor: 'var(--color-accent)'
 } as const;
+
+export const mapSequential = [
+  'var(--color-map-seq-0)',
+  'var(--color-map-seq-1)',
+  'var(--color-map-seq-2)',
+  'var(--color-map-seq-3)',
+  'var(--color-map-seq-4)',
+  'var(--color-map-seq-5)',
+  'var(--color-map-seq-6)'
+] as const;
+
+export const mapCategorical = [
+  'var(--color-map-cat-1)',
+  'var(--color-map-cat-2)',
+  'var(--color-map-cat-3)',
+  'var(--color-map-cat-4)',
+  'var(--color-map-cat-5)',
+  'var(--color-map-cat-6)'
+] as const;
+
+export const mapCategoryColor = (index: number): string =>
+  mapCategorical[((index % mapCategorical.length) + mapCategorical.length) % mapCategorical.length];

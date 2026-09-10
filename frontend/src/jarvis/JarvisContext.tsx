@@ -2,10 +2,8 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useReducer,
-  useRef,
   useState,
   type ReactNode
 } from 'react';
@@ -15,50 +13,32 @@ import { usePlayback } from '../state/PlaybackContext';
 import { useScenario } from '../state/ScenarioContext';
 import { useTimeline } from '../state/TimelineContext';
 import { useConsoleActions } from './actions/useConsoleActions';
-import type { ConsoleAction } from './actions/consoleAction';
 import type { SphereState } from './sphere/sphereState';
 import type { JarvisTransport } from './transport/JarvisTransport';
 import type { JarvisAskContext } from './transport/events';
-import { createTransport, type TransportMode } from './transport/createTransport';
-import type { JarvisCapabilities } from './transport/sseTransport';
+import { createTransport } from './transport/createTransport';
 import { useJarvisHealth } from './useJarvisHealth';
 import { useJarvisHistory } from './useJarvisHistory';
 import { useJarvisHotkey } from './useJarvisHotkey';
-import { useJarvisSession, type JarvisSession } from './useJarvisSession';
+import { useJarvisSession } from './useJarvisSession';
+import { useJarvisBriefing } from './useJarvisBriefing';
+import { useTransitionEffects } from './useTransitionEffects';
+import type { JarvisContextValue } from './jarvisValue';
+import {
+  CONFIRM_KEY,
+  EMPTY_TRANSCRIPT,
+  SPEAK_KEY,
+  readFlag,
+  writeFlag,
+  type Transcript
+} from './prefs';
 import {
   CLOSED,
-  PHASE_GRACE_MS,
   isMoving,
   isVisible,
-  phaseDurationMs,
   transitionReducer,
-  type TransitionPhase,
-  type TransitionState
+  type TransitionPhase
 } from './transition';
-
-interface JarvisContextValue extends JarvisSession {
-  transition: TransitionState;
-  visible: boolean;
-  moving: boolean;
-  open: () => void;
-  close: () => void;
-  settle: (phase: TransitionPhase) => void;
-  crossfade: boolean;
-  requestCrossfade: () => void;
-  sphereState: SphereState;
-  setHovering: (hovering: boolean) => void;
-  audioLevel: number;
-  setAudioLevel: (level: number) => void;
-  micOpen: boolean;
-  setMicOpen: (open: boolean) => void;
-  askContext: JarvisAskContext;
-  transportMode: TransportMode;
-  capabilities: JarvisCapabilities;
-  retry: () => void;
-  speakEnabled: boolean;
-  toggleSpeak: () => void;
-  applyAction: (action: ConsoleAction) => void;
-}
 
 const JarvisContext = createContext<JarvisContextValue | null>(null);
 
@@ -83,9 +63,12 @@ export const JarvisProvider = ({
   const [hovering, setHovering] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [micOpen, setMicOpen] = useState(false);
+  const [transcript, setTranscript] = useState<Transcript>(EMPTY_TRANSCRIPT);
+  const [sttError, setSttError] = useState<string | null>(null);
+  const [confirmVoice, setConfirmVoice] = useState(() => readFlag(CONFIRM_KEY, false));
+  const [voiceAsked, setVoiceAsked] = useState(false);
   const [crossfade, setCrossfade] = useState(readReducedMotion);
-  const [speakEnabled, setSpeakEnabled] = useState(false);
-  const resumeRef = useRef(false);
+  const [speakEnabled, setSpeakEnabled] = useState(() => readFlag(SPEAK_KEY, false));
 
   const active = useMemo(() => transport ?? createTransport(), [transport]);
 
@@ -104,7 +87,8 @@ export const JarvisProvider = ({
   );
 
   const session = useJarvisSession(active, lang, askContext);
-  const { cancel } = session;
+  const { cancel, pushEvents, sessionId } = session;
+  const sceneCount = session.scenes.scenes.length;
 
   const open = useCallback(() => dispatchTransition({ kind: 'open' }), []);
   const close = useCallback(() => dispatchTransition({ kind: 'close' }), []);
@@ -121,38 +105,17 @@ export const JarvisProvider = ({
   useJarvisHistory(transition, onPop);
   useJarvisHotkey(transition.phase === 'closed', open);
 
-  useEffect(() => {
-    if (!isMoving(transition)) {
-      return;
-    }
-    const id = window.setTimeout(
-      () => settle(transition.phase),
-      phaseDurationMs(transition.phase) + PHASE_GRACE_MS
-    );
-    return () => window.clearTimeout(id);
-  }, [transition, settle]);
+  useTransitionEffects({ transition, settle, playing, togglePlay, cancel });
 
-  useEffect(() => {
-    if (transition.phase !== 'shrinking' || transition.direction !== 'opening' || !playing) {
-      return;
-    }
-    resumeRef.current = true;
-    togglePlay();
-  }, [transition, playing, togglePlay]);
-
-  useEffect(() => {
-    if (transition.phase !== 'closed' || !resumeRef.current) {
-      return;
-    }
-    resumeRef.current = false;
-    togglePlay();
-  }, [transition.phase, togglePlay]);
-
-  useEffect(() => {
-    if (!isVisible(transition)) {
-      cancel();
-    }
-  }, [transition, cancel]);
+  useJarvisBriefing({
+    open: transition.phase === 'open',
+    sessionId,
+    sceneCount,
+    lang,
+    scenario: askContext.scenario,
+    step: askContext.step,
+    pushEvents
+  });
 
   const current = session.scenes.scenes[session.scenes.activeIndex];
   const sceneError = current?.error ?? null;
@@ -184,7 +147,24 @@ export const JarvisProvider = ({
     return hovering ? 'hover' : 'idle';
   }, [sceneError, status, micOpen, hovering]);
 
-  const toggleSpeak = useCallback(() => setSpeakEnabled((value) => !value), []);
+  const toggleSpeak = useCallback(
+    () =>
+      setSpeakEnabled((value) => {
+        writeFlag(SPEAK_KEY, !value);
+        return !value;
+      }),
+    []
+  );
+  const toggleConfirmVoice = useCallback(
+    () =>
+      setConfirmVoice((value) => {
+        writeFlag(CONFIRM_KEY, !value);
+        return !value;
+      }),
+    []
+  );
+  const noteVoiceAsked = useCallback(() => setVoiceAsked(true), []);
+  const clearVoiceAsked = useCallback(() => setVoiceAsked(false), []);
   const applyAction = useConsoleActions();
 
   const value = useMemo<JarvisContextValue>(
@@ -204,6 +184,15 @@ export const JarvisProvider = ({
       setAudioLevel,
       micOpen,
       setMicOpen,
+      transcript,
+      setTranscript,
+      sttError,
+      setSttError,
+      confirmVoice,
+      toggleConfirmVoice,
+      voiceAsked,
+      noteVoiceAsked,
+      clearVoiceAsked,
       askContext,
       transportMode: active.mode,
       capabilities,
@@ -223,6 +212,13 @@ export const JarvisProvider = ({
       sphereState,
       audioLevel,
       micOpen,
+      transcript,
+      sttError,
+      confirmVoice,
+      toggleConfirmVoice,
+      voiceAsked,
+      noteVoiceAsked,
+      clearVoiceAsked,
       askContext,
       active.mode,
       capabilities,

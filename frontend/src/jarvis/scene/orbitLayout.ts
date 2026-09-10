@@ -6,10 +6,15 @@ export interface OrbitSeat {
 }
 
 export const SEAT_ANGLES_DEG: readonly number[] = [
-  -16, 196, 16, 164, -55, 235
+  -26, 206, 4, 176, -70, 250, 34, 146
 ];
 
 export const RADIUS_SQUEEZE_Y = 1.2;
+export const DENSE_FROM = 7;
+export const DENSE_SQUEEZE_Y = 0.8;
+
+export const squeezeFor = (count: number): number =>
+  count >= DENSE_FROM ? DENSE_SQUEEZE_Y : RADIUS_SQUEEZE_Y;
 
 export const seatAngle = (index: number): number =>
   SEAT_ANGLES_DEG[index % SEAT_ANGLES_DEG.length];
@@ -20,13 +25,14 @@ export const orbitSeats = (
   staggerMs: number
 ): OrbitSeat[] => {
   const seats: OrbitSeat[] = [];
+  const squeeze = squeezeFor(count);
   for (let index = 0; index < count; index += 1) {
     const angleDeg = seatAngle(index);
     const radians = (angleDeg * Math.PI) / 180;
     seats.push({
       angleDeg,
       x: Math.cos(radians) * radius,
-      y: Math.sin(radians) * radius * RADIUS_SQUEEZE_Y,
+      y: Math.sin(radians) * radius * squeeze,
       delayMs: index * staggerMs
     });
   }

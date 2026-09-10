@@ -12,8 +12,12 @@ export {
 export { useDataset, useScenarioDataset } from './useDataset';
 export {
   isAblationFile,
+  isComparisonFile,
+  isRunsResponse,
   isGraphFile,
   isHierarchyFile,
+  isHierarchyIndexFile,
+  isHierarchyStepFile,
   isMapLayerFile,
   isMapsIndexFile,
   isNpvFile,
@@ -24,3 +28,5 @@ export {
 } from './validators';
 export { actualRate, isCommissioned } from './wellRow';
 export { mapLayerUrl, useMapLayer } from './useMapLayer';
+export { comparisonUrl, RUNS_URL, useComparison, useRuns } from './useRuns';
+export { hierarchyStepFile, useHierarchyStep } from './useHierarchyStep';

@@ -124,7 +124,9 @@ export const useSphereRenderer = (
         stepBolts(bolts, current.state, audioLevel, now);
       }
       const breath = still ? 0.5 : breathOfPhase(phase.breath);
-      canvas.style.setProperty(BREATH_VAR, breath.toFixed(4));
+      const written = breath.toFixed(3);
+      canvas.style.setProperty(BREATH_VAR, written);
+      document.documentElement.style.setProperty(BREATH_VAR, written);
       resize();
       gl.useProgram(program);
       gl.bindVertexArray(vao);

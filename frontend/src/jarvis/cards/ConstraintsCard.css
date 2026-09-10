@@ -1,0 +1,75 @@
+.jarvis-constraints {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.jarvis-constraints-case {
+  margin: 0;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  color: var(--color-text-muted);
+}
+
+.jarvis-constraints-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.jarvis-constraints-group-name {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}
+
+.jarvis-constraints-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.jarvis-constraints-list > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.jarvis-constraints-list > div[data-empty='true'] {
+  opacity: 0.55;
+}
+
+.jarvis-constraints-list dt {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.jarvis-constraints-list dd {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  flex: none;
+}
+
+.jarvis-constraints-value {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.jarvis-constraints-unit,
+.jarvis-constraints-source {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}
+
+.jarvis-constraints-total {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}

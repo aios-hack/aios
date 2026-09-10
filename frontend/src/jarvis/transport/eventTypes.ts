@@ -13,7 +13,15 @@ export const CARD_TYPES = [
   'pattern',
   'error',
   'glossary',
-  'guide'
+  'guide',
+  'doc',
+  'system-map',
+  'status-board',
+  'run-list',
+  'run',
+  'constraints',
+  'council',
+  'physics'
 ] as const;
 
 export type CardType = (typeof CARD_TYPES)[number];

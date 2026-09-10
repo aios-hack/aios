@@ -1,6 +1,4 @@
 import type {
-  ComparePayload,
-  CompareSide,
   ErrorPayload,
   EventStripPayload,
   FieldMapPayload,
@@ -118,38 +116,6 @@ export const readSeries = (payload: unknown): SeriesPayload | null => {
   };
 };
 
-const compareSide = (value: unknown): CompareSide | null => {
-  if (!isRecord(value) || !isStr(value.id)) {
-    return null;
-  }
-  return {
-    id: value.id,
-    npv: numOrNull(value.npv),
-    status: isStr(value.status) ? value.status : '',
-    constraints: isNum(value.constraints) ? value.constraints : 0
-  };
-};
-
-export const readCompare = (payload: unknown): ComparePayload | null => {
-  if (!isRecord(payload)) {
-    return null;
-  }
-  const a = compareSide(payload.a);
-  const b = compareSide(payload.b);
-  if (a === null || b === null || !isNum(payload.delta_npv)) {
-    return null;
-  }
-  return {
-    a,
-    b,
-    delta_npv: payload.delta_npv,
-    top_diff_wells: list(payload.top_diff_wells)
-      .filter((row): row is Record<string, unknown> => isRecord(row) && isStr(row.well))
-      .filter((row) => isNum(row.delta))
-      .map((row) => ({ well: row.well as string, delta: row.delta as number }))
-  };
-};
-
 export const readEventStrip = (payload: unknown): EventStripPayload | null => {
   if (!isRecord(payload)) {
     return null;
@@ -219,5 +185,8 @@ export const readError = (payload: unknown): ErrorPayload => {
 };
 
 export * from './knowledgePayloads';
+export * from './systemPayloads';
+export * from './runPayloads';
+export * from './comparePayloads';
 export * from './rulePayloads';
 export type * from './payloadTypes';

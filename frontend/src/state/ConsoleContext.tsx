@@ -13,7 +13,7 @@ export type Workspace = (typeof WORKSPACES)[number];
 
 export const WORKSPACE_VIEWS = {
   overview: ['fund'],
-  field: ['projection'],
+  field: ['projection', 'maps'],
   history: ['matrix', 'wall', 'table'],
   decisions: ['council', 'rules'],
   money: ['rank', 'comparison', 'constraints']

@@ -3,9 +3,24 @@ import { DASH, formatStepDate } from '../../ui/format';
 import { useJarvis } from '../JarvisContext';
 import './ContextRibbon.css';
 
-export const ContextRibbon = () => {
+interface ContextRibbonProps {
+  speaking: boolean;
+  onStop: () => void;
+  onReadAll: () => void;
+}
+
+export const ContextRibbon = ({ speaking, onStop, onReadAll }: ContextRibbonProps) => {
   const { lang, t, toggleLang } = useI18n();
-  const { askContext, capabilities, speakEnabled, toggleSpeak } = useJarvis();
+  const {
+    askContext,
+    capabilities,
+    speakEnabled,
+    toggleSpeak,
+    confirmVoice,
+    toggleConfirmVoice,
+    scenes
+  } = useJarvis();
+  const answer = scenes.scenes[scenes.activeIndex]?.answer ?? null;
 
   return (
     <header className="jarvis-ribbon" aria-label={t('jarvis.contextLabel')}>
@@ -45,6 +60,25 @@ export const ContextRibbon = () => {
         ) : null}
       </ul>
       <div className="jarvis-ribbon-controls">
+        {speaking ? (
+          <button type="button" className="jarvis-ribbon-button" onClick={onStop}>
+            {t('jarvis.speakStop')}
+          </button>
+        ) : null}
+        {answer === null || answer.trim().length === 0 ? null : (
+          <button type="button" className="jarvis-ribbon-button" onClick={onReadAll}>
+            {t('jarvis.speakAnswer')}
+          </button>
+        )}
+        <button
+          type="button"
+          className="jarvis-ribbon-button"
+          aria-pressed={confirmVoice}
+          title={t('jarvis.voiceModeHint')}
+          onClick={toggleConfirmVoice}
+        >
+          {confirmVoice ? t('jarvis.voiceConfirm') : t('jarvis.voiceInstant')}
+        </button>
         <button
           type="button"
           className="jarvis-ribbon-button"

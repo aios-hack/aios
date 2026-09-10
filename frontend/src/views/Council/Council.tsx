@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { HierarchyFile } from '../../api/types';
-import { useDataset } from '../../data';
+import type { HierarchyIndexFile, HierarchyStep } from '../../api/types';
+import { useDataset, useHierarchyStep } from '../../data';
 import { useI18n } from '../../i18n/I18nContext';
 import { useTimeline } from '../../state/TimelineContext';
 import { ViewStatus } from '../../ui/ViewStatus';
@@ -12,20 +12,23 @@ import {
   groupOrder,
   hasUngrouped,
   pathOf,
-  stepFor,
   ungroupedAllocations,
   wellsOf
 } from './levels';
 import { WellLevel } from './WellLevel';
 import './Council.css';
 
-const CouncilReady = ({ data }: { data: HierarchyFile }) => {
+interface ReadyProps {
+  data: HierarchyIndexFile;
+  step: HierarchyStep | null;
+}
+
+const CouncilReady = ({ data, step }: ReadyProps) => {
   const { t } = useI18n();
   const { stepIndex, selectedWell, selectWell } = useTimeline();
   const [openGroup, setOpenGroup] = useState<string | null>(data.groups[0] ?? null);
 
   const order = useMemo(() => groupOrder(data), [data]);
-  const step = useMemo(() => stepFor(data, stepIndex), [data, stepIndex]);
   const segments = useMemo(
     () => (step === null ? [] : fieldSegments(step, order)),
     [step, order]
@@ -63,7 +66,7 @@ const CouncilReady = ({ data }: { data: HierarchyFile }) => {
       <ViewStatus
         kind="error"
         title={t('council.desync')}
-        hint={t('council.desyncHint', { step: stepIndex + 1, total: data.steps.length })}
+        hint={t('council.desyncHint', { step: stepIndex + 1, total: data.step_count })}
       />
     );
   }
@@ -107,19 +110,32 @@ const CouncilReady = ({ data }: { data: HierarchyFile }) => {
 
 export const Council = () => {
   const { t } = useI18n();
-  const hierarchy = useDataset('hierarchy');
+  const { stepIndex } = useTimeline();
+  const index = useDataset('hierarchy-index');
+  const template = index.status === 'ready' ? index.data.step_path : null;
+  const bounded =
+    index.status === 'ready' && stepIndex < index.data.step_count ? stepIndex : null;
+  const step = useHierarchyStep(template, bounded);
 
-  if (hierarchy.status === 'loading') {
+  if (index.status === 'loading') {
     return <ViewStatus kind="loading" title={t('council.loading')} />;
   }
-  if (hierarchy.status === 'error') {
+  if (index.status === 'error') {
     return (
       <ViewStatus kind="error" title={t('council.error')} hint={t('council.errorHint')} />
     );
   }
-  if (hierarchy.data.steps.length === 0) {
+  if (index.data.step_count === 0) {
     return <ViewStatus kind="empty" title={t('council.empty')} hint={t('council.emptyHint')} />;
   }
+  if (bounded !== null && step.status === 'loading') {
+    return <ViewStatus kind="loading" title={t('council.loading')} />;
+  }
 
-  return <CouncilReady data={hierarchy.data} />;
+  return (
+    <CouncilReady
+      data={index.data}
+      step={step.status === 'ready' ? step.data : null}
+    />
+  );
 };

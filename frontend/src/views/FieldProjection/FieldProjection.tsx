@@ -17,6 +17,8 @@ import { ProjectionControls, type ProjectionPole } from './ProjectionControls';
 import { usePlotGestures, useProjectionTravel } from './useProjection';
 import './FieldProjection.css';
 
+const TOOLTIP_GRACE_MS = 220;
+
 interface ReadyProps {
   wells: WellsFile;
   graph: GraphFile;
@@ -24,13 +26,31 @@ interface ReadyProps {
 
 const FieldProjectionReady = ({ wells, graph }: ReadyProps) => {
   const t = useT();
-  const { selectedWell, selectWell } = useTimeline();
+  const { selectedWell, selectWell, stepIndex } = useTimeline();
   const morphRequest = useMorphRequest();
   const [pole, setPole] = useState<ProjectionPole>('graph');
   const [threshold, setThreshold] = useState<number | null>(null);
   const [layerFilter, setLayerFilter] = useState<LayerFilter>('all');
   const [showGroups, setShowGroups] = useState(false);
   const [hover, setHover] = useState<NodeHover | null>(null);
+  const hoverTimer = useRef<number | null>(null);
+  const holdHover = useCallback((next: NodeHover | null) => {
+    if (hoverTimer.current !== null) {
+      clearTimeout(hoverTimer.current);
+      hoverTimer.current = null;
+    }
+    if (next !== null) {
+      setHover(next);
+      return;
+    }
+    hoverTimer.current = window.setTimeout(() => setHover(null), TOOLTIP_GRACE_MS);
+  }, []);
+  const keepHover = useCallback(() => {
+    if (hoverTimer.current !== null) {
+      clearTimeout(hoverTimer.current);
+      hoverTimer.current = null;
+    }
+  }, []);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [canvasBox, setCanvasBox] = useState({ width: 0, height: 0 });
   const { t: blend, travelTo } = useProjectionTravel(1);
@@ -173,11 +193,18 @@ const FieldProjectionReady = ({ wells, graph }: ReadyProps) => {
             isDimmed={isDimmed}
             showGroups={showGroups}
             onSelectWell={onSelectWell}
-            onHoverWell={setHover}
+            onHoverWell={holdHover}
           />
         </svg>
         {hover !== null && (
-          <NodeTooltip hover={hover} box={canvasBox} row={rowOf(hover.well)} />
+          <div onPointerEnter={keepHover} onPointerLeave={() => holdHover(null)}>
+            <NodeTooltip
+              hover={hover}
+              box={canvasBox}
+              row={rowOf(hover.well)}
+              step={stepIndex + 1}
+            />
+          </div>
         )}
       </div>
     </section>

@@ -94,6 +94,24 @@
   --color-synthetic-bg: #f7efdc;
   --color-synthetic-border: rgba(195, 113, 19, 0.42);
 
+  --color-map-seq-0: #40257a;
+  --color-map-seq-1: #3f4aa1;
+  --color-map-seq-2: #2d74ac;
+  --color-map-seq-3: #1f96a4;
+  --color-map-seq-4: #34ad82;
+  --color-map-seq-5: #86c256;
+  --color-map-seq-6: #d9c62f;
+  --color-map-cat-1: #1f6fd0;
+  --color-map-cat-2: #cc5526;
+  --color-map-cat-3: #12855a;
+  --color-map-cat-4: #8b4fc4;
+  --color-map-cat-5: #9a7b0c;
+  --color-map-cat-6: #c8358a;
+  --color-map-nodata: rgba(26, 32, 40, 0.05);
+  --color-map-grid: rgba(26, 32, 40, 0.16);
+  --color-map-well: #1a2028;
+  --color-map-well-shut: rgba(26, 32, 40, 0.45);
+
   --color-jarvis-body: #1c80e3;
   --color-jarvis-pulse: #ffffff;
   --color-jarvis-deep: #0b3d6e;
@@ -210,6 +228,9 @@
   --size-sphere-nav: calc(var(--size-nav) - 2 * var(--space-5));
   --size-sphere-stage: clamp(180px, 22vh, 280px);
   --size-orbit-radius: clamp(260px, 30vw, 420px);
+  --size-orbit-radius-dense: clamp(240px, 26vw, 370px);
+  --size-jarvis-card-dense: 232px;
+  --size-jarvis-card-max-h-dense: 144px;
   --size-jarvis-card: 280px;
   --size-jarvis-card-max-h: 240px;
   --size-jarvis-card-max-h-wide: 70vh;
@@ -219,6 +240,14 @@
   --size-jarvis-door-row: 48px;
   --size-jarvis-answer-max: 720px;
   --size-jarvis-answer-max-h: 40vh;
+  --size-jarvis-bead: 26px;
+  --size-jarvis-bead-pitch: 88px;
+  --size-jarvis-bead-row: 62px;
+  --size-jarvis-bead-preview: 240px;
+  --size-jarvis-sessions-max: 200px;
+  --size-jarvis-node: 92px;
+  --size-jarvis-map-h: 220px;
+  --size-jarvis-transcript-max: 520px;
   --size-cube-half: 50vw;
   --size-sphere-say-min: 72px;
   --size-spotlight-ring: 6px;

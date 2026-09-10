@@ -1,0 +1,38 @@
+.ask-jarvis {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color var(--duration-state) var(--ease-out),
+    color var(--duration-state) var(--ease-out);
+}
+
+.ask-jarvis:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.ask-jarvis:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.ask-jarvis[data-compact='true'] {
+  padding: 0 var(--space-1);
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-jarvis {
+    transition: none;
+  }
+}

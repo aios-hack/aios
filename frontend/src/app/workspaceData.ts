@@ -5,7 +5,7 @@ export const WORKSPACE_DATASETS: Record<Workspace, readonly DatasetName[]> = {
   overview: ['timeline', 'npv'],
   field: ['wells', 'graph', 'timeline'],
   history: ['timeline', 'npv', 'graph'],
-  decisions: ['hierarchy', 'ablation', 'trace'],
+  decisions: ['hierarchy-index', 'ablation', 'trace'],
   money: ['npv', 'scenarios', 'timeline', 'ablation']
 };
 

@@ -7,11 +7,24 @@ import './InputDock.css';
 interface InputDockProps {
   onAsk: (question: string) => void;
   focusSignal: number;
+  history: readonly string[];
 }
 
-export const InputDock = ({ onAsk, focusSignal }: InputDockProps) => {
+export const recallAt = (
+  history: readonly string[],
+  cursor: number
+): { text: string; cursor: number } => {
+  if (history.length === 0) {
+    return { text: '', cursor: -1 };
+  }
+  const next = Math.min(cursor + 1, history.length - 1);
+  return { text: history[history.length - 1 - next], cursor: next };
+};
+
+export const InputDock = ({ onAsk, focusSignal, history }: InputDockProps) => {
   const t = useT();
   const [text, setText] = useState('');
+  const [cursor, setCursor] = useState(-1);
   const ref = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -27,12 +40,30 @@ export const InputDock = ({ onAsk, focusSignal }: InputDockProps) => {
     }
     onAsk(trimmed);
     setText('');
+    setCursor(-1);
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       submit();
+      return;
+    }
+    if (event.key === 'ArrowUp' && (text.length === 0 || cursor >= 0)) {
+      const recalled = recallAt(history, cursor);
+      if (recalled.cursor < 0) {
+        return;
+      }
+      event.preventDefault();
+      setText(recalled.text);
+      setCursor(recalled.cursor);
+      return;
+    }
+    if (event.key === 'ArrowDown' && cursor >= 0) {
+      event.preventDefault();
+      const next = cursor - 1;
+      setCursor(next);
+      setText(next < 0 ? '' : history[history.length - 1 - next]);
     }
   };
 
@@ -52,7 +83,10 @@ export const InputDock = ({ onAsk, focusSignal }: InputDockProps) => {
         placeholder={t('jarvis.inputPlaceholder')}
         maxLength={QUESTION_LIMIT}
         value={text}
-        onChange={(event) => setText(event.target.value.slice(0, QUESTION_LIMIT))}
+        onChange={(event) => {
+          setText(event.target.value.slice(0, QUESTION_LIMIT));
+          setCursor(-1);
+        }}
         onKeyDown={onKeyDown}
       />
       <span className="jarvis-dock-count" aria-hidden="true">

@@ -108,3 +108,62 @@
 .jarvis-compare-well-list li[data-sign='down'] .jarvis-compare-well-delta {
   color: var(--color-error);
 }
+
+.jarvis-compare-status {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.jarvis-compare-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jarvis-compare-flags li {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.jarvis-compare-flags li[data-on='false'] {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.jarvis-compare-ood {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-faint);
+}
+
+.jarvis-compare-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jarvis-compare-groups li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.jarvis-compare-reason {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-body);
+  color: var(--color-text-faint);
+}

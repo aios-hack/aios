@@ -13,6 +13,7 @@
   "view.label": "Вид пространства",
   "view.fund": "Фонд",
   "view.projection": "Проекция",
+  "view.maps": "Карты",
   "view.matrix": "Матрица",
   "view.wall": "Миниатюры",
   "view.table": "Таблица",
@@ -38,5 +39,10 @@
   "playback.settings": "Настройки воспроизведения",
   "playback.speed": "Скорость",
   "playback.speedValue": "{value}×",
-  "playback.showDate": "Показывать месяц"
+  "playback.showDate": "Показывать месяц",
+  "askJarvis.label": "Спросить Джарвиса",
+  "askJarvis.well": "Что происходит со скважиной {well} на шаге {step} и почему совет решил именно так?",
+  "askJarvis.rule": "Что делает правило {rule} ({name}) и сколько денег оно принесло?",
+  "askJarvis.run": "Расскажи про прогон {run}: чем он кончился и чем отличается от чемпиона?",
+  "askJarvis.cell": "Что означает {prop} в ячейке {i}, {j} на слое {k}?"
 }

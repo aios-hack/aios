@@ -1,0 +1,41 @@
+import type { ConsoleAction } from './actions/consoleAction';
+import type { Transcript } from './prefs';
+import type { SphereState } from './sphere/sphereState';
+import type { TransportMode } from './transport/createTransport';
+import type { JarvisAskContext } from './transport/events';
+import type { JarvisCapabilities } from './transport/sseTransport';
+import type { TransitionPhase, TransitionState } from './transition';
+import type { JarvisSession } from './useJarvisSession';
+
+export interface JarvisContextValue extends JarvisSession {
+  transition: TransitionState;
+  visible: boolean;
+  moving: boolean;
+  open: () => void;
+  close: () => void;
+  settle: (phase: TransitionPhase) => void;
+  crossfade: boolean;
+  requestCrossfade: () => void;
+  sphereState: SphereState;
+  setHovering: (hovering: boolean) => void;
+  audioLevel: number;
+  setAudioLevel: (level: number) => void;
+  micOpen: boolean;
+  setMicOpen: (open: boolean) => void;
+  transcript: Transcript;
+  setTranscript: (value: Transcript) => void;
+  sttError: string | null;
+  setSttError: (code: string | null) => void;
+  confirmVoice: boolean;
+  toggleConfirmVoice: () => void;
+  voiceAsked: boolean;
+  noteVoiceAsked: () => void;
+  clearVoiceAsked: () => void;
+  askContext: JarvisAskContext;
+  transportMode: TransportMode;
+  capabilities: JarvisCapabilities;
+  retry: () => void;
+  speakEnabled: boolean;
+  toggleSpeak: () => void;
+  applyAction: (action: ConsoleAction) => void;
+}

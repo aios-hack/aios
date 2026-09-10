@@ -36,7 +36,12 @@ export interface WellRow extends HierarchyWellDecision {
   color: string | null;
 }
 
-export const groupOrder = (file: HierarchyFile): Map<string, number> =>
+export interface CouncilShape {
+  groups: string[];
+  ungrouped: string[];
+}
+
+export const groupOrder = (file: CouncilShape): Map<string, number> =>
   new Map(file.groups.map((group, index) => [group, index]));
 
 export const colorOf = (order: Map<string, number>, group: string | null): string | null =>
@@ -87,7 +92,7 @@ export const ungroupedAllocations = (step: HierarchyStep): HierarchyGroupAllocat
 export const ungroupedWells = (step: HierarchyStep): HierarchyWellDecision[] =>
   step.wells.filter((well) => well.group === null);
 
-export const hasUngrouped = (file: HierarchyFile, step: HierarchyStep): boolean =>
+export const hasUngrouped = (file: CouncilShape, step: HierarchyStep): boolean =>
   file.ungrouped.length > 0 ||
   ungroupedAllocations(step).length > 0 ||
   ungroupedWells(step).length > 0;
