@@ -15,5 +15,5 @@
 {"scene_id": "s-01", "text": "а уходит закачка.", "type": "caption_delta"}
 {"state": "composing", "type": "status"}
 {"guarded": true, "scene_id": "s-01", "text": "Итог тянут вниз десять скважин, худшая из них — 76: она работает в минус, а её соседи по матрице влияния показывают, куда уходит закачка.", "type": "caption"}
-{"items": [{"text": "Что показывает экран money/rank?"}, {"text": "Что с фондом сейчас?"}, {"text": "Кто тянет ЧДД вниз?"}], "type": "suggestions"}
+{"items": [{"text": "Что показывает экран money/rank?"}, {"text": "Как устроена система?"}, {"text": "Что с фондом сейчас?"}, {"text": "Кто тянет ЧДД вниз?"}], "type": "suggestions"}
 {"elapsed_ms": 8704, "scene_id": "s-01", "tool_rounds": 1, "type": "done"}

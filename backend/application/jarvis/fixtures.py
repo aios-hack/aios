@@ -5,10 +5,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Iterator, Mapping, Sequence
 
+from backend.application.jarvis.answer import ANSWER_MARKER
 from backend.application.jarvis.artifacts import ArtifactStore
+from backend.application.jarvis.docs_index import DocsIndex
 from backend.application.jarvis.knowledge import Knowledge
 from backend.application.jarvis.orchestrator import Event, Orchestrator
 from backend.application.jarvis.session import SessionStore
+from backend.application.jarvis.system_map import SystemMap
 from backend.application.jarvis.tools.context import ConsoleContext
 from backend.infrastructure.llm.chat_events import ToolCall
 from backend.infrastructure.llm.fake_chat import FakeChatClient
@@ -24,6 +27,7 @@ class Recording:
     console: ConsoleContext
     calls: tuple[Mapping[str, object], ...]
     caption: str
+    answer: str = ""
 
 
 def _tool_calls(calls: Sequence[Mapping[str, object]]) -> list[ToolCall]:
@@ -37,17 +41,28 @@ def _tool_calls(calls: Sequence[Mapping[str, object]]) -> list[ToolCall]:
     ]
 
 
+def _reply(recording: Recording) -> str:
+    if not recording.answer:
+        return recording.caption
+    return f"{recording.caption}\n{ANSWER_MARKER}\n{recording.answer}"
+
+
 def replay(
-    recording: Recording, store: ArtifactStore, knowledge: Knowledge
+    recording: Recording,
+    store: ArtifactStore,
+    knowledge: Knowledge,
+    docs: DocsIndex | None = None,
+    system: SystemMap | None = None,
 ) -> Iterator[Event]:
-    client = FakeChatClient(
-        rounds=[_tool_calls(recording.calls)], caption=recording.caption
-    )
+    rounds = [_tool_calls(recording.calls)] if recording.calls else []
+    client = FakeChatClient(rounds=rounds, caption=_reply(recording))
     orchestrator = Orchestrator(
         client=client,
         store=store,
         knowledge=knowledge,
         sessions=SessionStore(),
+        docs=docs,
+        system=system,
         clock=_frozen_clock(),
         now=lambda: FIXTURE_TS,
     )
@@ -84,13 +99,16 @@ def write(
     store: ArtifactStore,
     knowledge: Knowledge,
     root: Path,
+    docs: DocsIndex | None = None,
+    system: SystemMap | None = None,
 ) -> list[Path]:
     root.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
     for recording in recordings:
         path = root / f"{recording.name}.jsonl"
         path.write_text(
-            to_jsonl(replay(recording, store, knowledge)), encoding="utf-8"
+            to_jsonl(replay(recording, store, knowledge, docs, system)),
+            encoding="utf-8",
         )
         written.append(path)
     return written

@@ -15,7 +15,18 @@ from backend.application.jarvis.tools.context import ConsoleContext
 from backend.infrastructure.llm.chat_events import ToolCall
 from backend.infrastructure.llm.fake_chat import FakeChatClient
 
-EVENT_ORDER = ("scene", "status", "card", "caption_delta", "caption", "suggestions", "done")
+EVENT_ORDER = (
+    "scene",
+    "capabilities",
+    "status",
+    "card",
+    "caption_delta",
+    "caption",
+    "answer_delta",
+    "answer",
+    "suggestions",
+    "done",
+)
 
 
 @pytest.fixture(scope="module")

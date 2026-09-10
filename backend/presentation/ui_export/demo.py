@@ -32,6 +32,7 @@ from backend.presentation.ui_export.hierarchy_view import export_hierarchy_json
 from backend.presentation.ui_export.npv_view import export_npv_json
 from backend.presentation.ui_export.scenarios import ScenarioRobustness, WorstRegret, export_scenarios_json
 from backend.presentation.ui_export.timeline import build_timeline, build_trace, export_timeline_json, export_trace_json
+from backend.presentation.ui_export.maps_view import export_maps
 from backend.presentation.ui_export.webdata import DEFAULT_DECK_PATH, build_wells_data
 
 DEMO_NOTICE_RU = "Демонстрационные данные, не результат расчёта"
@@ -41,10 +42,6 @@ WHATIF_ID = "whatif-injection-cut"
 DEFAULT_OUT_DIR: Path = project_root() / "frontend" / "public" / "data"
 _DEFAULT_DENSITY = 860.0
 
-# F8: у `base` показатели устойчивости измерены. Подтверждённый ЧДД и run id
-# добавляются после сборки base-артефакта, чтобы не дублировать число литералом.
-# Base при этом не становится сдаваемым сценарием: `is_submitted` определяется
-# только полем RunArtifact.final_npv. У `whatif` не измерено ничего.
 DEMO_ROBUSTNESS: dict[str, ScenarioRobustness] = {
     BASE_ID: ScenarioRobustness(
         ood_score=0.18,
@@ -62,7 +59,6 @@ DEMO_ROBUSTNESS: dict[str, ScenarioRobustness] = {
 def confirmed_base_robustness(
     npv_rub: float, source_run_id: str
 ) -> ScenarioRobustness:
-    """Attach measured OPM economics without marking base as submitted."""
 
     measured = DEMO_ROBUSTNESS[BASE_ID]
     return ScenarioRobustness(
@@ -104,12 +100,6 @@ HIERARCHY_NOTICE_EN = (
 
 
 def hierarchy_meta(artifact: RunArtifact) -> dict[str, Any]:
-    """Журнал решений настоящий всегда: он посчитан, а не сгенерирован.
-
-    Синтетическим он становится только вместе с откликом, на котором его
-    посчитали, — поэтому признак читается из самого артефакта, а не из
-    того, кто вызвал экспортёр.
-    """
 
     return {
         "provenance": HIERARCHY_PROVENANCE,
@@ -165,7 +155,6 @@ SCENARIO_KINDS: tuple[str, ...] = (
 def export_scenario(
     artifact: RunArtifact, out_dir: Path, meta_by_kind: dict[str, dict[str, Any]] | None = None
 ) -> list[Path]:
-    """`meta_by_kind` — метка по `kind` (`SCENARIO_KINDS`), по умолчанию `demo_meta`."""
 
     meta_by_kind = meta_by_kind or {kind: demo_meta(kind) for kind in SCENARIO_KINDS}
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -208,10 +197,6 @@ def _role_and_status(step: dict[str, Any]) -> dict[str, tuple[str, str, str]]:
 def field_events(
     timeline: dict[str, Any], trace: dict[str, dict[str, list[dict[str, Any]]]]
 ) -> list[dict[str, Any]]:
-    """Список подтверждаемых данными событий бандла: смена доступности,
-    смена роли, остановка и сработавшее правило. Кадр демо-ролика
-    выбирается только отсюда — иначе интерфейс его отбросит, не найдя
-    подтверждения на шаге."""
 
     steps = timeline["steps"]
     events: list[dict[str, Any]] = []
@@ -262,9 +247,6 @@ def _pick_spread(events: list[dict[str, Any]], count: int) -> list[dict[str, Any
 def build_demo_script(
     timeline: dict[str, Any], trace: dict[str, dict[str, list[dict[str, Any]]]]
 ) -> dict[str, Any]:
-    """Документ демо-ролика: кадры подтверждены содержимым бандла, суммарная
-    длительность около `TARGET_TOTAL_MS`. Порядок и сцены — авторский выбор,
-    сами события — нет."""
 
     available = field_events(timeline, trace)
     by_type: dict[str, list[dict[str, Any]]] = {}
@@ -340,10 +322,6 @@ def build_demo(
     deck_path: str | Path = DEFAULT_DECK_PATH,
     lambda_path: str | Path | None = None,
 ) -> list[Path]:
-    """`base` — настоящий расчёт (задача G3), `whatif-injection-cut` — демо-библиотека,
-    честно помеченная синтетикой (карточка G3: демонстрационный бандл сохраняется
-    отдельным сценарием и остаётся помеченным)."""
-
     root = Path(out_dir)
     root.mkdir(parents=True, exist_ok=True)
     wells = deck_scale(deck_path)
@@ -390,6 +368,8 @@ def build_demo(
     )
     written.append(wells_path)
 
+    written.append(export_maps(root / "maps", wells_path=wells_path))
+
     bundles = root / "bundles"
     bundles.mkdir(parents=True, exist_ok=True)
     base_bundle = bundles / "base.json"
@@ -401,16 +381,9 @@ def build_demo(
         root / "scenarios.json",
         {**DEMO_ROBUSTNESS, BASE_ID: base_robustness},
     )
-    # Индекс смешанный: base — настоящий расчёт, whatif — демо. Ни DEMO_PROVENANCE,
-    # ни REAL_PROVENANCE целиком файлу не подходят — provenance у каждого сценария
-    # свой (config_hash/is_submitted уже в самой записи), здесь только это и сказано.
     _stamp(scenarios_path, {"provenance": "mixed", "synthetic": None, "kind": "scenarios"})
     written.extend([base_bundle, whatif_bundle, scenarios_path])
 
-    # Ролик рассказывает сценарий, открытый по умолчанию, — `base`. Кадры
-    # берутся из его же таймлайна и трассы: событие с другого сценария
-    # интерфейс не подтвердит и кадр выбросит. Пустая трасса `base` значит
-    # только то, что RULE_FIRED в ролике не будет, — придумывать его нельзя.
     densities = {well: _DEFAULT_DENSITY for well in base.schedule.meta.wells}
     script_path = export_demo_script_json(
         build_timeline(base, densities),
@@ -423,9 +396,6 @@ def build_demo(
 
 
 def main() -> None:
-    # Путь к измеренной λ берётся из окружения: если кампания замера
-    # (`connectivity/campaign.py`) уже отработала, витрина показывает её
-    # рёбра; если нет — заглушку, помеченную `lambda_measured: false`.
     measured = os.environ.get("AIOS_LAMBDA_PATH")
     for path in build_demo(lambda_path=Path(measured) if measured else None):
         print(path)

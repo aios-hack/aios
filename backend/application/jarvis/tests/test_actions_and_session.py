@@ -10,7 +10,7 @@ from backend.application.jarvis.session import (
     SessionStore,
     check_question,
 )
-from backend.application.jarvis.suggestions import build_suggestions
+from backend.application.jarvis.suggestions import SUGGESTION_COUNT, build_suggestions
 from backend.application.jarvis.tools.actions import (
     ROUTE_BY_CARD,
     WORKSPACE_VIEWS,
@@ -131,7 +131,7 @@ def test_suggestions_mention_the_selected_well(store: ArtifactStore) -> None:
     items = build_suggestions(
         ConsoleContext(selected_well="13", step=96), store
     )
-    assert len(items) == 3
+    assert len(items) == SUGGESTION_COUNT
     assert any("13" in item["text"] for item in items)
 
 

@@ -15,5 +15,5 @@
 {"scene_id": "s-01", "text": "т на «Деньгах».", "type": "caption_delta"}
 {"state": "composing", "type": "status"}
 {"guarded": true, "scene_id": "s-01", "text": "ЧДД — дисконтированная разница выручки и затрат за весь горизонт; итог по сценарию рядом, а разложение по скважинам живёт на «Деньгах».", "type": "caption"}
-{"items": [{"text": "Что показывает экран overview/fund?"}, {"text": "Что с фондом сейчас?"}, {"text": "Кто тянет ЧДД вниз?"}], "type": "suggestions"}
+{"items": [{"text": "Что показывает экран overview/fund?"}, {"text": "Как устроена система?"}, {"text": "Что с фондом сейчас?"}, {"text": "Кто тянет ЧДД вниз?"}], "type": "suggestions"}
 {"elapsed_ms": 8704, "scene_id": "s-01", "tool_rounds": 1, "type": "done"}

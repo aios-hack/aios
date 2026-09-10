@@ -1,0 +1,11 @@
+{"context": {"date": "2015-01-01", "scenario": "base", "selected_well": null, "step": 96, "view": "fund", "workspace": "overview"}, "question": "Что я спрашивал до этого?", "scene_id": "s-01", "session_id": "fixture-what-i-asked", "ts": "2026-09-11T00:00:00Z", "type": "scene"}
+{"state": "thinking", "type": "status"}
+{"scene_id": "s-01", "text": "В этой сессии разговор н", "type": "caption_delta"}
+{"scene_id": "s-01", "text": "ачался только что: прежн", "type": "caption_delta"}
+{"scene_id": "s-01", "text": "их вопросов у меня не за", "type": "caption_delta"}
+{"scene_id": "s-01", "text": "писано, спросите заново ", "type": "caption_delta"}
+{"scene_id": "s-01", "text": "— отвечу и запомню.", "type": "caption_delta"}
+{"state": "composing", "type": "status"}
+{"guarded": true, "scene_id": "s-01", "text": "В этой сессии разговор начался только что: прежних вопросов у меня не записано, спросите заново — отвечу и запомню.", "type": "caption"}
+{"items": [{"text": "Что показывает экран overview/fund?"}, {"text": "Как устроена система?"}, {"text": "Что с фондом сейчас?"}, {"text": "Кто тянет ЧДД вниз?"}], "type": "suggestions"}
+{"elapsed_ms": 4096, "scene_id": "s-01", "tool_rounds": 0, "type": "done"}

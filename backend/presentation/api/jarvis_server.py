@@ -9,10 +9,15 @@ from backend.application.jarvis.artifacts import ArtifactError
 from backend.application.jarvis.knowledge import KnowledgeError
 from backend.application.jarvis.session import SessionError
 from backend.application.jarvis.session_store import SessionDiskError
+from backend.application.jarvis.stt import SttError, SttUnavailable
+from backend.application.jarvis.tts import CONTENT_TYPE as AUDIO_CONTENT_TYPE
+from backend.application.jarvis.tts import TtsError, TtsUnavailable
 from backend.presentation.api.service import (
+    AUDIO_ROUTE,
     DEFAULT_HOST,
     DEFAULT_PORT,
     DEV_ORIGINS,
+    MAX_AUDIO_BYTES,
     MAX_BODY_BYTES,
     JarvisService,
     console_context,
@@ -39,7 +44,9 @@ def build_handler(service: JarvisService) -> type[BaseHTTPRequestHandler]:
             origin = self.headers.get("Origin")
             if origin in DEV_ORIGINS:
                 self.send_header("Access-Control-Allow-Origin", origin)
-                self.send_header("Access-Control-Allow-Headers", "Content-Type")
+                self.send_header(
+                    "Access-Control-Allow-Headers", "Content-Type, X-Jarvis-Lang"
+                )
                 self.send_header("Access-Control-Allow-Methods", "POST, GET, DELETE, OPTIONS")
 
         def _json(self, status: int, body: Mapping[str, Any]) -> None:
@@ -51,14 +58,17 @@ def build_handler(service: JarvisService) -> type[BaseHTTPRequestHandler]:
             self.end_headers()
             self.wfile.write(payload)
 
-        def _read(self) -> Mapping[str, Any]:
+        def _raw(self, limit: int) -> bytes:
             length = int(self.headers.get("Content-Length", "0"))
-            if length > MAX_BODY_BYTES:
+            if length > limit:
                 raise ValueError(
-                    f"request body of {length} bytes exceeds the {MAX_BODY_BYTES} "
-                    "byte limit for a Jarvis request"
+                    f"request body of {length} bytes exceeds the {limit} "
+                    "byte limit for this Jarvis route"
                 )
-            raw = self.rfile.read(length) if length else b"{}"
+            return self.rfile.read(length) if length else b""
+
+        def _read(self) -> Mapping[str, Any]:
+            raw = self._raw(MAX_BODY_BYTES) or b"{}"
             loaded = json.loads(raw.decode("utf-8"))
             if not isinstance(loaded, dict):
                 raise ValueError("the request body is not a JSON object")
@@ -85,6 +95,9 @@ def build_handler(service: JarvisService) -> type[BaseHTTPRequestHandler]:
                 return
             if route == "/api/jarvis/briefing":
                 self._briefing(parse_qs(parts.query))
+                return
+            if route == "/api/jarvis/voices":
+                self._voices(parse_qs(parts.query))
                 return
             self._json(404, {"error": "not-found", "path": self.path})
 
@@ -154,7 +167,84 @@ def build_handler(service: JarvisService) -> type[BaseHTTPRequestHandler]:
             if route == "/api/jarvis/ask":
                 self._ask()
                 return
+            if route == "/api/jarvis/speak":
+                self._speak()
+                return
+            if route == AUDIO_ROUTE:
+                self._transcribe()
+                return
             self._json(404, {"error": "not-found", "path": self.path})
+
+        def _voices(self, params: Mapping[str, list[str]]) -> None:
+            values = params.get("lang") or []
+            lang = values[0] if values else None
+            try:
+                listed = service.tts.voices(lang)
+            except TtsUnavailable as error:
+                self._json(
+                    503, {"error": "tts-unavailable", "message": str(error)}
+                )
+                return
+            except TtsError as error:
+                self._json(400, {"error": "bad-request", "message": str(error)})
+                return
+            self._json(200, {"voices": [voice.as_dict() for voice in listed]})
+
+        def _speak(self) -> None:
+            try:
+                payload = self._read()
+            except (ValueError, json.JSONDecodeError) as error:
+                self._json(400, {"error": "bad-request", "message": str(error)})
+                return
+            text = str(payload.get("text") or "")
+            lang = str(payload.get("lang") or "ru")
+            voice = payload.get("voice")
+            try:
+                chunks = list(
+                    service.tts.stream(
+                        text, lang, str(voice) if voice else None
+                    )
+                )
+            except TtsUnavailable as error:
+                self._json(
+                    503, {"error": "tts-unavailable", "message": str(error)}
+                )
+                return
+            except TtsError as error:
+                self._json(400, {"error": "bad-request", "message": str(error)})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", AUDIO_CONTENT_TYPE)
+            self.send_header("Content-Length", str(sum(len(c) for c in chunks)))
+            self.send_header("Cache-Control", "no-store")
+            self._cors()
+            self.end_headers()
+            for chunk in chunks:
+                try:
+                    self.wfile.write(chunk)
+                except (BrokenPipeError, ConnectionResetError):
+                    return
+
+        def _transcribe(self) -> None:
+            try:
+                audio = self._raw(MAX_AUDIO_BYTES)
+            except ValueError as error:
+                self._json(413, {"error": "too-large", "message": str(error)})
+                return
+            lang = self.headers.get("X-Jarvis-Lang")
+            try:
+                transcript = service.stt.transcribe(
+                    audio, lang, self.headers.get("Content-Type")
+                )
+            except SttUnavailable as error:
+                self._json(
+                    503, {"error": "stt-unavailable", "message": str(error)}
+                )
+                return
+            except SttError as error:
+                self._json(400, {"error": "bad-request", "message": str(error)})
+                return
+            self._json(200, transcript.as_dict())
 
         def _cancel(self) -> None:
             try:

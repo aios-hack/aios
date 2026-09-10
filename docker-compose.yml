@@ -100,6 +100,9 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       JARVIS_MODEL: ${JARVIS_MODEL:-anthropic/claude-sonnet-4.5}
       JARVIS_MAX_TOKENS: ${JARVIS_MAX_TOKENS:-2400}
+      JARVIS_TTS_VOICE_RU: ${JARVIS_TTS_VOICE_RU:-ru-RU-SvetlanaNeural}
+      JARVIS_TTS_VOICE_EN: ${JARVIS_TTS_VOICE_EN:-en-US-AriaNeural}
+      JARVIS_STT_MODEL: ${JARVIS_STT_MODEL:-google/gemini-2.5-flash}
       AIOS_UI_DATA: /app/frontend/dist/data
       AIOS_JARVIS_KNOWLEDGE: /app/frontend/public/jarvis/knowledge
       AIOS_JARVIS_DOCS: ${AIOS_JARVIS_DOCS:-/app;/data/docs}

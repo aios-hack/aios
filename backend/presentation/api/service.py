@@ -9,7 +9,9 @@ from backend.application.jarvis.knowledge import Knowledge
 from backend.application.jarvis.orchestrator import Event, Orchestrator
 from backend.application.jarvis.session import SessionStore
 from backend.application.jarvis.session_store import SessionDisk, SessionDiskError
+from backend.application.jarvis.stt import SttEngine
 from backend.application.jarvis.system_map import SystemMap, SystemMapError
+from backend.application.jarvis.tts import TtsEngine, default_voice
 from backend.application.jarvis.tools.context import ConsoleContext
 from backend.infrastructure.llm.provider import NoApiKeyError, build_client
 
@@ -20,6 +22,8 @@ DEV_ORIGINS: tuple[str, ...] = (
     "http://127.0.0.1:5199",
 )
 MAX_BODY_BYTES = 16 * 1024
+MAX_AUDIO_BYTES = 2 * 1024 * 1024
+AUDIO_ROUTE = "/api/jarvis/transcribe"
 BRIEFING_TTL = 60.0
 
 
@@ -33,6 +37,8 @@ class JarvisService:
         docs: DocsIndex | None = None,
         system: SystemMap | None = None,
         disk: SessionDisk | None = None,
+        tts: TtsEngine | None = None,
+        stt: SttEngine | None = None,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._store = store if store is not None else ArtifactStore()
@@ -51,6 +57,8 @@ class JarvisService:
             else SessionStore(disk=self._disk)
         )
         self._env = env
+        self._tts = tts if tts is not None else TtsEngine()
+        self._stt = stt if stt is not None else SttEngine(env)
         self._briefings: dict[tuple[str, int, str], tuple[float, list[dict[str, Any]]]] = {}
         if orchestrator is None:
             self._build()
@@ -101,6 +109,14 @@ class JarvisService:
         return self._disk
 
     @property
+    def tts(self) -> TtsEngine:
+        return self._tts
+
+    @property
+    def stt(self) -> SttEngine:
+        return self._stt
+
+    @property
     def available(self) -> bool:
         return self._orchestrator is not None
 
@@ -112,8 +128,8 @@ class JarvisService:
 
     def capabilities(self) -> dict[str, Any]:
         return {
-            "tts": False,
-            "stt": "browser",
+            "tts": self._tts.available,
+            "stt": "server" if self._stt.available else "none",
             "docs": self._docs.size() if self._docs is not None else 0,
             "sessions": self._disk.count() if self._disk is not None else 0,
         }
@@ -130,6 +146,11 @@ class JarvisService:
                 ),
             },
             **self.capabilities(),
+            "voice": {
+                "tts_voice_ru": default_voice("ru"),
+                "tts_voice_en": default_voice("en"),
+                "stt_model": self._stt.model,
+            },
         }
         if self._docs_error is not None:
             body["docs_error"] = self._docs_error
@@ -218,12 +239,14 @@ def query_context(params: Mapping[str, list[str]]) -> ConsoleContext:
 
 
 __all__ = [
+    "AUDIO_ROUTE",
     "BRIEFING_TTL",
     "DEFAULT_HOST",
     "DEFAULT_PORT",
     "DEV_ORIGINS",
     "Event",
     "JarvisService",
+    "MAX_AUDIO_BYTES",
     "MAX_BODY_BYTES",
     "console_context",
     "query_context",

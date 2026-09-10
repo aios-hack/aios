@@ -416,7 +416,15 @@ class Orchestrator:
         )
         self._compress(session, system)
         yield Event(
-            "suggestions", {"items": build_suggestions(console, self._store)}
+            "suggestions",
+            {
+                "items": build_suggestions(
+                    console,
+                    self._store,
+                    card_types=tuple(card.type for card in cards),
+                    history=session.questions(),
+                )
+            },
         )
         yield Event(
             "done",

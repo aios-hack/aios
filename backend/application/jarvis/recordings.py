@@ -159,6 +159,146 @@ WHERE_IS_CONNECTIVITY = Recording(
     ),
 )
 
+HOW_SYSTEM_WORKS = Recording(
+    name="how-system-works",
+    question="Как устроена система?",
+    console=ConsoleContext(
+        scenario="base",
+        step=STEP_2015,
+        date="2015-01-01",
+        workspace="overview",
+        view="fund",
+    ),
+    calls=(
+        {"name": "system_map", "args": {"focus": "jarvis", "depth": 2}},
+        {
+            "name": "search_docs",
+            "args": {
+                "query": "архитектура компоненты суррогат политика физика",
+                "k": 2,
+                "scope": "docs",
+            },
+        },
+    ),
+    caption=(
+        "Консоль и Джарвис живут на витрине, а расчёт идёт по цепочке поиск → "
+        "суррогат → политика → физика → OPM; карта показывает, кто кому что "
+        "передаёт."
+    ),
+    answer=(
+        "## Из чего собран AIOS\n\n"
+        "- **Консоль** — витрина JSON: фонд, деньги, решения, поле.\n"
+        "- **Джарвис** — SSE-сервис поверх той же витрины и базы знаний.\n"
+        "- **Поиск расписаний** зовёт **суррогат**, суррогат отдаёт отклик и "
+        "ЧДД, **политика** режет решения правилами, **физика** проверяет "
+        "инварианты, **OPM Flow** подтверждает итог настоящим симулятором.\n"
+        "- Результат каждого прогона ложится в каталог прогона: манифест, "
+        "расписание, отчёты проверки, пакет сдачи."
+    ),
+)
+
+CHAMPION_RUN = Recording(
+    name="champion-run",
+    question="Какой прогон чемпион и почему?",
+    console=ConsoleContext(
+        scenario="base",
+        step=STEP_2015,
+        date="2015-01-01",
+        workspace="money",
+        view="comparison",
+    ),
+    calls=(
+        {
+            "name": "search_docs",
+            "args": {
+                "query": "чемпион расписание проверено OPM статус пакета",
+                "k": 2,
+                "scope": "docs",
+            },
+        },
+        {"name": "case_constraints", "args": {}},
+    ),
+    caption=(
+        "Чемпионом считается расписание, которое прошло настоящий OPM и "
+        "уложилось в ограничения кейса, а не то, которому суррогат обещал "
+        "больше всех."
+    ),
+)
+
+COUNCIL_AT_96 = Recording(
+    name="council-at-96",
+    question="Что решил совет на шаге 96?",
+    console=ConsoleContext(
+        scenario="base",
+        step=STEP_2015,
+        date="2015-01-01",
+        workspace="decisions",
+        view="council",
+    ),
+    calls=(
+        {"name": "council_step", "args": {"step": STEP_2015}},
+        {"name": "rule_impact", "args": {}},
+    ),
+    caption=(
+        "На этом шаге отработали три уровня: координатор поля выдал квоту, "
+        "групповой распределитель раздал её по скважинам, исполнитель применил "
+        "к каждой своё правило."
+    ),
+)
+
+HOW_TO_VERIFY = Recording(
+    name="how-to-verify",
+    question="Как запустить verify?",
+    console=ConsoleContext(
+        scenario="base",
+        step=STEP_2015,
+        date="2015-01-01",
+        workspace="money",
+        view="comparison",
+    ),
+    calls=(
+        {
+            "name": "search_docs",
+            "args": {
+                "query": "как запустить verify команда",
+                "k": 3,
+                "scope": "docs",
+            },
+        },
+    ),
+    caption=(
+        "Верификация — второй шаг сборки пакета: она прогоняет найденное "
+        "расписание через настоящий Flow и ставит статус."
+    ),
+    answer=(
+        "## Верификация прогона\n\n"
+        "```bash\n"
+        "PYTHONIOENCODING=utf-8 .venv/Scripts/python.exe -m "
+        "backend.presentation.cli.run verify \\\n"
+        "  --run-id final-2026-09-09\n"
+        "```\n\n"
+        "Команда намеренно не принимает `--case`: расписание проверяется на "
+        "том же кейсе, на котором было найдено."
+    ),
+)
+
+WHAT_I_ASKED = Recording(
+    name="what-i-asked",
+    question="Что я спрашивал до этого?",
+    console=ConsoleContext(
+        scenario="base",
+        step=STEP_2015,
+        date="2015-01-01",
+        workspace="overview",
+        view="fund",
+    ),
+    calls=(),
+    caption=(
+        "В этой сессии разговор начался только что: прежних вопросов у меня не "
+        "записано, спросите заново — отвечу и запомню."
+    ),
+)
+
 RECORDINGS: tuple[Recording, ...] = (
     WHY_WELL_CLOSED,
     WHO_DRAGS_NPV,
@@ -166,4 +306,10 @@ RECORDINGS: tuple[Recording, ...] = (
     COMPARE_SCENARIOS,
     WHAT_IS_NPV,
     WHERE_IS_CONNECTIVITY,
+    HOW_SYSTEM_WORKS,
+    CHAMPION_RUN,
+    COUNCIL_AT_96,
+    HOW_TO_VERIFY,
+    WHAT_I_ASKED,
 )
+

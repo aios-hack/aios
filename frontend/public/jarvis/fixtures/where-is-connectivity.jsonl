@@ -13,5 +13,5 @@
 {"scene_id": "s-01", "text": " с карты.", "type": "caption_delta"}
 {"state": "composing", "type": "status"}
 {"guarded": true, "scene_id": "s-01", "text": "Связи живут на «Поле → Проекция»: узлы — скважины, рёбра — измеренное влияние закачки, а ползунок λ убирает слабые связи с карты.", "type": "caption"}
-{"items": [{"text": "Почему скважина 13 так работает?"}, {"text": "Кто связан со скважиной 13?"}, {"text": "Что показывает экран overview/fund?"}], "type": "suggestions"}
+{"items": [{"text": "Почему скважина 13 так работает?"}, {"text": "Кто связан со скважиной 13?"}, {"text": "Что показывает экран overview/fund?"}, {"text": "Как устроена система?"}], "type": "suggestions"}
 {"elapsed_ms": 7680, "scene_id": "s-01", "tool_rounds": 1, "type": "done"}

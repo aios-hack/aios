@@ -17,5 +17,5 @@
 {"scene_id": "s-01", "text": "в воду.", "type": "caption_delta"}
 {"state": "composing", "type": "status"}
 {"guarded": true, "scene_id": "s-01", "text": "Скважина 13 держится на правиле R1: при обводнённости 0,614 система выставила ей уставку по жидкости, потому что закачка на этом участке ещё превращается в нефть, а не в воду.", "type": "caption"}
-{"items": [{"text": "Почему скважина 13 так работает?"}, {"text": "Кто связан со скважиной 13?"}, {"text": "Сравни base и whatif-injection-cut"}], "type": "suggestions"}
+{"items": [{"text": "Где это правило видно на экране?"}, {"text": "Почему скважина 13 так работает?"}, {"text": "Кто связан со скважиной 13?"}, {"text": "Сравни base и whatif-injection-cut"}], "type": "suggestions"}
 {"elapsed_ms": 9728, "scene_id": "s-01", "tool_rounds": 1, "type": "done"}

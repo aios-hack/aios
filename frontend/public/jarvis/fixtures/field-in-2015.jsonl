@@ -15,5 +15,5 @@
 {"scene_id": "s-01", "text": "тановок.", "type": "caption_delta"}
 {"state": "composing", "type": "status"}
 {"guarded": true, "scene_id": "s-01", "text": "За 2015 год фонд пополнился одной скважиной — 72 введена в июле; остальной год фонд отработал без вводов, переводов и остановок.", "type": "caption"}
-{"items": [{"text": "Что показывает экран history/matrix?"}, {"text": "Что с фондом сейчас?"}, {"text": "Кто тянет ЧДД вниз?"}], "type": "suggestions"}
+{"items": [{"text": "Что показывает экран history/matrix?"}, {"text": "Как устроена система?"}, {"text": "Что с фондом сейчас?"}, {"text": "Кто тянет ЧДД вниз?"}], "type": "suggestions"}
 {"elapsed_ms": 8704, "scene_id": "s-01", "tool_rounds": 1, "type": "done"}

@@ -5,6 +5,7 @@ from typing import Any
 
 from backend.core.paths import project_root
 from backend.presentation.ui_export.deck import load_completions, load_wellheads
+from backend.presentation.ui_export.maps_view import export_maps
 
 GRID_NI: int = 91
 GRID_NJ: int = 102
@@ -31,15 +32,6 @@ DEFAULT_OUT_PATH: Path = project_root() / "frontend" / "public" / "data" / "well
 
 
 def _packaged_geometry(heads: dict[str, tuple[int, int]]) -> dict[str, Any] | None:
-    """Use the audited cell-index geometry for a COMPDATMD-only deck.
-
-    COMPDATMD contains measured depth, not I/J/K cells; converting it requires
-    a trajectory/grid intersection engine and must not be approximated in the
-    UI exporter.  The repository ships geometry generated from the equivalent
-    cell-index Model Z revision.  It is accepted only when every wellhead id
-    and I/J coordinate matches the current deck.
-    """
-
     path = DEFAULT_OUT_PATH
     if not path.is_file():
         return None
@@ -142,6 +134,7 @@ def export_wells_json(
 def main() -> None:
     out = export_wells_json()
     print(out)
+    print(export_maps())
 
 
 if __name__ == "__main__":

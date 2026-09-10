@@ -81,6 +81,17 @@ cmd_jarvis() {
         echo "Сервис поднимется, но /api/jarvis/health вернёт 503 no-api-key," >&2
         echo "а фронт перейдёт в демо-режим на фикстурах." >&2
     fi
+    if ! python -c "import edge_tts" >/dev/null 2>&1; then
+        echo "ВНИМАНИЕ: пакет edge-tts не установлен." >&2
+        echo "POST /api/jarvis/speak вернёт 503 tts-unavailable," >&2
+        echo "а фронт озвучит ответ браузерным speechSynthesis." >&2
+    fi
+    if [ -z "${OPENROUTER_API_KEY:-}" ]; then
+        echo "ВНИМАНИЕ: OPENROUTER_API_KEY не задан — расшифровка на сервере выключена." >&2
+        echo "POST /api/jarvis/transcribe вернёт 503 stt-unavailable," >&2
+        echo "распознавание речи остаётся браузерным." >&2
+    fi
+    mkdir -p "$OUT_DIR/jarvis/tts" "${AIOS_JARVIS_SESSIONS:-$OUT_DIR/jarvis/sessions}"
     exec python -m backend.presentation.cli.jarvis --host "${AIOS_JARVIS_HOST:-0.0.0.0}" --port "${AIOS_JARVIS_PORT:-8010}" "$@"
 }
 

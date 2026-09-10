@@ -13,5 +13,5 @@
 {"scene_id": "s-01", "text": "ближе к нагнетанию.", "type": "caption_delta"}
 {"state": "composing", "type": "status"}
 {"guarded": true, "scene_id": "s-01", "text": "Срезанная закачка меняет итог по методике и перераспределяет вклад по скважинам; сильнее всего расходятся те, кто стоял ближе к нагнетанию.", "type": "caption"}
-{"items": [{"text": "Что показывает экран money/comparison?"}, {"text": "Что с фондом сейчас?"}, {"text": "Кто тянет ЧДД вниз?"}], "type": "suggestions"}
+{"items": [{"text": "Откуда взялась разница?"}, {"text": "Где это правило видно на экране?"}, {"text": "Что показывает экран money/comparison?"}, {"text": "Как устроена система?"}], "type": "suggestions"}
 {"elapsed_ms": 7680, "scene_id": "s-01", "tool_rounds": 1, "type": "done"}
