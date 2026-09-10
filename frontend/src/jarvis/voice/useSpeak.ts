@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { speakingEnvelope } from '../sphere/sphereState';
 
 export const MS_PER_CHARACTER = 62;
 export const MIN_PHRASE_MS = 700;
@@ -11,6 +10,17 @@ export const speechSynthesisSupported = (): boolean =>
   typeof window !== 'undefined' && typeof window.speechSynthesis !== 'undefined';
 
 export const speakLang = (lang: string): string => (lang === 'en' ? 'en-US' : 'ru-RU');
+
+export const speakingEnvelope = (elapsedMs: number, totalMs: number): number => {
+  if (totalMs <= 0 || elapsedMs < 0 || elapsedMs > totalMs) {
+    return 0;
+  }
+  const phase = elapsedMs / totalMs;
+  const attack = Math.min(1, phase / 0.06);
+  const release = Math.min(1, (1 - phase) / 0.12);
+  const syllables = 0.55 + 0.45 * Math.abs(Math.sin(elapsedMs / 130));
+  return Math.max(0, attack * release * syllables);
+};
 
 interface SpeakOptions {
   enabled: boolean;

@@ -4,7 +4,7 @@ from typing import Any, Mapping
 
 WORKSPACE_VIEWS: Mapping[str, tuple[str, ...]] = {
     "overview": ("fund",),
-    "field": ("projection",),
+    "field": ("projection", "maps"),
     "history": ("matrix", "wall", "table"),
     "decisions": ("council", "rules"),
     "money": ("rank", "comparison", "constraints"),
@@ -21,6 +21,12 @@ ROUTE_BY_CARD: Mapping[str, tuple[str, str]] = {
     "pattern": ("field", "projection"),
     "glossary": ("overview", "fund"),
     "guide": ("overview", "fund"),
+    "status-board": ("money", "comparison"),
+    "run-list": ("money", "comparison"),
+    "run": ("money", "comparison"),
+    "physics": ("money", "comparison"),
+    "constraints": ("money", "constraints"),
+    "council": ("decisions", "council"),
 }
 
 
@@ -48,10 +54,12 @@ def build_action(
     payload: Mapping[str, Any],
     scenario: str,
 ) -> dict[str, Any] | None:
+    if card_type == "error" or card_type == "doc":
+        return None
+    if card_type == "system-map":
+        return _system_map_action(payload, scenario)
     route = ROUTE_BY_CARD.get(card_type)
     if route is None:
-        return None
-    if card_type == "error":
         return None
     workspace, view = route
     action: dict[str, Any] = {"scenario": scenario}
@@ -95,9 +103,37 @@ def build_action(
     if card_type == "compare":
         side = payload.get("b") or {}
         identifier = side.get("id")
-        if isinstance(identifier, str):
+        if isinstance(identifier, str) and not identifier.startswith(
+            ("run-", "web-")
+        ):
             action["scenario"] = identifier
+    if card_type == "council":
+        outcome = payload.get("outcome") or {}
+        chosen = outcome.get("well")
+        if isinstance(chosen, str):
+            action["well"] = chosen
     return action
+
+
+def _system_map_action(
+    payload: Mapping[str, Any], scenario: str
+) -> dict[str, Any] | None:
+    focus = payload.get("focus")
+    for node in payload.get("nodes") or ():
+        if not isinstance(node, Mapping):
+            continue
+        if focus is not None and node.get("id") != focus:
+            continue
+        route = node.get("route")
+        if not isinstance(route, Mapping):
+            continue
+        workspace = route.get("workspace")
+        view = route.get("view")
+        if not isinstance(workspace, str) or not isinstance(view, str):
+            continue
+        workspace, view = check_route(workspace, view)
+        return {"scenario": scenario, "workspace": workspace, "view": view}
+    return None
 
 
 def _knowledge_action(payload: Mapping[str, Any], scenario: str) -> dict[str, Any] | None:

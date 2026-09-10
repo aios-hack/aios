@@ -9,6 +9,8 @@ export interface SceneCard {
   id: string;
   order: number;
   card: JarvisCard;
+  tool: string | null;
+  args: Record<string, unknown> | null;
 }
 
 export interface Scene {
@@ -19,6 +21,9 @@ export interface Scene {
   cards: SceneCard[];
   captionDraft: string;
   caption: string | null;
+  answerDraft: string;
+  answer: string | null;
+  ts: string | null;
   guarded: boolean;
   warnings: { code: string; detail: string }[];
   error: { code: string; message: string } | null;
@@ -80,6 +85,9 @@ export const scenesReducer = (state: ScenesState, event: JarvisEvent): ScenesSta
       cards: [],
       captionDraft: '',
       caption: null,
+      answerDraft: '',
+      answer: null,
+      ts: event.ts ?? null,
       guarded: false,
       warnings: [],
       error: null,
@@ -103,7 +111,14 @@ export const scenesReducer = (state: ScenesState, event: JarvisEvent): ScenesSta
       if (scene.cards.some((entry) => entry.id === event.card_id)) {
         return scene;
       }
-      const cards = [...scene.cards, { id: event.card_id, order: event.order, card: event.card }]
+      const entry: SceneCard = {
+        id: event.card_id,
+        order: event.order,
+        card: event.card,
+        tool: event.tool ?? null,
+        args: event.args ?? null
+      };
+      const cards = [...scene.cards, entry]
         .sort((a, b) => a.order - b.order)
         .slice(0, MAX_ORBIT_CARDS);
       return { ...scene, cards };
@@ -122,6 +137,22 @@ export const scenesReducer = (state: ScenesState, event: JarvisEvent): ScenesSta
       captionDraft: event.text,
       guarded: event.guarded
     }));
+  }
+  if (event.type === 'answer_delta') {
+    return replaceScene(state, event.scene_id, (scene) => ({
+      ...scene,
+      answerDraft: scene.answerDraft + event.text
+    }));
+  }
+  if (event.type === 'answer') {
+    return replaceScene(state, event.scene_id, (scene) => ({
+      ...scene,
+      answer: event.text,
+      answerDraft: event.text
+    }));
+  }
+  if (event.type === 'capabilities') {
+    return state;
   }
   if (event.type === 'warning') {
     const target = activeScene(state);
@@ -154,6 +185,26 @@ export const scenesReducer = (state: ScenesState, event: JarvisEvent): ScenesSta
     }));
   }
   return state;
+};
+
+export const adoptScene = (
+  state: ScenesState,
+  pendingId: string,
+  event: Extract<JarvisEvent, { type: 'scene' }>
+): ScenesState => {
+  const index = state.scenes.findIndex((scene) => scene.sourceId === pendingId);
+  if (index < 0) {
+    return scenesReducer(state, event);
+  }
+  const scenes = state.scenes.slice();
+  scenes[index] = {
+    ...scenes[index],
+    sourceId: event.scene_id,
+    question: event.question,
+    context: event.context,
+    ts: event.ts ?? scenes[index].ts
+  };
+  return { ...state, scenes, activeIndex: index, status: 'thinking', tool: null };
 };
 
 export const selectSceneAt = (state: ScenesState, index: number): ScenesState => {

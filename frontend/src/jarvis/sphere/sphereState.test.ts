@@ -3,20 +3,19 @@ import {
   BREATH_PERIOD_HOVER_MS,
   BREATH_PERIOD_MS,
   ERROR_FLASH_MS,
-  PULSE_DURATION_MS,
-  PULSE_GAP_MAX_MS,
-  PULSE_GAP_MIN_MS,
+  SMOOTH_TAU_MS,
   SPHERE_STATES,
+  approach,
   breathAt,
+  breathOfPhase,
   breathPeriodOf,
   dprCap,
   energyOf,
   errorAt,
+  flowSpeedOf,
   haloScaleOf,
-  pulseAt,
-  pulseGapOf,
   readSpherePalette,
-  speakingEnvelope
+  spinSpeedOf
 } from './sphereState';
 
 describe('sphere energy by state', () => {
@@ -60,27 +59,28 @@ describe('breathing', () => {
     }
   });
 
+  it('reads the same value from an accumulated phase as from elapsed time', () => {
+    expect(breathOfPhase(0.25)).toBeCloseTo(breathAt(BREATH_PERIOD_MS / 4, BREATH_PERIOD_MS), 5);
+  });
+
   it('grows the halo by a fifth on hover and leaves it alone otherwise', () => {
     expect(haloScaleOf('hover')).toBeCloseTo(1.2, 5);
     expect(haloScaleOf('idle')).toBe(1);
   });
 });
 
-describe('pulse waves are rare events, not a strobe', () => {
-  it('keeps the resting gap inside the 3..6 s window from the moodboard', () => {
-    expect(pulseGapOf('idle', 0)).toBe(PULSE_GAP_MIN_MS);
-    expect(pulseGapOf('idle', 1)).toBe(PULSE_GAP_MAX_MS);
-    expect(pulseGapOf('idle', 0.5)).toBe((PULSE_GAP_MIN_MS + PULSE_GAP_MAX_MS) / 2);
+describe('phase speeds change, phase itself never jumps', () => {
+  it('turns and flows faster the more energy the sphere carries', () => {
+    expect(spinSpeedOf(1)).toBeGreaterThan(spinSpeedOf(0));
+    expect(flowSpeedOf(1)).toBeGreaterThan(flowSpeedOf(0));
   });
 
-  it('shortens the gap while thinking', () => {
-    expect(pulseGapOf('thinking', 0.5)).toBeLessThan(pulseGapOf('idle', 0.5));
-  });
-
-  it('is silent outside the wave and peaks inside it', () => {
-    expect(pulseAt(-1)).toBe(0);
-    expect(pulseAt(PULSE_DURATION_MS + 1)).toBe(0);
-    expect(pulseAt(PULSE_DURATION_MS / 2)).toBeGreaterThan(0.5);
+  it('eases a value towards its target instead of snapping to it', () => {
+    const half = approach(0, 1, SMOOTH_TAU_MS, SMOOTH_TAU_MS);
+    expect(half).toBeGreaterThan(0.5);
+    expect(half).toBeLessThan(0.7);
+    expect(approach(0, 1, SMOOTH_TAU_MS * 12, SMOOTH_TAU_MS)).toBeCloseTo(1, 4);
+    expect(approach(0.3, 1, 0, SMOOTH_TAU_MS)).toBe(1);
   });
 });
 
@@ -100,24 +100,10 @@ describe('device pixel ratio is capped at two', () => {
   });
 });
 
-describe('speaking envelope is synthetic, not measured', () => {
-  it('is silent before the phrase starts and after it ends', () => {
-    expect(speakingEnvelope(-1, 1000)).toBe(0);
-    expect(speakingEnvelope(1001, 1000)).toBe(0);
-    expect(speakingEnvelope(10, 0)).toBe(0);
-  });
-
-  it('opens and closes the phrase quieter than the middle', () => {
-    const middle = speakingEnvelope(500, 1000);
-    expect(speakingEnvelope(1, 1000)).toBeLessThan(middle);
-    expect(speakingEnvelope(999, 1000)).toBeLessThan(middle);
-  });
-});
-
 describe('palette reading falls back instead of throwing', () => {
   it('returns a colour for every token when there is no root to read', () => {
     const palette = readSpherePalette(null);
     expect(palette['--color-jarvis-body'].r).toBeGreaterThanOrEqual(0);
-    expect(Object.keys(palette).length).toBe(6);
+    expect(Object.keys(palette).length).toBe(7);
   });
 });

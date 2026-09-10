@@ -1,54 +1,22 @@
-import type { Workspace, WorkspaceView } from '../../state/ConsoleContext';
 import { isView, isWorkspace, type ConsoleAction } from '../actions/consoleAction';
+import {
+  CARD_TYPES,
+  type CardType,
+  type JarvisAskContext,
+  type JarvisCard,
+  type JarvisEvent
+} from './eventTypes';
 
-export const CARD_TYPES = [
-  'metric',
-  'well',
-  'well-list',
-  'field-map',
-  'series',
-  'rule',
-  'compare',
-  'event-strip',
-  'pattern',
-  'error',
-  'glossary',
-  'guide'
-] as const;
-
-export type CardType = (typeof CARD_TYPES)[number];
-
-export interface JarvisCard {
-  type: CardType;
-  title: string;
-  payload: unknown;
-  provenance: string;
-  action?: ConsoleAction;
-}
-
-export type { ConsoleAction };
-
-export interface JarvisAskContext {
-  scenario: string;
-  step: number;
-  date: string;
-  selected_well: string | null;
-  workspace: Workspace;
-  view: WorkspaceView;
-}
-
-export type JarvisStatusState = 'thinking' | 'tool' | 'composing';
-
-export type JarvisEvent =
-  | { type: 'scene'; scene_id: string; question: string; context: JarvisAskContext }
-  | { type: 'status'; state: JarvisStatusState; tool?: string }
-  | { type: 'card'; scene_id: string; card_id: string; order: number; card: JarvisCard }
-  | { type: 'caption_delta'; scene_id: string; text: string }
-  | { type: 'caption'; scene_id: string; text: string; guarded: boolean }
-  | { type: 'warning'; code: string; detail: string }
-  | { type: 'suggestions'; items: { text: string }[] }
-  | { type: 'done'; scene_id: string; tool_rounds: number; elapsed_ms: number }
-  | { type: 'error'; code: string; message: string };
+export {
+  CARD_TYPES,
+  type CardType,
+  type ConsoleAction,
+  type JarvisAskContext,
+  type JarvisCapabilitiesEvent,
+  type JarvisCard,
+  type JarvisEvent,
+  type JarvisStatusState
+} from './eventTypes';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -135,7 +103,14 @@ export const parseEvent = (value: unknown): JarvisEvent | null => {
     if (!str(value.scene_id) || !str(value.question) || context === null) {
       return null;
     }
-    return { type: 'scene', scene_id: value.scene_id, question: value.question, context };
+    return {
+      type: 'scene',
+      scene_id: value.scene_id,
+      question: value.question,
+      context,
+      ...(str(value.ts) ? { ts: value.ts } : {}),
+      ...(str(value.session_id) ? { session_id: value.session_id } : {})
+    };
   }
   if (value.type === 'status') {
     if (value.state !== 'thinking' && value.state !== 'tool' && value.state !== 'composing') {
@@ -157,7 +132,9 @@ export const parseEvent = (value: unknown): JarvisEvent | null => {
       scene_id: value.scene_id,
       card_id: value.card_id,
       order: Math.trunc(value.order),
-      card
+      card,
+      ...(str(value.tool) ? { tool: value.tool } : {}),
+      ...(isRecord(value.args) ? { args: value.args } : {})
     };
   }
   if (value.type === 'caption_delta') {
@@ -175,6 +152,33 @@ export const parseEvent = (value: unknown): JarvisEvent | null => {
       scene_id: value.scene_id,
       text: value.text,
       guarded: value.guarded === true
+    };
+  }
+  if (value.type === 'answer_delta') {
+    if (!str(value.scene_id) || !str(value.text)) {
+      return null;
+    }
+    return { type: 'answer_delta', scene_id: value.scene_id, text: value.text };
+  }
+  if (value.type === 'answer') {
+    if (!str(value.scene_id) || !str(value.text)) {
+      return null;
+    }
+    return {
+      type: 'answer',
+      scene_id: value.scene_id,
+      text: value.text,
+      guarded: value.guarded === true
+    };
+  }
+  if (value.type === 'capabilities') {
+    const stt = value.stt;
+    return {
+      type: 'capabilities',
+      tts: value.tts === true,
+      stt: stt === 'server' || stt === 'browser' ? stt : 'none',
+      docs: num(value.docs) ? Math.trunc(value.docs) : 0,
+      sessions: num(value.sessions) ? Math.trunc(value.sessions) : 0
     };
   }
   if (value.type === 'warning') {

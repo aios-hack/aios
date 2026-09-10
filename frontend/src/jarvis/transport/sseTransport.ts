@@ -38,10 +38,23 @@ export const askBody = (ask: JarvisAsk): string =>
   });
 
 interface SseOptions {
-  fallback?: JarvisTransport;
-  onDegrade?: () => void;
   fetchImpl?: typeof fetch;
 }
+
+export const errorCodeOf = (status: number, body: string): string => {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    if (typeof parsed === 'object' && parsed !== null) {
+      const code = (parsed as Record<string, unknown>).error;
+      if (typeof code === 'string' && code.length > 0) {
+        return code;
+      }
+    }
+  } catch {
+    return status === 503 ? 'no-api-key' : 'upstream';
+  }
+  return status === 503 ? 'no-api-key' : 'upstream';
+};
 
 const readStream = async function* (
   body: ReadableStream<Uint8Array>,
@@ -71,11 +84,7 @@ const readStream = async function* (
   }
 };
 
-export const createSseTransport = ({
-  fallback,
-  onDegrade,
-  fetchImpl
-}: SseOptions = {}): JarvisTransport => ({
+export const createSseTransport = ({ fetchImpl }: SseOptions = {}): JarvisTransport => ({
   mode: 'sse',
   async *ask(ask: JarvisAsk, signal: AbortSignal): AsyncIterable<JarvisEvent> {
     const call = fetchImpl ?? fetch;
@@ -88,41 +97,75 @@ export const createSseTransport = ({
         signal
       });
     } catch {
-      if (fallback === undefined) {
-        yield { type: 'error', code: 'upstream', message: 'fetch failed' };
-        return;
-      }
-      onDegrade?.();
-      yield* fallback.ask(ask, signal);
+      yield { type: 'error', code: 'upstream', message: 'jarvis service is unreachable' };
       return;
     }
     if (!response.ok || response.body === null) {
-      if (response.status === 503 || fallback === undefined) {
-        yield {
-          type: 'error',
-          code: response.status === 503 ? 'no-api-key' : 'upstream',
-          message: `http ${response.status}`
-        };
-        if (fallback !== undefined) {
-          onDegrade?.();
-          yield* fallback.ask(ask, signal);
-        }
-        return;
+      let body = '';
+      try {
+        body = await response.text();
+      } catch {
+        body = '';
       }
-      onDegrade?.();
-      yield* fallback.ask(ask, signal);
+      yield {
+        type: 'error',
+        code: errorCodeOf(response.status, body),
+        message: `http ${response.status}`
+      };
       return;
     }
     yield* readStream(response.body, signal);
   }
 });
 
-export const checkHealth = async (fetchImpl?: typeof fetch): Promise<boolean> => {
+export interface JarvisCapabilities {
+  ok: boolean;
+  tts: boolean;
+  stt: 'server' | 'browser' | 'none';
+  docs: number;
+  sessions: number;
+}
+
+export const OFFLINE: JarvisCapabilities = {
+  ok: false,
+  tts: false,
+  stt: 'none',
+  docs: 0,
+  sessions: 0
+};
+
+export const readCapabilities = (ok: boolean, value: unknown): JarvisCapabilities => {
+  if (typeof value !== 'object' || value === null) {
+    return { ...OFFLINE, ok };
+  }
+  const record = value as Record<string, unknown>;
+  const stt = record.stt;
+  return {
+    ok,
+    tts: record.tts === true,
+    stt: stt === 'server' || stt === 'browser' ? stt : 'none',
+    docs: typeof record.docs === 'number' && Number.isFinite(record.docs) ? record.docs : 0,
+    sessions:
+      typeof record.sessions === 'number' && Number.isFinite(record.sessions)
+        ? record.sessions
+        : 0
+  };
+};
+
+export const fetchCapabilities = async (
+  fetchImpl?: typeof fetch
+): Promise<JarvisCapabilities> => {
   const call = fetchImpl ?? fetch;
   try {
     const response = await call(HEALTH_URL, { method: 'GET' });
-    return response.ok;
+    if (!response.ok) {
+      return OFFLINE;
+    }
+    return readCapabilities(true, await response.json());
   } catch {
-    return false;
+    return OFFLINE;
   }
 };
+
+export const checkHealth = async (fetchImpl?: typeof fetch): Promise<boolean> =>
+  (await fetchCapabilities(fetchImpl)).ok;

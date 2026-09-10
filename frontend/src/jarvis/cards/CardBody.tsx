@@ -32,7 +32,7 @@ export const CardBody = ({ card, onOpen }: CardBodyProps) => {
     return <SeriesCard payload={card.payload} />;
   }
   if (card.type === 'field-map') {
-    return <FieldMapCard payload={card.payload} />;
+    return <FieldMapCard payload={card.payload} scenario={card.action?.scenario ?? null} />;
   }
   if (card.type === 'rule') {
     return <RuleCard payload={card.payload} />;

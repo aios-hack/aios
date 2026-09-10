@@ -1,4 +1,3 @@
-import { XIcon } from '@phosphor-icons/react';
 import { useI18n } from '../../i18n/I18nContext';
 import { DASH, formatStepDate } from '../../ui/format';
 import { useJarvis } from '../JarvisContext';
@@ -6,7 +5,7 @@ import './ContextRibbon.css';
 
 export const ContextRibbon = () => {
   const { lang, t, toggleLang } = useI18n();
-  const { askContext, close, degraded, speakEnabled, toggleSpeak } = useJarvis();
+  const { askContext, capabilities, speakEnabled, toggleSpeak } = useJarvis();
 
   return (
     <header className="jarvis-ribbon" aria-label={t('jarvis.contextLabel')}>
@@ -26,7 +25,25 @@ export const ContextRibbon = () => {
           <dd>{askContext.selected_well ?? t('jarvis.contextNoWell')}</dd>
         </div>
       </dl>
-      {degraded ? <p className="jarvis-ribbon-demo">{t('jarvis.demoMode')}</p> : null}
+      <ul className="jarvis-ribbon-chips" aria-label={t('jarvis.capabilitiesLabel')}>
+        <li className="jarvis-ribbon-chip" data-on={capabilities.ok ? 'true' : 'false'}>
+          {capabilities.ok ? t('jarvis.chipLive') : t('jarvis.chipOffline')}
+        </li>
+        <li className="jarvis-ribbon-chip" data-on={capabilities.tts ? 'true' : 'false'}>
+          {t('jarvis.chipTts')}
+        </li>
+        <li
+          className="jarvis-ribbon-chip"
+          data-on={capabilities.stt === 'none' ? 'false' : 'true'}
+        >
+          {t('jarvis.chipStt')}
+        </li>
+        {capabilities.docs > 0 ? (
+          <li className="jarvis-ribbon-chip" data-on="true">
+            {t('jarvis.chipDocs', { count: String(capabilities.docs) })}
+          </li>
+        ) : null}
+      </ul>
       <div className="jarvis-ribbon-controls">
         <button
           type="button"
@@ -38,14 +55,6 @@ export const ContextRibbon = () => {
         </button>
         <button type="button" className="jarvis-ribbon-button" onClick={toggleLang}>
           {lang === 'ru' ? 'en' : 'ru'}
-        </button>
-        <button
-          type="button"
-          className="jarvis-ribbon-close"
-          aria-label={t('jarvis.closeLabel')}
-          onClick={close}
-        >
-          <XIcon size={16} weight="bold" aria-hidden="true" />
         </button>
       </div>
     </header>

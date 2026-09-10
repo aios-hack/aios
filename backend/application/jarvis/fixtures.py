@@ -14,6 +14,7 @@ from backend.infrastructure.llm.chat_events import ToolCall
 from backend.infrastructure.llm.fake_chat import FakeChatClient
 
 FIXTURE_DIR = Path("frontend") / "public" / "jarvis" / "fixtures"
+FIXTURE_TS = "2026-09-11T00:00:00Z"
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +49,7 @@ def replay(
         knowledge=knowledge,
         sessions=SessionStore(),
         clock=_frozen_clock(),
+        now=lambda: FIXTURE_TS,
     )
     return orchestrator.ask(
         f"fixture-{recording.name}", recording.question, recording.console

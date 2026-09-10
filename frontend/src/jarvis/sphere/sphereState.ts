@@ -17,7 +17,8 @@ export const SPHERE_TOKENS = [
   '--color-jarvis-deep',
   '--color-jarvis-rim',
   '--color-jarvis-spark',
-  '--color-jarvis-halo'
+  '--color-jarvis-halo',
+  '--color-jarvis-shadow'
 ] as const;
 
 export type SphereToken = (typeof SPHERE_TOKENS)[number];
@@ -30,10 +31,8 @@ export const readSpherePalette = (root: Element | null): SpherePalette =>
 
 export const BREATH_PERIOD_MS = 3200;
 export const BREATH_PERIOD_HOVER_MS = 2000;
-export const PULSE_DURATION_MS = 900;
-export const PULSE_GAP_MIN_MS = 3000;
-export const PULSE_GAP_MAX_MS = 6000;
 export const ERROR_FLASH_MS = 600;
+export const SMOOTH_TAU_MS = 350;
 
 export const energyOf = (state: SphereState): number => {
   if (state === 'thinking') {
@@ -56,28 +55,22 @@ export const breathPeriodOf = (state: SphereState): number =>
 
 export const haloScaleOf = (state: SphereState): number => (state === 'hover' ? 1.2 : 1);
 
-export const pulseGapOf = (state: SphereState, random: number): number => {
-  const span = PULSE_GAP_MAX_MS - PULSE_GAP_MIN_MS;
-  const base = PULSE_GAP_MIN_MS + span * Math.min(Math.max(random, 0), 1);
-  if (state === 'thinking') {
-    return base * 0.35;
+export const spinSpeedOf = (energy: number): number => 0.16 + 0.5 * energy;
+
+export const flowSpeedOf = (energy: number): number => 0.35 + 0.6 * energy;
+
+export const approach = (value: number, target: number, dtMs: number, tauMs: number): number => {
+  if (tauMs <= 0 || dtMs <= 0) {
+    return target;
   }
-  if (state === 'listening' || state === 'speaking') {
-    return base * 0.6;
-  }
-  return base;
+  return value + (target - value) * (1 - Math.exp(-dtMs / tauMs));
 };
 
 export const breathAt = (elapsedMs: number, periodMs: number): number =>
   0.5 + 0.5 * Math.sin((elapsedMs / periodMs) * Math.PI * 2);
 
-export const pulseAt = (sinceStartMs: number): number => {
-  if (sinceStartMs < 0 || sinceStartMs > PULSE_DURATION_MS) {
-    return 0;
-  }
-  const phase = sinceStartMs / PULSE_DURATION_MS;
-  return Math.sin(phase * Math.PI) * (1 - phase * 0.35);
-};
+export const breathOfPhase = (phase: number): number =>
+  0.5 + 0.5 * Math.sin(phase * Math.PI * 2);
 
 export const errorAt = (sinceStartMs: number): number => {
   if (sinceStartMs < 0 || sinceStartMs > ERROR_FLASH_MS) {
@@ -87,14 +80,3 @@ export const errorAt = (sinceStartMs: number): number => {
 };
 
 export const dprCap = (ratio: number): number => Math.min(Math.max(ratio, 1), 2);
-
-export const speakingEnvelope = (elapsedMs: number, totalMs: number): number => {
-  if (totalMs <= 0 || elapsedMs < 0 || elapsedMs > totalMs) {
-    return 0;
-  }
-  const phase = elapsedMs / totalMs;
-  const attack = Math.min(1, phase / 0.06);
-  const release = Math.min(1, (1 - phase) / 0.12);
-  const syllables = 0.55 + 0.45 * Math.abs(Math.sin(elapsedMs / 130));
-  return Math.max(0, attack * release * syllables);
-};

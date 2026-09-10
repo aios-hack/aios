@@ -100,6 +100,7 @@
   --color-jarvis-rim: #a9e6ff;
   --color-jarvis-halo: rgba(28, 128, 227, 0.22);
   --color-jarvis-face: #eef3f9;
+  --color-jarvis-shadow: rgba(11, 61, 110, 0.28);
   --color-jarvis-spark: #1c80e3;
   --color-jarvis-ink: #1668bd;
   --color-jarvis-vignette: rgba(26, 32, 40, 0.14);
@@ -215,6 +216,9 @@
   --size-jarvis-card-wide: 520px;
   --size-jarvis-input-max: 720px;
   --size-jarvis-depth: 400px;
+  --size-jarvis-door-row: 48px;
+  --size-jarvis-answer-max: 720px;
+  --size-jarvis-answer-max-h: 40vh;
   --size-cube-half: 50vw;
   --size-sphere-say-min: 72px;
   --size-spotlight-ring: 6px;

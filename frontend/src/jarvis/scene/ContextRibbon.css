@@ -38,15 +38,28 @@
   color: var(--color-text);
 }
 
-.jarvis-ribbon-demo {
+.jarvis-ribbon-chips {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   flex: none;
   margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jarvis-ribbon-chip {
   padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--color-synthetic-border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
-  background: var(--color-synthetic-bg);
   font-size: var(--font-size-xs);
-  color: var(--color-synthetic);
+  color: var(--color-text-faint);
+  white-space: nowrap;
+}
+
+.jarvis-ribbon-chip[data-on='true'] {
+  border-color: var(--color-jarvis-ink);
+  color: var(--color-jarvis-ink);
 }
 
 .jarvis-ribbon-controls {
@@ -56,8 +69,7 @@
   flex: none;
 }
 
-.jarvis-ribbon-button,
-.jarvis-ribbon-close {
+.jarvis-ribbon-button {
   display: grid;
   place-items: center;
   min-height: var(--size-hit-min);
@@ -71,23 +83,16 @@
   cursor: pointer;
 }
 
-.jarvis-ribbon-close {
-  width: var(--size-icon-button);
-  padding: 0;
-}
-
 .jarvis-ribbon-button[aria-pressed='true'] {
   border-color: var(--color-jarvis-ink);
   color: var(--color-jarvis-ink);
 }
 
-.jarvis-ribbon-button:hover,
-.jarvis-ribbon-close:hover {
+.jarvis-ribbon-button:hover {
   color: var(--color-text);
 }
 
-.jarvis-ribbon-button:focus-visible,
-.jarvis-ribbon-close:focus-visible {
+.jarvis-ribbon-button:focus-visible {
   outline: var(--focus-ring-width) solid var(--color-focus);
   outline-offset: var(--focus-ring-offset);
 }

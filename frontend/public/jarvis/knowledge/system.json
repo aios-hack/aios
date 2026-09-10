@@ -1,0 +1,255 @@
+{
+  "version": 1,
+  "source": "ARCHITECTURE.md, JARVIS.md",
+  "nodes": [
+    {
+      "id": "console",
+      "label": { "ru": "Консоль", "en": "Console" },
+      "kind": "ui",
+      "summary": {
+        "ru": "Браузерное приложение на React: пять рабочих пространств — обзор, поле, история, решения, деньги. Читает ту же JSON-витрину, что и Джарвис, и не считает ничего само.",
+        "en": "The React browser application: five workspaces — overview, field, history, decisions, money. It reads the same JSON showcase Jarvis reads and computes nothing of its own."
+      },
+      "doc": "ARCHITECTURE.md#jarvis",
+      "route": { "workspace": "overview", "view": "fund" },
+      "files": ["frontend/src/views", "frontend/src/app", "frontend/src/ui"]
+    },
+    {
+      "id": "jarvis",
+      "label": { "ru": "Джарвис", "en": "Jarvis" },
+      "kind": "service",
+      "summary": {
+        "ru": "Визуальный ассистент консоли: вопрос на естественном языке превращается в сцену карточек, собранных из той же JSON-витрины. Оркестратор, инструменты, база знаний, сторож чисел и сессии живут в application/jarvis.",
+        "en": "The console's visual assistant: a question in natural language turns into a scene of cards built from the same JSON showcase. Orchestrator, tools, knowledge base, number guard and sessions live in application/jarvis."
+      },
+      "doc": "JARVIS.md#10",
+      "route": null,
+      "files": [
+        "backend/application/jarvis",
+        "backend/presentation/api",
+        "frontend/src/jarvis"
+      ]
+    },
+    {
+      "id": "web",
+      "label": { "ru": "Сервер статики и прокси", "en": "Static server and proxy" },
+      "kind": "infra",
+      "summary": {
+        "ru": "Порт 8000: отдаёт собранный фронт и JSON-витрину, а всё под префиксом /api/jarvis/ переправляет в сервис Джарвиса. Благодаря этому браузер всегда говорит с одним источником.",
+        "en": "Port 8000: serves the built frontend and the JSON showcase, and forwards everything under the /api/jarvis/ prefix to the Jarvis service, so the browser always talks to a single origin."
+      },
+      "doc": "ARCHITECTURE.md#service",
+      "route": null,
+      "files": ["backend/presentation/cli/web.py", "backend/presentation/api/proxy.py"]
+    },
+    {
+      "id": "jarvis-service",
+      "label": { "ru": "Сервис Джарвиса (8010)", "en": "Jarvis service (8010)" },
+      "kind": "service",
+      "summary": {
+        "ru": "Отдельный процесс и отдельный сервис compose на порту 8010, на стандартном ThreadingHTTPServer. Ответ — chunked text/event-stream с комментарием keep-alive раз в 15 секунд, чтобы прокси не рвали долгий ответ.",
+        "en": "A separate process and a separate compose service on port 8010, on the stdlib ThreadingHTTPServer. The response is a chunked text/event-stream with a keep-alive comment every 15 seconds so idle proxies do not drop a slow answer."
+      },
+      "doc": "ARCHITECTURE.md#service",
+      "route": null,
+      "files": ["backend/presentation/api", "backend/presentation/cli/jarvis.py"]
+    },
+    {
+      "id": "llm",
+      "label": { "ru": "Клиент модели", "en": "Model client" },
+      "kind": "infra",
+      "summary": {
+        "ru": "Провайдеры чата: OpenRouter основной, Anthropic запасной. Оркестратор получает ChatClient снаружи и сам не знает ни про urllib, ни про http. Без ключа сервис стартует и отвечает 503 с именем переменной, которую надо задать.",
+        "en": "Chat providers: OpenRouter primary, Anthropic fallback. The orchestrator receives a ChatClient from the outside and knows nothing of urllib or http. Without a key the service still starts and answers 503, naming the variable to set."
+      },
+      "doc": "ARCHITECTURE.md#environment",
+      "route": null,
+      "files": ["backend/infrastructure/llm"]
+    },
+    {
+      "id": "search",
+      "label": { "ru": "Поиск расписаний", "en": "Schedule search" },
+      "kind": "domain",
+      "summary": {
+        "ru": "Оптимизация: подбирает расписание уставок на весь горизонт управления, опираясь на быструю модель вместо гидродинамического симулятора. Стратегия поиска и зерно записываются в манифест прогона.",
+        "en": "Optimisation: it picks a setpoint schedule for the whole control horizon, leaning on the fast model instead of the hydrodynamic simulator. The search strategy and the seed are recorded in the run manifest."
+      },
+      "doc": "ARCHITECTURE.md#run-command",
+      "route": null,
+      "files": ["backend/application/optimization"]
+    },
+    {
+      "id": "surrogate",
+      "label": { "ru": "Быстрая модель пласта", "en": "Fast reservoir model" },
+      "kind": "domain",
+      "summary": {
+        "ru": "Обучаемая модель отклика пласта с головой ЧДД и детектором выхода за область обучения: она отвечает за секунды там, где симулятору нужны часы. Её версии и версия головы ЧДД фиксируются в провенансе прогона.",
+        "en": "A trained reservoir response model with an NPV head and an out-of-distribution detector: it answers in seconds where the simulator needs hours. Its versions and the NPV head version are pinned in the run provenance."
+      },
+      "doc": "SURROGATE_DEFENSE.md",
+      "route": null,
+      "files": ["backend/ml/surrogate"]
+    },
+    {
+      "id": "policy",
+      "label": { "ru": "Иерархия агентов", "en": "Agent hierarchy" },
+      "kind": "domain",
+      "summary": {
+        "ru": "Три уровня решений: координатор поля раздаёт квоты закачки участкам, распределитель участка делит квоту между скважинами, исполнитель скважины применяет правила R0…R7. Каждое решение попадает в журнал.",
+        "en": "Three decision levels: the field coordinator hands injection quotas to areas, the group allocator splits a quota between wells, and the well executor applies rules R0 to R7. Every decision lands in the journal."
+      },
+      "doc": "ARCHITECTURE.md#source-tree",
+      "route": { "workspace": "decisions", "view": "council" },
+      "files": ["backend/domain/policy"]
+    },
+    {
+      "id": "physics",
+      "label": { "ru": "Физические инварианты", "en": "Physical invariants" },
+      "kind": "domain",
+      "summary": {
+        "ru": "Семь проверок отклика: неотрицательность, диапазон обводнённости, монотонность накопленных, отсутствие потока у остановленной скважины, предел забойного давления, отклик на закачку, материальный баланс. Пропущенный инвариант считается непройденным.",
+        "en": "Seven checks of the response: non-negativity, water-cut range, monotonic cumulatives, no flow from a shut well, bottomhole pressure limit, injection response and material balance. A skipped invariant counts as a failed invariant."
+      },
+      "doc": "ANSWERS.md",
+      "route": { "workspace": "money", "view": "comparison" },
+      "files": ["backend/ml/surrogate/physics_checks.py", "backend/presentation/ui_export/physics_view.py"]
+    },
+    {
+      "id": "economics",
+      "label": { "ru": "Экономика и ЧДД", "en": "Economics and NPV" },
+      "kind": "domain",
+      "summary": {
+        "ru": "Считает чистый дисконтированный доход по методике организаторов из нормативов, а не хранит его рядом с расписанием. Производные величины — ЧДД, стоимость событий, типоразмер ЭЦН — всегда вычисляются.",
+        "en": "It computes the net present value by the organisers' methodology from the normatives instead of storing it next to the schedule. Derived quantities — NPV, event cost, ESP size — are always computed."
+      },
+      "doc": "CLAUDE.md",
+      "route": { "workspace": "money", "view": "rank" },
+      "files": ["backend/domain/economics"]
+    },
+    {
+      "id": "opm",
+      "label": { "ru": "OPM Flow", "en": "OPM Flow" },
+      "kind": "infra",
+      "summary": {
+        "ru": "Настоящий гидродинамический симулятор в контейнере с закреплённым digest образа: он и есть арбитр. Прогноз быстрой модели становится результатом только после того, как OPM отработал на том же расписании.",
+        "en": "The real hydrodynamic simulator in a container with a pinned image digest: it is the arbiter. A fast-model prediction becomes a result only after OPM has run on the same schedule."
+      },
+      "doc": "ARCHITECTURE.md#run-command",
+      "route": null,
+      "files": ["backend/infrastructure/opm"]
+    },
+    {
+      "id": "deck",
+      "label": { "ru": "Дек Model_Z", "en": "The Model_Z deck" },
+      "kind": "data",
+      "summary": {
+        "ru": "Модель пласта организаторов: геометрия сетки и её свойства — пористость, песчанистость, проницаемости, активность ячеек, зоны и регионы равновесия. Из дека берётся всё, что рисуется на картах пласта.",
+        "en": "The organisers' reservoir model: grid geometry and its properties — porosity, net-to-gross, permeabilities, cell activity, zones and equilibrium regions. Everything drawn on the reservoir maps comes from the deck."
+      },
+      "doc": "docs/TASK.md",
+      "route": { "workspace": "field", "view": "maps" },
+      "files": ["data", "backend/infrastructure/opm"]
+    },
+    {
+      "id": "cases",
+      "label": { "ru": "Кейсы и ограничения", "en": "Cases and constraints" },
+      "kind": "data",
+      "summary": {
+        "ru": "Ограничения соревнования и производные от них кейсы: лимиты закачки и жидкости, полы добычи, простои скважин, инфраструктурные пределы забойного давления и коридор компенсации. Каждое значение помечено источником.",
+        "en": "The competition constraints and the cases derived from them: injection and liquid limits, production floors, well outages, infrastructure bottomhole pressure limits and the compensation corridor. Every value carries its source."
+      },
+      "doc": "config/README.md",
+      "route": { "workspace": "money", "view": "constraints" },
+      "files": ["config", "backend/application/cases.py"]
+    },
+    {
+      "id": "runs",
+      "label": { "ru": "Прогоны", "en": "Runs" },
+      "kind": "data",
+      "summary": {
+        "ru": "Каждый прогон изолирован в своём каталоге: манифест со статусом и хешем расписания, само расписание, прогноз, рабочий каталог OPM, проверка и экономика. Статус ready_to_submit пишет только сборка пакета.",
+        "en": "Every run is isolated in its own directory: a manifest with the status and the schedule hash, the schedule itself, the prediction, the OPM work directory, the validation and the economics. Only the submit step writes the ready_to_submit status."
+      },
+      "doc": "ARCHITECTURE.md#run-command",
+      "route": { "workspace": "money", "view": "comparison" },
+      "files": ["out/runs", "out/web-runs", "backend/application/runs"]
+    },
+    {
+      "id": "submission",
+      "label": { "ru": "Пакет сдачи", "en": "Submission package" },
+      "kind": "data",
+      "summary": {
+        "ru": "Заявленный ЧДД вместе с хешами: канонического расписания, содержимого пакета, дека, конфигурации экономики, методики и ограничений, плюс образ OPM и коммит. Статус обещает пакет, который существует.",
+        "en": "The claimed NPV together with hashes: of the canonical schedule, the package content, the deck, the economics configuration, the methodology and the constraints, plus the OPM image and the commit. The status promises a package that exists."
+      },
+      "doc": "SUBMISSION.md",
+      "route": { "workspace": "money", "view": "comparison" },
+      "files": ["out/runs", "config/opm-champion.json"]
+    },
+    {
+      "id": "webdata",
+      "label": { "ru": "JSON-витрина", "en": "JSON showcase" },
+      "kind": "data",
+      "summary": {
+        "ru": "Экспорт результатов в статические JSON: таймлайн по шагам управления, разложение ЧДД, граф связности, иерархия решений, журнал правил и вклад правил. Консоль и Джарвис читают именно её, а не базу.",
+        "en": "The export of results into static JSON: the per-step timeline, the NPV breakdown, the connectivity graph, the decision hierarchy, the rule journal and the rule contributions. The console and Jarvis read this, not a database."
+      },
+      "doc": "ARCHITECTURE.md#source-tree",
+      "route": null,
+      "files": ["backend/presentation/ui_export", "frontend/public/data"]
+    },
+    {
+      "id": "knowledge",
+      "label": { "ru": "База знаний", "en": "Knowledge base" },
+      "kind": "doc",
+      "summary": {
+        "ru": "Курируемые файлы: глоссарий предметных терминов с формулами, единицами и источниками и гид по экранам с элементами управления и якорями подсветки. Джарвис объясняет термины и экраны только отсюда.",
+        "en": "The curated files: a glossary of domain terms with formulas, units and sources, and a guide to the screens with their controls and spotlight anchors. Jarvis explains terms and screens only from here."
+      },
+      "doc": "JARVIS.md#11",
+      "route": null,
+      "files": ["frontend/public/jarvis/knowledge"]
+    },
+    {
+      "id": "docs",
+      "label": { "ru": "Документы проекта", "en": "Project documents" },
+      "kind": "doc",
+      "summary": {
+        "ru": "Постановка задачи, архитектура, планы, ответы жюри и разборы. Индексируются полнотекстовым поиском BM25 по разделам, чтобы Джарвис цитировал документ, а не пересказывал его по памяти.",
+        "en": "The task statement, the architecture, the plans, the jury answers and the write-ups. They are indexed by a BM25 full-text search over sections so Jarvis quotes a document instead of retelling it from memory."
+      },
+      "doc": "JARVIS_V2.md#41",
+      "route": null,
+      "files": ["docs", "ARCHITECTURE.md", "JARVIS.md", "FAQ.md", "ANSWERS.md"]
+    }
+  ],
+  "edges": [
+    { "from": "console", "to": "web", "label": { "ru": "статика и JSON-витрина", "en": "static files and the JSON showcase" } },
+    { "from": "console", "to": "jarvis", "label": { "ru": "вопрос и контекст экрана", "en": "the question and the screen context" } },
+    { "from": "jarvis", "to": "web", "label": { "ru": "SSE через /api/jarvis", "en": "SSE through /api/jarvis" } },
+    { "from": "web", "to": "jarvis-service", "label": { "ru": "прокси /api/jarvis/* на 8010", "en": "proxy /api/jarvis/* to 8010" } },
+    { "from": "jarvis-service", "to": "jarvis", "label": { "ru": "оркестратор сцены", "en": "the scene orchestrator" } },
+    { "from": "jarvis", "to": "llm", "label": { "ru": "запрос с описаниями инструментов", "en": "a request carrying the tool descriptions" } },
+    { "from": "jarvis", "to": "webdata", "label": { "ru": "чтение артефактов витрины", "en": "reading the showcase artifacts" } },
+    { "from": "jarvis", "to": "knowledge", "label": { "ru": "термины и экраны", "en": "terms and screens" } },
+    { "from": "jarvis", "to": "docs", "label": { "ru": "поиск по разделам документов", "en": "search over document sections" } },
+    { "from": "jarvis", "to": "runs", "label": { "ru": "манифесты и проверки прогонов", "en": "run manifests and validations" } },
+    { "from": "deck", "to": "opm", "label": { "ru": "сетка и свойства пласта", "en": "the grid and reservoir properties" } },
+    { "from": "deck", "to": "surrogate", "label": { "ru": "отклик для обучения", "en": "the response used for training" } },
+    { "from": "cases", "to": "search", "label": { "ru": "лимиты и простои", "en": "limits and outages" } },
+    { "from": "cases", "to": "policy", "label": { "ru": "лимит закачки поля", "en": "the field injection limit" } },
+    { "from": "search", "to": "surrogate", "label": { "ru": "оценка кандидата за секунды", "en": "a candidate scored in seconds" } },
+    { "from": "search", "to": "policy", "label": { "ru": "уставки от правил R0…R7", "en": "setpoints from rules R0 to R7" } },
+    { "from": "policy", "to": "economics", "label": { "ru": "расписание для расчёта ЧДД", "en": "the schedule to price" } },
+    { "from": "surrogate", "to": "physics", "label": { "ru": "отклик на семь инвариантов", "en": "the response fed to the seven invariants" } },
+    { "from": "search", "to": "runs", "label": { "ru": "расписание и прогноз в каталог прогона", "en": "schedule and prediction into the run directory" } },
+    { "from": "runs", "to": "opm", "label": { "ru": "то же расписание на проверку", "en": "the same schedule sent for verification" } },
+    { "from": "opm", "to": "runs", "label": { "ru": "проверенный ЧДД и нарушения", "en": "the verified NPV and the violations" } },
+    { "from": "opm", "to": "economics", "label": { "ru": "отклик симулятора для методики", "en": "the simulator response for the methodology" } },
+    { "from": "runs", "to": "submission", "label": { "ru": "пакет сдачи с хешами", "en": "the submission package with its hashes" } },
+    { "from": "runs", "to": "webdata", "label": { "ru": "экспорт результатов в JSON", "en": "results exported into JSON" } },
+    { "from": "policy", "to": "webdata", "label": { "ru": "иерархия и журнал решений", "en": "the hierarchy and the decision journal" } },
+    { "from": "webdata", "to": "console", "label": { "ru": "таймлайн, граф, ЧДД по скважинам", "en": "timeline, graph, per-well NPV" } },
+    { "from": "physics", "to": "runs", "label": { "ru": "отчёт о допустимости", "en": "the admissibility report" } }
+  ]
+}

@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
-from backend.application.jarvis.guard import GuardResult, guard_caption
+from backend.application.jarvis.guard import (
+    CODE_WARNING_CODE,
+    CodeResult,
+    GuardResult,
+    guard_answer,
+    guard_caption,
+)
 from backend.infrastructure.llm.chat import ChatClient
 from backend.infrastructure.llm.chat_events import ChatMessage, Done, TextDelta
 
@@ -20,6 +26,12 @@ WARNING_CODE = "number-dropped"
 class GuardedCaption:
     result: GuardResult
     warning: dict[str, Any] | None
+
+
+@dataclass(frozen=True, slots=True)
+class GuardedAnswer:
+    text: str
+    warnings: tuple[dict[str, Any], ...]
 
 
 def _retry(
@@ -59,6 +71,17 @@ def _warning(dropped: Sequence[str]) -> dict[str, Any]:
     }
 
 
+def _code_warning(removed: Sequence[str]) -> dict[str, Any]:
+    listed = "; ".join(item[:80] for item in removed)
+    return {
+        "code": CODE_WARNING_CODE,
+        "detail": (
+            "fenced code blocks that match no document hit and no guide control "
+            f"were removed: {listed}"
+        ),
+    }
+
+
 def guard_with_retry(
     client: ChatClient,
     messages: Sequence[ChatMessage],
@@ -77,3 +100,67 @@ def guard_with_retry(
     if second.ok:
         return GuardedCaption(result=second, warning=None)
     return GuardedCaption(result=second, warning=_warning(second.dropped))
+
+
+def guard_answer_text(
+    answer: str,
+    payloads: Sequence[Any],
+    evidence: Sequence[Any] = (),
+    code_sources: Sequence[str] = (),
+) -> GuardedAnswer:
+    result, code = guard_answer(answer, payloads, evidence, code_sources)
+    warnings: list[dict[str, Any]] = []
+    if not code.ok:
+        warnings.append(_code_warning(code.removed))
+    if not result.ok:
+        warnings.append(_warning(result.dropped))
+    return GuardedAnswer(text=result.text, warnings=tuple(warnings))
+
+
+def doc_numbers(payloads: Sequence[Any]) -> list[float]:
+    collected: list[float] = []
+    for payload in payloads:
+        if not isinstance(payload, Mapping):
+            continue
+        for hit in payload.get("hits") or ():
+            if not isinstance(hit, Mapping):
+                continue
+            for value in hit.get("numbers") or ():
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    collected.append(float(value))
+    return collected
+
+
+def code_sources(payloads: Sequence[Any]) -> list[str]:
+    collected: list[str] = []
+    for payload in payloads:
+        if not isinstance(payload, Mapping):
+            continue
+        for hit in payload.get("hits") or ():
+            if isinstance(hit, Mapping):
+                for key in ("text", "snippet"):
+                    value = hit.get(key)
+                    if isinstance(value, str) and value:
+                        collected.append(value)
+        for control in payload.get("controls") or ():
+            if not isinstance(control, Mapping):
+                continue
+            hotkey = control.get("hotkey")
+            if isinstance(hotkey, str) and hotkey:
+                collected.append(hotkey)
+        for question in payload.get("questions") or ():
+            if isinstance(question, str) and question:
+                collected.append(question)
+    return collected
+
+
+__all__ = [
+    "CodeResult",
+    "GuardedAnswer",
+    "GuardedCaption",
+    "WARNING_CODE",
+    "code_sources",
+    "doc_numbers",
+    "guard_answer_text",
+    "guard_with_retry",
+]

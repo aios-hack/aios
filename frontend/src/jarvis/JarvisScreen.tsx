@@ -2,8 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '../i18n/I18nContext';
 import type { ConsoleAction } from './actions/consoleAction';
 import { useJarvis } from './JarvisContext';
+import { AnswerPanel } from './scene/AnswerPanel';
 import { Caption } from './scene/Caption';
 import { ContextRibbon } from './scene/ContextRibbon';
+import { JarvisDoor } from './scene/JarvisDoor';
 import { InputDock } from './scene/InputDock';
 import { Orbit } from './scene/Orbit';
 import { SceneStack } from './scene/SceneStack';
@@ -121,6 +123,7 @@ export const JarvisScreen = () => {
             micOpen={micOpen}
             scene={scene}
           />
+          <AnswerPanel scene={scene} />
         </div>
       </div>
       <footer className="jarvis-screen-foot">
@@ -132,6 +135,7 @@ export const JarvisScreen = () => {
         <Suggestions items={scenes.suggestions} onPick={askQuestion} />
         <InputDock onAsk={askQuestion} focusSignal={focusSignal} />
       </footer>
+      <JarvisDoor />
     </div>
   );
 };

@@ -3,10 +3,17 @@
   inset: 0;
   border-radius: var(--radius-pill);
   background:
-    radial-gradient(circle at 50% 50%, var(--color-jarvis-rim) 0%, transparent 26%),
-    radial-gradient(circle at 50% 50%, var(--color-jarvis-body) 18%, transparent 62%),
-    radial-gradient(circle at 50% 50%, var(--color-jarvis-halo) 40%, transparent 78%);
+    radial-gradient(circle at 50% 42%, var(--color-jarvis-rim) 0%, transparent 24%),
+    radial-gradient(circle at 50% 50%, var(--color-jarvis-body) 16%, transparent 64%),
+    radial-gradient(circle at 50% 50%, var(--color-jarvis-halo) 42%, transparent 80%);
   animation: jarvis-breathe var(--duration-jarvis-breath) var(--ease-in-out) infinite;
+}
+
+[data-theme='light'] .jarvis-sphere-css {
+  background:
+    radial-gradient(circle at 38% 32%, var(--color-jarvis-rim) 0%, transparent 30%),
+    radial-gradient(circle at 50% 52%, var(--color-jarvis-body) 30%, var(--color-jarvis-deep) 78%),
+    radial-gradient(circle at 50% 82%, var(--color-jarvis-shadow) 0%, transparent 60%);
 }
 
 .jarvis-sphere-css-core {
@@ -15,6 +22,11 @@
   border-radius: var(--radius-pill);
   background: radial-gradient(circle, var(--color-jarvis-pulse) 0%, transparent 70%);
   opacity: 0.75;
+}
+
+[data-theme='light'] .jarvis-sphere-css-core {
+  inset: 36%;
+  opacity: 0.42;
 }
 
 .jarvis-sphere[data-state='hover'] .jarvis-sphere-css {
@@ -31,10 +43,10 @@
   0%,
   100% {
     transform: scale(1);
-    opacity: 0.88;
+    opacity: 0.94;
   }
   50% {
-    transform: scale(1.03);
+    transform: scale(1.012);
     opacity: 1;
   }
 }

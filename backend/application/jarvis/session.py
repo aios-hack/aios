@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass, field
+from typing import Sequence
 
+from backend.application.jarvis.session_store import SessionDisk, restore_exchanges
 from backend.application.jarvis.tools.context import ConsoleContext
 
 HISTORY_LIMIT = 6
 MAX_QUESTION_LENGTH = 600
+ANSWER_EXCERPT = 300
+SUMMARY_LIMIT = 1200
 
 
 class SessionError(RuntimeError):
@@ -18,10 +22,14 @@ class Exchange:
     question: str
     card_types: tuple[str, ...]
     caption: str
+    answer: str = ""
 
     def as_text(self) -> str:
         cards = ", ".join(self.card_types) if self.card_types else "none"
-        return f"Q: {self.question}\nCards: {cards}\nA: {self.caption}"
+        lines = [f"Q: {self.question}", f"Cards: {cards}", f"A: {self.caption}"]
+        if self.answer:
+            lines.append(f"Detail: {self.answer[:ANSWER_EXCERPT]}")
+        return "\n".join(lines)
 
 
 @dataclass
@@ -32,25 +40,55 @@ class Session:
     scene_serial: int = 0
     cancelled: bool = False
     running: bool = False
+    summary_text: str = ""
+    overflowed: list[Exchange] = field(default_factory=list)
+    restored: bool = False
 
     def remember(self, exchange: Exchange) -> None:
         self.history.append(exchange)
-        if len(self.history) > HISTORY_LIMIT:
-            del self.history[: len(self.history) - HISTORY_LIMIT]
+        while len(self.history) > HISTORY_LIMIT:
+            self.overflowed.append(self.history.pop(0))
 
     def next_scene_id(self) -> str:
         self.scene_serial += 1
         return f"s-{self.scene_serial:02d}"
 
+    def questions(self) -> tuple[str, ...]:
+        return tuple(
+            exchange.question for exchange in (*self.overflowed, *self.history)
+        )
+
     def summary(self) -> str:
-        return "\n\n".join(exchange.as_text() for exchange in self.history)
+        parts: list[str] = []
+        if self.summary_text:
+            parts.append(f"Summary of older exchanges: {self.summary_text}")
+        parts.extend(exchange.as_text() for exchange in self.history)
+        return "\n\n".join(parts)
+
+    def pending_summary(self) -> tuple[Exchange, ...]:
+        return tuple(self.overflowed)
+
+    def absorb_summary(self, text: str) -> None:
+        cleaned = text.strip()[:SUMMARY_LIMIT]
+        if cleaned:
+            self.summary_text = cleaned
+        self.overflowed.clear()
 
 
 class SessionStore:
-    def __init__(self, history_limit: int = HISTORY_LIMIT) -> None:
+    def __init__(
+        self,
+        history_limit: int = HISTORY_LIMIT,
+        disk: SessionDisk | None = None,
+    ) -> None:
         self._sessions: dict[str, Session] = {}
         self._lock = threading.Lock()
         self._history_limit = history_limit
+        self._disk = disk
+
+    @property
+    def disk(self) -> SessionDisk | None:
+        return self._disk
 
     def get(self, session_id: str, console: ConsoleContext | None = None) -> Session:
         if not session_id:
@@ -65,7 +103,33 @@ class SessionStore:
                 self._sessions[session_id] = session
             if console is not None:
                 session.console = console
-            return session
+        if not session.restored:
+            session.restored = True
+            self._restore(session)
+        return session
+
+    def _restore(self, session: Session) -> None:
+        if self._disk is None:
+            return
+        meta = self._disk.meta(session.session_id)
+        if meta is None:
+            return
+        session.summary_text = meta.summary
+        try:
+            events = self._disk.events(session.session_id)
+        except Exception:
+            return
+        for row in restore_exchanges(events):
+            session.remember(
+                Exchange(
+                    question=str(row["question"]),
+                    card_types=tuple(row["card_types"]),
+                    caption=str(row["caption"]),
+                    answer=str(row["answer"]),
+                )
+            )
+            session.scene_serial += 1
+        session.overflowed.clear()
 
     def start(self, session_id: str, console: ConsoleContext) -> Session:
         session = self.get(session_id, console)
@@ -96,8 +160,14 @@ class SessionStore:
             return bool(session and session.cancelled)
 
     def count(self) -> int:
+        if self._disk is not None:
+            return max(self._disk.count(), len(self._sessions))
         with self._lock:
             return len(self._sessions)
+
+    def forget(self, session_id: str) -> None:
+        with self._lock:
+            self._sessions.pop(session_id, None)
 
 
 def check_question(question: str) -> str:
@@ -114,3 +184,13 @@ def check_question(question: str) -> str:
             "without adding precision"
         )
     return text
+
+
+def summary_request(exchanges: Sequence[Exchange]) -> str:
+    lines = [exchange.as_text() for exchange in exchanges]
+    return (
+        "Сожми эти обмены диалога в короткую справку для памяти: о чём "
+        "спрашивали, какие карточки показывали и что было отвечено. Не больше "
+        "четырёх фраз, без чисел, которых нет в тексте, без инструментов. "
+        "Верни только текст справки.\n\n" + "\n\n".join(lines)
+    )

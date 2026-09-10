@@ -20,6 +20,8 @@ import type { SphereState } from './sphere/sphereState';
 import type { JarvisTransport } from './transport/JarvisTransport';
 import type { JarvisAskContext } from './transport/events';
 import { createTransport, type TransportMode } from './transport/createTransport';
+import type { JarvisCapabilities } from './transport/sseTransport';
+import { useJarvisHealth } from './useJarvisHealth';
 import { useJarvisHistory } from './useJarvisHistory';
 import { useJarvisHotkey } from './useJarvisHotkey';
 import { useJarvisSession, type JarvisSession } from './useJarvisSession';
@@ -51,7 +53,8 @@ interface JarvisContextValue extends JarvisSession {
   setMicOpen: (open: boolean) => void;
   askContext: JarvisAskContext;
   transportMode: TransportMode;
-  degraded: boolean;
+  capabilities: JarvisCapabilities;
+  retry: () => void;
   speakEnabled: boolean;
   toggleSpeak: () => void;
   applyAction: (action: ConsoleAction) => void;
@@ -82,14 +85,9 @@ export const JarvisProvider = ({
   const [micOpen, setMicOpen] = useState(false);
   const [crossfade, setCrossfade] = useState(readReducedMotion);
   const [speakEnabled, setSpeakEnabled] = useState(false);
-  const [degraded, setDegraded] = useState(false);
   const resumeRef = useRef(false);
 
-  const onDegrade = useCallback(() => setDegraded(true), []);
-  const active = useMemo(
-    () => transport ?? createTransport({ onDegrade }),
-    [transport, onDegrade]
-  );
+  const active = useMemo(() => transport ?? createTransport(), [transport]);
 
   const steps = timeline.status === 'ready' ? timeline.data.steps : [];
   const date = steps[stepIndex]?.date ?? '';
@@ -159,6 +157,17 @@ export const JarvisProvider = ({
   const current = session.scenes.scenes[session.scenes.activeIndex];
   const sceneError = current?.error ?? null;
   const status = session.scenes.status;
+  const { capabilities, probe } = useJarvisHealth(
+    isVisible(transition),
+    sceneError !== null
+  );
+  const { askQuestion } = session;
+  const retry = useCallback(() => {
+    probe();
+    if (current !== undefined && current.question.length > 0) {
+      askQuestion(current.question);
+    }
+  }, [probe, askQuestion, current]);
   const sphereState = useMemo<SphereState>(() => {
     if (sceneError !== null) {
       return 'error';
@@ -197,7 +206,8 @@ export const JarvisProvider = ({
       setMicOpen,
       askContext,
       transportMode: active.mode,
-      degraded,
+      capabilities,
+      retry,
       speakEnabled,
       toggleSpeak,
       applyAction
@@ -215,7 +225,8 @@ export const JarvisProvider = ({
       micOpen,
       askContext,
       active.mode,
-      degraded,
+      capabilities,
+      retry,
       speakEnabled,
       toggleSpeak,
       applyAction

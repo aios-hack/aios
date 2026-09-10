@@ -118,8 +118,8 @@
 | Инструмент | Вход | Карточка | Источник |
 |---|---|---|---|
 | `search_docs` | `{query, k≤6, scope?: docs\|knowledge\|all}` | `doc` | BM25-индекс §4.1 |
-| `system_map` | `{focus?: node_id, depth?: 1\|2}` | `system-map` | `knowledge/system.json` |
-| `system_status` | `{}` | `status-board` | `config/opm-champion.json`, последний `out/runs/*/manifest.json`, `submission/claimed_npv.json`, health |
+| `system_map` | `{focus?: node_id, depth?: 1\|2}` | `system-map` | `frontend/public/jarvis/knowledge/system.json` |
+| `system_status` | `{}` | `status-board` | `config/opm-champion.json`, последний `out/runs/*/manifest.json`, пакет сдачи `claimed_npv.json`, health |
 | `run_history` | `{limit≤10, status?}` | `run-list` | `out/runs/*/manifest.json`, `out/web-runs/*` |
 | `run_detail` | `{run_id?}` | `run` | manifest + `validation/*` + `submission/*` |
 | `compare_runs` | `{a?, b?}` | `compare` | `comparison.json` прогона или два манифеста |
@@ -438,7 +438,7 @@ canvas'ов — не присваивать `canvas.width`, если разме�
 забойное давление (цвет маркера по шкале), обводнённость (кольцо). **Плеер двигает
 маркеры** — это и есть «в динамике» в честной версии.
 
-### 7.2 Экспорт (`backend/presentation/ui_export/maps_view.py`)
+### 7.2 Экспорт — новый модуль `maps_view.py` в `backend/presentation/ui_export/`
 
 - Парсер `COORD` (6 чисел на столб, (ni+1)×(nj+1) столбов): центр ячейки (i, j) по xy —
   среднее четырёх столбов верхней грани. `ZCORN`: кровля ячейки — среднее четырёх верхних
@@ -455,7 +455,7 @@ canvas'ов — не присваивать `canvas.width`, если разме�
   сдвига не нужно.
 - Свойства: `PORO`, `NTG`, `PERMX`, `ACTNUM`, `FIP_ZONE`, `EQLNUM` — по `ni·nj·nk` значений с
   поддержкой `N*value`.
-- Вывод: `maps/index.json` (`ni, nj, nk, bounds:{xmin,xmax,ymin,ymax}, layers:[{k,
+- Вывод: индекс карт `index.json` (`ni, nj, nk, bounds:{xmin,xmax,ymin,ymax}, layers:[{k,
   group}], props:[{id,label,scale,min,max}], wells:[{id, i, j, role, k_from, k_to}]`) и
   `maps/<prop>/<k>.json` (`{k, prop, min, max, q: [uint8 × ni·nj], nodata: 255}`) — 59 слоёв ×
   6 свойств × ≈ 9 КБ ≈ 3 МБ, лениво по слою. Подключить в `webdata`.
@@ -530,7 +530,7 @@ C — `WORKSPACE_VIEWS`); тип `compare` с объектами (A шлёт, B 
   `session_id` в `scene`, `tool`/`args` в `card`, событие `capabilities` первым после `scene`.
 - [ ] **A-02** `docs_index.py` по §4.1: корпус, чанки, BM25, кэш, `numbers` у чанка;
   инструмент `search_docs` → карточка `doc`; регистрация в `schemas.py`/`registry.py`.
-- [ ] **A-03** `knowledge/system.json` по §4.2 (≥ 16 узлов, ≥ 20 рёбер, ru/en); инструменты
+- [ ] **A-03** `frontend/public/jarvis/knowledge/system.json` по §4.2 (≥ 16 узлов, ≥ 20 рёбер, ru/en); инструменты
   `system_map` и `system_status` → карточки `system-map`, `status-board`; `actions.py` —
   маршруты новых карточек (§3.4) и маршрут `field/maps` в `check_route`.
 - [ ] **A-04** Инструменты `run_history`, `run_detail`, `compare_runs`, `case_constraints`,
@@ -686,6 +686,65 @@ C — `WORKSPACE_VIEWS`); тип `compare` с объектами (A шлёт, B 
   `backend/presentation/api/service.py` общий на все пути — аудио для `/transcribe`
   (до 2 МБ по §4.5) в него не влезет. Заведи отдельный лимит `MAX_AUDIO_BYTES = 2 * 1024 * 1024`
   и применяй его только на маршруте `/api/jarvis/transcribe`, остальные пути оставь на 16 КБ.
+**Решения координатора по заметкам волны 1 (все приняты, спорных нет):**
+разделитель `---ОТВЕТ---`, поле `text` в хите, `ts` из `mtime`, второй корень прогонов,
+`field/maps` в гиде заранее, «ожидающая» сцена до прихода `scene`, новые токены
+`--color-jarvis-shadow`/`--size-jarvis-*`, подъём лончера над полосой времени, удаление
+фикстур из сборки плагином `vite` — **всё принято как есть, переделывать не нужно**.
+Ссылки в §3.3/§9.3 починены координатором, `test_markdown_links` зелёный. Красный
+`knowledge.test.ts` закрывается задачей C-05 в волне 3. Отдельно координатор поднял
+ранжирование индекса: планы и бэклог (`JARVIS_V2.md`, `FINAL_PLAN.md`, `BACKLOG.md`,
+`AUDIT_PLAN_*`, `DISCUSSIONS.md`) получили вес 0.45, иначе они забивали выдачу по любому
+запросу — «как запустить verify» отдавал план вместо `SUBMISSION.md`.
+
+- `[A→координатор]` §3.1 не описывает, как модель отделяет `caption` от `answer` в одном
+  текстовом потоке. Введён разделитель строкой `---ОТВЕТ---` (`---ANSWER---`), он же в
+  промпте (§4.3); всё до него — подпись, после — `answer`. Поток режется на `caption_delta`
+  и `answer_delta` по факту появления разделителя. Разделитель — деталь промпта, в SSE не
+  утекает (`backend/application/jarvis/answer.py`).
+- `[A→координатор]` §3.4 не даёт `text` в хите `search_docs`, но сторож v2 (§3.5) обязан
+  проверять fenced-блок на вхождение в хит. Сниппета для этого мало: команда может лежать
+  вне окна сниппета. В `hits[]` добавлено поле `text` — полный текст чанка (≤ 1200 символов).
+  Фронт по-прежнему рисует `snippet`.
+- `[A→координатор]` §3.4 задаёт у `run-list` поле `ts`, но манифесты прогонов времени не
+  содержат. `ts` берётся из `mtime` файла `manifest.json`; своего времени прогоны не пишут.
+- `[A→координатор]` `physics_report` на текущем дереве всегда отказывает: ни в `out/runs`
+  (каталог пуст), ни в `out/web-runs/*/validation` нет файла `physics*.json`. Отказ честный,
+  с указанием искомого пути. Карточка `physics` появится, когда прогон запишет отчёт.
+- `[A→координатор]` `run_history`/`run_detail`/`compare_runs` читают и `out/runs`, и
+  `out/web-runs` (§3.3), но `RunStore` из `artifacts.py` знает только `out/runs`. Второй
+  корень добавлен в `backend/application/jarvis/tools/run_history.py`, переменная `AIOS_JARVIS_WEB_RUNS`.
+- `[A→координатор]` `tests/architecture/test_markdown_links.py` падает на пяти ссылках
+  самого `JARVIS_V2.md` в §3.3 и §9.3: два относительных пути до карты системы (реальный
+  файл — `frontend/public/jarvis/knowledge/system.json`), путь до пакета сдачи внутри
+  каталога прогона, и два файла агента C, которых ещё нет. Кода это не касается.
+- `[A→координатор]` Ради теста `test_guide_covers_every_workspace_view` экран `field/maps`
+  добавлен в `guide.json` уже в волне 1 (формально A-14 из волны 3). Якоря контролов —
+  `maps-prop-tabs`, `maps-layer-slider`, `maps-legend`, как в §7.3.
+- `[A→B]` Фикстуры перегенерированы под контракт v2: у `scene` появились `ts` и
+  `session_id`, у `card` — `tool` и `args`. Метка времени в фикстурах заморожена
+  (`FIXTURE_TS = "2026-09-11T00:00:00Z"`), иначе побайтовое сравнение не воспроизводится.
+- `[B→координатор]` `frontend` `knowledge.test.ts` красный не по вине B: A записал экран
+  `field/maps` и якоря `maps-prop-tabs`/`maps-layer-slider`/`maps-legend` в `guide.json`,
+  а C ещё не добавил `maps` в `WORKSPACE_VIEWS` и `data-guide` в разметку (C-05).
+  Закроется в волне 3, файлов B не касается.
+- `[B→координатор]` §3.1 не задаёт, что показывать при ошибке **до** события `scene`: бэкенд
+  лёг — сцены нет, привязать ошибку не к чему, и человек не видит ничего. B заводит локальную
+  «ожидающую» сцену в `useJarvisSession` при отправке вопроса и переименовывает её по приходу
+  настоящего `scene` (`adoptScene` в `scenes.ts`). Контракт не нарушен; стоит зафиксировать.
+- `[B→координатор]` §9.1 разрешает B только `--color-jarvis-*` и `--size-sphere-*`. Для B-03
+  и B-07 заведены `--color-jarvis-shadow` (тень вместо гало в светлой теме),
+  `--size-jarvis-answer-max`, `--size-jarvis-answer-max-h`, `--size-jarvis-door-row` — в том же
+  ряду, что уже существующие `--size-jarvis-*`. Если это не устраивает — переименовать.
+- `[B→координатор]` B-04 вскрыл то, о чём предупреждал `JARVIS.md` §2.1: при `margin-top: auto`
+  лончер уходит под `.console-area-timeaxis` (`z-index: var(--z-sticky)`) и перестаёт ловить
+  клики. Починено на стороне B (`position: relative; z-index: var(--z-drawer)` на
+  `.jarvis-launcher`), файлы C не тронуты.
+- `[B→координатор]` Фикстуры из `frontend/public/jarvis/fixtures` **не** перенесены в
+  `frontend/test-fixtures/`: перенос требует правки `backend/application/jarvis/fixtures.py`
+  (файл A). Вместо этого §5.5, вариант первый: плагин `aios-drop-jarvis-fixtures` в
+  `vite.config.ts` удаляет каталог из `dist` после сборки. В прод они не попадают, тесты
+  и генератор записей работают как раньше. Перенос — за A, если координатор захочет.
 
 ---
 

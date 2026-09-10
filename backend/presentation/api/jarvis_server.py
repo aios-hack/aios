@@ -3,10 +3,12 @@ from __future__ import annotations
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Mapping
+from urllib.parse import parse_qs, urlsplit
 
 from backend.application.jarvis.artifacts import ArtifactError
 from backend.application.jarvis.knowledge import KnowledgeError
 from backend.application.jarvis.session import SessionError
+from backend.application.jarvis.session_store import SessionDiskError
 from backend.presentation.api.service import (
     DEFAULT_HOST,
     DEFAULT_PORT,
@@ -14,6 +16,7 @@ from backend.presentation.api.service import (
     MAX_BODY_BYTES,
     JarvisService,
     console_context,
+    query_context,
 )
 from backend.presentation.api.sse import (
     CONTENT_TYPE,
@@ -37,7 +40,7 @@ def build_handler(service: JarvisService) -> type[BaseHTTPRequestHandler]:
             if origin in DEV_ORIGINS:
                 self.send_header("Access-Control-Allow-Origin", origin)
                 self.send_header("Access-Control-Allow-Headers", "Content-Type")
-                self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+                self.send_header("Access-Control-Allow-Methods", "POST, GET, DELETE, OPTIONS")
 
         def _json(self, status: int, body: Mapping[str, Any]) -> None:
             payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
@@ -68,11 +71,80 @@ def build_handler(service: JarvisService) -> type[BaseHTTPRequestHandler]:
             self.end_headers()
 
         def do_GET(self) -> None:
-            if self.path.rstrip("/") == "/api/jarvis/health":
+            parts = urlsplit(self.path)
+            route = parts.path.rstrip("/") or parts.path
+            if route == "/api/jarvis/health":
                 status, body = service.health()
                 self._json(status, body)
                 return
+            if route == "/api/jarvis/sessions":
+                self._json(200, {"sessions": service.session_rows()})
+                return
+            if route.startswith("/api/jarvis/sessions/"):
+                self._session_events(route.rsplit("/", 1)[-1])
+                return
+            if route == "/api/jarvis/briefing":
+                self._briefing(parse_qs(parts.query))
+                return
             self._json(404, {"error": "not-found", "path": self.path})
+
+        def do_DELETE(self) -> None:
+            route = urlsplit(self.path).path.rstrip("/")
+            if not route.startswith("/api/jarvis/sessions/"):
+                self._json(404, {"error": "not-found", "path": self.path})
+                return
+            session_id = route.rsplit("/", 1)[-1]
+            try:
+                removed = service.remove_session(session_id)
+            except SessionDiskError as error:
+                self._json(400, {"error": "bad-request", "message": str(error)})
+                return
+            self._json(200, {"removed": removed, "id": session_id})
+
+        def _session_events(self, session_id: str) -> None:
+            try:
+                events = service.session_events(session_id)
+            except SessionDiskError as error:
+                self._json(404, {"error": "no-session", "message": str(error)})
+                return
+            self._json(200, {"id": session_id, "events": events})
+
+        def _briefing(self, params: Mapping[str, list[str]]) -> None:
+            if not service.available:
+                status, body = service.health()
+                self._json(status, body)
+                return
+            values = params.get("session_id") or []
+            session_id = values[0] if values else "briefing"
+            console = query_context(params)
+            try:
+                events = service.briefing(session_id, console)
+            except (ArtifactError, KnowledgeError) as error:
+                self._json(503, {"error": "tool-failed", "message": str(error)})
+                return
+            except Exception as error:
+                self._json(503, {"error": "upstream", "message": str(error)})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", CONTENT_TYPE)
+            self.send_header("Cache-Control", "no-cache, no-transform")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("X-Accel-Buffering", "no")
+            self.send_header("Transfer-Encoding", "chunked")
+            self._cors()
+            self.end_headers()
+            writer = KeepAliveWriter(self.wfile)
+            with writer:
+                try:
+                    for event in events:
+                        writer.write(encode_event(event))
+                except (BrokenPipeError, ConnectionResetError):
+                    return
+            try:
+                self.wfile.write(final_chunk())
+                self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError):
+                return
 
         def do_POST(self) -> None:
             route = self.path.split("?", 1)[0].rstrip("/")
@@ -162,7 +234,11 @@ def serve(
     httpd = ThreadingHTTPServer((host, port), build_handler(active))
     httpd.daemon_threads = True
     status, body = active.health()
-    print(f"jarvis: http://{host}:{port} health={status} {json.dumps(body['knowledge'])}")
+    print(
+        f"jarvis: http://{host}:{port} health={status} "
+        f"{json.dumps(body['knowledge'])} docs={body['docs']} "
+        f"sessions={body['sessions']}"
+    )
     try:
         httpd.serve_forever()
     finally:

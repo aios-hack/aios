@@ -111,7 +111,7 @@ def test_health_reports_provider_and_knowledge(live: str) -> None:
     assert body["model"] == "fake/recorded"
     assert body["data"] == "model-z-base-run"
     assert body["knowledge"]["terms"] >= 40
-    assert body["knowledge"]["screens"] == 10
+    assert body["knowledge"]["screens"] == 11
 
 
 def test_health_without_key_is_503(keyless: str) -> None:

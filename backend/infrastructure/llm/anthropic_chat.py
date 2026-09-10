@@ -17,7 +17,7 @@ from backend.infrastructure.llm.tools_format import (
 )
 
 DEFAULT_MODEL = "claude-sonnet-4-5"
-DEFAULT_MAX_TOKENS = 1200
+DEFAULT_MAX_TOKENS = 2400
 DEFAULT_TEMPERATURE = 0.2
 SDK_MODULE = "anthropic"
 

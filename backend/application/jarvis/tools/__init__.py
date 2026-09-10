@@ -3,15 +3,20 @@ from __future__ import annotations
 from typing import Any, Callable, Mapping
 
 from backend.application.jarvis.tools import (
+    cases,
     connectivity as connectivity_module,
+    council,
     decisions,
+    docs,
     fields,
     knowledge as knowledge_module,
     patterns,
     ranking,
     rules,
+    run_history as run_history_module,
     runs,
     scenarios,
+    system as system_module,
     wells,
 )
 from backend.application.jarvis.tools.actions import build_action
@@ -45,6 +50,15 @@ HANDLERS: Mapping[str, ToolFn] = {
     "platform_guide": knowledge_module.platform_guide,
     "run_status": runs.run_status,
     "submission_summary": runs.submission_summary,
+    "search_docs": docs.search_docs,
+    "system_map": system_module.system_map,
+    "system_status": system_module.system_status,
+    "run_history": run_history_module.run_history,
+    "run_detail": run_history_module.run_detail,
+    "compare_runs": run_history_module.compare_runs,
+    "case_constraints": cases.case_constraints,
+    "council_step": council.council_step,
+    "physics_report": run_history_module.physics_report,
 }
 
 

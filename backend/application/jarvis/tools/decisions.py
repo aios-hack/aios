@@ -1,5 +1,3 @@
-"""Journal facts for a well at a control step, read straight from trace.json."""
-
 from __future__ import annotations
 
 from typing import Any, Mapping, Sequence

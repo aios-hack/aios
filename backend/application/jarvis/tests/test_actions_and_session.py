@@ -22,7 +22,7 @@ from backend.application.jarvis.tools.context import ConsoleContext
 
 EXPECTED_VIEWS = {
     "overview": ("fund",),
-    "field": ("projection",),
+    "field": ("projection", "maps"),
     "history": ("matrix", "wall", "table"),
     "decisions": ("council", "rules"),
     "money": ("rank", "comparison", "constraints"),
@@ -158,7 +158,7 @@ def test_system_prompt_states_every_rule() -> None:
     )
     for marker in (
         "Джарвис",
-        "не больше двух фраз",
+        "не больше 2 фраз",
         "Ни одного числа от себя",
         "explain_term",
         "platform_guide",

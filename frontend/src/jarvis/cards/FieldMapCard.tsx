@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { useDataset } from '../../data';
+import { useScenarioDataset } from '../../data';
+import { useOptionalScenario } from '../../state/ScenarioContext';
 import { useT } from '../../i18n/I18nContext';
 import { FIELD_SIZE, projectNodes } from '../../views/FieldProjection/model';
 import { readFieldMap } from './cardPayloads';
@@ -11,10 +12,17 @@ const VIEW = FIELD_SIZE;
 export const edgeOpacity = (weight: number, peak: number): number =>
   peak <= 0 ? 0.2 : Math.min(1, 0.18 + (Math.abs(weight) / peak) * 0.72);
 
-export const FieldMapCard = ({ payload }: { payload: unknown }) => {
+interface FieldMapCardProps {
+  payload: unknown;
+  scenario?: string | null;
+}
+
+export const FieldMapCard = ({ payload, scenario = null }: FieldMapCardProps) => {
   const t = useT();
-  const wells = useDataset('wells');
-  const graph = useDataset('graph');
+  const { activeId } = useOptionalScenario();
+  const source = scenario ?? activeId;
+  const wells = useScenarioDataset('wells', source);
+  const graph = useScenarioDataset('graph', source);
   const map = readFieldMap(payload);
 
   const positions = useMemo(() => {

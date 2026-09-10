@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  adoptScene,
   emptyScenes,
   scenesReducer,
   selectSceneAt,
@@ -62,6 +63,15 @@ export const useJarvisSession = (
       const controller = new AbortController();
       abortRef.current = controller;
       setBusy(true);
+      const pending = `pending-${Date.now()}`;
+      setScenes((current) =>
+        scenesReducer(current, {
+          type: 'scene',
+          scene_id: pending,
+          question: text,
+          context: askContext
+        })
+      );
       const run = async () => {
         try {
           for await (const event of transport.ask(
@@ -70,6 +80,10 @@ export const useJarvisSession = (
           )) {
             if (controller.signal.aborted) {
               return;
+            }
+            if (event.type === 'scene') {
+              setScenes((current) => adoptScene(current, pending, event));
+              continue;
             }
             setScenes((current) => scenesReducer(current, event));
           }

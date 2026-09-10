@@ -1,19 +1,24 @@
 import { SPHERE_FRAGMENT, SPHERE_VERTEX } from './sphere.frag';
 
 const UNIFORMS = [
-  'u_time',
-  'u_pulse',
+  'u_spin',
+  'u_flow',
+  'u_breath',
   'u_energy',
   'u_audio',
-  'u_breath',
   'u_error',
   'u_burst',
+  'u_theme',
+  'u_halo',
+  'u_pixel',
+  'u_pointer',
+  'u_bolts',
   'u_body',
   'u_pulseColor',
   'u_deep',
   'u_rim',
   'u_spark',
-  'u_halo'
+  'u_shadow'
 ] as const;
 
 export type UniformName = (typeof UNIFORMS)[number];
@@ -56,7 +61,7 @@ export const createSphereProgram = (canvas: HTMLCanvasElement): SphereProgram | 
     raw = canvas.getContext('webgl2', {
       alpha: true,
       antialias: false,
-      premultipliedAlpha: false,
+      premultipliedAlpha: true,
       powerPreference: 'low-power'
     });
   } catch {
@@ -92,9 +97,18 @@ export const createSphereProgram = (canvas: HTMLCanvasElement): SphereProgram | 
   gl.bindVertexArray(null);
   const uniforms: UniformMap = {};
   for (const name of UNIFORMS) {
-    uniforms[name] = gl.getUniformLocation(program, name);
+    uniforms[name] = gl.getUniformLocation(program, name === 'u_bolts' ? 'u_bolts[0]' : name);
   }
   return { gl, program, uniforms, vao };
+};
+
+export const applyBlend = (gl: WebGL2RenderingContext, light: boolean): void => {
+  gl.enable(gl.BLEND);
+  if (light) {
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    return;
+  }
+  gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 };
 
 export const setColor = (
@@ -117,4 +131,27 @@ export const setFloat = (
     return;
   }
   gl.uniform1f(location, value);
+};
+
+export const setVec2 = (
+  gl: WebGL2RenderingContext,
+  location: WebGLUniformLocation | null | undefined,
+  x: number,
+  y: number
+): void => {
+  if (location === null || location === undefined) {
+    return;
+  }
+  gl.uniform2f(location, x, y);
+};
+
+export const setVec4Array = (
+  gl: WebGL2RenderingContext,
+  location: WebGLUniformLocation | null | undefined,
+  values: Float32Array
+): void => {
+  if (location === null || location === undefined) {
+    return;
+  }
+  gl.uniform4fv(location, values);
 };

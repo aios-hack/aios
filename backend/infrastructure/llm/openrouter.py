@@ -18,7 +18,7 @@ from backend.infrastructure.llm.tools_format import to_openai_messages, to_opena
 
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "anthropic/claude-sonnet-4.5"
-DEFAULT_MAX_TOKENS = 1200
+DEFAULT_MAX_TOKENS = 2400
 DEFAULT_TEMPERATURE = 0.2
 DEFAULT_TIMEOUT = 60.0
 RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})

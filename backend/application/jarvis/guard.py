@@ -21,6 +21,10 @@ WELL_PATTERN = re.compile(
 )
 SIGNIFICANT_DIGITS = 2
 RELATIVE_TOLERANCE = 5e-3
+FENCE_PATTERN = re.compile(r"```[^\n]*\n(.*?)(?:```|\Z)", re.DOTALL)
+WHITESPACE_PATTERN = re.compile(r"\s+")
+CODE_WARNING_CODE = "code-unverified"
+MIN_CODE_LENGTH = 3
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,3 +155,100 @@ def guard_caption(
     for raw in unsupported:
         cleaned = _strip(cleaned, raw)
     return GuardResult(text=cleaned, ok=False, dropped=tuple(unsupported))
+
+
+def normalize_code(text: str) -> str:
+    return WHITESPACE_PATTERN.sub(" ", text).strip()
+
+
+def code_blocks(text: str) -> list[str]:
+    return [match.group(1) for match in FENCE_PATTERN.finditer(text)]
+
+
+def strip_code(text: str) -> str:
+    return FENCE_PATTERN.sub(" ", text)
+
+
+@dataclass(frozen=True, slots=True)
+class CodeResult:
+    text: str
+    ok: bool
+    removed: tuple[str, ...]
+
+
+def guard_code(text: str, sources: Sequence[str]) -> CodeResult:
+    haystacks = [normalize_code(item) for item in sources if item]
+    removed: list[str] = []
+    cleaned = text
+    for block in code_blocks(text):
+        needle = normalize_code(block)
+        if len(needle) < MIN_CODE_LENGTH:
+            continue
+        if any(needle in haystack for haystack in haystacks):
+            continue
+        removed.append(needle)
+        match = FENCE_PATTERN.search(cleaned)
+        while match is not None:
+            if normalize_code(match.group(1)) == needle:
+                cleaned = cleaned[: match.start()] + cleaned[match.end() :]
+                break
+            match = FENCE_PATTERN.search(cleaned, match.end())
+    if not removed:
+        return CodeResult(text=text, ok=True, removed=())
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+    return CodeResult(text=cleaned, ok=False, removed=tuple(removed))
+
+
+def guard_answer(
+    text: str,
+    tool_payloads: Sequence[Any],
+    evidence: Sequence[Any] = (),
+    code_sources: Sequence[str] = (),
+) -> tuple[GuardResult, CodeResult]:
+    code = guard_code(text, code_sources)
+    allowed = allowed_numbers(tool_payloads, evidence)
+    segments = _outside_code(code.text)
+    unsupported: list[str] = []
+    for segment in segments:
+        unsupported.extend(unsupported_numbers(segment, allowed))
+    if not unsupported:
+        return GuardResult(text=code.text.strip(), ok=True, dropped=()), code
+    cleaned = _replace_outside_code(code.text, unsupported)
+    return (
+        GuardResult(text=cleaned, ok=False, dropped=tuple(unsupported)),
+        code,
+    )
+
+
+def _outside_code(text: str) -> list[str]:
+    pieces: list[str] = []
+    position = 0
+    for match in FENCE_PATTERN.finditer(text):
+        pieces.append(text[position : match.start()])
+        position = match.end()
+    pieces.append(text[position:])
+    return pieces
+
+
+def _replace_outside_code(text: str, unsupported: Sequence[str]) -> str:
+    pieces: list[str] = []
+    position = 0
+    remaining = list(unsupported)
+    for match in FENCE_PATTERN.finditer(text):
+        pieces.append(_strip_all(text[position : match.start()], remaining))
+        pieces.append(match.group(0))
+        position = match.end()
+    pieces.append(_strip_all(text[position:], remaining))
+    return re.sub(r"\n{3,}", "\n\n", "".join(pieces)).strip()
+
+
+def _strip_all(text: str, remaining: list[str]) -> str:
+    cleaned = text
+    for raw in list(remaining):
+        if raw not in cleaned:
+            continue
+        cleaned = cleaned.replace(raw, "", 1)
+        cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+        cleaned = re.sub(r"[ \t]+([,.;:!?])", r"\1", cleaned)
+        remaining.remove(raw)
+    return cleaned

@@ -70,7 +70,9 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"health={status} provider={body.get('provider', 'none')} "
             f"model={body.get('model', 'none')} data={body['data']} "
-            f"terms={body['knowledge']['terms']} screens={body['knowledge']['screens']}"
+            f"terms={body['knowledge']['terms']} screens={body['knowledge']['screens']} "
+            f"nodes={body['knowledge']['system_nodes']} docs={body['docs']} "
+            f"sessions={body['sessions']}"
         )
         return 0 if status == 200 else 1
     serve(host=args.host, port=args.port, service=service)

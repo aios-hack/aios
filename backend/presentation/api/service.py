@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-from typing import Any, Mapping
+import time
+from typing import Any, Callable, Mapping
 
 from backend.application.jarvis.artifacts import ArtifactStore
+from backend.application.jarvis.docs_index import DocsIndex, DocsIndexError, load_index
 from backend.application.jarvis.knowledge import Knowledge
-from backend.application.jarvis.orchestrator import Orchestrator
+from backend.application.jarvis.orchestrator import Event, Orchestrator
 from backend.application.jarvis.session import SessionStore
+from backend.application.jarvis.session_store import SessionDisk, SessionDiskError
+from backend.application.jarvis.system_map import SystemMap, SystemMapError
 from backend.application.jarvis.tools.context import ConsoleContext
 from backend.infrastructure.llm.provider import NoApiKeyError, build_client
 
@@ -16,6 +20,7 @@ DEV_ORIGINS: tuple[str, ...] = (
     "http://127.0.0.1:5199",
 )
 MAX_BODY_BYTES = 16 * 1024
+BRIEFING_TTL = 60.0
 
 
 class JarvisService:
@@ -25,17 +30,50 @@ class JarvisService:
         knowledge: Knowledge | None = None,
         env: Mapping[str, str] | None = None,
         orchestrator: Orchestrator | None = None,
+        docs: DocsIndex | None = None,
+        system: SystemMap | None = None,
+        disk: SessionDisk | None = None,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._store = store if store is not None else ArtifactStore()
         self._knowledge = knowledge if knowledge is not None else Knowledge()
         self._client_error: str | None = None
         self._orchestrator = orchestrator
+        self._clock = clock
+        self._docs_error: str | None = None
+        self._system_error: str | None = None
+        self._docs = docs if docs is not None else self._load_docs()
+        self._system = system if system is not None else self._load_system()
+        self._disk = disk if disk is not None else self._load_disk()
         self._sessions = (
-            orchestrator.sessions if orchestrator is not None else SessionStore()
+            orchestrator.sessions
+            if orchestrator is not None
+            else SessionStore(disk=self._disk)
         )
         self._env = env
+        self._briefings: dict[tuple[str, int, str], tuple[float, list[dict[str, Any]]]] = {}
         if orchestrator is None:
             self._build()
+
+    def _load_docs(self) -> DocsIndex | None:
+        try:
+            return load_index()
+        except (DocsIndexError, OSError) as error:
+            self._docs_error = str(error)
+            return None
+
+    def _load_system(self) -> SystemMap | None:
+        try:
+            return SystemMap()
+        except SystemMapError as error:
+            self._system_error = str(error)
+            return None
+
+    def _load_disk(self) -> SessionDisk | None:
+        try:
+            return SessionDisk()
+        except (SessionDiskError, OSError):
+            return None
 
     def _build(self) -> None:
         try:
@@ -48,11 +86,19 @@ class JarvisService:
             store=self._store,
             knowledge=self._knowledge,
             sessions=self._sessions,
+            docs=self._docs,
+            system=self._system,
+            disk=self._disk,
+            capabilities=self.capabilities,
         )
 
     @property
     def sessions(self) -> SessionStore:
         return self._sessions
+
+    @property
+    def disk(self) -> SessionDisk | None:
+        return self._disk
 
     @property
     def available(self) -> bool:
@@ -64,6 +110,14 @@ class JarvisService:
             raise NoApiKeyError(self._client_error or "no chat client configured")
         return self._orchestrator
 
+    def capabilities(self) -> dict[str, Any]:
+        return {
+            "tts": False,
+            "stt": "browser",
+            "docs": self._docs.size() if self._docs is not None else 0,
+            "sessions": self._disk.count() if self._disk is not None else 0,
+        }
+
     def health(self) -> tuple[int, dict[str, Any]]:
         body: dict[str, Any] = {
             "data": self._store.scenario().provenance(),
@@ -71,8 +125,16 @@ class JarvisService:
             "knowledge": {
                 "terms": self._knowledge.term_count,
                 "screens": self._knowledge.screen_count,
+                "system_nodes": (
+                    self._system.node_count if self._system is not None else 0
+                ),
             },
+            **self.capabilities(),
         }
+        if self._docs_error is not None:
+            body["docs_error"] = self._docs_error
+        if self._system_error is not None:
+            body["system_error"] = self._system_error
         if self._orchestrator is None:
             body["ok"] = False
             body["error"] = "no-api-key"
@@ -82,6 +144,40 @@ class JarvisService:
         body["provider"] = self._orchestrator.provider
         body["model"] = self._orchestrator.model
         return 200, body
+
+    def session_rows(self) -> list[dict[str, Any]]:
+        if self._disk is None:
+            return []
+        return self._disk.listing()
+
+    def session_events(self, session_id: str) -> list[dict[str, Any]]:
+        if self._disk is None:
+            raise SessionDiskError(
+                "хранилище сессий на диске не поднялось: истории показать "
+                "неоткуда"
+            )
+        return self._disk.events(session_id)
+
+    def remove_session(self, session_id: str) -> bool:
+        if self._disk is None:
+            return False
+        removed = self._disk.remove(session_id)
+        self._sessions.forget(session_id)
+        return removed
+
+    def briefing(
+        self, session_id: str, console: ConsoleContext
+    ) -> list[dict[str, Any]]:
+        key = (console.scenario, console.step or -1, console.lang)
+        cached = self._briefings.get(key)
+        moment = self._clock()
+        if cached is not None and moment - cached[0] < BRIEFING_TTL:
+            return cached[1]
+        events: list[dict[str, Any]] = []
+        for event in self.orchestrator.briefing(session_id, console):
+            events.append(event.as_dict())
+        self._briefings[key] = (moment, events)
+        return events
 
 
 def console_context(payload: Mapping[str, Any]) -> ConsoleContext:
@@ -98,3 +194,37 @@ def console_context(payload: Mapping[str, Any]) -> ConsoleContext:
     )
 
 
+def query_context(params: Mapping[str, list[str]]) -> ConsoleContext:
+    def first(name: str) -> str | None:
+        values = params.get(name)
+        return values[0] if values else None
+
+    raw_step = first("step")
+    step: int | None = None
+    if raw_step is not None:
+        try:
+            step = int(raw_step)
+        except ValueError:
+            step = None
+    return ConsoleContext(
+        scenario=first("scenario") or "base",
+        step=step,
+        date=first("date"),
+        selected_well=first("well"),
+        workspace=first("workspace"),
+        view=first("view"),
+        lang=first("lang") or "ru",
+    )
+
+
+__all__ = [
+    "BRIEFING_TTL",
+    "DEFAULT_HOST",
+    "DEFAULT_PORT",
+    "DEV_ORIGINS",
+    "Event",
+    "JarvisService",
+    "MAX_BODY_BYTES",
+    "console_context",
+    "query_context",
+]

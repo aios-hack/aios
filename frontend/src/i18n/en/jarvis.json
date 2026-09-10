@@ -8,7 +8,6 @@
   "contextStep": "Step",
   "contextWell": "Well",
   "contextNoWell": "none selected",
-  "demoMode": "Demo mode: answers are pre-recorded",
   "speakOn": "Speech on",
   "speakOff": "Speech off",
   "inputLabel": "Question for Jarvis",
@@ -88,5 +87,17 @@
   "explainCardTitle": "Rule {rule} — well {well}",
   "explainCaption": "The decision for well {well} is recorded in the journal: rules {rules} fired, the result is {decision}. Every number on the cards comes from the decision journal; nothing was computed on top.",
   "explainNoEntryTitle": "No journal record",
-  "explainNoEntry": "The decision journal holds no record for well {well} at this step: there is nothing to explain, and Jarvis will not invent a reason."
+  "explainNoEntry": "The decision journal holds no record for well {well} at this step: there is nothing to explain, and Jarvis will not invent a reason.",
+  "doorLabel": "Console",
+  "answerLabel": "Full answer",
+  "copy": "Copy",
+  "copied": "Copied",
+  "codePlain": "text",
+  "retry": "Try again",
+  "capabilitiesLabel": "What Jarvis can do right now",
+  "chipLive": "Backend online",
+  "chipOffline": "Backend unreachable",
+  "chipTts": "Speech out",
+  "chipStt": "Speech in",
+  "chipDocs": "Documents: {count}"
 }

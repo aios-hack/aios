@@ -133,6 +133,59 @@
       }
     },
     {
+      "workspace": "field",
+      "view": "maps",
+      "title": {
+        "ru": "Поле → Карты",
+        "en": "Field → Maps"
+      },
+      "what": {
+        "ru": "Карты свойств пласта по слоям из дека Model_Z: пористость, проницаемость, песчанистость, зоны и регионы равновесия, глубина кровли и маска активных ячеек. Поверх карты — скважины на той же проекции, что и на «Проекции».",
+        "en": "Maps of reservoir properties by layer from the Model_Z deck: porosity, permeability, net-to-gross, zones and equilibrium regions, top depth and the active-cell mask. Wells are drawn over the map on the same projection as on Projection."
+      },
+      "how_to_read": {
+        "ru": "Каждая ячейка сетки окрашена по значению выбранного свойства; шкала линейная, у проницаемости — логарифмическая, у зон и регионов — категориальная. Это статические свойства модели, а не расчёт: динамику даёт слой скважин, который живёт по шагам плеера — заливка показывает открыта скважина или остановлена, цвет маркера — забойное давление, кольцо — обводнённость. Плашка провенанса честно говорит «дек Model_Z, статика».",
+        "en": "Every grid cell is coloured by the value of the chosen property; the scale is linear, logarithmic for permeability and categorical for zones and regions. These are static properties of the model, not a calculation: the dynamics come from the well layer that lives on the player's steps — the fill shows whether a well is open or shut, the marker colour is the bottomhole pressure and the ring is the water cut. The provenance plate says plainly: Model_Z deck, statics."
+      },
+      "controls": [
+        {
+          "label": {
+            "ru": "Свойство",
+            "en": "Property"
+          },
+          "spotlight": "maps-prop-tabs"
+        },
+        {
+          "label": {
+            "ru": "Слой k",
+            "en": "Layer k"
+          },
+          "spotlight": "maps-layer-slider"
+        },
+        {
+          "label": {
+            "ru": "Легенда шкалы",
+            "en": "Scale legend"
+          },
+          "spotlight": "maps-legend"
+        }
+      ],
+      "questions": {
+        "ru": [
+          "Где на карте самая высокая пористость?",
+          "Чем пласт 1 отличается от пласта 2?",
+          "В каком слое стоит эта скважина?",
+          "Что показывают зоны FIP?"
+        ],
+        "en": [
+          "Where is porosity highest on the map?",
+          "How does layer 1 differ from layer 2?",
+          "Which layer does this well sit in?",
+          "What do the FIP zones show?"
+        ]
+      }
+    },
+    {
       "workspace": "history",
       "view": "matrix",
       "title": {

@@ -44,6 +44,8 @@ class ToolContext:
     console: ConsoleContext = field(default_factory=ConsoleContext)
     knowledge: Any = None
     runs: RunStore | None = None
+    docs: Any = None
+    system: Any = None
 
     def run_store(self) -> RunStore:
         if self.runs is not None:
