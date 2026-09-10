@@ -159,6 +159,16 @@ def require_docker() -> None:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     mode = args.mode
+    if mode == "verify" and args.case is not None:
+        raise SystemExit(
+            "verify не принимает --case: проверяется расписание сохранённого "
+            "запуска вместе с кейсом, на котором оно было найдено"
+        )
+    if mode == "submit" and args.case is not None:
+        raise SystemExit(
+            "submit не принимает --case: пакет собирается из уже "
+            "проверенного прогона"
+        )
     if mode in {"verify", "full"}:
         require_docker()
     if mode in {"search", "full"}:
