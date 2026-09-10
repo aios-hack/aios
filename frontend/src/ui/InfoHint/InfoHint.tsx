@@ -9,6 +9,7 @@ import {
   type CSSProperties
 } from 'react';
 import { createPortal } from 'react-dom';
+import { useOverlayHost } from '../overlay';
 import './InfoHint.css';
 
 const GAP = 10;
@@ -28,6 +29,7 @@ export const InfoHint = ({ text, label }: InfoHintProps) => {
   const closeTimer = useRef<number | null>(null);
   const dismissed = useRef(false);
   const id = useId();
+  const host = useOverlayHost();
 
   const cancelClose = useCallback(() => {
     if (closeTimer.current !== null) {
@@ -120,6 +122,7 @@ export const InfoHint = ({ text, label }: InfoHintProps) => {
       </button>
       {open &&
         style !== null &&
+        host !== null &&
         createPortal(
           <span
             className="info-hint-bubble"
@@ -131,7 +134,7 @@ export const InfoHint = ({ text, label }: InfoHintProps) => {
           >
             {text}
           </span>,
-          document.body
+          host
         )}
     </span>
   );

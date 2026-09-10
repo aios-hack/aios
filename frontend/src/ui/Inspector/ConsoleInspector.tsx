@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useI18n } from '../../i18n/I18nContext';
 import { useTimeline } from '../../state/TimelineContext';
 import { WellCard } from '../../views/WellCard';
+import { useOverlayHost } from '../overlay';
 import { Inspector } from './Inspector';
 import type { InspectorContext } from './InspectorContext';
 import { useDeferredClose } from './useDeferredClose';
@@ -24,6 +25,7 @@ interface ConsoleInspectorProps {
 export const ConsoleInspector = ({ view }: ConsoleInspectorProps) => {
   const { t } = useI18n();
   const { selectedWell, selectWell } = useTimeline();
+  const host = useOverlayHost();
 
   const context = useMemo<InspectorContext | null>(
     () =>
@@ -35,32 +37,32 @@ export const ConsoleInspector = ({ view }: ConsoleInspectorProps) => {
 
   const { visible, closing } = useDeferredClose(context);
 
-  if (visible === null) {
+  if (visible === null || host === null) {
     return null;
   }
 
   const close = () => selectWell(null);
 
-  return (
+  return createPortal(
     <>
-      {createPortal(
-        <div
-          className="console-scrim"
-          data-closing={closing}
-          data-testid="console-scrim"
-          onClick={close}
-          aria-hidden="true"
-        />,
-        document.body
-      )}
-      <Inspector
-        context={visible}
-        title={t('wellcard.title', { well: visible.well })}
-        onClose={close}
-        closing={closing}
-      >
-        <WellCard well={visible.well} />
-      </Inspector>
-    </>
+      <div
+        className="console-scrim"
+        data-closing={closing}
+        data-testid="console-scrim"
+        onClick={close}
+        aria-hidden="true"
+      />
+      <div className="console-area-inspector">
+        <Inspector
+          context={visible}
+          title={t('wellcard.title', { well: visible.well })}
+          onClose={close}
+          closing={closing}
+        >
+          <WellCard well={visible.well} />
+        </Inspector>
+      </div>
+    </>,
+    host
   );
 };

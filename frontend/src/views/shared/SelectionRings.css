@@ -1,4 +1,4 @@
-.selection-rings-neighbour {
+.selection-rings-select {
   fill: none;
   stroke: var(--color-accent);
   pointer-events: none;
@@ -7,8 +7,14 @@
   animation: selection-ring-in var(--duration-state) var(--ease-emphasis) both;
 }
 
-.selection-rings-neighbour[data-neighbour-ring='neighbour'] {
+.selection-rings-neighbour {
+  fill: none;
+  stroke: var(--color-accent);
   stroke-dasharray: 1 1;
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: selection-ring-in var(--duration-state) var(--ease-emphasis) both;
   animation-delay: var(--stagger-step);
 }
 
@@ -17,15 +23,6 @@
   transform-box: fill-box;
   transform-origin: center;
   animation: selection-ring-in var(--duration-state) var(--ease-emphasis) both;
-}
-
-.selection-rings-pulse {
-  fill: none;
-  stroke: var(--color-accent);
-  pointer-events: none;
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: selection-pulse-in var(--duration-drawer) var(--ease-emphasis) both;
 }
 
 @keyframes selection-ring-in {
@@ -40,26 +37,10 @@
   }
 }
 
-@keyframes selection-pulse-in {
-  from {
-    opacity: 0;
-    scale: 0.4;
-  }
-
-  60% {
-    opacity: 0.55;
-  }
-
-  to {
-    opacity: 0.28;
-    scale: 1;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
+  .selection-rings-select,
   .selection-rings-neighbour,
-  .selection-rings-group,
-  .selection-rings-pulse {
+  .selection-rings-group {
     animation: none;
   }
 }

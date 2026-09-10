@@ -37,6 +37,17 @@
   transform: translateZ(calc(-1 * var(--size-cube-half))) rotateY(-90deg);
 }
 
+.console-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-drawer);
+  pointer-events: none;
+}
+
+.console-overlay > * {
+  pointer-events: auto;
+}
+
 .jarvis-face {
   position: absolute;
   inset: 0;

@@ -14,6 +14,8 @@ export {
   isAblationFile,
   isGraphFile,
   isHierarchyFile,
+  isMapLayerFile,
+  isMapsIndexFile,
   isNpvFile,
   isScenariosFile,
   isTimelineFile,
@@ -21,3 +23,4 @@ export {
   isWellsFile
 } from './validators';
 export { actualRate, isCommissioned } from './wellRow';
+export { mapLayerUrl, useMapLayer } from './useMapLayer';

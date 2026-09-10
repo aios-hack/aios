@@ -20,8 +20,8 @@ import {
   MAX_STROKE,
   MIN_STROKE,
   NEIGHBOUR_GAP,
-  PULSE_GAP,
-  ringStroke
+  ringStroke,
+  SELECT_GAP
 } from '../shared/SelectionRings';
 
 const { ru } = dictionaries;
@@ -701,8 +701,7 @@ describe('the pointer target follows the screen, not the viewBox units', () => {
 describe('the selection reads at a glance without shouting', () => {
   it('keeps every ring a small constant away from the glyph, not a multiple of it', () => {
     expect(GROUP_GAP).toBeLessThan(NEIGHBOUR_GAP);
-    expect(NEIGHBOUR_GAP).toBeLessThan(PULSE_GAP);
-    expect(PULSE_GAP).toBeLessThanOrEqual(2.5);
+    expect(SELECT_GAP).toBeLessThanOrEqual(2.5);
   });
 
   it('derives the stroke from the node radius and caps it so zooming cannot balloon it', () => {
@@ -760,7 +759,6 @@ describe('the selection reads at a glance without shouting', () => {
       'utf-8'
     );
     expect(ringCss).toContain('@keyframes selection-ring-in');
-    expect(ringCss).toContain('@keyframes selection-pulse-in');
     const reduced =
       ringCss.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/)?.[0] ?? '';
     expect(reduced).toContain('animation: none');

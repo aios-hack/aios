@@ -367,7 +367,7 @@ describe('global step propagation', () => {
     fireEvent.click(await screen.findByLabelText('P1'));
     await screen.findByTestId('wellcard');
     const cardStep = () =>
-      container.querySelector('.wellcard-step')?.textContent ?? '';
+      document.querySelector('.wellcard-step')?.textContent ?? '';
     expect(cardStep()).toContain('1');
 
     seekTo(container, 4);
@@ -636,7 +636,7 @@ describe('scene highlight', () => {
       container
         .querySelector('[data-well-id="I1"]')
         ?.querySelector('[data-group-ring="strong"]')
-    ).not.toBeNull();
+    ).toBeNull();
   });
 });
 

@@ -48,6 +48,8 @@ const renderControls = (edgesMeta: EdgesMeta) =>
         totalEdges={40}
         layers={[{ id: 1, k_min: 1, k_max: 3 }]}
         layerFilter="all"
+        showGroups={false}
+        onShowGroups={() => undefined}
         edgesMeta={edgesMeta}
         onPole={() => undefined}
         onThreshold={() => undefined}

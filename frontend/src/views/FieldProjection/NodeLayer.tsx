@@ -1,13 +1,13 @@
 import { memo, useMemo } from 'react';
 import { MIN_RADIUS, type WellState } from '../shared/wellState';
-import { ringStroke, SelectionRings } from '../shared/SelectionRings';
+import { SelectionRings } from '../shared/SelectionRings';
 import type { SelectionHighlight } from '../WellCard/useSelectionHighlight';
 import type { PlacedNode } from './interpolate';
+import type { NodeHover } from './NodeTooltip';
 
 const markerPath = (x: number, y: number, r: number): string =>
   `M ${x} ${y + r * 1.25} L ${x + r * 1.1} ${y - r * 0.85} L ${x - r * 1.1} ${y - r * 0.85} Z`;
 
-export const HALO_GAP = 0.85;
 const STROKE_WIDTH = 0.18;
 const HOLLOW_STROKE_WIDTH = 0.28;
 
@@ -15,7 +15,7 @@ export const GLYPH_SCALE = 0.62;
 
 const DIMMED_OPACITY = 0.25;
 export const FADED_OPACITY = 0.12;
-export const SELECTED_SCALE = 1.15;
+export const SELECTED_SCALE = 1.08;
 
 export const TAP_MIN_PX = 44;
 
@@ -69,7 +69,9 @@ interface NodeLayerProps {
   scale: number;
   unitsPerPixel: number;
   isDimmed: (id: string) => boolean;
+  showGroups: boolean;
   onSelectWell: (well: string) => void;
+  onHoverWell: (hover: NodeHover | null) => void;
 }
 
 const NodeLayerView = ({
@@ -81,7 +83,9 @@ const NodeLayerView = ({
   scale,
   unitsPerPixel,
   isDimmed,
-  onSelectWell
+  showGroups,
+  onSelectWell,
+  onHoverWell
 }: NodeLayerProps) => {
   const gaps = useMemo(() => nearestGaps(placed), [placed]);
   return (
@@ -123,7 +127,24 @@ const NodeLayerView = ({
           tabIndex={0}
           role="button"
           aria-label={node.id}
-          onClick={() => onSelectWell(node.id)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelectWell(node.id);
+          }}
+          onPointerEnter={(event) => {
+            const host = event.currentTarget.ownerSVGElement?.parentElement ?? null;
+            if (host === null) {
+              return;
+            }
+            const rect = host.getBoundingClientRect();
+            onHoverWell({
+              well: node.id,
+              x: event.clientX - rect.left,
+              y: event.clientY - rect.top
+            });
+          }}
+          onPointerLeave={() => onHoverWell(null)}
+          onFocus={() => onHoverWell(null)}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {
               event.preventDefault();
@@ -146,18 +167,8 @@ const NodeLayerView = ({
               r={radius}
               scale={scale}
               state={mark}
-              groupColor={highlight.groupColorOf(node.id)}
-            />
-          )}
-          {selected && (
-            <circle
-              className="field-projection-halo"
-              cx={node.x}
-              cy={node.y}
-              r={radius + HALO_GAP / scale}
-              fill="none"
-              stroke="var(--color-oil-strong)"
-              strokeWidth={ringStroke(radius, 1)}
+              groupColor={showGroups ? highlight.groupColorOf(node.id) : null}
+              neighbourWeight={highlight.neighbourWeightOf(node.id)}
             />
           )}
           {state !== null && state.row.role === 'INJ' ? (

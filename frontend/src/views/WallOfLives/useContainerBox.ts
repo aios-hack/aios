@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { layoutBoxOf } from '../../ui/shared/layoutBox';
 
 interface WallBox {
   width: number;
   height: number;
 }
+
+const shellOf = (node: HTMLElement): HTMLElement =>
+  node.closest('.app.console') ?? node.ownerDocument.documentElement;
 
 export const useContainerBox = (): [
   (node: HTMLDivElement | null) => void,
@@ -23,10 +27,11 @@ export const useContainerBox = (): [
     const measure = (): WallBox => {
       const style = getComputedStyle(node);
       const inset = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+      const shell = shellOf(node);
       const strip = node.ownerDocument.querySelector('.console-area-timeaxis');
+      const top = layoutBoxOf(node, shell).top;
       const floor =
-        strip === null ? window.innerHeight : strip.getBoundingClientRect().top;
-      const top = node.getBoundingClientRect().top;
+        strip instanceof HTMLElement ? layoutBoxOf(strip, shell).top : shell.clientHeight;
       return {
         width: Math.max(0, node.clientWidth - (Number.isFinite(inset) ? inset : 0)),
         height: Math.max(0, floor - top - parseFloat(style.paddingBottom))

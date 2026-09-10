@@ -1,4 +1,5 @@
 import { useEffect, useState, type RefObject } from 'react';
+import { layoutBoxOf } from '../ui/shared/layoutBox';
 
 export interface BackdropShape {
   width: number;
@@ -7,6 +8,18 @@ export interface BackdropShape {
 }
 
 const FALLBACK: BackdropShape = { width: 1000, left: 350, right: 650 };
+
+const boxOf = (
+  container: HTMLElement,
+  selector: string
+): { left: number; right: number } | null => {
+  const node = container.querySelector(selector);
+  if (!(node instanceof HTMLElement)) {
+    return null;
+  }
+  const box = layoutBoxOf(node, container);
+  return { left: box.left, right: box.left + box.width };
+};
 
 export const useBackdropShape = (
   containerRef: RefObject<HTMLElement | null>,
@@ -20,29 +33,27 @@ export const useBackdropShape = (
       return;
     }
     const measure = () => {
-      const bounds = container.getBoundingClientRect();
-      const capsule = container.querySelector('.timeline-transport');
-      if (bounds.width === 0 || capsule === null) {
+      const width = container.offsetWidth;
+      const capsule = boxOf(container, '.timeline-transport');
+      if (width === 0 || capsule === null) {
         return;
       }
-      const capsuleBounds = capsule.getBoundingClientRect();
-      const centre = capsuleBounds.left + capsuleBounds.width / 2 - bounds.left;
-      const settings = container.querySelector('.playback-settings-island');
-      const panel = container.querySelector('.popover-panel');
-      const date = container.querySelector('.time-scale-island');
+      const centre = (capsule.left + capsule.right) / 2;
+      const settings = boxOf(container, '.playback-settings-island');
+      const panel = boxOf(container, '.popover-panel');
+      const date = boxOf(container, '.time-scale-island');
       const baseHalf = Math.max(
-        capsuleBounds.width / 2,
-        settings === null ? 0 : settings.getBoundingClientRect().right - bounds.left - centre,
-        date === null ? 0 : centre - (date.getBoundingClientRect().left - bounds.left)
+        (capsule.right - capsule.left) / 2,
+        settings === null ? 0 : settings.right - centre,
+        date === null ? 0 : centre - date.left
       );
-      const openHalf =
-        panel === null ? baseHalf : panel.getBoundingClientRect().right - bounds.left - centre;
+      const openHalf = panel === null ? baseHalf : panel.right - centre;
       const left = centre - baseHalf;
       const right = centre + Math.max(baseHalf, openHalf);
       if (!Number.isFinite(left) || !Number.isFinite(right)) {
         return;
       }
-      setShape({ width: Math.round(bounds.width), left: Math.round(left), right: Math.round(right) });
+      setShape({ width: Math.round(width), left: Math.round(left), right: Math.round(right) });
     };
     measure();
     const frame = window.requestAnimationFrame(measure);

@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { CONSOLE_OVERLAY_ID } from '../ui/overlay';
 import { useJarvis } from './JarvisContext';
 import { JarvisScreen } from './JarvisScreen';
 import { SphereBurstLayer } from './sphere/SphereBurstLayer';
@@ -92,6 +93,12 @@ export const JarvisStage = ({ children }: { children: ReactNode }) => {
           </div>
         ) : null}
       </div>
+      <div
+        id={CONSOLE_OVERLAY_ID}
+        className="console-overlay"
+        hidden={transition.phase !== 'closed'}
+        inert={transition.phase !== 'closed'}
+      />
       <SphereBurstLayer />
     </div>
   );

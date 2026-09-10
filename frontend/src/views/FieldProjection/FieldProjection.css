@@ -7,6 +7,7 @@
 }
 
 .field-projection-canvas {
+  position: relative;
   display: flex;
   justify-content: center;
   width: 100%;
@@ -83,25 +84,6 @@
   }
 }
 
-.field-projection-halo {
-  pointer-events: none;
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: field-halo-in var(--duration-state) var(--ease-emphasis) both;
-}
-
-@keyframes field-halo-in {
-  from {
-    opacity: 0;
-    scale: 0.5;
-  }
-
-  to {
-    opacity: 1;
-    scale: 1;
-  }
-}
-
 .field-projection-node[data-selected='true'] > circle.field-projection-glyph,
 .field-projection-node[data-selected='true'] > path {
   animation: field-node-select var(--duration-state) var(--ease-emphasis) both;
@@ -146,10 +128,74 @@
 
   .field-projection-node,
   .field-projection-node > circle.field-projection-glyph,
-  .field-projection-node > path,
-  .field-projection-halo {
+  .field-projection-node > path {
     animation: none;
     transition: none;
   }
+
+  .projection-tooltip {
+    animation: none;
+  }
 }
 
+
+.projection-tooltip {
+  position: absolute;
+  z-index: var(--z-sticky);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-solid);
+  pointer-events: none;
+  animation: projection-tooltip-in var(--duration-fast) var(--ease-out) both;
+}
+
+@keyframes projection-tooltip-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.projection-tooltip-well {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.projection-tooltip-facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.projection-tooltip-fact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.projection-tooltip-fact dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.projection-tooltip-fact dd {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+}
+
+.projection-tooltip-fact dd.numeric {
+  font-family: var(--font-family-mono);
+  font-variant-numeric: tabular-nums;
+}

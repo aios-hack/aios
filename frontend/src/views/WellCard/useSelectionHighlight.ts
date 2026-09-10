@@ -12,6 +12,7 @@ export interface SelectionHighlight {
   stateOf: (well: string) => HighlightState;
   groupOf: (well: string) => string | null;
   groupColorOf: (well: string) => string | null;
+  neighbourWeightOf: (well: string) => number;
 }
 
 const groupsOf = (graph: GraphFile | null): Map<string, string> => {
@@ -46,7 +47,8 @@ export const useSelectionHighlight = (): SelectionHighlight => {
         well: selectedWell,
         stateOf: () => 'plain' as HighlightState,
         groupOf,
-        groupColorOf
+        groupColorOf,
+        neighbourWeightOf: () => 0
       };
     }
 
@@ -55,7 +57,21 @@ export const useSelectionHighlight = (): SelectionHighlight => {
       graph,
       neighbourThreshold(graph.edges)
     );
-    const neighbours = new Set(connectivity.neighbours.map((item) => item.well));
+    const weights = new Map<string, number>();
+    let strongest = 0;
+    for (const item of connectivity.neighbours) {
+      const magnitude = Math.abs(item.weight);
+      const previous = weights.get(item.well) ?? 0;
+      if (magnitude > previous) {
+        weights.set(item.well, magnitude);
+      }
+      if (magnitude > strongest) {
+        strongest = magnitude;
+      }
+    }
+    const neighbours = new Set(weights.keys());
+    const neighbourWeightOf = (well: string): number =>
+      strongest === 0 ? 0 : (weights.get(well) ?? 0) / strongest;
     const group = connectivity.group;
     const members = new Set<string>();
     if (group !== null) {
@@ -78,6 +94,6 @@ export const useSelectionHighlight = (): SelectionHighlight => {
       return 'faded';
     };
 
-    return { well: selectedWell, stateOf, groupOf, groupColorOf };
+    return { well: selectedWell, stateOf, groupOf, groupColorOf, neighbourWeightOf };
   }, [graph, selectedWell]);
 };

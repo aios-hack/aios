@@ -108,14 +108,21 @@ const applyScale = (
   geometry: ChronoGeometry,
   ratio: number
 ): CanvasRenderingContext2D | null => {
-  canvas.width = Math.round(geometry.width * ratio);
-  canvas.height = Math.round(geometry.height * ratio);
-  canvas.style.width = `${geometry.width}px`;
-  canvas.style.height = `${geometry.height}px`;
+  const width = Math.round(geometry.width * ratio);
+  const height = Math.round(geometry.height * ratio);
   const ctx = canvas.getContext('2d');
   if (ctx === null) {
     return null;
   }
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  } else {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+  }
+  canvas.style.width = `${geometry.width}px`;
+  canvas.style.height = `${geometry.height}px`;
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   return ctx;
 };

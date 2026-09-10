@@ -21,6 +21,7 @@ import type { LegendSwatch } from '../../ui/Legend';
 import { useDeferredClose } from '../../ui/Inspector/useDeferredClose';
 import { ViewStatus } from '../../ui/ViewStatus';
 import { devicePixelRatioOf, toCanvasColor } from '../shared/canvasColors';
+import { useStageSettled } from '../../ui/shared/useStageSettled';
 import { useCellKeyboard } from '../shared/useCellKeyboard';
 import { indexSteps, lastWatercutByWell, npvByWell, npvCeilingOf } from '../shared/wellFacts';
 import { ChronoControls } from './ChronoControls';
@@ -141,6 +142,7 @@ const useReadoutBounds = (
   stage: HTMLDivElement | null,
   hovering: boolean
 ): ReadoutBounds => {
+  const settled = useStageSettled();
   const [bounds, setBounds] = useState<ReadoutBounds>({
     left: 0,
     right: Number.POSITIVE_INFINITY,
@@ -149,7 +151,7 @@ const useReadoutBounds = (
   });
 
   useLayoutEffect(() => {
-    if (stage === null) {
+    if (stage === null || !settled) {
       return;
     }
     const measure = () => {
@@ -173,7 +175,7 @@ const useReadoutBounds = (
       strip?.removeEventListener('transitionrun', measure);
       strip?.removeEventListener('transitionend', measure);
     };
-  }, [stage, hovering]);
+  }, [stage, hovering, settled]);
 
   return bounds;
 };

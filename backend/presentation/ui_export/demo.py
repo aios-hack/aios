@@ -2,37 +2,50 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import date
 from pathlib import Path
 from typing import Any
 
 from backend.core.contracts import (
-    ChargeInitialEsp,
     DEFAULT_NORMATIVES_2007,
     N_CONTROL_DATES,
+    T0,
+    ChargeInitialEsp,
     NormativeSet,
     Policies,
     QuantizationPolicy,
     RunArtifact,
-    Role,
-    T0,
 )
 from backend.core.contracts.response import N_DECK_DATES
 from backend.core.paths import project_root
 from backend.domain.economics import ESP_CATALOG_2007
 from backend.domain.policy.agents.registry import DEFAULT_REGISTRY
-
-from backend.presentation.ui_export.ablation_view import ablation_meta, export_ablation_json
+from backend.presentation.ui_export.ablation_view import (
+    ablation_meta,
+    export_ablation_json,
+)
 from backend.presentation.ui_export.artifact_io import dump_bundle
 from backend.presentation.ui_export.base_artifact import build_base_artifact, real_meta
 from backend.presentation.ui_export.deck import load_wellheads
-from backend.presentation.ui_export.demo_artifact import DEMO_PROVENANCE, DEMO_SEED, build_demo_artifact
+from backend.presentation.ui_export.demo_artifact import (
+    DEMO_PROVENANCE,
+    DEMO_SEED,
+    build_demo_artifact,
+)
 from backend.presentation.ui_export.graph_view import export_graph_json
 from backend.presentation.ui_export.hierarchy_view import export_hierarchy_json
-from backend.presentation.ui_export.npv_view import export_npv_json
-from backend.presentation.ui_export.scenarios import ScenarioRobustness, WorstRegret, export_scenarios_json
-from backend.presentation.ui_export.timeline import build_timeline, build_trace, export_timeline_json, export_trace_json
 from backend.presentation.ui_export.maps_view import export_maps
+from backend.presentation.ui_export.npv_view import export_npv_json
+from backend.presentation.ui_export.scenarios import (
+    ScenarioRobustness,
+    WorstRegret,
+    export_scenarios_json,
+)
+from backend.presentation.ui_export.timeline import (
+    build_timeline,
+    build_trace,
+    export_timeline_json,
+    export_trace_json,
+)
 from backend.presentation.ui_export.webdata import DEFAULT_DECK_PATH, build_wells_data
 
 DEMO_NOTICE_RU = "Демонстрационные данные, не результат расчёта"

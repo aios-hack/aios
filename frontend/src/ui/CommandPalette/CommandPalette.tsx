@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, type KeyboardEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useDataset } from '../../data';
 import { useI18n } from '../../i18n/I18nContext';
 import {
@@ -10,6 +11,7 @@ import {
 } from '../../state/ConsoleContext';
 import { useScenario } from '../../state/ScenarioContext';
 import { useTimeline } from '../../state/TimelineContext';
+import { useOverlayHost } from '../overlay';
 import { formatStepDate } from '../format';
 import { buildCommands, type Command } from './commands';
 import { useCommandPalette } from './useCommandPalette';
@@ -26,6 +28,7 @@ export const CommandPalette = () => {
   const uid = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const host = useOverlayHost();
 
   const steps = timeline.status === 'ready' ? timeline.data.steps : [];
   const wells = timeline.status === 'ready' ? timeline.data.wells : [];
@@ -71,7 +74,7 @@ export const CommandPalette = () => {
     }
   }, [active, open]);
 
-  if (!open) {
+  if (!open || host === null) {
     return null;
   }
 
@@ -117,7 +120,7 @@ export const CommandPalette = () => {
 
   const activeId = commands.length === 0 ? undefined : `${uid}-${commands[active]?.id}`;
 
-  return (
+  return createPortal(
     <div
       className="palette-layer"
       data-testid="command-palette"
@@ -179,6 +182,7 @@ export const CommandPalette = () => {
         </ul>
         {commands.length === 0 && <p className="palette-empty">{t('palette.empty')}</p>}
       </div>
-    </div>
+    </div>,
+    host
   );
 };

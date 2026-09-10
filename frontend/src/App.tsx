@@ -74,11 +74,9 @@ const ConsoleShell = () => {
       <main className="console-area-scene console-main">
         <Scene />
       </main>
-      <div className="console-area-inspector">
-        <ErrorBoundary>
-          <ConsoleInspector view={view} />
-        </ErrorBoundary>
-      </div>
+      <ErrorBoundary>
+        <ConsoleInspector view={view} />
+      </ErrorBoundary>
       <div className="console-area-timeaxis" id="console-timeaxis" tabIndex={-1}>
         <ErrorBoundary>
           <TimeScale />

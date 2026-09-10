@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import type { GraphFile, LayerRange } from '../../api/types';
 import { useI18n, type Translate } from '../../i18n/I18nContext';
 import type { Lang } from '../../i18n/dictionaries';
@@ -56,6 +57,8 @@ interface ProjectionControlsProps {
   onPole: (pole: ProjectionPole) => void;
   onThreshold: (value: number) => void;
   onLayerFilter: (filter: LayerFilter) => void;
+  showGroups: boolean;
+  onShowGroups: (value: boolean) => void;
   legendNotes: readonly LegendNote[];
 }
 
@@ -72,9 +75,12 @@ export const ProjectionControls = ({
   onPole,
   onThreshold,
   onLayerFilter,
+  showGroups,
+  onShowGroups,
   legendNotes
 }: ProjectionControlsProps) => {
   const { t: translate, lang } = useI18n();
+  const groupsId = useId();
   const span = Math.max(thresholdMax - thresholdMin, 1e-9);
   const toSlider = (value: number): number =>
     Math.sqrt(Math.min(Math.max((value - thresholdMin) / span, 0), 1));
@@ -105,6 +111,25 @@ export const ProjectionControls = ({
               label={translate('projection.edges.hint.label')}
               text={edgesHintText(edgesMeta, translate, lang)}
             />
+          </span>
+          <span className="projection-groups">
+            <label className="projection-groups-label" htmlFor={groupsId}>
+              {translate('projection.groups.label')}
+            </label>
+            <span className="projection-switch">
+              <input
+                id={groupsId}
+                type="checkbox"
+                className="projection-switch-input"
+                checked={showGroups}
+                data-guide="projection-groups-toggle"
+                data-testid="projection-groups-toggle"
+                onChange={(event) => onShowGroups(event.target.checked)}
+              />
+              <span className="projection-switch-track" aria-hidden="true">
+                <span className="projection-switch-thumb" />
+              </span>
+            </span>
           </span>
         </>
       }
@@ -137,6 +162,10 @@ export const ProjectionControls = ({
               { text: translate('projection.legend.edge.width') },
               { text: translate('projection.legend.pole.explain') },
               { text: translate('projection.legend.selection') },
+              { text: translate('projection.legend.ring.selected') },
+              { text: translate('projection.legend.ring.neighbour') },
+              { text: translate('projection.legend.fill') },
+              { text: translate('projection.legend.groups') },
               {
                 text: translate('projection.threshold.edges', {
                   shown: shownEdges,

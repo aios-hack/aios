@@ -2,12 +2,13 @@
 @import './consoleScene.css';
 
 .app.console {
+  position: relative;
   display: grid;
-  grid-template-columns: var(--size-nav) minmax(0, 1fr) 0;
+  grid-template-columns: var(--size-nav) minmax(0, 1fr);
   grid-template-rows: var(--h-header) minmax(0, 1fr);
   grid-template-areas:
-    'header header header'
-    'nav scene inspector';
+    'header header'
+    'nav scene';
   gap: 0;
   height: 100vh;
   min-height: 0;
@@ -57,7 +58,7 @@
   top: var(--h-header);
   right: 0;
   bottom: 0;
-  z-index: var(--z-drawer);
+  z-index: 1;
   display: flex;
   width: min(var(--size-card-max), 100vw);
   min-width: 0;
@@ -72,8 +73,9 @@
 .console-scrim {
   position: fixed;
   inset: var(--h-header) 0 var(--h-player-opaque) 0;
-  z-index: var(--z-sticky);
+  z-index: 0;
   background: var(--color-backdrop);
+  pointer-events: auto;
   animation: console-scrim-in var(--duration-drawer) var(--ease-out) both;
 }
 

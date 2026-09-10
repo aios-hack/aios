@@ -12,6 +12,7 @@ import type { PlacedNode } from './interpolate';
 import { dimmedWellIds, shownCount, type LayerFilter } from './layerFilter';
 import { useProjectionGeometry, useWellStates } from './model';
 import { NodeLayer } from './NodeLayer';
+import { NodeTooltip, type NodeHover } from './NodeTooltip';
 import { ProjectionControls, type ProjectionPole } from './ProjectionControls';
 import { usePlotGestures, useProjectionTravel } from './useProjection';
 import './FieldProjection.css';
@@ -28,6 +29,10 @@ const FieldProjectionReady = ({ wells, graph }: ReadyProps) => {
   const [pole, setPole] = useState<ProjectionPole>('graph');
   const [threshold, setThreshold] = useState<number | null>(null);
   const [layerFilter, setLayerFilter] = useState<LayerFilter>('all');
+  const [showGroups, setShowGroups] = useState(false);
+  const [hover, setHover] = useState<NodeHover | null>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [canvasBox, setCanvasBox] = useState({ width: 0, height: 0 });
   const { t: blend, travelTo } = useProjectionTravel(1);
   const { svgRef, viewBox, scale, unitsPerPixel, handlers, hasDragged } = usePlotGestures();
   const geometry = useProjectionGeometry(wells, graph, blend, threshold);
@@ -72,6 +77,34 @@ const FieldProjectionReady = ({ wells, graph }: ReadyProps) => {
     [hasDragged, selectWell]
   );
 
+  const onClearSelection = useCallback(() => {
+    if (hasDragged()) {
+      return;
+    }
+    selectWell(null);
+  }, [hasDragged, selectWell]);
+
+  const rowOf = useCallback(
+    (well: string) => states.get(well)?.row,
+    [states]
+  );
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (canvas === null) {
+      return;
+    }
+    const measure = () =>
+      setCanvasBox({ width: canvas.clientWidth, height: canvas.clientHeight });
+    measure();
+    if (typeof ResizeObserver !== 'function') {
+      return;
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <section className="field-projection">
       <ProjectionControls
@@ -87,6 +120,8 @@ const FieldProjectionReady = ({ wells, graph }: ReadyProps) => {
         onPole={onPole}
         onThreshold={setThreshold}
         onLayerFilter={setLayerFilter}
+        showGroups={showGroups}
+        onShowGroups={setShowGroups}
         legendNotes={[
           {
             text: t('projection.shown', { shown, total: wells.wells.length }),
@@ -108,7 +143,7 @@ const FieldProjectionReady = ({ wells, graph }: ReadyProps) => {
             : [])
         ]}
       />
-      <div className="field-projection-canvas">
+      <div className="field-projection-canvas" ref={canvasRef}>
         <svg
           ref={svgRef}
           className="field-projection-plot"
@@ -117,6 +152,7 @@ const FieldProjectionReady = ({ wells, graph }: ReadyProps) => {
           aria-label={t('projection.ariaLabel')}
           data-testid="field-projection-plot"
           {...handlers}
+          onClick={onClearSelection}
         >
           <EdgeLayer
             edges={geometry.edges}
@@ -135,9 +171,14 @@ const FieldProjectionReady = ({ wells, graph }: ReadyProps) => {
             scale={scale}
             unitsPerPixel={unitsPerPixel}
             isDimmed={isDimmed}
+            showGroups={showGroups}
             onSelectWell={onSelectWell}
+            onHoverWell={setHover}
           />
         </svg>
+        {hover !== null && (
+          <NodeTooltip hover={hover} box={canvasBox} row={rowOf(hover.well)} />
+        )}
       </div>
     </section>
   );

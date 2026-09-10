@@ -1,5 +1,5 @@
 import type { Workspace, WorkspaceView } from '../../state/ConsoleContext';
-import { isView, isWorkspace, type ConsoleAction } from '../actions/consoleAction';
+import type { ConsoleAction } from '../actions/consoleAction';
 
 export const CARD_TYPES = [
   'metric',

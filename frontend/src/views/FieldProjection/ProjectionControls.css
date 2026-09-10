@@ -3,3 +3,79 @@
   align-items: center;
   margin-inline-start: var(--space-1);
 }
+
+.projection-groups {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-start: var(--space-3);
+}
+
+.projection-groups-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.projection-switch {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.projection-switch-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.projection-switch-track {
+  display: block;
+  width: 32px;
+  height: 18px;
+  padding: 2px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-rail);
+  transition:
+    background var(--duration-state) var(--ease-out),
+    border-color var(--duration-state) var(--ease-out);
+  pointer-events: none;
+}
+
+.projection-switch-thumb {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-pill);
+  background: var(--color-text-muted);
+  transition:
+    translate var(--duration-state) var(--ease-emphasis),
+    background var(--duration-state) var(--ease-out);
+}
+
+.projection-switch-input:checked ~ .projection-switch-track {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+.projection-switch-input:checked ~ .projection-switch-track .projection-switch-thumb {
+  translate: 14px 0;
+  background: var(--color-accent-contrast);
+}
+
+.projection-switch-input:focus-visible ~ .projection-switch-track {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .projection-switch-track,
+  .projection-switch-thumb {
+    transition: none;
+  }
+}

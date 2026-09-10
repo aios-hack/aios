@@ -5,6 +5,8 @@ import {
   isAblationFile,
   isGraphFile,
   isHierarchyFile,
+  isMapLayerFile,
+  isMapsIndexFile,
   isNpvFile,
   isScenariosFile,
   isTimelineFile,
@@ -42,7 +44,11 @@ describe('shipped artifacts', () => {
     ['policy-plan/trace.json', isTraceFile],
     ['whatif-injection-cut/npv.json', isNpvFile],
     ['whatif-injection-cut/hierarchy.json', isHierarchyFile],
-    ['whatif-injection-cut/ablation.json', isAblationFile]
+    ['whatif-injection-cut/ablation.json', isAblationFile],
+    ['maps/index.json', isMapsIndexFile],
+    ['maps/PORO/12.json', isMapLayerFile],
+    ['maps/PERMX/12.json', isMapLayerFile],
+    ['maps/FIP_ZONE/12.json', isMapLayerFile]
   ];
 
   it.each(cases)('accepts the shipped %s', (name, validate) => {
@@ -72,9 +78,11 @@ describe('shipped artifacts', () => {
     'demo-script.json'
   ]);
 
+  const MAP_LAYER = /^maps\/[A-Z_]+\/\d+\.json$/;
+
   it('runs every shipped artifact through a validator', () => {
     const missing = walk(root).filter(
-      (name) => !VALIDATED.has(name) && !UNVALIDATED.has(name)
+      (name) => !VALIDATED.has(name) && !UNVALIDATED.has(name) && !MAP_LAYER.test(name)
     );
     expect(missing).toEqual([]);
   });

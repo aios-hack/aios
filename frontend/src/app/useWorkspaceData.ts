@@ -16,7 +16,7 @@ export const useWorkspaceData = (workspace: Workspace): WorkspaceDataStatus => {
   const hierarchy = useDataset('hierarchy');
 
   return useMemo(() => {
-    const states: Record<DatasetName, { status: string }> = {
+    const states: Partial<Record<DatasetName, { status: string }>> = {
       timeline,
       trace,
       wells,
