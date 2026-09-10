@@ -163,7 +163,7 @@ export const GroupLevel = ({
             className="council-number council-budget-value"
             data-testid="council-field-available"
           >
-            {formatNumber(lang, available, 1)}
+            {available === null ? DASH : formatNumber(lang, available, 1)}
             <span className="council-budget-unit">{t('council.field.unit')}</span>
           </span>
         </div>

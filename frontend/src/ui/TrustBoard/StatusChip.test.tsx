@@ -115,7 +115,7 @@ describe('StatusChip popover accessibility', () => {
     expect(button.getAttribute('aria-expanded')).toBe('true');
 
     const dialog = await screen.findByRole('dialog');
-    expect(dialog.querySelectorAll('.trust-item')).toHaveLength(6);
+    expect(dialog.querySelectorAll('.trust-item')).toHaveLength(7);
 
     fireEvent.keyDown(window, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
