@@ -31,6 +31,17 @@ def is_jarvis_path(path: str) -> bool:
     return path.split("?", 1)[0].startswith(PREFIX)
 
 
+def _forwarded_headers(handler: Any) -> dict[str, str]:
+    headers = {
+        "Content-Type": handler.headers.get("Content-Type", "application/json"),
+        "Accept": handler.headers.get("Accept", "*/*"),
+    }
+    for name, value in handler.headers.items():
+        if name.lower().startswith("x-jarvis-"):
+            headers[name] = value
+    return headers
+
+
 def forward(handler: Any) -> None:
     target = f"{upstream_base()}{handler.path}"
     length = int(handler.headers.get("Content-Length", "0"))
@@ -39,10 +50,7 @@ def forward(handler: Any) -> None:
         target,
         data=body,
         method=handler.command,
-        headers={
-            "Content-Type": handler.headers.get("Content-Type", "application/json"),
-            "Accept": handler.headers.get("Accept", "*/*"),
-        },
+        headers=_forwarded_headers(handler),
     )
     try:
         response = urllib.request.urlopen(request, timeout=90)

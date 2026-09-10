@@ -47,6 +47,12 @@ class SpaRequestHandler(http.server.SimpleHTTPRequestHandler):
         else:
             super().do_GET()
 
+    def do_DELETE(self):  # type: ignore[override]
+        if is_jarvis_path(self.path):
+            forward(self)
+            return
+        self._json(404, {'error': 'Неизвестный запрос.'})
+
     def do_POST(self):  # type: ignore[override]
         if is_jarvis_path(self.path):
             forward(self)
