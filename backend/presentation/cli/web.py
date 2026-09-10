@@ -40,8 +40,16 @@ class SpaRequestHandler(http.server.SimpleHTTPRequestHandler):
         if is_jarvis_path(self.path):
             forward(self)
             return
-        if urlsplit(self.path).path == '/api/runs':
+        route = urlsplit(self.path).path
+        if route == '/api/runs':
             self._json(200, {'runs': self.runs.list()})
+        elif route.startswith('/api/runs/') and route.endswith('/comparison'):
+            run_id = route[len('/api/runs/'):-len('/comparison')]
+            document = self.runs.comparison(run_id)
+            if document is None:
+                self._json(404, {'error': 'Сравнение для этого прогона не собрано.'})
+            else:
+                self._json(200, document)
         elif self.path.startswith('/api/'):
             self._json(404, {'error': 'Неизвестный запрос.'})
         else:

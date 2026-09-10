@@ -94,7 +94,7 @@ export const WellLevel = ({ rows, groupLabel, path, onSelectWell }: WellLevelPro
             <tbody>
               {sorted.map((row, index) => (
                 <WellRow
-                  key={row.well}
+                  key={`${row.well}-${index}`}
                   row={row}
                   index={index}
                   path={path}

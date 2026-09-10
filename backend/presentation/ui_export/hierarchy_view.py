@@ -142,8 +142,6 @@ def run_hierarchy_steps(
     flags: RuleFlags | None = None,
     registry: AgentRegistry = DEFAULT_REGISTRY,
 ) -> list[tuple[PolicyState, HierarchyResult]]:
-    """Настоящий прогон политики по всем шагам управления артефакта."""
-
     rule_flags = RuleFlags() if flags is None else flags
     theta = default_theta()
     normatives = _normatives()

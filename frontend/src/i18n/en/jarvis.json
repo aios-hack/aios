@@ -20,8 +20,6 @@
   "suggestionsLabel": "Suggestions",
   "orbitLabel": "Answer cards",
   "captionLabel": "Scene caption",
-  "stackLabel": "Previous scenes",
-  "stackHint": "Up and down arrows leaf through scenes",
   "openInConsole": "In the console",
   "cardLabel": "Card {title}",
   "expand": "Expand the card",

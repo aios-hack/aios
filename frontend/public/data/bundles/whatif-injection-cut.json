@@ -1,6 +1,7 @@
 {
   "config_hash": "demo8d6097816fb2128a8d6097816fb2128a8d6097816fb2128a8d6097816fb2",
   "constraints": {
+    "case_path": null,
     "infrastructure": {
       "kns_limit_m3_per_day": 14500.0
     },
@@ -46,6 +47,7 @@
       "2024": 9100000.0,
       "2025": 9100000.0
     },
+    "oil_limits": {},
     "production_floors": {
       "2007": 40.0,
       "2008": 40.0,

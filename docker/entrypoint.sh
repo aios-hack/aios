@@ -65,7 +65,7 @@ cmd_web() {
         echo "попал в контекст сборки и npm run build прошёл без ошибок." >&2
         exit 3
     fi
-    for path in wells.json graph.json hierarchy.json npv.json timeline.json scenarios.json; do
+    for path in wells.json graph.json hierarchy-index.json npv.json timeline.json scenarios.json; do
         if [ ! -f "/app/frontend/dist/data/$path" ]; then
             echo "ВНИМАНИЕ: нет /app/frontend/dist/data/$path." >&2
             echo "Через compose этот набор автоматически готовит сервис webdata." >&2
@@ -105,7 +105,7 @@ cmd_webdata() {
         # Репозиторий содержит проверенный snapshot витрины для срочного
         # воспроизводимого запуска. Реальный OPM response нужен только для
         # регенерации; отсутствие локального data/ не должно блокировать web.
-        for path in wells.json graph.json hierarchy.json npv.json timeline.json scenarios.json; do
+        for path in wells.json graph.json hierarchy-index.json npv.json timeline.json scenarios.json; do
             if [ ! -f "/app/frontend/public/data/$path" ]; then
                 echo "Нет ни /app/data/base_case/response.json, ни готового /app/frontend/public/data/$path." >&2
                 exit 2
@@ -119,7 +119,7 @@ cmd_webdata() {
         export AIOS_LAMBDA_PATH=/app/data/lambda-window-2007/lambda.json
     fi
     python -m backend.presentation.ui_export.demo
-    for path in wells.json graph.json hierarchy.json npv.json timeline.json scenarios.json; do
+    for path in wells.json graph.json hierarchy-index.json npv.json timeline.json scenarios.json; do
         test -f "/app/frontend/public/data/$path"
     done
     echo "Данные интерфейса собраны в /app/frontend/public/data"

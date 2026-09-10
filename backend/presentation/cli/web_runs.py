@@ -32,6 +32,15 @@ class WebRuns:
         temp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
         temp.replace(directory / 'job.json')
 
+    def comparison(self, run_id):
+        directory = (self.root / run_id).resolve()
+        if directory.parent != self.root or not directory.is_dir():
+            return None
+        document = directory / 'comparison.json'
+        if not document.is_file():
+            return None
+        return json.loads(document.read_text(encoding='utf-8'))
+
     def list(self):
         runs = []
         for path in sorted(self.root.glob('*/job.json'), reverse=True):

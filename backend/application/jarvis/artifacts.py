@@ -52,7 +52,7 @@ SCENARIO_FILES: tuple[str, ...] = (
     "timeline",
     "npv",
     "graph",
-    "hierarchy",
+    "hierarchy-index",
     "ablation",
     "trace",
 )
@@ -136,6 +136,51 @@ class ScenarioIndex:
             if isinstance(value, str):
                 return value
         return "unknown"
+
+
+class _LazyHierarchy(Mapping[str, Any]):
+    def __init__(self, directory: Path, index: Mapping[str, Any]) -> None:
+        self._directory = directory
+        self._index = index
+        self._steps: tuple[Mapping[str, Any], ...] | None = None
+
+    def _load_steps(self) -> tuple[Mapping[str, Any], ...]:
+        if self._steps is not None:
+            return self._steps
+        template = str(self._index.get("step_path") or "")
+        count = int(self._index.get("step_count") or 0)
+        loaded: list[Mapping[str, Any]] = []
+        for step in range(count):
+            path = self._directory / template.replace("{step}", str(step))
+            if path.is_file():
+                loaded.append(_read_json(path))
+        self._steps = tuple(loaded)
+        return self._steps
+
+    def step(self, control_step: int) -> Mapping[str, Any] | None:
+        template = str(self._index.get("step_path") or "")
+        path = self._directory / template.replace("{step}", str(control_step))
+        if not path.is_file():
+            return None
+        return _read_json(path)
+
+    def __getitem__(self, key: str) -> Any:
+        if key == "steps":
+            return self._load_steps()
+        return self._index[key]
+
+    def __iter__(self) -> Any:
+        return iter((*self._index.keys(), "steps"))
+
+    def __len__(self) -> int:
+        return len(self._index) + 1
+
+
+def _read_hierarchy(directory: Path) -> Mapping[str, Any]:
+    index = directory / "hierarchy-index.json"
+    if index.is_file():
+        return _LazyHierarchy(directory, _read_json(index))
+    return _read_json(directory / "hierarchy.json")
 
 
 def _read_json(path: Path) -> Mapping[str, Any]:
@@ -255,7 +300,7 @@ class ArtifactStore:
         npv = _read_json(directory / "npv.json")
         graph = _read_json(directory / "graph.json")
         ablation = _read_json(directory / "ablation.json")
-        hierarchy = _read_json(directory / "hierarchy.json")
+        hierarchy = _read_hierarchy(directory)
         trace = _read_json(directory / "trace.json")
         index = ScenarioIndex(
             scenario=name,

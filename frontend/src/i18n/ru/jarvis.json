@@ -20,8 +20,6 @@
   "suggestionsLabel": "Подсказки",
   "orbitLabel": "Карточки ответа",
   "captionLabel": "Пояснение к сцене",
-  "stackLabel": "Предыдущие сцены",
-  "stackHint": "Стрелки вверх и вниз листают сцены",
   "openInConsole": "В консоли",
   "cardLabel": "Карточка {title}",
   "expand": "Раскрыть карточку",

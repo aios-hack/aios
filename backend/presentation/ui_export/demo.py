@@ -188,12 +188,9 @@ def export_scenario(
     written.append(trace_path)
     hierarchy_path = export_hierarchy_json(artifact, out_dir / "hierarchy.json")
     _stamp(hierarchy_path, meta_by_kind.get("hierarchy", hierarchy_meta(artifact)))
-    written.append(hierarchy_path)
-    written.extend(
-        export_hierarchy_steps(
-            json.loads(hierarchy_path.read_text(encoding="utf-8")), out_dir
-        )
-    )
+    document = json.loads(hierarchy_path.read_text(encoding="utf-8"))
+    hierarchy_path.unlink()
+    written.extend(export_hierarchy_steps(document, out_dir))
     ablation_path = export_ablation_json(
         artifact, out_dir / "ablation.json", DEMO_SEED
     )

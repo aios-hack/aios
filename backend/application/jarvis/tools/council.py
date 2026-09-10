@@ -16,6 +16,11 @@ TITLES: Mapping[str, Mapping[str, str]] = {
 
 
 def _step_entry(index: ScenarioIndex, step: int) -> Mapping[str, Any]:
+    direct = getattr(index.hierarchy, "step", None)
+    if callable(direct):
+        found = direct(step)
+        if found is not None:
+            return found
     steps = index.hierarchy.get("steps")
     if not isinstance(steps, Sequence) or not steps:
         raise ToolFailure(

@@ -89,7 +89,7 @@ def test_field_metrics_refuses_when_value_absent(
     root.mkdir()
     shutil.copy(data_root / "scenarios.json", root / "scenarios.json")
     shutil.copy(data_root / "wells.json", root / "wells.json")
-    for name in ("timeline", "npv", "graph", "hierarchy", "ablation", "trace"):
+    for name in ("timeline", "npv", "graph", "hierarchy-index", "ablation", "trace"):
         shutil.copy(data_root / "base" / f"{name}.json", root / f"{name}.json")
     payload = json.loads((root / "timeline.json").read_text(encoding="utf-8"))
     payload["steps"][5]["field"]["compensation"] = None

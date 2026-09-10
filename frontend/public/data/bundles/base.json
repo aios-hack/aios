@@ -1,9 +1,11 @@
 {
   "config_hash": "0fd739b7afbcfeb07296fbec9f284f824c1793aaa15d8eb239a149e346b7c5cd",
   "constraints": {
+    "case_path": null,
     "infrastructure": {},
     "injection_limits": {},
     "liquid_limits": {},
+    "oil_limits": {},
     "production_floors": {},
     "watercut_limits": {},
     "well_outages": []

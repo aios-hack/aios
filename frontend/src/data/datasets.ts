@@ -1,7 +1,6 @@
 import type {
   AblationFile,
   GraphFile,
-  HierarchyFile,
   HierarchyIndexFile,
   MapsIndexFile,
   NpvFile,
@@ -13,7 +12,6 @@ import type {
 import {
   isAblationFile,
   isGraphFile,
-  isHierarchyFile,
   isHierarchyIndexFile,
   isMapsIndexFile,
   isNpvFile,
@@ -39,7 +37,6 @@ export interface DatasetMap {
   graph: GraphFile;
   scenarios: ScenariosFile;
   ablation: AblationFile;
-  hierarchy: HierarchyFile;
   'hierarchy-index': HierarchyIndexFile;
   'maps-index': MapsIndexFile;
 }
@@ -56,7 +53,6 @@ export const DATASETS: DatasetRegistry = {
   graph: { file: 'graph.json', scope: 'scenario', validate: isGraphFile },
   scenarios: { file: 'scenarios.json', scope: 'global', validate: isScenariosFile },
   ablation: { file: 'ablation.json', scope: 'scenario', validate: isAblationFile },
-  hierarchy: { file: 'hierarchy.json', scope: 'scenario', validate: isHierarchyFile },
   'hierarchy-index': {
     file: 'hierarchy-index.json',
     scope: 'scenario',
