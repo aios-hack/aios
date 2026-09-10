@@ -58,7 +58,8 @@ COPY pyproject.toml requirements-ml.txt /app/
 RUN set -eux; \
     python -m pip install --upgrade "pip==24.3.1" "setuptools==75.6.0" "wheel==0.45.1"; \
     python -m pip install "openpyxl==3.1.5" "pytest==8.3.4" "anthropic==0.40.0" "edge-tts==7.2.8"; \
-    python -m pip install -r /app/requirements-ml.txt
+    python -m pip install --index-url https://download.pytorch.org/whl/cpu \
+        --extra-index-url https://pypi.org/simple -r /app/requirements-ml.txt
 
 COPY . /app/
 
