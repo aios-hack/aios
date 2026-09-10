@@ -49,6 +49,16 @@ def test_hybrid_standardizes_scales_and_uses_complementary_signals():
     assert all("hybrid_score" in row for row in rows)
 
 
+def test_hybrid_uses_direct_runner_up_when_both_heads_share_top():
+    rows = [dict(schedule_hash="shared", ranking_score=10., physical_npv=10., ood_score=0., inside_domain=True),
+            dict(schedule_hash="runner-up", ranking_score=9., physical_npv=0., ood_score=0., inside_domain=True),
+            dict(schedule_hash="random-loss", ranking_score=-10., physical_npv=1., ood_score=0., inside_domain=True)]
+    add_hybrid_scores(rows)
+    top, control = choose_hybrid_comparison(rows, 42)
+    assert top["schedule_hash"] == "shared"
+    assert control["schedule_hash"] == "runner-up"
+
+
 def test_transfer_conserves_each_interval_even_when_donor_rate_is_tiny():
     schedule = historical_schedule()
     events = (ControlEvent(0, "W1", EventKind.SET_RATE, .2),

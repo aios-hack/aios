@@ -1,0 +1,13 @@
+{
+  "arm": "direct-head-control",
+  "run_id": "candidate-027",
+  "schedule_hash": "80778c48e07e59c591d5469299cd5724880d4fd3d5122e55a9aaf684d7ed4a14",
+  "screening_sha256": "50b2fd3543bc2f85f39a2f55dd2cf0044836824c0f74d3374af92f9975575ae9",
+  "sound": true,
+  "verified_npv": 2777040953.1323967,
+  "measured_npv": 2777040953.1323967,
+  "opm_source_run_id": "20260910T003249-3368ff9a25f7",
+  "verification_seconds": 667.3917382499931,
+  "started_with_cache": false,
+  "anchor_verified_npv": 2777011769.815107
+}

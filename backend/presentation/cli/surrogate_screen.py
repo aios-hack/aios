@@ -98,7 +98,8 @@ def choose_model_comparison(rows, seed, allow_ood=False):
     physical = max(eligible, key=lambda row: row["physical_npv"])
     direct = max(eligible, key=lambda row: row["ranking_score"])
     if direct["schedule_hash"] == physical["schedule_hash"]:
-        direct = random.Random(seed).choice([r for r in eligible if r["schedule_hash"] != physical["schedule_hash"]])
+        direct = max((row for row in eligible if row["schedule_hash"] != physical["schedule_hash"]),
+                     key=lambda row: row["ranking_score"])
     return physical, direct
 
 
@@ -128,7 +129,8 @@ def choose_hybrid_comparison(rows, seed, allow_ood=False):
     hybrid = max(eligible, key=lambda row: row["hybrid_score"])
     direct = max(eligible, key=lambda row: row["ranking_score"])
     if direct["schedule_hash"] == hybrid["schedule_hash"]:
-        direct = random.Random(seed).choice([row for row in eligible if row["schedule_hash"] != hybrid["schedule_hash"]])
+        direct = max((row for row in eligible if row["schedule_hash"] != hybrid["schedule_hash"]),
+                     key=lambda row: row["ranking_score"])
     return hybrid, direct
 
 
