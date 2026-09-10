@@ -1,0 +1,14 @@
+{
+  "canonical_schedule_hash": "27f9f120d7266e2b34a0be710778017661c0eb9e334a59468603613360460c2c",
+  "claimed_npv_rub": 2777011769.815107,
+  "constraints_hash": "0e09608eff6103696c4dc05759db25b4121d66afeeda447e5c9df9e4c5a2ef84",
+  "content_hash_submission": "ed6d3f5ee714baab8a68d911eb11566aea1a19ed2603fc4fa1c6a3271b6e85e7",
+  "created_at": "2026-09-10T00:09:56+00:00",
+  "deck_hash": "2e7741d9bdf151920c15dcf99f0def62b75ceb47c5021e88d53264e00e62273e",
+  "economics_config_hash": "44a24e2ac0c700ad50228a414c56235c948a4edea30a0cca34d0a2d6186ef2af",
+  "git_commit": "09dd2db4beb780c4e150eea211b353ca1000db85",
+  "methodology_version_hash": "74f2872e1d1e52b0774454e92ebcf0030701c6fe21845de01a1b33e6917f984c",
+  "opm_image": "openporousmedia/opmreleases@sha256:18c497f6a918c160cd290081d4163abf6e2c349797e18e3b5669c9095044adff",
+  "response_hash": "faac50e75aa6909aaac7f6dd9dee48cf2b9fbea1e22783b8392ce3bfb9143113",
+  "source_run_id": "20260909T235850-154b7b2ef68c"
+}

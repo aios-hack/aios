@@ -1,0 +1,13 @@
+{
+  "arm": "hybrid-top",
+  "run_id": "candidate-024",
+  "schedule_hash": "230d3213b3a4796c01392c3e1b339b992d870de5025cf5b18848e05bcfd679a0",
+  "screening_sha256": "4a881ea46414bd39aae1f96d59bf5abc14bfa9156cb60c62c3f882bdd428ad85",
+  "sound": true,
+  "verified_npv": 2776860648.113776,
+  "measured_npv": 2776860648.113776,
+  "opm_source_run_id": "20260909T235852-531128aedcd3",
+  "verification_seconds": 637.5449732919951,
+  "started_with_cache": false,
+  "anchor_verified_npv": 2772289226.3715014
+}
