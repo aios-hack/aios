@@ -1,0 +1,22 @@
+{
+  "taken_at": "2026-09-11",
+  "commit": "cda8c4561c0e44eb66b49dca95cfa79cd2f973b5",
+  "files": {
+    "showcase.json": "sha256 of every frontend/public/data/**/*.json (1284 files)",
+    "recordings.json": "sha256 of the 11 Jarvis recordings",
+    "knowledge.json": "sha256 of the 3 knowledge files",
+    "behaviour.json": "npv, champion bundle, scenarios, grid, timeline stats",
+    "api_surface.json": "public classes and functions of every backend module (226 modules, 1964 symbols)",
+    "errors.json": "every custom error class name (80)",
+    "cli.json": "exit codes and messages of representative CLI invocations",
+    "tests.json": "test counts per stack"
+  },
+  "rules": [
+    "showcase.json: byte-identical except notice fields (checked separately as key+text)",
+    "recordings.json: byte-identical for ru",
+    "behaviour.json: exact, floats to 1e-6",
+    "api_surface.json: no public symbol disappears; renames must be listed in the wave report",
+    "errors.json: every name survives or maps to a documented replacement",
+    "cli.json: exit codes may change from 1 to the codes in plan section 3.4; messages become English"
+  ]
+}

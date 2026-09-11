@@ -1,0 +1,30 @@
+{
+  "jarvis_check": {
+    "exit": 1,
+    "stderr_tail": [],
+    "stdout_head": [
+      "health=503 provider=none model=none data=model-z-base-run terms=71 screens=11 nodes=18 docs=1173 sessions=0"
+    ]
+  },
+  "submit_no_run_id": {
+    "exit": 1,
+    "stderr_tail": [
+      "submit требует --run-id проверенного прогона"
+    ],
+    "stdout_head": []
+  },
+  "unknown_mode": {
+    "exit": 2,
+    "stderr_tail": [
+      "run.py: error: argument mode: invalid choice: 'bogus' (choose from 'search', 'verify', 'full', 'submit', 'compare')"
+    ],
+    "stdout_head": []
+  },
+  "verify_with_case": {
+    "exit": 1,
+    "stderr_tail": [
+      "verify не принимает --case: проверяется расписание сохранённого запуска вместе с кейсом, на котором оно было найдено"
+    ],
+    "stdout_head": []
+  }
+}

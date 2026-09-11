@@ -449,14 +449,17 @@ tests/
 
 ## 7. Волны и агенты
 
-Три агента одновременно с непересекающимся владением; если владелец ограничит двумя — роль C
-выполняет B после своей волны (порядок сохраняется).
+**Два агента одновременно** (решение владельца 11.09). Роль C распределена по волнам:
+C-задачи выполняет тот агент, чей стек они затрагивают, в конце своей волны. Тесты бэкенда и
+архитектурные тесты бэкенда — агент A; тесты фронта и архитектурные тесты фронта — агент B;
+общие (`tests/conftest.py`, `tests/support`, `tests/golden`, `pyproject.toml` testpaths,
+`vite.config.ts` include, `ARCHITECTURE.md`) — координатор между волнами.
 
 | Агент | Владеет | Не трогает |
 |---|---|---|
-| **A** — бэкенд | `backend/**`, `pyproject.toml`, `docker/**`, `docker-compose.yml`, `Dockerfile`, `scripts/**`, `tools/**` | `frontend/**`, `tests/**` (кроме `tests/golden/backend` на чтение) |
-| **B** — фронт | `frontend/**`, `frontend/public/jarvis/knowledge/**` (данные), `frontend/public/jarvis/fixtures/**` | `backend/**`, `tests/**` |
-| **C** — тесты и границы | `tests/**`, `conftest.py`, `tests/architecture/**`, `.github/**` если появится, `ARCHITECTURE.md`, `README.md` (разделы структуры) | `backend/**`, `frontend/src/**` |
+| **A** — бэкенд | `backend/**`, `pyproject.toml`, `docker/**`, `docker-compose.yml`, `Dockerfile`, `scripts/**`, `tools/**`, `tests/backend/**`, `tests/architecture/backend/**`, `tests/support/backend/**` | `frontend/**`, `tests/frontend/**`, `tests/golden/**` (только чтение) |
+| **B** — фронт | `frontend/**`, `frontend/public/jarvis/knowledge/**` (данные), `frontend/public/jarvis/fixtures/**`, `tests/frontend/**`, `tests/architecture/frontend/**`, `tests/support/frontend/**` | `backend/**`, `tests/backend/**`, `tests/golden/**` (только чтение) |
+| **координатор** | `tests/conftest.py`, `tests/golden/**`, `tests/fixtures/**`, `tests/architecture/shared/**`, `ARCHITECTURE.md`, `README.md`, слияние стыков | — |
 
 Стыки, решённые заранее: контракт HTTP/SSE не меняется (§8 проверяет); формат витрины
 не меняется, кроме `notice` (§3.5) — B и A делают это в одной волне; база знаний — A читает новую
