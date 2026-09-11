@@ -16,7 +16,7 @@ from backend.core.contracts import Lambda
 from backend.core.paths import data_root
 from backend.contexts.connectivity.domain.measure import load_lambda
 from backend.contexts.surrogate.infrastructure.model_z_context import ModelZFeatureArtifact
-from backend.interfaces.cli.surrogate import check as surrogate_check
+from backend.interfaces.cli.surrogate import check as _check
 
 LAMBDA_PATH = data_root() / "lambda-window-2007" / "lambda.json"
 CONTEXT_PATH = data_root() / "model-night-20260826-v2" / "feature_context.json"

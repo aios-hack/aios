@@ -1,6 +1,6 @@
 import { useT } from '@/shared/i18n/I18nContext';
 import { routeAction, type ConsoleAction } from '@/jarvis/actions/lib/consoleAction';
-import { readGuide } from '@/jarvis/cards/payloads/cardPayloads';
+import { readGuide } from '@/jarvis/cards/payloads';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
 import './GuideCard.css';
 

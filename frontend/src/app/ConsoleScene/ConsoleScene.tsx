@@ -1,27 +1,19 @@
-import { lazy, Suspense, useEffect, useMemo } from 'react';
+import { Suspense, useEffect, useMemo } from 'react';
 import { useT } from '@/shared/i18n/I18nContext';
 import { type WorkspaceView } from '@/shared/router/routes';
 import { useRoute } from '@/shared/router/RouterProvider';
 import { ErrorBoundary } from '@/shared/ui/ErrorBoundary';
 import { SegmentedControl } from '@/shared/ui/SegmentedControl';
 import { ViewStatus } from '@/shared/ui/ViewStatus';
-import { Decisions } from '@/pages/decisions/Decisions';
+import { pageFor, pageKey } from '@/app/router/pages';
 import { useWorkspaceData } from '@/app/ConsoleScene/useWorkspaceData';
-import { History } from '@/pages/history/History';
-
-const FieldProjection = lazy(() =>
-  import('@/pages/field-projection').then((m) => ({ default: m.FieldProjection }))
-);
-const FieldMaps = lazy(() =>
-  import('@/pages/field-maps').then((m) => ({ default: m.FieldMaps }))
-);
-const Money = lazy(() => import('@/pages/money').then((m) => ({ default: m.Money })));
-const Overview = lazy(() => import('@/pages/overview').then((m) => ({ default: m.Overview })));
+import '@/app/ConsoleScene/ConsoleScene.css';
 
 export const Scene = () => {
   const t = useT();
   const { workspace, view, setView, viewsFor } = useRoute();
   const dataStatus = useWorkspaceData(workspace);
+  const Page = pageFor(workspace, view);
 
   useEffect(() => {
     const main = document.querySelector('.console-main');
@@ -55,34 +47,16 @@ export const Scene = () => {
         )}
       </div>
       <div
-        key={`${workspace}/${view}`}
+        key={pageKey(workspace, view)}
         className="console-scene-body app-view-enter"
         data-testid="console-scene"
         data-data-status={dataStatus}
       >
-        {workspace === 'overview' && (
-          <ErrorBoundary>
-            <Suspense fallback={<ViewStatus kind="loading" title={t('app.viewLoading')} />}>
-              <Overview />
-            </Suspense>
-          </ErrorBoundary>
-        )}
-        {workspace === 'field' && (
-          <ErrorBoundary>
-            <Suspense fallback={<ViewStatus kind="loading" title={t('app.viewLoading')} />}>
-              {view === 'maps' ? <FieldMaps /> : <FieldProjection />}
-            </Suspense>
-          </ErrorBoundary>
-        )}
-        {workspace === 'history' && <History />}
-        {workspace === 'decisions' && <Decisions />}
-        {workspace === 'money' && (
-          <ErrorBoundary>
-            <Suspense fallback={<ViewStatus kind="loading" title={t('app.viewLoading')} />}>
-              <Money />
-            </Suspense>
-          </ErrorBoundary>
-        )}
+        <ErrorBoundary>
+          <Suspense fallback={<ViewStatus kind="loading" title={t('app.viewLoading')} />}>
+            {Page === null ? <ViewStatus kind="empty" title={t('view.label')} /> : <Page />}
+          </Suspense>
+        </ErrorBoundary>
       </div>
     </section>
   );

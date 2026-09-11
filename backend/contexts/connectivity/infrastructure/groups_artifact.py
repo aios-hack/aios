@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from backend.contexts.connectivity.domain.errors import (
+    GroupsArtifactError,
+    GroupsProvenanceError,
+)
+
 import hashlib
 import json
 from dataclasses import dataclass, replace
@@ -23,14 +28,6 @@ ALGORITHM_NAME = "lambda-overlap-union-find"
 ALGORITHM_VERSION = "61.1"
 HEX_DIGITS = frozenset("0123456789abcdef")
 HASH_LENGTH = len(hashlib.sha256(b"").hexdigest())
-
-
-class GroupsArtifactError(ValueError):
-    pass
-
-
-class GroupsProvenanceError(GroupsArtifactError):
-    pass
 
 
 @dataclass(frozen=True, slots=True)

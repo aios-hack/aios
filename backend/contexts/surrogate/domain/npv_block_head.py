@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from backend.contexts.surrogate.domain.errors import (
+    BlockNpvHeadError,
+)
+
 import hashlib
 import json
 import math
@@ -12,9 +16,9 @@ from typing import Literal
 import torch
 from torch import Tensor
 
-from .features import SurrogateInput
+from backend.contexts.surrogate.domain.features import SurrogateInput
 from backend.contexts.surrogate.application.model import _features
-from .npv_economic_features import (
+from backend.contexts.surrogate.domain.npv_economic_features import (
     LEGACY_FEATURE_PROVENANCE_HASHES,
     feature_implementation_hash,
     scenario_feature_vector,
@@ -39,10 +43,6 @@ DEFAULT_BLOCKS = (
     ("well", 1260, 2908),
     ("economic", 2908, 4406),
 )
-
-
-class BlockNpvHeadError(ValueError):
-    pass
 
 
 def block_implementation_hash() -> str:

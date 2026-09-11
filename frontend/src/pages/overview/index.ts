@@ -1,1 +1,1 @@
-export { Overview } from '@/pages/overview/Overview/Overview';
+export { Overview } from '@/pages/overview/ui/Overview';

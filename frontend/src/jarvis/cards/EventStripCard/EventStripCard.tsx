@@ -1,6 +1,6 @@
 import { formatStepDate } from '@/shared/lib/format';
 import { useI18n } from '@/shared/i18n/I18nContext';
-import { readEventStrip } from '@/jarvis/cards/payloads/cardPayloads';
+import { readEventStrip } from '@/jarvis/cards/payloads';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
 import './EventStripCard.css';
 import { clamp01 } from '@/shared/lib/math/clamp';

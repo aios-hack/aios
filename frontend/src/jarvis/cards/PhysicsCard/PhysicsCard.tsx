@@ -1,6 +1,6 @@
 import { DASH } from '@/shared/lib/format';
 import { useT } from '@/shared/i18n/I18nContext';
-import { readPhysics } from '@/jarvis/cards/payloads/cardPayloads';
+import { readPhysics } from '@/jarvis/cards/payloads';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
 import './PhysicsCard.css';
 

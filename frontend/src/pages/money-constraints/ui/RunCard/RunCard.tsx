@@ -14,7 +14,7 @@ import { UnseenCheck } from '@/pages/money-constraints/ui/UnseenCheck';
 import {
   forecastDrift,
   formatMoney
-} from '@/pages/money-constraints/ui/runMoney';
+} from '@/pages/money-constraints/model/runMoney';
 import { formatNumber } from '@/shared/lib/format';
 
 interface RunCardProps {

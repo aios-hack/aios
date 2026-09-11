@@ -9,7 +9,7 @@
   grid-area: 1 / 1;
   width: var(--size-sphere-stage);
   height: var(--size-sphere-stage);
-  border: 1px solid var(--color-jarvis-halo);
+  border: var(--border-hairline) solid var(--color-jarvis-halo);
   border-radius: var(--radius-pill);
   opacity: calc(0.34 - var(--stack-depth) * 0.07);
   transform: scale(calc(1.12 + var(--stack-depth) * 0.16));

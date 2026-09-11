@@ -7,7 +7,7 @@ import { isAblationFile } from '@/entities';
 import { dictionaries } from '@/shared/i18n/dictionaries';
 import { I18nProvider } from '@/shared/i18n/I18nContext';
 import { TimelineProvider } from '@/entities/timeline/model/TimelineContext';
-import { Rules } from '@/pages/rules/Rules/Rules';
+import { Rules } from '@/pages/rules/ui/Rules/Rules';
 import { publicPath } from '@support/paths';
 
 const { ru } = dictionaries;

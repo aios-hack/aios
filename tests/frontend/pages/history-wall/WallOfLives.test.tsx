@@ -5,12 +5,12 @@ import type { ReactNode } from 'react';
 import type { GraphFile } from '@/entities/graph/types';
 import type { NpvFile } from '@/entities/npv/types';
 import type { TimelineFile, TimelineStep } from '@/entities/timeline/types';
-import { HistoryViewProvider } from '@/pages/history-matrix/model/HistoryViewContext';
+import { HistoryViewProvider } from '@/entities/timeline/model/HistoryViewContext';
 import { dictionaries } from '@/shared/i18n/dictionaries';
 import { I18nProvider } from '@/shared/i18n/I18nContext';
 import { TimelineProvider, useTimeline } from '@/entities/timeline/model/TimelineContext';
 import { ThemeProvider } from '@/shared/theme/ThemeContext';
-import { WallOfLives } from '@/pages/history-wall/WallOfLives/WallOfLives';
+import { WallOfLives } from '@/pages/history-wall/ui/WallOfLives/WallOfLives';
 import {
   TILE_GAP,
   TILE_HEIGHT,
@@ -23,7 +23,7 @@ import {
   tileIndexAt,
   tileX,
   tileY
-} from '@/pages/history-wall/layout';
+} from '@/pages/history-wall/model/layout';
 import {
   WALL_PALETTE_TOKENS,
   buildSeries,
@@ -31,11 +31,11 @@ import {
   seriesCeiling,
   watercutByWell,
   type WallPalette
-} from '@/pages/history-wall/series';
+} from '@/pages/history-wall/model/series';
 import { mixColors, toCanvasColor } from '@/shared/lib/canvas/canvasColors';
-import { buildWallRows, sortWallRows, ungroupedWells } from '@/pages/history-wall/wallSort';
-import { paintWall, paintWallCursor } from '@/pages/history-wall/wallPainter';
-import { srcPath } from '@support/paths';
+import { buildWallRows, sortWallRows, ungroupedWells } from '@/pages/history-wall/model/wallSort';
+import { paintWall, paintWallCursor } from '@/pages/history-wall/model/wallPainter';
+import { WALL_OF_LIVES_CSS } from '@support/layout';
 
 const { ru } = dictionaries;
 
@@ -694,7 +694,7 @@ describe('the wall spends the height the container offers', () => {
 
   it('reveals the wall on the same beat as the rest of the console', () => {
     const css = readFileSync(
-      srcPath('pages', 'history-wall', 'WallOfLives', 'WallOfLives.css'),
+      WALL_OF_LIVES_CSS,
       'utf-8'
     );
     const block = css.match(/\.wall-stage\s*\{[^}]*\}/)?.[0] ?? '';

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.constraints.domain.errors import (
+    ConfigError,
+)
+
 import json
 from dataclasses import fields
 from pathlib import Path
@@ -30,10 +34,6 @@ REQUIRED_SECTIONS: tuple[str, ...] = (
 
 _HASH_FIELDS: tuple[str, ...] = tuple(f.name for f in fields(ArtifactHashes))
 _BUDGET_FIELDS: tuple[str, ...] = tuple(f.name for f in fields(Budgets))
-
-
-class ConfigError(ValueError):
-    pass
 
 
 def _section(raw: Mapping[str, Any], name: str) -> Mapping[str, Any]:

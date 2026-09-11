@@ -9,12 +9,12 @@ import { ScenarioProvider } from '@/entities/scenarios/model/ScenarioContext';
 import { TimelineProvider, useTimeline } from '@/entities/timeline/model/TimelineContext';
 import { ViewStatus } from '@/shared/ui/ViewStatus';
 import { FieldProjection } from '@/pages/field-projection';
-import { MoneyComparison } from '@/pages/money-comparison/MoneyComparison/MoneyComparison';
-import { NpvRank } from '@/pages/money-rank/npv';
-import { ScenarioLibrary } from '@/pages/money-comparison/ScenarioLibrary/ScenarioLibrary';
-import { HistoryTable } from '@/pages/history-table/HistoryTable/HistoryTable';
+import { MoneyComparison } from '@/pages/money-comparison/ui/MoneyComparison/MoneyComparison';
+import { NpvRank } from '@/pages/money-rank/ui/NpvRank';
+import { ScenarioLibrary } from '@/pages/money-comparison/ui/ScenarioLibrary/ScenarioLibrary';
+import { HistoryTable } from '@/pages/history-table/ui/HistoryTable/HistoryTable';
 import { StepControls } from '@/features/timeline-player/ui/StepControls/StepControls';
-import { WellsTable } from '@/pages/history-table/WellsTable/WellsTable';
+import { WellsTable } from '@/pages/history-table/ui/WellsTable/WellsTable';
 
 const { ru, en } = dictionaries;
 

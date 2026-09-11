@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.optimization.domain.errors import (
+    RuntimeArtifactError,
+)
+
 import json
 import hashlib
 import math
@@ -9,10 +13,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from backend.shared.paths import project_root
-
-
-class RuntimeArtifactError(ValueError):
-    pass
 
 
 CONSERVATIVE_OOD_THRESHOLD = 0.0

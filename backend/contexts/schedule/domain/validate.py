@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+from backend.shared.errors import (
+    ValidationError,
+)
+
+from backend.shared.errors import (
+    ValidationError,
+)
+
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
@@ -17,7 +25,7 @@ from backend.core.contracts import (
     WellState,
 )
 
-from .canonical import canonical_part_hash, find_control_conflicts
+from backend.contexts.schedule.domain.canonical import canonical_part_hash, find_control_conflicts
 
 MIN_SETPOINT_M3_PER_DAY: float = 0.0
 
@@ -192,7 +200,9 @@ class ValidationReport:
             raise StaticValidationError(self.format(), self)
 
 
-class StaticValidationError(ValueError):
+class StaticValidationError(ValidationError):
+    default_code = "schedule.static"
+
     def __init__(self, message: str, report: ValidationReport) -> None:
         super().__init__(message)
         self.report = report

@@ -2,6 +2,7 @@ import { useFallbackI18n } from '@/shared/i18n/I18nContext';
 import type { ConstraintsDoc } from '@/entities/scenarios/types';
 import { useLiveRuns } from '@/pages/money-constraints/model/useLiveRuns';
 import { RunCard } from '@/pages/money-constraints/ui/RunCard';
+import './LiveRuns.css';
 
 const DEPTHS = [10, 30, 120] as const;
 

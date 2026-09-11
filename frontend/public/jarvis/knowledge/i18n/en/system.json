@@ -1,0 +1,160 @@
+{
+  "source": "ARCHITECTURE.md, JARVIS.md",
+  "nodes": {
+    "console": {
+      "label": "Console",
+      "summary": "The React browser application: five workspaces — overview, field, history, decisions, money. It reads the same JSON showcase Jarvis reads and computes nothing of its own."
+    },
+    "jarvis": {
+      "label": "Jarvis",
+      "summary": "The console's visual assistant: a question in natural language turns into a scene of cards built from the same JSON showcase. Orchestrator, tools, knowledge base, number guard and sessions live in application/jarvis."
+    },
+    "web": {
+      "label": "Static server and proxy",
+      "summary": "Port 8000: serves the built frontend and the JSON showcase, and forwards everything under the /api/jarvis/ prefix to the Jarvis service, so the browser always talks to a single origin."
+    },
+    "jarvis-service": {
+      "label": "Jarvis service (8010)",
+      "summary": "A separate process and a separate compose service on port 8010, on the stdlib ThreadingHTTPServer. The response is a chunked text/event-stream with a keep-alive comment every 15 seconds so idle proxies do not drop a slow answer."
+    },
+    "llm": {
+      "label": "Model client",
+      "summary": "Chat providers: OpenRouter primary, Anthropic fallback. The orchestrator receives a ChatClient from the outside and knows nothing of urllib or http. Without a key the service still starts and answers 503, naming the variable to set."
+    },
+    "search": {
+      "label": "Schedule search",
+      "summary": "Optimisation: it picks a setpoint schedule for the whole control horizon, leaning on the fast model instead of the hydrodynamic simulator. The search strategy and the seed are recorded in the run manifest."
+    },
+    "surrogate": {
+      "label": "Fast reservoir model",
+      "summary": "A trained reservoir response model with an NPV head and an out-of-distribution detector: it answers in seconds where the simulator needs hours. Its versions and the NPV head version are pinned in the run provenance."
+    },
+    "policy": {
+      "label": "Agent hierarchy",
+      "summary": "Three decision levels: the field coordinator hands injection quotas to areas, the group allocator splits a quota between wells, and the well executor applies rules R0 to R7. Every decision lands in the journal."
+    },
+    "physics": {
+      "label": "Physical invariants",
+      "summary": "Seven checks of the response: non-negativity, water-cut range, monotonic cumulatives, no flow from a shut well, bottomhole pressure limit, injection response and material balance. A skipped invariant counts as a failed invariant."
+    },
+    "economics": {
+      "label": "Economics and NPV",
+      "summary": "It computes the net present value by the organisers' methodology from the normatives instead of storing it next to the schedule. Derived quantities — NPV, event cost, ESP size — are always computed."
+    },
+    "opm": {
+      "label": "OPM Flow",
+      "summary": "The real hydrodynamic simulator in a container with a pinned image digest: it is the arbiter. A fast-model prediction becomes a result only after OPM has run on the same schedule."
+    },
+    "deck": {
+      "label": "The Model_Z deck",
+      "summary": "The organisers' reservoir model: grid geometry and its properties — porosity, net-to-gross, permeabilities, cell activity, zones and equilibrium regions. Everything drawn on the reservoir maps comes from the deck."
+    },
+    "cases": {
+      "label": "Cases and constraints",
+      "summary": "The competition constraints and the cases derived from them: injection and liquid limits, production floors, well outages, infrastructure bottomhole pressure limits and the compensation corridor. Every value carries its source."
+    },
+    "runs": {
+      "label": "Runs",
+      "summary": "Every run is isolated in its own directory: a manifest with the status and the schedule hash, the schedule itself, the prediction, the OPM work directory, the validation and the economics. Only the submit step writes the ready_to_submit status."
+    },
+    "submission": {
+      "label": "Submission package",
+      "summary": "The claimed NPV together with hashes: of the canonical schedule, the package content, the deck, the economics configuration, the methodology and the constraints, plus the OPM image and the commit. The status promises a package that exists."
+    },
+    "webdata": {
+      "label": "JSON showcase",
+      "summary": "The export of results into static JSON: the per-step timeline, the NPV breakdown, the connectivity graph, the decision hierarchy, the rule journal and the rule contributions. The console and Jarvis read this, not a database."
+    },
+    "knowledge": {
+      "label": "Knowledge base",
+      "summary": "The curated files: a glossary of domain terms with formulas, units and sources, and a guide to the screens with their controls and spotlight anchors. Jarvis explains terms and screens only from here."
+    },
+    "docs": {
+      "label": "Project documents",
+      "summary": "The task statement, the architecture, the plans, the jury answers and the write-ups. They are indexed by a BM25 full-text search over sections so Jarvis quotes a document instead of retelling it from memory."
+    }
+  },
+  "edges": {
+    "console->web": {
+      "label": "static files and the JSON showcase"
+    },
+    "console->jarvis": {
+      "label": "the question and the screen context"
+    },
+    "jarvis->web": {
+      "label": "SSE through /api/jarvis"
+    },
+    "web->jarvis-service": {
+      "label": "proxy /api/jarvis/* to 8010"
+    },
+    "jarvis-service->jarvis": {
+      "label": "the scene orchestrator"
+    },
+    "jarvis->llm": {
+      "label": "a request carrying the tool descriptions"
+    },
+    "jarvis->webdata": {
+      "label": "reading the showcase artifacts"
+    },
+    "jarvis->knowledge": {
+      "label": "terms and screens"
+    },
+    "jarvis->docs": {
+      "label": "search over document sections"
+    },
+    "jarvis->runs": {
+      "label": "run manifests and validations"
+    },
+    "deck->opm": {
+      "label": "the grid and reservoir properties"
+    },
+    "deck->surrogate": {
+      "label": "the response used for training"
+    },
+    "cases->search": {
+      "label": "limits and outages"
+    },
+    "cases->policy": {
+      "label": "the field injection limit"
+    },
+    "search->surrogate": {
+      "label": "a candidate scored in seconds"
+    },
+    "search->policy": {
+      "label": "setpoints from rules R0 to R7"
+    },
+    "policy->economics": {
+      "label": "the schedule to price"
+    },
+    "surrogate->physics": {
+      "label": "the response fed to the seven invariants"
+    },
+    "search->runs": {
+      "label": "schedule and prediction into the run directory"
+    },
+    "runs->opm": {
+      "label": "the same schedule sent for verification"
+    },
+    "opm->runs": {
+      "label": "the verified NPV and the violations"
+    },
+    "opm->economics": {
+      "label": "the simulator response for the methodology"
+    },
+    "runs->submission": {
+      "label": "the submission package with its hashes"
+    },
+    "runs->webdata": {
+      "label": "results exported into JSON"
+    },
+    "policy->webdata": {
+      "label": "the hierarchy and the decision journal"
+    },
+    "webdata->console": {
+      "label": "timeline, graph, per-well NPV"
+    },
+    "physics->runs": {
+      "label": "the admissibility report"
+    }
+  }
+}

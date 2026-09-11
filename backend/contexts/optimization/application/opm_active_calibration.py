@@ -8,6 +8,10 @@ NPV interval it returns no corrected number and a positive domain score.
 
 from __future__ import annotations
 
+from backend.contexts.optimization.domain.errors import (
+    OpmActiveCalibrationError,
+)
+
 import hashlib
 import json
 import math
@@ -16,10 +20,6 @@ from pathlib import Path
 from backend.shared.json_io import read_json
 
 FORMAT = "aios.water-family-npv-calibration.v1"
-
-
-class OpmActiveCalibrationError(ValueError):
-    pass
 
 
 @dataclass(frozen=True, slots=True)

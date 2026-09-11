@@ -1,7 +1,7 @@
 import { Sparkline } from '@/shared/ui/Sparkline';
 import { DASH, formatNumber, formatPercent } from '@/shared/lib/format';
 import { useI18n } from '@/shared/i18n/I18nContext';
-import { readWell } from '@/jarvis/cards/payloads/cardPayloads';
+import { readWell } from '@/jarvis/cards/payloads';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
 import './WellCard.css';
 

@@ -9,6 +9,10 @@
 
 from __future__ import annotations
 
+from backend.contexts.schedule.domain.errors import (
+    ScheduleParseError,
+)
+
 import re
 from dataclasses import dataclass
 from datetime import date
@@ -35,10 +39,6 @@ _MONTHS = {
     "DEC": 12,
 }
 _TOKEN_RE = re.compile(rb"'([^']*)'|([^\s/]+)")
-
-
-class ScheduleParseError(ValueError):
-    """Расписание нельзя разобрать без потери или неоднозначности."""
 
 
 @dataclass(frozen=True, slots=True)

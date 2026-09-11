@@ -1,7 +1,9 @@
 .brand-logo {
+  --brand-logo-w: 132px;
+
   display: block;
   flex: none;
-  width: 132px;
+  width: var(--brand-logo-w);
 }
 
 .brand-logo-image {

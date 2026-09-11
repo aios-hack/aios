@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { WellRow } from '@/pages/council/levels';
+import type { WellRow } from '@/pages/council/model/levels';
 import {
   decisionAmount,
   decisionVerb,
@@ -7,7 +7,7 @@ import {
   sortWellRows,
   WELL_SORT_KEYS,
   type WellSortKey
-} from '@/pages/council/wellSorting';
+} from '@/pages/council/model/wellSorting';
 
 const row = (
   well: string,

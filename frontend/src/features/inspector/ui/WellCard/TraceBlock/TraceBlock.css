@@ -12,7 +12,7 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-3);
-  border: 1px solid var(--color-border);
+  border: var(--border-hairline) solid var(--color-border);
   border-radius: var(--radius-md);
 }
 
@@ -25,7 +25,7 @@
 
 .wellcard-rule {
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--color-accent);
+  border: var(--border-hairline) solid var(--color-accent);
   border-radius: var(--radius-sm);
   color: var(--color-accent);
   font-size: var(--font-size-xs);
@@ -47,7 +47,7 @@
 .wellcard-inputs th,
 .wellcard-inputs td {
   padding: var(--space-1) 0;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: var(--border-hairline) solid var(--color-border);
   text-align: left;
 }
 

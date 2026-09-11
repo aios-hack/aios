@@ -7,6 +7,25 @@
   margin-bottom: var(--space-5);
 }
 
+.time-scale-island {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: calc(var(--size-control-height) + var(--space-4));
+  margin: 0;
+  padding: var(--space-2) var(--space-5);
+  border: var(--border-hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-transport);
+  white-space: nowrap;
+}
+
+.playback-settings-island {
+  position: absolute;
+  right: 0;
+}
+
 .time-scale-readout {
   display: flex;
   align-items: center;

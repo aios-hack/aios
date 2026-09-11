@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TimelineWellRow } from '@/entities/timeline/types';
-import { readingText } from '@/pages/history-matrix/readings';
+import { readingText } from '@/pages/history-matrix/model/readings';
 
 const t = (key: string): string => key;
 

@@ -14,7 +14,7 @@
   gap: var(--space-2);
   min-height: var(--size-hit-min);
   padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--color-border);
+  border: var(--border-hairline) solid var(--color-border);
   border-radius: var(--radius-pill);
   background: none;
   color: var(--color-text-muted);
@@ -54,7 +54,7 @@
 .jarvis-answer-key {
   flex: none;
   padding: 0 var(--space-1);
-  border: 1px solid var(--color-border);
+  border: var(--border-hairline) solid var(--color-border);
   border-radius: var(--radius-sm);
   font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);
@@ -66,7 +66,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: var(--space-3);
-  border: 1px solid var(--color-border);
+  border: var(--border-hairline) solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
 }

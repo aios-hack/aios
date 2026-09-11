@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.assistant.domain.errors import (
+    DocsIndexError,
+)
+
 import json
 import math
 import re
@@ -97,10 +101,6 @@ EN_SUFFIXES: tuple[str, ...] = ("ing", "ed", "es", "s")
 MIN_STEM_LENGTH = 4
 ROOT_MARKDOWN_LIMIT = 40
 HEADING_WEIGHT = 2
-
-
-class DocsIndexError(RuntimeError):
-    pass
 
 
 def repository_root() -> Path:

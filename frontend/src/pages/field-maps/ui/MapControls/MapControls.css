@@ -1,0 +1,59 @@
+.map-presets {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-inline-start: var(--space-3);
+}
+
+.map-preset {
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-state) var(--ease-out),
+    color var(--duration-state) var(--ease-out);
+}
+
+.map-preset:hover {
+  color: var(--color-text);
+}
+
+.map-preset[data-active='true'] {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.map-layer {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: var(--size-map-layer-min);
+}
+
+.map-layer-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+.map-layer-slider {
+  flex: 1 1 auto;
+}
+
+.map-layer-value {
+  min-width: 2.5ch;
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  text-align: right;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-preset {
+    transition: none;
+  }
+}

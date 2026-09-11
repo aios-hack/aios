@@ -1,5 +1,5 @@
 import { useT } from '@/shared/i18n/I18nContext';
-import { readGlossary } from '@/jarvis/cards/payloads/cardPayloads';
+import { readGlossary } from '@/jarvis/cards/payloads';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
 import { routeAction, type ConsoleAction } from '@/jarvis/actions/lib/consoleAction';
 import './GlossaryCard.css';

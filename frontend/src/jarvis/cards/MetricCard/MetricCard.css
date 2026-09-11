@@ -12,7 +12,7 @@
 
 .jarvis-metric-row + .jarvis-metric-row {
   padding-top: var(--space-3);
-  border-top: 1px solid var(--color-border-subtle);
+  border-top: var(--border-hairline) solid var(--color-border-subtle);
 }
 
 .jarvis-metric-label {

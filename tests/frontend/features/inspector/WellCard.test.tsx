@@ -14,7 +14,7 @@ import { ConsoleInspector } from '@/features/inspector/ui';
 import { ViewStatus } from '@/shared/ui/ViewStatus';
 import { FieldProjection } from '@/pages/field-projection';
 import { StepControls } from '@/features/timeline-player/ui/StepControls/StepControls';
-import { WellsTable } from '@/pages/history-table/WellsTable/WellsTable';
+import { WellsTable } from '@/pages/history-table/ui/WellsTable/WellsTable';
 
 const StepsTestView = () => {
   const t = useT();

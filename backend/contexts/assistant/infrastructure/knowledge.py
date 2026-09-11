@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.assistant.domain.errors import (
+    KnowledgeError,
+)
+
 import difflib
 import json
 import unicodedata
@@ -11,10 +15,6 @@ from backend.shared.settings import Settings
 KNOWLEDGE_ENV_VAR = "AIOS_JARVIS_KNOWLEDGE"
 FUZZY_CUTOFF = 0.78
 LANGS: tuple[str, ...] = ("ru", "en")
-
-
-class KnowledgeError(RuntimeError):
-    pass
 
 
 def default_knowledge_root() -> Path:

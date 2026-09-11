@@ -1,6 +1,6 @@
 import { DASH, formatNumber } from '@/shared/lib/format';
 import { useI18n } from '@/shared/i18n/I18nContext';
-import { readStatusBoard } from '@/jarvis/cards/payloads/cardPayloads';
+import { readStatusBoard } from '@/jarvis/cards/payloads';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
 import './StatusBoardCard.css';
 

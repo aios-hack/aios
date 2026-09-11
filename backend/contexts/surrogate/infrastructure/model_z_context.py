@@ -9,6 +9,10 @@ independently; their correlation is stored as lambda stability.
 
 from __future__ import annotations
 
+from backend.contexts.surrogate.domain.errors import (
+    ModelZContextError,
+)
+
 import hashlib
 import json
 import math
@@ -39,10 +43,6 @@ _WELSPECS_RE = re.compile(rb"^WELSPECS\b(.*?)^/\s*$", re.MULTILINE | re.DOTALL)
 _WELSPECS_ROW_RE = re.compile(
     rb"^\s*'([^']+)'\s+'[^']+'\s+(\d+)\s+(\d+)", re.MULTILINE
 )
-
-
-class ModelZContextError(ValueError):
-    pass
 
 
 @dataclass(frozen=True, slots=True)

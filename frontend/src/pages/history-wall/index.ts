@@ -1,1 +1,1 @@
-export { WallOfLives } from '@/pages/history-wall/WallOfLives/WallOfLives';
+export { WallOfLives } from '@/pages/history-wall/ui/WallOfLives';

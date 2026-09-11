@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useI18n } from '@/shared/i18n/I18nContext';
+import { useT } from '@/shared/i18n/I18nContext';
 import { routeAction, type ConsoleAction } from '@/jarvis/actions/lib/consoleAction';
-import { readSystemMap } from '@/jarvis/cards/payloads/cardPayloads';
+import { readSystemMap } from '@/jarvis/cards/payloads';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
 import { VIEW_H, VIEW_W, edgeLine, placeNodes } from '@/jarvis/cards/lib/systemMapLayout';
 import './SystemMapCard.css';
@@ -21,8 +21,8 @@ const routeOf = (route: string | null): ConsoleAction | null => {
 };
 
 export const SystemMapCard = ({ payload, onOpen }: SystemMapCardProps) => {
-  const { lang, t } = useI18n();
-  const map = readSystemMap(payload, lang);
+  const t = useT();
+  const map = readSystemMap(payload);
   const [picked, setPicked] = useState<string | null>(null);
   if (map === null) {
     return <EmptyPayload />;

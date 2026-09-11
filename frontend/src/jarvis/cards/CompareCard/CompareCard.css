@@ -16,7 +16,7 @@
   gap: var(--space-1);
   min-width: 0;
   padding: var(--space-3);
-  border: 1px solid var(--color-border);
+  border: var(--border-hairline) solid var(--color-border);
   border-radius: var(--radius-md);
 }
 
@@ -147,7 +147,7 @@
 .jarvis-compare-groups {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   margin: 0;
   padding: 0;
   list-style: none;

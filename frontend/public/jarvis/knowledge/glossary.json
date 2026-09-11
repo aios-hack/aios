@@ -1,16 +1,8 @@
 {
   "version": 1,
-  "notice": {
-    "ru": "Курируемая база терминов Джарвиса. Определения и формулы взяты из методики организаторов, ТЗ и кода домена; выдуманных источников нет.",
-    "en": "Jarvis's curated term base. Definitions and formulas come from the organisers' methodology, the brief and the domain code; there are no invented sources."
-  },
   "terms": [
     {
       "id": "npv",
-      "term": {
-        "ru": "ЧДД",
-        "en": "NPV"
-      },
       "aliases": [
         "чистый дисконтированный доход",
         "net present value",
@@ -18,10 +10,6 @@
         "chdd",
         "чдд"
       ],
-      "definition": {
-        "ru": "Сумма свободных денежных потоков за весь горизонт, приведённая к первому году расчёта. Свободный поток месяца — EBITDA минус налог на прибыль минус капитальные затраты; дисконтирование годовое по ставке WACC.",
-        "en": "Sum of free cash flows over the whole horizon discounted to the first year of the calculation. Monthly free cash flow is EBITDA less profit tax less capital expenditure; discounting is annual at the WACC rate."
-      },
       "formula": "ЧДД = Σ_t FCF_t / (1 + WACC)^(год_t − год_старта), FCF = EBITDA − налог на прибыль − CAPEX",
       "unit": "руб.",
       "source": "docs/models/CHDD_PYTHON/chdd_model.py",
@@ -29,19 +17,11 @@
         {
           "workspace": "money",
           "view": "rank",
-          "what": {
-            "ru": "вклад каждой скважины в итог",
-            "en": "each well's contribution to the total"
-          },
           "spotlight": "npv-rank-table"
         },
         {
           "workspace": "overview",
           "view": "fund",
-          "what": {
-            "ru": "накопленный ЧДД по шагам",
-            "en": "cumulative NPV by step"
-          },
           "spotlight": "overview-npv-metric"
         }
       ],
@@ -55,19 +35,11 @@
     },
     {
       "id": "ebitda",
-      "term": {
-        "ru": "EBITDA",
-        "en": "EBITDA"
-      },
       "aliases": [
         "ебитда",
         "операционная прибыль до налогов",
         "ebitdam"
       ],
-      "definition": {
-        "ru": "Выручка за вычетом операционных затрат, вычетов и прочих включаемых доходов-расходов. В методике это база, из которой затем вычитаются налог на прибыль и капитальные затраты.",
-        "en": "Revenue less operating expenditure, deductions and other included income or expense. In the methodology it is the base from which profit tax and capital expenditure are then subtracted."
-      },
       "formula": "EBITDA = Выручка − OPEX − вычеты − прочие включаемые доходы/расходы",
       "unit": "руб.",
       "source": "docs/models/CHDD_PYTHON/chdd_model.py",
@@ -75,10 +47,6 @@
         {
           "workspace": "money",
           "view": "rank",
-          "what": {
-            "ru": "разложение ЧДД по скважинам строится на этой величине",
-            "en": "the NPV breakdown by well is built on this value"
-          },
           "spotlight": "npv-rank-table"
         }
       ],
@@ -90,20 +58,12 @@
     },
     {
       "id": "wacc",
-      "term": {
-        "ru": "Ставка дисконтирования",
-        "en": "Discount rate (WACC)"
-      },
       "aliases": [
         "wacc",
         "ставка дисконта",
         "waccrate",
         "дисконтирование"
       ],
-      "definition": {
-        "ru": "Годовая ставка, по которой денежные потоки будущих лет приводятся к первому году расчёта. Задаётся нормативами организаторов и в расчёте не подбирается.",
-        "en": "The annual rate at which future-year cash flows are discounted to the first year of the calculation. It is set by the organisers' normatives and is not fitted during the calculation."
-      },
       "formula": "коэффициент дисконтирования_t = 1 / (1 + WACC)^(год_t − год_старта)",
       "unit": "% годовых",
       "source": "docs/models/CHDD_PYTHON/chdd_model.py",
@@ -111,10 +71,6 @@
         {
           "workspace": "money",
           "view": "rank",
-          "what": {
-            "ru": "итог ЧДД уже приведён этой ставкой",
-            "en": "the NPV total is already discounted at this rate"
-          },
           "spotlight": "npv-rank-table"
         }
       ],
@@ -125,18 +81,10 @@
     },
     {
       "id": "discount-factor",
-      "term": {
-        "ru": "Коэффициент дисконтирования",
-        "en": "Discount factor"
-      },
       "aliases": [
         "discountfactor",
         "коэффициент приведения"
       ],
-      "definition": {
-        "ru": "Множитель, которым свободный поток года приводится к первому году горизонта. Внутри года постоянен: все месяцы одного года приводятся одинаково.",
-        "en": "The multiplier that brings a year's free cash flow to the first year of the horizon. It is constant within a year: every month of the same year is discounted identically."
-      },
       "formula": "1 / (1 + WACC)^(год − год_старта)",
       "unit": "доля",
       "source": "docs/models/CHDD_PYTHON/chdd_model.py",
@@ -144,10 +92,6 @@
         {
           "workspace": "money",
           "view": "rank",
-          "what": {
-            "ru": "поздние годы весят меньше в итоге",
-            "en": "later years weigh less in the total"
-          },
           "spotlight": "npv-rank-table"
         }
       ],
@@ -158,20 +102,12 @@
     },
     {
       "id": "opex",
-      "term": {
-        "ru": "Операционные затраты",
-        "en": "Operating expenditure (OPEX)"
-      },
       "aliases": [
         "opex",
         "опекс",
         "содержание фонда",
         "эксплуатационные затраты"
       ],
-      "definition": {
-        "ru": "Сумма затрат месяца: на нефть, на жидкость, на закачку, на содержание действующего фонда, налог на имущество, работы по насосам, переходы «пуск-останов» и переводы скважин.",
-        "en": "The month's cost total: per tonne of oil, per tonne of liquid, per cubic metre of injection, the upkeep of the active well stock, property tax, pump work, start-stop transitions and well conversions."
-      },
       "formula": "OPEX = затраты_нефть + затраты_жидкость + затраты_закачка + содержание_фонда + налог_на_имущество + ГТМ + пуск-останов + перевод",
       "unit": "руб.",
       "source": "docs/models/CHDD_PYTHON/chdd_model.py",
@@ -179,10 +115,6 @@
         {
           "workspace": "money",
           "view": "constraints",
-          "what": {
-            "ru": "нормативы затрат, из которых собирается OPEX",
-            "en": "the cost normatives that OPEX is assembled from"
-          },
           "spotlight": "money-constraints-table"
         }
       ],
@@ -195,19 +127,11 @@
     },
     {
       "id": "capex",
-      "term": {
-        "ru": "Капитальные затраты",
-        "en": "Capital expenditure (CAPEX)"
-      },
       "aliases": [
         "capex",
         "капекс",
         "капитальные вложения"
       ],
-      "definition": {
-        "ru": "Единовременные вложения, не входящие в EBITDA и вычитаемые из свободного потока напрямую: смена типоразмера насоса, перевод скважины в нагнетательные и подобные мероприятия.",
-        "en": "One-off investments that do not enter EBITDA and are subtracted from free cash flow directly: a pump size change, a conversion of a well to injection and similar measures."
-      },
       "formula": "FCF = EBITDA − налог на прибыль − CAPEX",
       "unit": "руб.",
       "source": "docs/models/CHDD_PYTHON/chdd_model.py",
@@ -215,10 +139,6 @@
         {
           "workspace": "decisions",
           "view": "rules",
-          "what": {
-            "ru": "правила R4 и R6 явно считают окупаемость таких вложений",
-            "en": "rules R4 and R6 explicitly weigh the payback of such investments"
-          },
           "spotlight": "rules-table"
         }
       ],
@@ -230,18 +150,10 @@
     },
     {
       "id": "revenue",
-      "term": {
-        "ru": "Выручка",
-        "en": "Revenue"
-      },
       "aliases": [
         "доход от нефти",
         "revenuem"
       ],
-      "definition": {
-        "ru": "Доход от реализации добытой нефти за месяц по нормативной цене организаторов. Вода выручки не даёт — только затраты на её подъём и утилизацию.",
-        "en": "Income from the sale of the oil produced in a month at the organisers' normative price. Water yields no revenue — only the cost of lifting and handling it."
-      },
       "formula": "Выручка = добыча нефти (т) × цена (руб./т)",
       "unit": "руб.",
       "source": "docs/models/CHDD_PYTHON/chdd_model.py",
@@ -249,10 +161,6 @@
         {
           "workspace": "overview",
           "view": "fund",
-          "what": {
-            "ru": "добыча, из которой складывается выручка",
-            "en": "the production the revenue is built from"
-          },
           "spotlight": "overview-production-metric"
         }
       ],
@@ -264,10 +172,6 @@
     },
     {
       "id": "watercut",
-      "term": {
-        "ru": "Обводнённость",
-        "en": "Water cut"
-      },
       "aliases": [
         "обводненность",
         "watercut",
@@ -275,10 +179,6 @@
         "доля воды",
         "water cut"
       ],
-      "definition": {
-        "ru": "Доля воды в добываемой жидкости. Считается как единица минус объёмная доля нефти в жидкости; растёт по мере выработки участка и прямо определяет, окупает ли скважина своё содержание.",
-        "en": "The share of water in the produced liquid. It is one minus the volumetric share of oil in the liquid; it grows as the area is depleted and directly determines whether a well covers its own upkeep."
-      },
       "formula": "обводнённость = 1 − (масса нефти / плотность нефти) / объём жидкости",
       "unit": "доля",
       "source": "backend/core/contracts/response.py",
@@ -286,19 +186,11 @@
         {
           "workspace": "history",
           "view": "table",
-          "what": {
-            "ru": "обводнённость каждой скважины по шагам",
-            "en": "each well's water cut by step"
-          },
           "spotlight": "history-table-watercut"
         },
         {
           "workspace": "field",
           "view": "projection",
-          "what": {
-            "ru": "цвет узла по обводнённости",
-            "en": "node colour by water cut"
-          },
           "spotlight": "projection-layer-switch"
         }
       ],
@@ -310,20 +202,12 @@
     },
     {
       "id": "breakeven-watercut",
-      "term": {
-        "ru": "Предельная обводнённость",
-        "en": "Breakeven water cut"
-      },
       "aliases": [
         "порог обводненности",
         "breakeven watercut",
         "предельная обводненность",
         "точка безубыточности"
       ],
-      "definition": {
-        "ru": "Обводнённость, при которой годовая маржа скважины обнуляется: доход от оставшейся нефти ровно покрывает подъём жидкости и содержание скважины. Выше неё скважина работает в убыток.",
-        "en": "The water cut at which a well's annual margin reaches zero: income from the remaining oil exactly covers liquid lifting and well upkeep. Above it the well runs at a loss."
-      },
       "formula": "маржа(обводнённость) = 0",
       "unit": "доля",
       "source": "backend/domain/policy/rules/r0.py",
@@ -331,10 +215,6 @@
         {
           "workspace": "decisions",
           "view": "rules",
-          "what": {
-            "ru": "правило R0 сравнивает факт с этим порогом",
-            "en": "rule R0 compares the fact against this threshold"
-          },
           "spotlight": "rules-table"
         }
       ],
@@ -346,10 +226,6 @@
     },
     {
       "id": "liquid-rate",
-      "term": {
-        "ru": "Дебит жидкости",
-        "en": "Liquid rate"
-      },
       "aliases": [
         "дебит",
         "wlpr",
@@ -357,30 +233,17 @@
         "отбор жидкости",
         "дебит по жидкости"
       ],
-      "definition": {
-        "ru": "Суточный объём жидкости — нефти вместе с водой, — который скважина поднимает на поверхность. Это фактическая величина отклика, а не заданная уставка.",
-        "en": "The daily volume of liquid — oil together with water — that a well lifts to surface. It is the actual response value, not the assigned setpoint."
-      },
-      "formula": null,
       "unit": "м³/сут",
       "source": "backend/core/contracts/response.py",
       "where_in_platform": [
         {
           "workspace": "history",
           "view": "table",
-          "what": {
-            "ru": "ряд дебита по шагам",
-            "en": "the rate series by step"
-          },
           "spotlight": "history-table-liquid"
         },
         {
           "workspace": "overview",
           "view": "fund",
-          "what": {
-            "ru": "суммарная добыча фонда",
-            "en": "the field's total production"
-          },
           "spotlight": "overview-production-metric"
         }
       ],
@@ -393,20 +256,12 @@
     },
     {
       "id": "oil-rate",
-      "term": {
-        "ru": "Дебит нефти",
-        "en": "Oil rate"
-      },
       "aliases": [
         "womr",
         "добыча нефти",
         "нефть",
         "oil_rate"
       ],
-      "definition": {
-        "ru": "Суточная масса нефти, добытая скважиной. Именно она даёт выручку; жидкость сверх неё — вода, которую надо поднять, отделить и утилизировать за деньги.",
-        "en": "The daily mass of oil produced by a well. It alone yields revenue; liquid beyond it is water that must be lifted, separated and disposed of at a cost."
-      },
       "formula": "дебит нефти = дебит жидкости × (1 − обводнённость) × плотность нефти",
       "unit": "т/сут",
       "source": "backend/core/contracts/response.py",
@@ -414,10 +269,6 @@
         {
           "workspace": "overview",
           "view": "fund",
-          "what": {
-            "ru": "добыча фонда за шаг",
-            "en": "the field's production per step"
-          },
           "spotlight": "overview-production-metric"
         }
       ],
@@ -429,10 +280,6 @@
     },
     {
       "id": "injection-rate",
-      "term": {
-        "ru": "Закачка",
-        "en": "Injection rate"
-      },
       "aliases": [
         "wwir",
         "injection_rate",
@@ -440,30 +287,17 @@
         "закачка воды",
         "приемистость"
       ],
-      "definition": {
-        "ru": "Суточный объём воды, который нагнетательная скважина закачивает в пласт для поддержания пластового давления. Стоит денег и окупается только через отклик добычи у связанных добывающих.",
-        "en": "The daily volume of water an injection well pumps into the reservoir to maintain pressure. It costs money and pays off only through the production response of connected producers."
-      },
-      "formula": null,
       "unit": "м³/сут",
       "source": "backend/core/contracts/response.py",
       "where_in_platform": [
         {
           "workspace": "overview",
           "view": "fund",
-          "what": {
-            "ru": "суммарная закачка фонда",
-            "en": "the field's total injection"
-          },
           "spotlight": "overview-injection-metric"
         },
         {
           "workspace": "field",
           "view": "projection",
-          "what": {
-            "ru": "нагнетательные узлы и их связи",
-            "en": "injection nodes and their links"
-          },
           "spotlight": "projection-layer-switch"
         }
       ],
@@ -476,19 +310,11 @@
     },
     {
       "id": "compensation",
-      "term": {
-        "ru": "Компенсация",
-        "en": "Compensation"
-      },
       "aliases": [
         "компенсация отбора",
         "коэффициент компенсации",
         "compensation"
       ],
-      "definition": {
-        "ru": "Отношение закачки к отбору жидкости по участку. Ниже коридора пласт истощается и давление падает, выше — вода закачивается впустую и растит обводнённость. Строго величина считается в пластовых условиях (см. компенсацию отбора закачкой), а поверхностное отношение закачки к отбору — упрощение.",
-        "en": "The ratio of injection to liquid offtake over an area. Below the corridor the reservoir depletes and pressure falls; above it, water is injected to no purpose and drives water cut up. Strictly the quantity is computed in reservoir conditions (see voidage replacement); the surface ratio of injection to offtake is a simplification."
-      },
       "formula": "компенсация = закачка (м³/сут) / отбор жидкости (м³/сут)",
       "unit": "доля",
       "source": "backend/domain/policy/rules/r5.py",
@@ -496,19 +322,11 @@
         {
           "workspace": "overview",
           "view": "fund",
-          "what": {
-            "ru": "компенсация фонда и её норматив-коридор",
-            "en": "the field compensation and its normative corridor"
-          },
           "spotlight": "overview-compensation-metric"
         },
         {
           "workspace": "decisions",
           "view": "council",
-          "what": {
-            "ru": "распределение закачки по участкам",
-            "en": "the injection allocation across areas"
-          },
           "spotlight": "council-groups"
         }
       ],
@@ -523,30 +341,16 @@
     },
     {
       "id": "ppd",
-      "term": {
-        "ru": "ППД",
-        "en": "Pressure maintenance"
-      },
       "aliases": [
         "поддержание пластового давления",
         "система ппд",
         "pressure maintenance"
       ],
-      "definition": {
-        "ru": "Поддержание пластового давления закачкой воды в нагнетательные скважины. Без него давление падает, забойное давление добывающих уходит вниз, и дебиты снижаются.",
-        "en": "Maintaining reservoir pressure by injecting water through injection wells. Without it pressure falls, producers' bottomhole pressure drops and rates decline."
-      },
-      "formula": null,
-      "unit": null,
       "source": "docs/TASK.md",
       "where_in_platform": [
         {
           "workspace": "field",
           "view": "projection",
-          "what": {
-            "ru": "нагнетательные и связанные с ними добывающие",
-            "en": "injectors and the producers linked to them"
-          },
           "spotlight": "projection-layer-switch"
         }
       ],
@@ -558,31 +362,18 @@
     },
     {
       "id": "bhp",
-      "term": {
-        "ru": "Забойное давление",
-        "en": "Bottomhole pressure"
-      },
       "aliases": [
         "wbhp",
         "bhp",
         "забойное",
         "давление на забое"
       ],
-      "definition": {
-        "ru": "Давление на забое скважины. Разность между пластовым и забойным давлением создаёт приток; чем ниже забойное, тем сильнее приток, но тем ближе насос к своему пределу.",
-        "en": "The pressure at the well bottom. The difference between reservoir and bottomhole pressure drives inflow; the lower the bottomhole pressure, the stronger the inflow but the closer the pump is to its limit."
-      },
-      "formula": null,
       "unit": "бар",
       "source": "backend/core/contracts/response.py",
       "where_in_platform": [
         {
           "workspace": "history",
           "view": "table",
-          "what": {
-            "ru": "забойное давление по шагам",
-            "en": "bottomhole pressure by step"
-          },
           "spotlight": "history-table-bhp"
         }
       ],
@@ -594,31 +385,18 @@
     },
     {
       "id": "thp",
-      "term": {
-        "ru": "Устьевое давление",
-        "en": "Tubing head pressure"
-      },
       "aliases": [
         "wthp",
         "thp",
         "устьевое",
         "давление на устье"
       ],
-      "definition": {
-        "ru": "Давление на устье скважины. В экономику расчёта не входит, но обязательно во входном файле эталонного расчётчика ЧДД.",
-        "en": "The pressure at the wellhead. It does not enter the economics of the calculation, but it is a mandatory column in the reference NPV calculator's input file."
-      },
-      "formula": null,
       "unit": "бар",
       "source": "backend/core/contracts/response.py",
       "where_in_platform": [
         {
           "workspace": "history",
           "view": "table",
-          "what": {
-            "ru": "устьевые величины по скважинам",
-            "en": "wellhead values by well"
-          },
           "spotlight": "history-table-bhp"
         }
       ],
@@ -628,31 +406,17 @@
     },
     {
       "id": "esp",
-      "term": {
-        "ru": "ЭЦН",
-        "en": "ESP"
-      },
       "aliases": [
         "электроцентробежный насос",
         "насос",
         "esp",
         "электроцентробежный"
       ],
-      "definition": {
-        "ru": "Электроцентробежный насос — механизированный способ подъёма жидкости. Его типоразмер задаёт диапазон подачи; выход за границу диапазона требует замены насоса и денег.",
-        "en": "An electric submersible pump — the mechanised lift method. Its size class sets the flow range; crossing the range boundary requires replacing the pump and paying for it."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/core/contracts/config.py",
       "where_in_platform": [
         {
           "workspace": "decisions",
           "view": "rules",
-          "what": {
-            "ru": "правило R4 не пересекает границу типоразмера впустую",
-            "en": "rule R4 does not cross a size boundary for nothing"
-          },
           "spotlight": "rules-table"
         }
       ],
@@ -664,31 +428,17 @@
     },
     {
       "id": "esp-size",
-      "term": {
-        "ru": "Типоразмер ЭЦН",
-        "en": "ESP size class"
-      },
       "aliases": [
         "типоразмер",
         "типоразмер насоса",
         "esp size",
         "размер насоса"
       ],
-      "definition": {
-        "ru": "Класс насоса по диапазону подачи. Величина производная: определяется по фактическому дебиту, а не хранится рядом с расписанием. Смена типоразмера — капитальные затраты.",
-        "en": "The pump class by flow range. It is a derived value: computed from the actual rate rather than stored beside the schedule. A size change is capital expenditure."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/domain/policy/rules/r4.py",
       "where_in_platform": [
         {
           "workspace": "decisions",
           "view": "rules",
-          "what": {
-            "ru": "решения R4 по типоразмеру",
-            "en": "R4 decisions on pump size"
-          },
           "spotlight": "rules-table"
         }
       ],
@@ -700,40 +450,23 @@
     },
     {
       "id": "setpoint",
-      "term": {
-        "ru": "Уставка",
-        "en": "Setpoint"
-      },
       "aliases": [
         "уставка скважины",
         "целевой дебит",
         "setpoint",
         "цель"
       ],
-      "definition": {
-        "ru": "Заданная скважине цель по дебиту или закачке. Факт может от неё отличаться: пласт и насос отвечают своим, а уставка — то, что мы просим.",
-        "en": "The rate or injection target assigned to a well. The fact may differ from it: the reservoir and the pump answer with their own, while the setpoint is what we ask for."
-      },
-      "formula": null,
       "unit": "м³/сут",
       "source": "backend/core/contracts/schedule.py",
       "where_in_platform": [
         {
           "workspace": "history",
           "view": "table",
-          "what": {
-            "ru": "уставка рядом с фактом",
-            "en": "the setpoint beside the fact"
-          },
           "spotlight": "history-table-setpoint"
         },
         {
           "workspace": "decisions",
           "view": "council",
-          "what": {
-            "ru": "какие уставки выставили правила",
-            "en": "which setpoints the rules assigned"
-          },
           "spotlight": "council-wells"
         }
       ],
@@ -745,19 +478,11 @@
     },
     {
       "id": "fact-to-target",
-      "term": {
-        "ru": "Факт к цели",
-        "en": "Fact to target"
-      },
       "aliases": [
         "fact_to_target",
         "исполнение уставки",
         "отношение факта к цели"
       ],
-      "definition": {
-        "ru": "Отношение фактического дебита к уставке. Меньше единицы — скважина не добирает заданное: либо пласт не даёт, либо насос упёрся в свой предел.",
-        "en": "The ratio of actual rate to setpoint. Below one the well falls short of what was assigned: either the reservoir does not deliver or the pump has reached its limit."
-      },
       "formula": "факт к цели = фактический дебит / уставка",
       "unit": "доля",
       "source": "backend/presentation/ui_export/timeline.py",
@@ -765,10 +490,6 @@
         {
           "workspace": "history",
           "view": "table",
-          "what": {
-            "ru": "колонка исполнения уставки",
-            "en": "the setpoint execution column"
-          },
           "spotlight": "history-table-setpoint"
         }
       ],
@@ -780,31 +501,18 @@
     },
     {
       "id": "connectivity",
-      "term": {
-        "ru": "Связность",
-        "en": "Connectivity"
-      },
       "aliases": [
         "связь скважин",
         "матрица влияния",
         "connectivity",
         "влияние"
       ],
-      "definition": {
-        "ru": "Измеренная сила влияния закачки нагнетательной скважины на добычу конкретной добывающей. Не геометрия и не догадка: получена планом эксперимента на серии возмущённых прогонов.",
-        "en": "The measured strength of an injector's influence on a particular producer's output. Not geometry and not a guess: obtained by a design of experiments over a series of perturbed runs."
-      },
-      "formula": null,
       "unit": "доля",
       "source": "backend/core/contracts/connectivity.py",
       "where_in_platform": [
         {
           "workspace": "field",
           "view": "projection",
-          "what": {
-            "ru": "рёбра графа и их толщина",
-            "en": "graph edges and their thickness"
-          },
           "spotlight": "projection-threshold-slider"
         }
       ],
@@ -817,10 +525,6 @@
     },
     {
       "id": "lambda",
-      "term": {
-        "ru": "λ",
-        "en": "Lambda"
-      },
       "aliases": [
         "design of experiments",
         "lambda",
@@ -830,21 +534,12 @@
         "лямбда",
         "план эксперимента"
       ],
-      "definition": {
-        "ru": "Коэффициент влияния закачки нагнетательной скважины на накопленную жидкость добывающей с измеренным лагом. Измерен ПЛАНОМ ЭКСПЕРИМЕНТА на возмущённых прогонах OPM, а не выведен из расстояния между скважинами: расстояние не означает гидродинамическую связь. Устойчивость проверена между двумя партиями плана; ребро без подтверждения помечается unverified и групповым уровнем не используется. Ползунок λ на экране «Поле» отсекает слабые связи.",
-        "en": "The coefficient of an injector's influence on a producer's cumulative liquid at a measured lag. It is measured by a DESIGN OF EXPERIMENTS over perturbed OPM runs, not derived from the distance between wells: distance does not imply a hydrodynamic link. Stability is checked between two batches of the plan; an unconfirmed edge is marked unverified and is not used by the group level. The λ slider on the Field screen cuts off weak links."
-      },
-      "formula": null,
       "unit": "доля",
       "source": "backend/core/contracts/connectivity.py",
       "where_in_platform": [
         {
           "workspace": "field",
           "view": "projection",
-          "what": {
-            "ru": "ползунок порога λ",
-            "en": "the λ threshold slider"
-          },
           "spotlight": "projection-threshold-slider"
         }
       ],
@@ -858,31 +553,18 @@
     },
     {
       "id": "lag",
-      "term": {
-        "ru": "Лаг отклика",
-        "en": "Response lag"
-      },
       "aliases": [
         "лаг",
         "задержка отклика",
         "lag_months",
         "запаздывание"
       ],
-      "definition": {
-        "ru": "Задержка между изменением закачки и откликом добычи — вода идёт по пласту не мгновенно. Измеряется в месяцах и учитывается при оценке ценности закачки.",
-        "en": "The delay between a change in injection and the production response — water does not travel through the reservoir instantly. It is measured in months and is accounted for when valuing injection."
-      },
-      "formula": null,
       "unit": "месяцев",
       "source": "backend/domain/policy/rules/r1.py",
       "where_in_platform": [
         {
           "workspace": "field",
           "view": "projection",
-          "what": {
-            "ru": "лаг подписан у измеренной матрицы",
-            "en": "the lag is stated beside the measured matrix"
-          },
           "spotlight": "projection-threshold-slider"
         }
       ],
@@ -894,31 +576,17 @@
     },
     {
       "id": "area",
-      "term": {
-        "ru": "Участок",
-        "en": "Area"
-      },
       "aliases": [
         "группа",
         "group",
         "куст",
         "участок закачки"
       ],
-      "definition": {
-        "ru": "Группа скважин, связанных общим потоком воды. Компенсация и лимиты закачки задаются по участку, а не по отдельной скважине.",
-        "en": "A group of wells linked by a common water flow. Compensation and injection limits are set per area, not per individual well."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/core/contracts/connectivity.py",
       "where_in_platform": [
         {
           "workspace": "decisions",
           "view": "council",
-          "what": {
-            "ru": "распределение лимита по участкам",
-            "en": "the limit allocation across areas"
-          },
           "spotlight": "council-groups"
         }
       ],
@@ -930,31 +598,18 @@
     },
     {
       "id": "control-step",
-      "term": {
-        "ru": "Шаг управления",
-        "en": "Control step"
-      },
       "aliases": [
         "шаг",
         "control_step",
         "интервал управления",
         "control step"
       ],
-      "definition": {
-        "ru": "Один месяц горизонта, на котором система принимает решения. Всего 225 контрольных дат и 224 интервала управления между ними.",
-        "en": "One month of the horizon at which the system takes decisions. There are 225 control dates in total and 224 control intervals between them."
-      },
-      "formula": null,
       "unit": "месяц",
       "source": "backend/core/contracts/response.py",
       "where_in_platform": [
         {
           "workspace": "history",
           "view": "matrix",
-          "what": {
-            "ru": "ось шагов и события на ней",
-            "en": "the step axis and the events on it"
-          },
           "spotlight": "history-matrix-axis"
         }
       ],
@@ -965,30 +620,16 @@
     },
     {
       "id": "horizon",
-      "term": {
-        "ru": "Горизонт",
-        "en": "Horizon"
-      },
       "aliases": [
         "горизонт расчета",
         "период расчёта",
         "horizon"
       ],
-      "definition": {
-        "ru": "Весь период, за который считается ЧДД: от первой контрольной даты до терминального состояния. За его пределами эффекты решений не учитываются.",
-        "en": "The whole period over which NPV is computed: from the first control date to the terminal state. Beyond it the effects of decisions are not counted."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/core/contracts/schedule.py",
       "where_in_platform": [
         {
           "workspace": "history",
           "view": "matrix",
-          "what": {
-            "ru": "полная ось времени фонда",
-            "en": "the field's full time axis"
-          },
           "spotlight": "history-matrix-axis"
         }
       ],
@@ -999,31 +640,17 @@
     },
     {
       "id": "deck",
-      "term": {
-        "ru": "Дек",
-        "en": "Deck"
-      },
       "aliases": [
         "deck",
         "модель",
         "model_z",
         "расписание дека"
       ],
-      "definition": {
-        "ru": "Входная модель месторождения для гидродинамического симулятора: сетка, свойства пласта, скважины и расписание их работы. Дек организаторов — исходные данные, которые нельзя подменять.",
-        "en": "The input reservoir model for the flow simulator: grid, rock properties, wells and their operating schedule. The organisers' deck is source data that must not be substituted."
-      },
-      "formula": null,
-      "unit": null,
       "source": "docs/TASK.md",
       "where_in_platform": [
         {
           "workspace": "field",
           "view": "projection",
-          "what": {
-            "ru": "координаты скважин взяты из дека",
-            "en": "well coordinates come from the deck"
-          },
           "spotlight": "projection-layer-switch"
         }
       ],
@@ -1035,31 +662,17 @@
     },
     {
       "id": "opm",
-      "term": {
-        "ru": "OPM Flow",
-        "en": "OPM Flow"
-      },
       "aliases": [
         "opm",
         "flow",
         "симулятор",
         "гидродинамический симулятор"
       ],
-      "definition": {
-        "ru": "Открытый гидродинамический симулятор, которым проверяется расписание. Прогон честный и долгий: предсказание суррогата никогда не выдаётся за проверенный результат.",
-        "en": "The open-source reservoir simulator used to verify a schedule. The run is honest and slow: a surrogate's prediction is never presented as a verified result."
-      },
-      "formula": null,
-      "unit": null,
       "source": "ARCHITECTURE.md",
       "where_in_platform": [
         {
           "workspace": "money",
           "view": "comparison",
-          "what": {
-            "ru": "статус проверки сценария",
-            "en": "the scenario's verification status"
-          },
           "spotlight": "money-comparison-table"
         }
       ],
@@ -1071,10 +684,6 @@
     },
     {
       "id": "surrogate",
-      "term": {
-        "ru": "Суррогат",
-        "en": "Surrogate model"
-      },
       "aliases": [
         "surrogate",
         "surrogate model",
@@ -1084,21 +693,11 @@
         "ранжировщик",
         "суррогатная модель"
       ],
-      "definition": {
-        "ru": "Обучаемый аппроксиматор отклика симулятора: по расписанию предсказывает, что ответит OPM, и тем самым РАНЖИРУЕТ кандидатов расписания и оценивает риск. Чем он НЕ является: он не измеряет связность (λ измеряется планом эксперимента на возмущённых прогонах OPM) и не выбирает скважины (их выбирают правила политики, а уставки проходят через проекцию на жёсткие ограничения). Его предсказание обязано быть проверено настоящим прогоном; за пределами области обучения (высокий OOD) предсказание не используется.",
-        "en": "A learned approximator of the simulator response: from a schedule it predicts what OPM would answer, and thereby RANKS schedule candidates and scores risk. What it is NOT: it does not measure connectivity (λ is measured by a design of experiments over perturbed OPM runs) and it does not pick wells (those are chosen by the policy rules, and setpoints pass through the projection onto hard constraints). Its prediction must be verified by a real run; outside the training region (high OOD) the prediction is not used."
-      },
-      "formula": null,
-      "unit": null,
       "source": "ARCHITECTURE.md",
       "where_in_platform": [
         {
           "workspace": "money",
           "view": "comparison",
-          "what": {
-            "ru": "предсказанный и проверенный ЧДД рядом",
-            "en": "predicted and verified NPV side by side"
-          },
           "spotlight": "money-comparison-table"
         }
       ],
@@ -1112,31 +711,18 @@
     },
     {
       "id": "ood",
-      "term": {
-        "ru": "OOD",
-        "en": "Out of distribution"
-      },
       "aliases": [
         "ood",
         "вне распределения",
         "out of distribution",
         "ood_score"
       ],
-      "definition": {
-        "ru": "Признак того, что предложенное расписание вышло за область, на которой обучался суррогат. Высокий показатель означает: предсказанию верить нельзя, нужна проверка симулятором.",
-        "en": "An indication that the proposed schedule has left the region the surrogate was trained on. A high score means the prediction cannot be trusted and a simulator check is required."
-      },
-      "formula": null,
       "unit": "доля",
       "source": "backend/domain/robustness",
       "where_in_platform": [
         {
           "workspace": "money",
           "view": "comparison",
-          "what": {
-            "ru": "показатель OOD и его порог у сценария",
-            "en": "the scenario's OOD score and its threshold"
-          },
           "spotlight": "money-comparison-table"
         }
       ],
@@ -1149,20 +735,12 @@
     },
     {
       "id": "regret",
-      "term": {
-        "ru": "Regret",
-        "en": "Regret"
-      },
       "aliases": [
         "регрет",
         "сожаление",
         "просадка",
         "worst_regret"
       ],
-      "definition": {
-        "ru": "Просадка ЧДД плана на неблагоприятном сценарии по сравнению с лучшим решением для этого сценария. Худший regret показывает, чем план рискует, если реальность отклонится.",
-        "en": "The drop in a plan's NPV under an adverse scenario compared with the best decision for that scenario. The worst regret shows what the plan risks if reality deviates."
-      },
       "formula": "regret = ЧДД лучшего решения для сценария − ЧДД плана на этом сценарии",
       "unit": "руб.",
       "source": "backend/core/contracts/policy.py",
@@ -1170,10 +748,6 @@
         {
           "workspace": "money",
           "view": "comparison",
-          "what": {
-            "ru": "худший regret по сценарию",
-            "en": "the worst regret per scenario"
-          },
           "spotlight": "money-comparison-table"
         }
       ],
@@ -1185,30 +759,16 @@
     },
     {
       "id": "robustness",
-      "term": {
-        "ru": "Устойчивость",
-        "en": "Robustness"
-      },
       "aliases": [
         "робастность",
         "устойчивость плана",
         "robustness"
       ],
-      "definition": {
-        "ru": "Способность плана держать результат на всей батарее сценариев, а не только на номинальном. Ограничение устойчивости нельзя свернуть в штраф к целевой функции.",
-        "en": "A plan's ability to hold its result across the whole battery of scenarios, not only the nominal one. The robustness constraint must not be folded into a penalty on the objective."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/core/contracts/policy.py",
       "where_in_platform": [
         {
           "workspace": "money",
           "view": "comparison",
-          "what": {
-            "ru": "сценарии батареи и просадки на них",
-            "en": "the battery's scenarios and the drops on them"
-          },
           "spotlight": "money-comparison-table"
         }
       ],
@@ -1220,31 +780,17 @@
     },
     {
       "id": "scenario",
-      "term": {
-        "ru": "Сценарий",
-        "en": "Scenario"
-      },
       "aliases": [
         "вариант",
         "scenario",
         "прогон",
         "план"
       ],
-      "definition": {
-        "ru": "Именованный вариант расписания со своими ограничениями и своим результатом. Сценарии сравниваются между собой по ЧДД, ограничениям и статусу проверки.",
-        "en": "A named schedule variant with its own constraints and its own result. Scenarios are compared against each other by NPV, constraints and verification status."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/presentation/ui_export/scenarios.py",
       "where_in_platform": [
         {
           "workspace": "money",
           "view": "comparison",
-          "what": {
-            "ru": "список сценариев и их сравнение",
-            "en": "the scenario list and their comparison"
-          },
           "spotlight": "money-comparison-table"
         }
       ],
@@ -1256,31 +802,17 @@
     },
     {
       "id": "whatif",
-      "term": {
-        "ru": "What-if",
-        "en": "What-if"
-      },
       "aliases": [
         "что если",
         "whatif",
         "гипотетический сценарий",
         "what if"
       ],
-      "definition": {
-        "ru": "Сценарий, поставленный вопросом «что будет, если»: например, если срезать закачку. Служит для сравнения с базой, а не для сдачи.",
-        "en": "A scenario framed as a question — what happens if, for instance, injection is cut. It exists for comparison against the base case, not for submission."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/presentation/ui_export/scenarios.py",
       "where_in_platform": [
         {
           "workspace": "money",
           "view": "comparison",
-          "what": {
-            "ru": "сравнение базы с what-if",
-            "en": "comparison of the base case with a what-if"
-          },
           "spotlight": "money-comparison-table"
         }
       ],
@@ -1291,31 +823,17 @@
     },
     {
       "id": "constraints",
-      "term": {
-        "ru": "Ограничения",
-        "en": "Constraints"
-      },
       "aliases": [
         "лимиты",
         "constraints",
         "ограничения сценария",
         "лимит закачки"
       ],
-      "definition": {
-        "ru": "Внешние рамки, в которых обязано лежать расписание: лимиты закачки и жидкости, полы добычи, потолки обводнённости, простои скважин, инфраструктура. Нарушенное ограничение делает план непригодным.",
-        "en": "The external bounds a schedule must lie within: injection and liquid limits, production floors, water-cut ceilings, well outages and infrastructure. A violated constraint makes a plan unusable."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/core/contracts/constraints.py",
       "where_in_platform": [
         {
           "workspace": "money",
           "view": "constraints",
-          "what": {
-            "ru": "редактор ограничений сценария",
-            "en": "the scenario constraints editor"
-          },
           "spotlight": "money-constraints-table"
         }
       ],
@@ -1327,31 +845,17 @@
     },
     {
       "id": "outage",
-      "term": {
-        "ru": "Простой скважины",
-        "en": "Well outage"
-      },
       "aliases": [
         "простой",
         "outage",
         "остановка по ограничению",
         "well_outages"
       ],
-      "definition": {
-        "ru": "Заданный извне интервал шагов, на котором скважина не работает: ремонт, отсутствие энергии, ограничение инфраструктуры. Решениями политики не отменяется.",
-        "en": "An externally imposed interval of steps during which a well does not operate: workover, no power, infrastructure limit. Policy decisions cannot override it."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/core/contracts/constraints.py",
       "where_in_platform": [
         {
           "workspace": "money",
           "view": "constraints",
-          "what": {
-            "ru": "таблица простоев по скважинам",
-            "en": "the table of outages by well"
-          },
           "spotlight": "money-constraints-outages"
         }
       ],
@@ -1362,31 +866,18 @@
     },
     {
       "id": "water-supply",
-      "term": {
-        "ru": "Доступная вода",
-        "en": "Water availability"
-      },
       "aliases": [
         "ресурс воды",
         "water_available",
         "лимит воды",
         "водоснабжение"
       ],
-      "definition": {
-        "ru": "Сколько воды в сутки система вообще может закачать. Ниже этого потолка распределяется лимит по участкам, и только внутри него правила двигают закачку.",
-        "en": "How much water per day the system can inject at all. The limit is allocated across areas below this ceiling, and only within it do the rules move injection."
-      },
-      "formula": null,
       "unit": "м³/сут",
       "source": "backend/core/contracts/constraints.py",
       "where_in_platform": [
         {
           "workspace": "decisions",
           "view": "council",
-          "what": {
-            "ru": "доступная вода и распределение лимита",
-            "en": "water availability and the limit allocation"
-          },
           "spotlight": "council-groups"
         }
       ],
@@ -1398,31 +889,18 @@
     },
     {
       "id": "active-fund",
-      "term": {
-        "ru": "Действующий фонд",
-        "en": "Active well stock"
-      },
       "aliases": [
         "действующие скважины",
         "active_wells",
         "фонд",
         "рабочий фонд"
       ],
-      "definition": {
-        "ru": "Число скважин, работающих на шаге. Каждая из них стоит денег в содержании независимо от того, сколько дала нефти, — поэтому убыточную дешевле остановить.",
-        "en": "The number of wells operating at a step. Each costs money in upkeep regardless of how much oil it produced — which is why a loss-making one is cheaper shut in."
-      },
-      "formula": null,
       "unit": "скв.",
       "source": "docs/models/CHDD_PYTHON/chdd_model.py",
       "where_in_platform": [
         {
           "workspace": "overview",
           "view": "fund",
-          "what": {
-            "ru": "число действующих скважин",
-            "en": "the number of active wells"
-          },
           "spotlight": "overview-active-metric"
         }
       ],
@@ -1434,31 +912,17 @@
     },
     {
       "id": "availability",
-      "term": {
-        "ru": "Доступность скважины",
-        "en": "Well availability"
-      },
       "aliases": [
         "availability",
         "введена",
         "not_commissioned",
         "ввод скважины"
       ],
-      "definition": {
-        "ru": "Введена ли скважина в эксплуатацию. Невведённая не имеет ни роли, ни уставки и остановлена — это нормализовано, иначе одно и то же состояние даёт разные хеши расписания.",
-        "en": "Whether a well has been commissioned. A non-commissioned one has neither role nor setpoint and is shut — this is normalised, otherwise the same state would yield different schedule hashes."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/core/contracts/schedule.py",
       "where_in_platform": [
         {
           "workspace": "history",
           "view": "matrix",
-          "what": {
-            "ru": "события ввода скважин на оси времени",
-            "en": "well commissioning events on the time axis"
-          },
           "spotlight": "history-matrix-axis"
         }
       ],
@@ -1470,10 +934,6 @@
     },
     {
       "id": "role",
-      "term": {
-        "ru": "Роль скважины",
-        "en": "Well role"
-      },
       "aliases": [
         "роль",
         "добывающая",
@@ -1482,21 +942,11 @@
         "inj",
         "role"
       ],
-      "definition": {
-        "ru": "Чем скважина работает: добывающей, нагнетательной или без роли. Смена роли — не переключатель, а капитальное мероприятие с затратами и окупаемостью.",
-        "en": "What a well works as: producer, injector or no role. Changing role is not a switch but a capital measure with costs and a payback."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/core/contracts/schedule.py",
       "where_in_platform": [
         {
           "workspace": "field",
           "view": "projection",
-          "what": {
-            "ru": "цвет узла по роли",
-            "en": "node colour by role"
-          },
           "spotlight": "projection-layer-switch"
         }
       ],
@@ -1508,40 +958,22 @@
     },
     {
       "id": "role-conversion",
-      "term": {
-        "ru": "Перевод скважины",
-        "en": "Well conversion"
-      },
       "aliases": [
         "перевод в нагнетательные",
         "конверсия",
         "conversion",
         "смена роли"
       ],
-      "definition": {
-        "ru": "Перевод добывающей скважины в нагнетательные. Стоит денег, поэтому оправдан, только если как нагнетательная она принесёт больше, чем приносила как добывающая, за приемлемый срок окупаемости.",
-        "en": "Converting a producer into an injector. It costs money, so it is justified only if as an injector it will bring more than it did as a producer within an acceptable payback period."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/domain/policy/rules/r6.py",
       "where_in_platform": [
         {
           "workspace": "history",
           "view": "matrix",
-          "what": {
-            "ru": "события перевода на оси времени",
-            "en": "conversion events on the time axis"
-          },
           "spotlight": "history-matrix-axis"
         },
         {
           "workspace": "decisions",
           "view": "rules",
-          "what": {
-            "ru": "решения правила R6",
-            "en": "rule R6 decisions"
-          },
           "spotlight": "rules-table"
         }
       ],
@@ -1553,10 +985,6 @@
     },
     {
       "id": "operating-status",
-      "term": {
-        "ru": "Статус работы",
-        "en": "Operating status"
-      },
       "aliases": [
         "открыта",
         "остановлена",
@@ -1564,21 +992,11 @@
         "shut",
         "operating_status"
       ],
-      "definition": {
-        "ru": "Открыта скважина или остановлена на этом шаге. Каждый переход между этими состояниями стоит денег — поэтому дёргать скважину туда-сюда невыгодно.",
-        "en": "Whether a well is open or shut at this step. Every transition between these states costs money — which is why toggling a well back and forth does not pay."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/core/contracts/schedule.py",
       "where_in_platform": [
         {
           "workspace": "history",
           "view": "matrix",
-          "what": {
-            "ru": "остановки на оси времени",
-            "en": "shut-ins on the time axis"
-          },
           "spotlight": "history-matrix-axis"
         }
       ],
@@ -1590,20 +1008,12 @@
     },
     {
       "id": "start-stop-cost",
-      "term": {
-        "ru": "Стоимость пуска-останова",
-        "en": "Start-stop cost"
-      },
       "aliases": [
         "пуск-останов",
         "стоимость перехода",
         "startstopcost",
         "переход состояния"
       ],
-      "definition": {
-        "ru": "Затраты на один переход скважины между «открыта» и «остановлена». Величина производная: считается по числу переходов, а не хранится рядом с расписанием.",
-        "en": "The cost of one well transition between open and shut. It is a derived value: computed from the number of transitions rather than stored beside the schedule."
-      },
       "formula": "затраты = число переходов × норматив за переход",
       "unit": "руб.",
       "source": "docs/models/CHDD_PYTHON/chdd_model.py",
@@ -1611,10 +1021,6 @@
         {
           "workspace": "money",
           "view": "constraints",
-          "what": {
-            "ru": "нормативы событийных затрат",
-            "en": "the event cost normatives"
-          },
           "spotlight": "money-constraints-table"
         }
       ],
@@ -1626,31 +1032,17 @@
     },
     {
       "id": "trace",
-      "term": {
-        "ru": "Trace",
-        "en": "Trace"
-      },
       "aliases": [
         "трейс",
         "журнал решений",
         "trace",
         "след решений"
       ],
-      "definition": {
-        "ru": "Журнал сработавших правил: на каком шаге, по какой скважине, какое правило, с какими фактическими входами и каким решением. Именно из него собирается объяснение «почему».",
-        "en": "The log of triggered rules: at which step, for which well, which rule, with what actual inputs and what decision. It is the source from which a why explanation is assembled."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/core/contracts/policy.py",
       "where_in_platform": [
         {
           "workspace": "decisions",
           "view": "rules",
-          "what": {
-            "ru": "записи Trace по правилам",
-            "en": "Trace records by rule"
-          },
           "spotlight": "rules-table"
         }
       ],
@@ -1662,20 +1054,12 @@
     },
     {
       "id": "ablation",
-      "term": {
-        "ru": "Абляция",
-        "en": "Ablation"
-      },
       "aliases": [
         "разбор вклада",
         "ablation",
         "вклад правил",
         "отключение правила"
       ],
-      "definition": {
-        "ru": "Измерение вклада каждого правила в итоговый ЧДД: правило отключают и смотрят, насколько итог просел. Правило без измеренной дельты помечается как неизмеренное, а не нулевое.",
-        "en": "Measuring each rule's contribution to the final NPV: the rule is switched off and the drop in the total is observed. A rule without a measured delta is marked as unmeasured, not as zero."
-      },
       "formula": "вклад правила = ЧДД со всеми правилами − ЧДД без этого правила",
       "unit": "руб.",
       "source": "backend/presentation/ui_export/ablation_view.py",
@@ -1683,19 +1067,11 @@
         {
           "workspace": "money",
           "view": "rank",
-          "what": {
-            "ru": "таблица вклада правил",
-            "en": "the rule contribution table"
-          },
           "spotlight": "npv-ablation-table"
         },
         {
           "workspace": "decisions",
           "view": "rules",
-          "what": {
-            "ru": "какие правила измерены",
-            "en": "which rules are measured"
-          },
           "spotlight": "rules-table"
         }
       ],
@@ -1707,31 +1083,17 @@
     },
     {
       "id": "provenance",
-      "term": {
-        "ru": "Провенанс",
-        "en": "Provenance"
-      },
       "aliases": [
         "происхождение данных",
         "provenance",
         "источник данных",
         "демоданные"
       ],
-      "definition": {
-        "ru": "Отметка о том, откуда взята величина: настоящий прогон, дек организаторов или демонстрационные данные. Синтетика всегда помечена и никогда не выдаётся за расчёт.",
-        "en": "A mark of where a value came from: a real run, the organisers' deck, or demonstration data. Synthetic data is always labelled and never presented as a calculation."
-      },
-      "formula": null,
-      "unit": null,
       "source": "ARCHITECTURE.md",
       "where_in_platform": [
         {
           "workspace": "overview",
           "view": "fund",
-          "what": {
-            "ru": "панель доверия с источниками артефактов",
-            "en": "the trust board with artifact sources"
-          },
           "spotlight": "overview-trustboard"
         }
       ],
@@ -1742,31 +1104,17 @@
     },
     {
       "id": "submitted",
-      "term": {
-        "ru": "Сданный сценарий",
-        "en": "Submitted scenario"
-      },
       "aliases": [
         "сдача",
         "submitted",
         "финальный план",
         "is_submitted"
       ],
-      "definition": {
-        "ru": "Сценарий, выбранный к сдаче. Пометка ставится только после проверки настоящим прогоном: предсказание не сдаётся как результат.",
-        "en": "The scenario chosen for submission. The mark is set only after verification by a real run: a prediction is never submitted as a result."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/presentation/ui_export/scenarios.py",
       "where_in_platform": [
         {
           "workspace": "money",
           "view": "comparison",
-          "what": {
-            "ru": "какой сценарий помечен к сдаче",
-            "en": "which scenario is marked for submission"
-          },
           "spotlight": "money-comparison-table"
         }
       ],
@@ -1777,10 +1125,6 @@
     },
     {
       "id": "rule-r0",
-      "term": {
-        "ru": "Правило R0: Порог рентабельности",
-        "en": "Rule R0: Порог рентабельности"
-      },
       "aliases": [
         "R0",
         "r0",
@@ -1788,30 +1132,16 @@
         "rule R0",
         "порог рентабельности"
       ],
-      "definition": {
-        "ru": "Правило удержания скважины: пока годовая маржа при текущей обводнённости покрывает содержание, скважина работает; как только обводнённость переходит предельную, скважина перестаёт окупать себя.",
-        "en": "The well retention rule: while the annual margin at the current water cut covers upkeep, the well keeps working; once the water cut crosses the breakeven value, the well stops paying for itself."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/domain/policy/rules/r0.py",
       "where_in_platform": [
         {
           "workspace": "decisions",
           "view": "rules",
-          "what": {
-            "ru": "формулировка и срабатывания правила R0",
-            "en": "the statement and firings of rule R0"
-          },
           "spotlight": "rules-table"
         },
         {
           "workspace": "money",
           "view": "rank",
-          "what": {
-            "ru": "измеренный вклад R0 в ЧДД",
-            "en": "the measured contribution of R0 to NPV"
-          },
           "spotlight": "npv-ablation-table"
         }
       ],
@@ -1823,10 +1153,6 @@
     },
     {
       "id": "rule-r1",
-      "term": {
-        "ru": "Правило R1: Ценность закачки",
-        "en": "Rule R1: Ценность закачки"
-      },
       "aliases": [
         "R1",
         "r1",
@@ -1834,30 +1160,16 @@
         "rule R1",
         "ценность закачки"
       ],
-      "definition": {
-        "ru": "Правило распределения воды: закачка идёт туда, где по измеренной матрице влияния кубометр воды превращается в наибольшую добавку нефти, а не туда, где он просто увеличит обводнённость.",
-        "en": "The water allocation rule: injection goes where, by the measured influence matrix, a cubic metre of water turns into the largest oil increment, not where it would merely raise water cut."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/domain/policy/rules/r1.py",
       "where_in_platform": [
         {
           "workspace": "decisions",
           "view": "rules",
-          "what": {
-            "ru": "формулировка и срабатывания правила R1",
-            "en": "the statement and firings of rule R1"
-          },
           "spotlight": "rules-table"
         },
         {
           "workspace": "money",
           "view": "rank",
-          "what": {
-            "ru": "измеренный вклад R1 в ЧДД",
-            "en": "the measured contribution of R1 to NPV"
-          },
           "spotlight": "npv-ablation-table"
         }
       ],
@@ -1870,10 +1182,6 @@
     },
     {
       "id": "rule-r2",
-      "term": {
-        "ru": "Правило R2: Разгон чистых, придушивание обводнённых",
-        "en": "Rule R2: Разгон чистых, придушивание обводнённых"
-      },
       "aliases": [
         "R2",
         "r2",
@@ -1881,30 +1189,16 @@
         "rule R2",
         "разгон чистых, придушивание обводнённых"
       ],
-      "definition": {
-        "ru": "Правило уставок по обводнённости: чистым скважинам поднимают цель по жидкости, сильно обводнённым — снижают, потому что у них каждый лишний кубометр почти целиком вода.",
-        "en": "The water-cut setpoint rule: clean wells get their liquid target raised and heavily watered wells lowered, because for the latter each extra cubic metre is almost entirely water."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/domain/policy/rules/r2.py",
       "where_in_platform": [
         {
           "workspace": "decisions",
           "view": "rules",
-          "what": {
-            "ru": "формулировка и срабатывания правила R2",
-            "en": "the statement and firings of rule R2"
-          },
           "spotlight": "rules-table"
         },
         {
           "workspace": "money",
           "view": "rank",
-          "what": {
-            "ru": "измеренный вклад R2 в ЧДД",
-            "en": "the measured contribution of R2 to NPV"
-          },
           "spotlight": "npv-ablation-table"
         }
       ],
@@ -1916,10 +1210,6 @@
     },
     {
       "id": "rule-r3",
-      "term": {
-        "ru": "Правило R3: Остановка после месяцев убытка",
-        "en": "Rule R3: Остановка после месяцев убытка"
-      },
       "aliases": [
         "R3",
         "r3",
@@ -1927,30 +1217,16 @@
         "rule R3",
         "остановка после месяцев убытка"
       ],
-      "definition": {
-        "ru": "Правило подтверждённой остановки: скважину закрывают не по одному плохому месяцу, а после нескольких подряд убыточных, и открывают обратно только с запасом ниже предельной обводнённости.",
-        "en": "The confirmed shut-in rule: a well is closed not after a single bad month but after several loss-making ones in a row, and is reopened only with a margin below the breakeven water cut."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/domain/policy/rules/r3.py",
       "where_in_platform": [
         {
           "workspace": "decisions",
           "view": "rules",
-          "what": {
-            "ru": "формулировка и срабатывания правила R3",
-            "en": "the statement and firings of rule R3"
-          },
           "spotlight": "rules-table"
         },
         {
           "workspace": "money",
           "view": "rank",
-          "what": {
-            "ru": "измеренный вклад R3 в ЧДД",
-            "en": "the measured contribution of R3 to NPV"
-          },
           "spotlight": "npv-ablation-table"
         }
       ],
@@ -1962,10 +1238,6 @@
     },
     {
       "id": "rule-r4",
-      "term": {
-        "ru": "Правило R4: Граница типоразмера ЭЦН",
-        "en": "Rule R4: Граница типоразмера ЭЦН"
-      },
       "aliases": [
         "R4",
         "r4",
@@ -1973,30 +1245,16 @@
         "rule R4",
         "граница типоразмера эцн"
       ],
-      "definition": {
-        "ru": "Правило насоса: разгон скважины не переходит границу типоразмера, если прибавка добычи не окупает замену насоса.",
-        "en": "The pump rule: speeding a well up does not cross a pump size boundary unless the production gain pays for replacing the pump."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/domain/policy/rules/r4.py",
       "where_in_platform": [
         {
           "workspace": "decisions",
           "view": "rules",
-          "what": {
-            "ru": "формулировка и срабатывания правила R4",
-            "en": "the statement and firings of rule R4"
-          },
           "spotlight": "rules-table"
         },
         {
           "workspace": "money",
           "view": "rank",
-          "what": {
-            "ru": "измеренный вклад R4 в ЧДД",
-            "en": "the measured contribution of R4 to NPV"
-          },
           "spotlight": "npv-ablation-table"
         }
       ],
@@ -2008,10 +1266,6 @@
     },
     {
       "id": "rule-r5",
-      "term": {
-        "ru": "Правило R5: Коридор компенсации участка",
-        "en": "Rule R5: Коридор компенсации участка"
-      },
       "aliases": [
         "R5",
         "r5",
@@ -2019,30 +1273,16 @@
         "rule R5",
         "коридор компенсации участка"
       ],
-      "definition": {
-        "ru": "Правило компенсации: закачка по участку удерживается в нормативном коридоре отношения закачки к отбору — не даёт ни истощить пласт, ни закачивать воду впустую.",
-        "en": "The compensation rule: an area's injection is held within the normative corridor of injection to offtake — allowing neither reservoir depletion nor pointless water injection."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/domain/policy/rules/r5.py",
       "where_in_platform": [
         {
           "workspace": "decisions",
           "view": "rules",
-          "what": {
-            "ru": "формулировка и срабатывания правила R5",
-            "en": "the statement and firings of rule R5"
-          },
           "spotlight": "rules-table"
         },
         {
           "workspace": "money",
           "view": "rank",
-          "what": {
-            "ru": "измеренный вклад R5 в ЧДД",
-            "en": "the measured contribution of R5 to NPV"
-          },
           "spotlight": "npv-ablation-table"
         }
       ],
@@ -2054,10 +1294,6 @@
     },
     {
       "id": "rule-r6",
-      "term": {
-        "ru": "Правило R6: Перевод в нагнетательные",
-        "en": "Rule R6: Перевод в нагнетательные"
-      },
       "aliases": [
         "R6",
         "r6",
@@ -2065,30 +1301,16 @@
         "rule R6",
         "перевод в нагнетательные"
       ],
-      "definition": {
-        "ru": "Правило перевода: скважину переводят в нагнетательные, когда её ценность как источника закачки за приемлемый срок перекрывает то, что она приносит как добывающая, с учётом стоимости перевода.",
-        "en": "The conversion rule: a well is converted to injection when its value as an injection source outweighs, within an acceptable payback, what it earns as a producer, accounting for the conversion cost."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/domain/policy/rules/r6.py",
       "where_in_platform": [
         {
           "workspace": "decisions",
           "view": "rules",
-          "what": {
-            "ru": "формулировка и срабатывания правила R6",
-            "en": "the statement and firings of rule R6"
-          },
           "spotlight": "rules-table"
         },
         {
           "workspace": "money",
           "view": "rank",
-          "what": {
-            "ru": "измеренный вклад R6 в ЧДД",
-            "en": "the measured contribution of R6 to NPV"
-          },
           "spotlight": "npv-ablation-table"
         }
       ],
@@ -2101,10 +1323,6 @@
     },
     {
       "id": "rule-r7",
-      "term": {
-        "ru": "Правило R7: Циклика высокообводнённых",
-        "en": "Rule R7: Циклика высокообводнённых"
-      },
       "aliases": [
         "R7",
         "r7",
@@ -2112,30 +1330,16 @@
         "rule R7",
         "циклика высокообводнённых"
       ],
-      "definition": {
-        "ru": "Правило циклической работы высокообводнённых скважин. Выгода циклики данными прогонов не подтверждена, поэтому правило остаётся гипотезой и по умолчанию выключено.",
-        "en": "The cyclic operation rule for heavily watered wells. The benefit of cycling is not confirmed by run data, so the rule remains a hypothesis and is off by default."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/domain/policy/rules/r7.py",
       "where_in_platform": [
         {
           "workspace": "decisions",
           "view": "rules",
-          "what": {
-            "ru": "формулировка и срабатывания правила R7",
-            "en": "the statement and firings of rule R7"
-          },
           "spotlight": "rules-table"
         },
         {
           "workspace": "money",
           "view": "rank",
-          "what": {
-            "ru": "измеренный вклад R7 в ЧДД",
-            "en": "the measured contribution of R7 to NPV"
-          },
           "spotlight": "npv-ablation-table"
         }
       ],
@@ -2147,10 +1351,6 @@
     },
     {
       "id": "voidage-replacement",
-      "term": {
-        "ru": "Компенсация отбора закачкой (в пластовых условиях)",
-        "en": "Voidage replacement"
-      },
       "aliases": [
         "voidage replacement",
         "компенсация в пластовых условиях",
@@ -2158,10 +1358,6 @@
         "voidage",
         "компенсация отбора закачкой"
       ],
-      "definition": {
-        "ru": "Отношение закачанного объёма к отобранному, посчитанное в ПЛАСТОВЫХ условиях, а не на поверхности: дебиты умножаются на объёмные коэффициенты B_w и B_o из PVT дека при текущем пластовом давлении. Поверхностное отношение закачки к отбору — упрощение; правильная величина именно пластовая. Свободного газа в Model_Z нет (Rs около 0.0054 при давлении насыщения около 1.13 бар), поэтому газовый член отбора равен нулю.",
-        "en": "The ratio of injected to offtaken volume computed in RESERVOIR conditions rather than at the surface: rates are multiplied by the formation volume factors B_w and B_o from the deck PVT at the current reservoir pressure. The surface ratio of injection to offtake is a simplification; the correct quantity is the reservoir one. Model_Z has no free gas (Rs about 0.0054 at a bubble point of about 1.13 bar), so the gas term of the offtake is zero."
-      },
       "formula": "C(k) = V_inj(k) / V_prod(k); V_inj = sum_i q_wi * B_w(p); V_prod = sum_p [q_o * B_o(p) + q_w * B_w(p)]",
       "unit": "доля",
       "source": "backend/domain/physics/pvt.py",
@@ -2169,19 +1365,11 @@
         {
           "workspace": "overview",
           "view": "fund",
-          "what": {
-            "ru": "компенсация фонда и её коридор",
-            "en": "the field compensation and its corridor"
-          },
           "spotlight": "overview-compensation-metric"
         },
         {
           "workspace": "decisions",
           "view": "council",
-          "what": {
-            "ru": "распределение закачки по участкам",
-            "en": "the injection allocation across areas"
-          },
           "spotlight": "council-groups"
         }
       ],
@@ -2195,10 +1383,6 @@
     },
     {
       "id": "injection-corridor",
-      "term": {
-        "ru": "Коридор закачки",
-        "en": "Injection corridor"
-      },
       "aliases": [
         "коридор компенсации",
         "коридор закачки",
@@ -2206,10 +1390,6 @@
         "injection corridor",
         "коридор"
       ],
-      "definition": {
-        "ru": "Допустимый интервал компенсации от C_min до C_max. Выход выше коридора — пластовое давление растёт и появляется риск раскрыть трещину; выход ниже — давление падает, пласт истощается и добыча теряется. Границы не назначаются нами: они измеряются по базовому прогону организаторов как интервал от минимума до максимума компенсации базы, расширенный на 0.05 в каждую сторону, а на тестовом кейсе берутся из самого кейса. В режиме hard выход за коридор делает расписание непригодным.",
-        "en": "The admissible interval of compensation from C_min to C_max. Going above the corridor raises reservoir pressure and risks opening a fracture; going below it drops pressure, depletes the reservoir and loses production. The bounds are not assigned by us: they are measured from the organisers' base run as the interval from the minimum to the maximum base compensation widened by 0.05 on each side, and on the test case they are taken from the case itself. Under hard enforcement, leaving the corridor makes a schedule unusable."
-      },
       "formula": "C_min <= C(k) <= C_max; выход за границы — нарушение COMPENSATION_OUT_OF_CORRIDOR",
       "unit": "доля",
       "source": "config/competition-constraints.json",
@@ -2217,19 +1397,11 @@
         {
           "workspace": "money",
           "view": "constraints",
-          "what": {
-            "ru": "коридор компенсации среди ограничений сценария",
-            "en": "the compensation corridor among the scenario constraints"
-          },
           "spotlight": "money-constraints-table"
         },
         {
           "workspace": "overview",
           "view": "fund",
-          "what": {
-            "ru": "текущая компенсация относительно коридора",
-            "en": "the current compensation against the corridor"
-          },
           "spotlight": "overview-compensation-metric"
         }
       ],
@@ -2243,10 +1415,6 @@
     },
     {
       "id": "external-water",
-      "term": {
-        "ru": "Объём n — дополнительная вода",
-        "en": "Volume n, additional water"
-      },
       "aliases": [
         "n",
         "внешняя вода",
@@ -2260,10 +1428,6 @@
         "доля реинжекции",
         "water_reinjection_fraction"
       ],
-      "definition": {
-        "ru": "Объём воды, который организаторы разрешают закачивать сверх добытой на тестовом кейсе. В контракте это поле external_water_m3_per_day. Проверка «закачка не больше добытой воды плюс n» выполняется только если кейс явно объявил ограничение источника воды; иначе закачка ограничена не источником, а коридором компенсации. Если кейс назвал внешнюю воду, но не назвал долю реинжекции, доля подставляется равной 1.0 и помечается флагом fraction_defaulted — умолчание видно, а не растворяется в числе. Неограниченный источник объявляется не бесконечным n, а отдельным полем water_supply_unlimited; комбинация этого флага с водяными ключами (water_reinjection_fraction, water_reinjection_lag_steps, external_water_m3_per_day) отвергается — источник либо неограничен, либо описан числами, но не то и другое сразу.",
-        "en": "The volume of water the organisers permit to be injected beyond the produced water on the test case. In the contract this is the field external_water_m3_per_day. The check that injection does not exceed produced water plus n applies only if the case explicitly declares a water-source limit; otherwise injection is bounded not by the source but by the compensation corridor. If the case names the external water but not the reinjection fraction, the fraction defaults to 1.0 and is marked with the flag fraction_defaulted, so the default stays visible instead of dissolving into the number. An unlimited source is declared not by an infinite n but by the separate field water_supply_unlimited; combining that flag with the water keys (water_reinjection_fraction, water_reinjection_lag_steps, external_water_m3_per_day) is rejected — the source is either unlimited or described by numbers, never both."
-      },
       "formula": "sum_i q_wi(k) <= sum_p q_w(p,k) + n",
       "unit": "м3/сут",
       "source": "backend/core/contracts/constraints.py",
@@ -2271,19 +1435,11 @@
         {
           "workspace": "money",
           "view": "constraints",
-          "what": {
-            "ru": "лимит источника воды среди ограничений",
-            "en": "the water source limit among the constraints"
-          },
           "spotlight": "money-constraints-table"
         },
         {
           "workspace": "overview",
           "view": "fund",
-          "what": {
-            "ru": "закачка фонда относительно добытой воды",
-            "en": "the field injection against the produced water"
-          },
           "spotlight": "overview-compensation-metric"
         }
       ],
@@ -2297,10 +1453,6 @@
     },
     {
       "id": "reservoir-pressure",
-      "term": {
-        "ru": "Пластовое давление",
-        "en": "Reservoir pressure"
-      },
       "aliases": [
         "пластовое давление",
         "FPR",
@@ -2308,30 +1460,17 @@
         "давление пласта",
         "reservoir pressure"
       ],
-      "definition": {
-        "ru": "Среднее давление пласта по полю (FPR) и по регионам (RPR по FIPNUM). Доступно только после прогона OPM: до него давление оценивается суррогатом лишь как предупреждение. Если политика давления включена, а серии прогона нет — это ошибка, а не пропуск проверки.",
-        "en": "The average reservoir pressure over the field (FPR) and by region (RPR over FIPNUM). It is available only after an OPM run: before that, pressure is estimated by the surrogate as a warning only. If the pressure policy is on but the run series is missing, that is an error, not a skipped check."
-      },
-      "formula": null,
       "unit": "бар",
       "source": "backend/domain/physics",
       "where_in_platform": [
         {
           "workspace": "overview",
           "view": "fund",
-          "what": {
-            "ru": "давление фонда на выбранном шаге",
-            "en": "the field pressure at the selected step"
-          },
           "spotlight": "overview-compensation-metric"
         },
         {
           "workspace": "money",
           "view": "comparison",
-          "what": {
-            "ru": "статус проверки давления у сценария",
-            "en": "the scenario's pressure check status"
-          },
           "spotlight": "money-comparison-table"
         }
       ],
@@ -2344,10 +1483,6 @@
     },
     {
       "id": "pressure-floor",
-      "term": {
-        "ru": "Пол давления",
-        "en": "Pressure floor"
-      },
       "aliases": [
         "пол давления",
         "нижний предел давления",
@@ -2355,10 +1490,6 @@
         "pressure floor",
         "пол по давлению"
       ],
-      "definition": {
-        "ru": "Нижняя граница пластового давления. Считается как максимум из давления насыщения с запасом и давления, при котором добывающие упираются в предел по забойному. Для Model_Z давление насыщения около 1.13 бар, поэтому фактический пол задаёт эксплуатация, а не разгазирование — это надо говорить прямо, а не скрывать. Нарушения: FIELD_PRESSURE_BELOW_FLOOR и REGION_PRESSURE_BELOW_FLOOR.",
-        "en": "The lower bound of reservoir pressure. It is computed as the maximum of the bubble point pressure with a margin and the pressure at which producers hit their bottomhole limit. For Model_Z the bubble point is about 1.13 bar, so the actual floor is set by operation rather than by gas liberation — this should be stated plainly, not hidden. Violations: FIELD_PRESSURE_BELOW_FLOOR and REGION_PRESSURE_BELOW_FLOOR."
-      },
       "formula": "p_floor = max(Pb + 5 бар, p_lift)",
       "unit": "бар",
       "source": "backend/domain/physics",
@@ -2366,19 +1497,11 @@
         {
           "workspace": "overview",
           "view": "fund",
-          "what": {
-            "ru": "давление фонда относительно пола",
-            "en": "the field pressure against its floor"
-          },
           "spotlight": "overview-compensation-metric"
         },
         {
           "workspace": "money",
           "view": "comparison",
-          "what": {
-            "ru": "нарушения давления у сценария",
-            "en": "the scenario's pressure violations"
-          },
           "spotlight": "money-comparison-table"
         }
       ],
@@ -2390,10 +1513,6 @@
     },
     {
       "id": "pressure-ceiling",
-      "term": {
-        "ru": "Потолок давления",
-        "en": "Pressure ceiling"
-      },
       "aliases": [
         "потолок давления",
         "верхний предел давления",
@@ -2401,10 +1520,6 @@
         "pressure ceiling",
         "потолок по давлению"
       ],
-      "definition": {
-        "ru": "Верхняя граница пластового давления. Физический смысл — не раскрыть трещину: заказчик указал, что выше примерно 300 атм трещина в жизни раскрывается. По умолчанию потолок равен начальному давлению, умноженному на 1.25; значение из кейса имеет приоритет. Нарушения: FIELD_PRESSURE_ABOVE_CEILING и REGION_PRESSURE_ABOVE_CEILING.",
-        "en": "The upper bound of reservoir pressure. Its physical meaning is not to open a fracture: the customer stated that above roughly 300 atm a fracture does open in practice. By default the ceiling is the initial pressure multiplied by 1.25; a value from the case takes priority. Violations: FIELD_PRESSURE_ABOVE_CEILING and REGION_PRESSURE_ABOVE_CEILING."
-      },
       "formula": "p_ceiling = p_init * 1.25 по умолчанию",
       "unit": "бар",
       "source": "backend/domain/physics",
@@ -2412,19 +1527,11 @@
         {
           "workspace": "overview",
           "view": "fund",
-          "what": {
-            "ru": "давление фонда относительно потолка",
-            "en": "the field pressure against its ceiling"
-          },
           "spotlight": "overview-compensation-metric"
         },
         {
           "workspace": "money",
           "view": "comparison",
-          "what": {
-            "ru": "нарушения давления у сценария",
-            "en": "the scenario's pressure violations"
-          },
           "spotlight": "money-comparison-table"
         }
       ],
@@ -2436,10 +1543,6 @@
     },
     {
       "id": "barrier",
-      "term": {
-        "ru": "Барьер",
-        "en": "Barrier"
-      },
       "aliases": [
         "барьер",
         "гидродинамический барьер",
@@ -2449,30 +1552,16 @@
         "выклинивание",
         "неактивные ячейки"
       ],
-      "definition": {
-        "ru": "Препятствие потоку между участками пласта. В Model_Z это НЕ разлом: в деке FAULTS и MULTFLT равны нулю. Барьером служат граница региона равновесия EQLNUM (их пять, у каждого своя строка EQUIL), выклинивание пластов PINCHREG, нулевая доля коллектора NTG, полоса неактивных ячеек (56 процентов ячеек неактивны) и множитель проводимости меньше единицы. Читатель геологии поддерживает FAULTS, MULTFLT, MULTX, MULTY, MULTZ, MULTREGT и NNC синтаксически, поэтому на месторождении с настоящими разломами барьеры появятся без правки кода.",
-        "en": "An obstacle to flow between parts of the reservoir. In Model_Z this is NOT a fault: FAULTS and MULTFLT in the deck are both zero. The barriers are the boundary of an equilibration region EQLNUM (there are five, each with its own EQUIL line), pinch-out of layers PINCHREG, zero net-to-gross NTG, a band of inactive cells (56 per cent of cells are inactive) and a transmissibility multiplier below one. The geology reader supports FAULTS, MULTFLT, MULTX, MULTY, MULTZ, MULTREGT and NNC syntactically, so on a field with real faults the barriers will appear without a code change."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/domain/geology/barriers.py",
       "where_in_platform": [
         {
           "workspace": "field",
           "view": "projection",
-          "what": {
-            "ru": "слой барьеров на карте поля",
-            "en": "the barrier layer on the field map"
-          },
           "spotlight": "projection-layer-switch"
         },
         {
           "workspace": "field",
           "view": "projection",
-          "what": {
-            "ru": "рёбра через барьер отмечены пунктиром",
-            "en": "edges crossing a barrier are drawn dashed"
-          },
           "spotlight": "projection-threshold-slider"
         }
       ],
@@ -2485,10 +1574,6 @@
     },
     {
       "id": "eqlnum",
-      "term": {
-        "ru": "Регион равновесия (EQLNUM)",
-        "en": "Equilibration region (EQLNUM)"
-      },
       "aliases": [
         "eqlnum",
         "регион равновесия",
@@ -2496,21 +1581,11 @@
         "equilibration region",
         "equil"
       ],
-      "definition": {
-        "ru": "Область деки со своей строкой EQUIL — собственным начальным распределением давления и контактов. В Model_Z таких регионов пять. Граница между двумя разными регионами равновесия работает как гидродинамический барьер, потому что по разные стороны от неё пласт изначально уравновешен по-разному.",
-        "en": "A region of the deck with its own EQUIL line — its own initial distribution of pressure and contacts. Model_Z has five such regions. The boundary between two different equilibration regions acts as a hydrodynamic barrier, because on either side of it the reservoir is initially equilibrated differently."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/domain/geology/barriers.py",
       "where_in_platform": [
         {
           "workspace": "field",
           "view": "projection",
-          "what": {
-            "ru": "границы регионов равновесия на карте",
-            "en": "equilibration region boundaries on the map"
-          },
           "spotlight": "projection-layer-switch"
         }
       ],
@@ -2522,31 +1597,17 @@
     },
     {
       "id": "geology-prior",
-      "term": {
-        "ru": "Геологический априор",
-        "en": "Geological prior"
-      },
       "aliases": [
         "геологический априор",
         "априор",
         "geological prior",
         "проводимость между скважинами"
       ],
-      "definition": {
-        "ru": "Ожидание связи между парой скважин по геометрии и свойствам породы: гармоническая средняя произведения проницаемости на долю коллектора вдоль прямой между устьями по слоям перфораций, плюс доля активных ячеек на пути. Это НЕ связность: расстояние и проницаемость не означают гидродинамическую связь. Априор нужен для проверки — ребро с большим значением λ и нулевым априором первым идёт на перепроверку.",
-        "en": "The expectation of a link between a pair of wells from geometry and rock properties: the harmonic mean of permeability times net-to-gross along the straight line between the wellheads over the perforated layers, plus the fraction of active cells on the path. This is NOT connectivity: distance and permeability do not imply a hydrodynamic link. The prior is used for checking — an edge with a large λ and a zero prior is the first to be re-verified."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/domain/geology/prior.py",
       "where_in_platform": [
         {
           "workspace": "field",
           "view": "projection",
-          "what": {
-            "ru": "рёбра графа и их подтверждение",
-            "en": "graph edges and their verification"
-          },
           "spotlight": "projection-threshold-slider"
         }
       ],
@@ -2559,40 +1620,22 @@
     },
     {
       "id": "compensation-scope",
-      "term": {
-        "ru": "Область проверки компенсации",
-        "en": "Compensation scope"
-      },
       "aliases": [
         "область проверки компенсации",
         "compensation scope",
         "поле и участки",
         "field_and_groups"
       ],
-      "definition": {
-        "ru": "Компенсация проверяется и по полю, и по участкам. Участок без нагнетательных скважин не проверяется. Участок без отбора — это ошибка данных, а не ноль: величина, которую нельзя посчитать, обязана дать отказ, а не подставное значение.",
-        "en": "Compensation is checked over the field and over the areas. An area with no injectors is not checked. An area with no offtake is a data error, not a zero: a quantity that cannot be computed must produce a refusal, not a stand-in value."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/core/contracts/constraints.py",
       "where_in_platform": [
         {
           "workspace": "decisions",
           "view": "council",
-          "what": {
-            "ru": "компенсация по участкам",
-            "en": "compensation by area"
-          },
           "spotlight": "council-groups"
         },
         {
           "workspace": "overview",
           "view": "fund",
-          "what": {
-            "ru": "компенсация по полю",
-            "en": "compensation over the field"
-          },
           "spotlight": "overview-compensation-metric"
         }
       ],
@@ -2605,20 +1648,12 @@
     },
     {
       "id": "material-balance",
-      "term": {
-        "ru": "Материальный баланс",
-        "en": "Material balance"
-      },
       "aliases": [
         "материальный баланс",
         "material balance",
         "тождество баланса",
         "MATERIAL_BALANCE_BROKEN"
       ],
-      "definition": {
-        "ru": "Тождества сохранения объёмов на прогоне: изменение запасов нефти сходится с накопленной добычей, изменение запасов воды — с накопленной закачкой за вычетом добытой воды. Относительная ошибка выше одного процента — нарушение MATERIAL_BALANCE_BROKEN: прогон не считается достоверным.",
-        "en": "The volume conservation identities over a run: the change in oil in place matches cumulative oil production, and the change in water in place matches cumulative injection less produced water. A relative error above one per cent is the violation MATERIAL_BALANCE_BROKEN: the run is not considered trustworthy."
-      },
       "formula": "dFOIP + dFOPT ~ 0; dFWIP - (dFWIT - dFWPT) ~ 0",
       "unit": "доля",
       "source": "backend/domain/robustness",
@@ -2626,10 +1661,6 @@
         {
           "workspace": "money",
           "view": "comparison",
-          "what": {
-            "ru": "тождества баланса в статусе прогона",
-            "en": "the balance identities in the run status"
-          },
           "spotlight": "money-comparison-table"
         }
       ],
@@ -2641,10 +1672,6 @@
     },
     {
       "id": "incumbent",
-      "term": {
-        "ru": "Incumbent",
-        "en": "Incumbent"
-      },
       "aliases": [
         "incumbent",
         "инкумбент",
@@ -2652,21 +1679,11 @@
         "лучшее расписание",
         "текущий чемпион"
       ],
-      "definition": {
-        "ru": "Последнее расписание, подтверждённое прогоном OPM как sound и имеющее лучший ЧДД среди подтверждённых. Сдаётся только оно: кандидат, который лучше по предсказанию суррогата, но не проверен симулятором, incumbent не заменяет.",
-        "en": "The most recent schedule confirmed sound by an OPM run and holding the best NPV among the confirmed ones. Only it is submitted: a candidate that looks better by the surrogate's prediction but has not been checked by the simulator does not replace the incumbent."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/core/contracts/policy.py",
       "where_in_platform": [
         {
           "workspace": "money",
           "view": "comparison",
-          "what": {
-            "ru": "подтверждённые сценарии и их ЧДД",
-            "en": "the confirmed scenarios and their NPV"
-          },
           "spotlight": "money-comparison-table"
         }
       ],
@@ -2680,10 +1697,6 @@
     },
     {
       "id": "sound",
-      "term": {
-        "ru": "Sound",
-        "en": "Sound"
-      },
       "aliases": [
         "sound",
         "саунд",
@@ -2691,21 +1704,11 @@
         "корректный прогон",
         "признан достоверным"
       ],
-      "definition": {
-        "ru": "Признак прогона: симулятор дошёл до конца горизонта, тождества материального баланса сходятся, блокирующих нарушений ограничений нет. Расписание без этого признака не сдаётся, каким бы хорошим ни выглядел его ЧДД.",
-        "en": "A property of a run: the simulator reached the end of the horizon, the material balance identities hold, and there are no blocking constraint violations. A schedule without this property is not submitted, however good its NPV may look."
-      },
-      "formula": null,
-      "unit": null,
       "source": "backend/core/contracts/policy.py",
       "where_in_platform": [
         {
           "workspace": "money",
           "view": "comparison",
-          "what": {
-            "ru": "статус sound у сценария",
-            "en": "the scenario's sound status"
-          },
           "spotlight": "money-comparison-table"
         }
       ],
@@ -2719,10 +1722,6 @@
     },
     {
       "id": "compensation-violation",
-      "term": {
-        "ru": "Нарушение компенсации",
-        "en": "Compensation violation"
-      },
       "aliases": [
         "COMPENSATION_OUT_OF_CORRIDOR",
         "COMPENSATION_UNDEFINED",
@@ -2733,10 +1732,6 @@
         "compensation out of corridor",
         "compensation undefined"
       ],
-      "definition": {
-        "ru": "Компенсация — отношение закачки к отбору за шаг управления. Проверка даёт нарушения двух видов. COMPENSATION_OUT_OF_CORRIDOR — величина посчитана, но лежит вне коридора. COMPENSATION_UNDEFINED — величину посчитать нельзя: отбор на шаге нулевой, и отношение не определено; это отказ, а не подставной ноль. Строгость задаётся полем compensation_enforcement: по умолчанию diagnostic — нарушение записывается, но расписание не блокирует; при hard нарушение блокирующее. Область проверки задаётся полем compensation_scope: field — только по полю, groups — только по участкам, field_and_groups — и по полю, и по участкам; по умолчанию field_and_groups.",
-        "en": "Compensation is the ratio of injection to offtake over a control step. The check yields violations of two kinds. COMPENSATION_OUT_OF_CORRIDOR: the quantity was computed but falls outside the corridor. COMPENSATION_UNDEFINED: the quantity cannot be computed because offtake at the step is zero and the ratio is undefined; this is a refusal, not a stand-in zero. Strictness is set by compensation_enforcement: the default diagnostic records the violation without blocking the schedule, while hard makes it blocking. The scope is set by compensation_scope: field checks the field only, groups the areas only, field_and_groups both; the default is field_and_groups."
-      },
       "formula": "компенсация = закачка / отбор; COMPENSATION_OUT_OF_CORRIDOR при выходе за C_min..C_max, COMPENSATION_UNDEFINED при нулевом отборе",
       "unit": "доля",
       "source": "backend/domain/schedule/validate_dynamic.py",
@@ -2744,19 +1739,11 @@
         {
           "workspace": "money",
           "view": "constraints",
-          "what": {
-            "ru": "режим и область проверки компенсации среди ограничений",
-            "en": "the compensation enforcement and scope among the constraints"
-          },
           "spotlight": "money-constraints-table"
         },
         {
           "workspace": "overview",
           "view": "fund",
-          "what": {
-            "ru": "компенсация фонда относительно коридора",
-            "en": "the field compensation against the corridor"
-          },
           "spotlight": "overview-compensation-metric"
         }
       ],
@@ -2770,10 +1757,6 @@
     },
     {
       "id": "compensation-base-measurement",
-      "term": {
-        "ru": "Компенсация базового прогона (измерение)",
-        "en": "Base run compensation, measured"
-      },
       "aliases": [
         "компенсация базы",
         "измеренная компенсация",
@@ -2782,10 +1765,6 @@
         "base compensation",
         "measured compensation"
       ],
-      "definition": {
-        "ru": "Компенсация базового прогона организаторов, измеренная по отклику, а не назначенная. По 224 шагам управления в поверхностных условиях: минимум 1.2016, p05 1.2138, медиана 1.2753, p95 1.4233, максимум 1.4567. Ни один из 224 шагов не попадает в коридор 0.85…1.15, который назначали мы: база живёт целиком выше него, поэтому такой коридор описывал бы не пласт, а наше предположение. Пересчёт тех же шагов в пластовые условия через объёмные коэффициенты меняет величину на 0.06…0.29 процента — то есть выбор условий на этом кейсе почти ничего не меняет, а выбор границ коридора меняет всё.",
-        "en": "The compensation of the organisers' base run, measured from the response rather than assigned. Over 224 control steps in surface conditions: minimum 1.2016, p05 1.2138, median 1.2753, p95 1.4233, maximum 1.4567. Not one of the 224 steps falls inside the 0.85…1.15 corridor we had assigned: the base lies entirely above it, so such a corridor would describe our assumption rather than the reservoir. Recomputing the same steps in reservoir conditions through the formation volume factors shifts the value by 0.06…0.29 per cent, so on this case the choice of conditions changes almost nothing while the choice of corridor bounds changes everything."
-      },
       "formula": "C(k) = сумма положительных injection_volume_delta / сумма положительных liquid_volume_delta",
       "unit": "доля",
       "source": "data/compensation-base.json",
@@ -2793,19 +1772,11 @@
         {
           "workspace": "overview",
           "view": "fund",
-          "what": {
-            "ru": "компенсация фонда по шагам базового прогона",
-            "en": "the field compensation by step of the base run"
-          },
           "spotlight": "overview-compensation-metric"
         },
         {
           "workspace": "money",
           "view": "constraints",
-          "what": {
-            "ru": "коридор компенсации рядом с измерением базы",
-            "en": "the compensation corridor beside the base measurement"
-          },
           "spotlight": "money-constraints-table"
         }
       ],
@@ -2818,10 +1789,6 @@
     },
     {
       "id": "physics-gate",
-      "term": {
-        "ru": "Физгейт (физические инварианты прогноза)",
-        "en": "Physics gate"
-      },
       "aliases": [
         "физгейт",
         "физический гейт",
@@ -2831,30 +1798,17 @@
         "physics_admissible",
         "семь инвариантов"
       ],
-      "definition": {
-        "ru": "Проверка прогноза суррогата на семь физических инвариантов перед тем, как кандидат уйдёт в OPM. Пять считаются на одном прогнозе: NON_NEGATIVE, WATERCUT_RANGE, CUMULATIVE_MONOTONIC, SHUT_WELL_FLOW, BHP_LIMIT. Два дифференциальные — INJECTION_RESPONSE (отклик на закачку) и MATERIAL_BALANCE (водный баланс): они сравнивают кандидата с опорой, потому что прирост существует только относительно чего-то. Кандидат допускается, когда admissible истинно, а это одновременно полнота — посчитаны все семь — и отсутствие блокирующих флагов: пропущенный инвариант не считается пройденным. Из семи только BHP_LIMIT — предупреждение: предсказанное забойное вне предела означает, что OPM переведёт скважину на другой режим управления, а не что прогноз физически невозможен. Остальные шесть блокирующие.",
-        "en": "The check of a surrogate prediction against seven physical invariants before a candidate goes to OPM. Five are computed on a single prediction: NON_NEGATIVE, WATERCUT_RANGE, CUMULATIVE_MONOTONIC, SHUT_WELL_FLOW, BHP_LIMIT. Two are differential — INJECTION_RESPONSE and MATERIAL_BALANCE — and compare the candidate against a reference, because an increment exists only relative to something. A candidate is admitted when admissible holds, which is both completeness, all seven actually computed, and the absence of blocking flags: a skipped invariant does not count as a passed one. Of the seven only BHP_LIMIT is a warning: a predicted bottomhole pressure outside the limit means OPM will switch the well to another control mode, not that the prediction is physically impossible. The other six are blocking."
-      },
       "formula": "admissible = complete И blocking_count == 0; complete = посчитаны все семь инвариантов",
-      "unit": null,
       "source": "backend/ml/surrogate/physics_checks.py",
       "where_in_platform": [
         {
           "workspace": "overview",
           "view": "fund",
-          "what": {
-            "ru": "доверие к прогону и физические инварианты",
-            "en": "the run trust board and the physical invariants"
-          },
           "spotlight": "overview-trustboard"
         },
         {
           "workspace": "money",
           "view": "comparison",
-          "what": {
-            "ru": "флаги физики рядом со статусом прогона",
-            "en": "the physics flags beside the run status"
-          },
           "spotlight": "money-comparison-table"
         }
       ],

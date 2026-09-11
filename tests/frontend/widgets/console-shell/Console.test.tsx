@@ -2,18 +2,14 @@ import { readFileSync } from 'node:fs';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '@/app/App/App';
+import { AppProviders } from '@/app/providers/AppProviders';
 import type { AblationFile } from '@/entities/ablation/types';
 import type { GraphFile } from '@/entities/graph/types';
 import type { NpvFile } from '@/entities/npv/types';
 import type { ScenariosFile } from '@/entities/scenarios/types';
 import type { TimelineFile, TimelineWellRow } from '@/entities/timeline/types';
 import { dictionaries } from '@/shared/i18n/dictionaries';
-import { I18nProvider } from '@/shared/i18n/I18nContext';
-import { RouterProvider } from '@/shared/router/RouterProvider';
-import { PlaybackProvider } from '@/entities/timeline/model/PlaybackContext';
-import { ScenarioProvider } from '@/entities/scenarios/model/ScenarioContext';
-import { TimelineProvider } from '@/entities/timeline/model/TimelineContext';
-import { ThemeProvider } from '@/shared/theme/ThemeContext';
+import { APP_SHELL_CSS, declaredPx } from '@support/layout';
 import { srcPath } from '@support/paths';
 
 const { ru } = dictionaries;
@@ -159,19 +155,9 @@ const mockFetch = () => {
 
 const renderConsole = () =>
   render(
-    <ThemeProvider>
-      <I18nProvider>
-        <ScenarioProvider>
-          <TimelineProvider>
-            <PlaybackProvider>
-              <RouterProvider>
-                <App />
-              </RouterProvider>
-            </PlaybackProvider>
-          </TimelineProvider>
-        </ScenarioProvider>
-      </I18nProvider>
-    </ThemeProvider>
+    <AppProviders>
+      <App />
+    </AppProviders>
   );
 
 const navButton = (label: string): HTMLElement => {
@@ -261,7 +247,7 @@ describe('console layout', () => {
 
   it('stacks that first stop above the header it has to appear over', () => {
     const base = readFileSync(srcPath('app', 'styles', 'styles.css'), 'utf-8');
-    const consoleCss = readFileSync(srcPath('app', 'ConsoleScene', 'ConsoleShell.css'), 'utf-8');
+    const consoleCss = readFileSync(APP_SHELL_CSS, 'utf-8');
     const tokens = readFileSync(
       srcPath('shared', 'theme', 'tokens.light.css'),
       'utf-8'
@@ -678,9 +664,6 @@ describe('the time axis never steals the pointer from the scene above it', () =>
   });
 
   it('still leaves the slider a usable grab height', () => {
-    const block = track.match(/\.time-scale-input\s*\{[^}]*\}/)?.[0] ?? '';
-    const height = Number(block.match(/height:\s*([\d.]+)px/)?.[1]);
-
-    expect(height).toBeGreaterThanOrEqual(16);
+    expect(declaredPx(track, '.time-scale-input', 'height')).toBeGreaterThanOrEqual(16);
   });
 });

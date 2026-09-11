@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.assistant.domain.errors import (
+    SystemMapError,
+)
+
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,10 +15,6 @@ KNOWLEDGE_ENV_VAR = "AIOS_JARVIS_KNOWLEDGE"
 SYSTEM_FILE = "system.json"
 KINDS: tuple[str, ...] = ("ui", "service", "domain", "infra", "data", "doc")
 MAX_DEPTH = 2
-
-
-class SystemMapError(RuntimeError):
-    pass
 
 
 def default_system_path() -> Path:

@@ -12,7 +12,7 @@ TRACE_META_KEY = "__meta__"
 
 
 class NoTraceEntry(ToolFailure):
-    code = NO_TRACE_ENTRY
+    default_code = NO_TRACE_ENTRY
 
 
 def _trace_provenance(index: ScenarioIndex) -> str:

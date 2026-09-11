@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.assistant.domain.errors import (
+    NoApiKeyError,
+)
+
 import os
 from typing import Mapping
 
@@ -17,10 +21,6 @@ OPENROUTER_KEY_VAR = "OPENROUTER_API_KEY"
 ANTHROPIC_KEY_VAR = "ANTHROPIC_API_KEY"
 ANTHROPIC_FALLBACK_MODEL = "claude-sonnet-4-5"
 DEFAULT_MAX_TOKENS = 2400
-
-
-class NoApiKeyError(RuntimeError):
-    pass
 
 
 def _max_tokens(env: Mapping[str, str]) -> int:

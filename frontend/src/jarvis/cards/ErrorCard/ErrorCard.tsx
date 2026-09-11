@@ -1,7 +1,7 @@
 import { useT } from '@/shared/i18n/I18nContext';
 import { translateOr } from '@/jarvis/i18nFallback';
 import { useOptionalJarvisSession } from '@/jarvis/provider/contexts';
-import { readError } from '@/jarvis/cards/payloads/cardPayloads';
+import { readError } from '@/jarvis/cards/payloads';
 import './ErrorCard.css';
 
 export const ErrorCard = ({ payload }: { payload: unknown }) => {

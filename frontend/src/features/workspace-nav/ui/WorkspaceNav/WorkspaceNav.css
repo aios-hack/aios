@@ -1,7 +1,7 @@
 .workspace-nav {
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--color-border);
+  border-right: var(--border-hairline) solid var(--color-border);
   background: var(--color-surface-sunken);
   height: 100%;
   overflow-y: auto;
@@ -25,7 +25,7 @@
   right: var(--space-2);
   border-radius: var(--radius-lg);
   background: var(--color-accent-dim);
-  border: 1px solid var(--color-accent);
+  border: var(--border-hairline) solid var(--color-accent);
   transition: transform var(--duration-state) var(--ease-emphasis);
   pointer-events: none;
 }
@@ -40,7 +40,7 @@
 .workspace-nav-item {
   position: relative;
   z-index: 1;
-  min-height: 34px;
+  min-height: var(--size-icon-button);
   padding: var(--space-3) var(--space-4);
   border: none;
   background: none;

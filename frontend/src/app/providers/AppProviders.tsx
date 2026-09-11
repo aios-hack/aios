@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { RouterProvider } from '@/shared/router/RouterProvider';
 import { PlaybackProvider } from '@/entities/timeline/model/PlaybackContext';
+import { HistoryViewProvider } from '@/entities/timeline/model/HistoryViewContext';
 import { ProvenanceProvider } from '@/features/provenance-banner/model/ProvenanceContext';
 import { ScenarioProvider } from '@/entities/scenarios/model/ScenarioContext';
 import { TimelineProvider } from '@/entities/timeline/model/TimelineContext';
@@ -15,6 +16,7 @@ const LAYERS = [
   ProvenanceProvider,
   TimelineProvider,
   PlaybackProvider,
+  HistoryViewProvider,
   MorphProvider,
   RouterProvider
 ] as const;

@@ -5,6 +5,8 @@ from datetime import date, datetime
 
 import pytest
 
+from backend.contexts.economics.domain.errors import ParityError
+
 from backend.core.contracts import (
     ActiveControlMode,
     ChargeInitialEsp,
@@ -583,5 +585,5 @@ def test_parity_report_detects_injected_discrepancy() -> None:
     report = compare_with_reference(spoiled, reference_result, interval_start_dates)
     assert not report.matched
     assert any(item.field == "revenue" for item in report.discrepancies)
-    with pytest.raises(AssertionError):
+    with pytest.raises(ParityError):
         report.raise_if_mismatched()

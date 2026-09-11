@@ -1,6 +1,12 @@
 .time-scale-track {
   --time-scale-tick-h: 9px;
   --time-scale-inset: 28px;
+  --time-scale-thumb: 12px;
+  --time-scale-thumb-half: 6px;
+  --time-scale-rail-h: 6px;
+  --time-scale-bleed: 5px;
+  --time-scale-row-h: 24px;
+  --time-scale-grab-h: 18px;
 
   position: relative;
   width: 100%;
@@ -13,7 +19,7 @@
 .time-scale-years {
   position: relative;
   z-index: 4;
-  height: 12px;
+  height: var(--time-scale-thumb);
   margin: 0 var(--time-scale-inset);
   pointer-events: none;
 }
@@ -34,10 +40,10 @@
 .time-scale-year::after {
   content: '';
   position: absolute;
-  top: calc(100% + 1px);
+  top: calc(100% + var(--border-hairline));
   left: 50%;
   z-index: 4;
-  width: 2px;
+  width: var(--border-thick);
   height: var(--time-scale-tick-h);
   transform: translateX(-50%);
   background: var(--color-tick);
@@ -47,9 +53,9 @@
 
 .time-scale-rail {
   position: relative;
-  margin-right: calc(var(--time-scale-inset) - 5px);
-  margin-left: calc(var(--time-scale-inset) - 5px);
-  height: 6px;
+  margin-right: calc(var(--time-scale-inset) - var(--time-scale-bleed));
+  margin-left: calc(var(--time-scale-inset) - var(--time-scale-bleed));
+  height: var(--time-scale-rail-h);
   margin-top: var(--time-scale-tick-h);
   border-radius: var(--radius-pill);
   background: var(--color-rail);
@@ -60,7 +66,7 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: calc(6px + var(--time-scale-progress, 0) * (100cqw - 12px));
+  width: calc(var(--time-scale-thumb-half) + var(--time-scale-progress, 0) * (100cqw - var(--time-scale-thumb)));
   height: 100%;
   border-radius: var(--radius-pill);
   background: var(--color-rail-fill);
@@ -70,7 +76,7 @@
 
 .time-scale-marks {
   position: absolute;
-  inset: 0 6px;
+  inset: 0 var(--time-scale-thumb-half);
   z-index: 1;
   overflow: hidden;
   border-radius: var(--radius-pill);
@@ -80,7 +86,7 @@
 .time-scale-mark {
   position: absolute;
   top: 0;
-  width: 2px;
+  width: var(--border-thick);
   height: 100%;
   transform: translateX(-50%);
   background: var(--color-tick-on-fill);
@@ -91,11 +97,11 @@
   z-index: 6;
   top: 50%;
   left: 0;
-  width: 12px;
-  height: 12px;
-  margin-left: -6px;
-  translate: calc(6px + var(--time-scale-progress, 0) * (100cqw - 12px)) -50%;
-  border: 2px solid var(--color-bg);
+  width: var(--time-scale-thumb);
+  height: var(--time-scale-thumb);
+  margin-left: calc(-1 * var(--time-scale-thumb-half));
+  translate: calc(var(--time-scale-thumb-half) + var(--time-scale-progress, 0) * (100cqw - var(--time-scale-thumb))) -50%;
+  border: var(--border-thick) solid var(--color-bg);
   border-radius: var(--radius-pill);
   background: var(--color-rail-fill);
   transition: translate var(--time-scale-glide, 0ms) linear,
@@ -114,11 +120,11 @@
 .time-scale-input {
   position: absolute;
   z-index: 2;
-  left: calc(var(--time-scale-inset) - 5px);
-  right: calc(var(--time-scale-inset) - 5px);
+  left: calc(var(--time-scale-inset) - var(--time-scale-bleed));
+  right: calc(var(--time-scale-inset) - var(--time-scale-bleed));
   bottom: 0;
   width: auto;
-  height: 18px;
+  height: var(--time-scale-grab-h);
   margin: 0;
   padding: 0;
   opacity: 0;
@@ -135,13 +141,13 @@
 .time-scale-input::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 12px;
-  height: 24px;
+  width: var(--time-scale-thumb);
+  height: var(--time-scale-row-h);
 }
 
 .time-scale-input::-moz-range-thumb {
-  width: 12px;
-  height: 24px;
+  width: var(--time-scale-thumb);
+  height: var(--time-scale-row-h);
   border: none;
   background: transparent;
 }
@@ -153,10 +159,10 @@
 .time-scale-events {
   position: relative;
   z-index: 3;
-  height: 8px;
+  height: var(--space-3);
   margin-top: var(--space-1);
-  margin-right: calc(var(--time-scale-inset) + 1px);
-  margin-left: calc(var(--time-scale-inset) + 1px);
+  margin-right: calc(var(--time-scale-inset) + var(--border-hairline));
+  margin-left: calc(var(--time-scale-inset) + var(--border-hairline));
 }
 
 .time-scale-events:empty {
@@ -166,9 +172,9 @@
 
 .time-scale-event {
   position: absolute;
-  top: 1px;
-  width: 5px;
-  height: 6px;
+  top: var(--border-hairline);
+  width: var(--time-scale-bleed);
+  height: var(--time-scale-rail-h);
   padding: 0;
   transform: translateX(-50%);
   border: none;

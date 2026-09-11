@@ -33,6 +33,10 @@ risk task 62 exists to rule out.
 
 from __future__ import annotations
 
+from backend.contexts.surrogate.domain.errors import (
+    AdapterError,
+)
+
 from datetime import date
 from typing import Sequence
 
@@ -55,10 +59,6 @@ from backend.contexts.surrogate.domain.raw_model_output import RawModelOutput
 from backend.contexts.reservoir.domain.horizon import HORIZON
 
 _HISTORY_HORIZON = HORIZON.history_offset + 1
-
-
-class AdapterError(ValueError):
-    """RawModelOutput/Schedule/базовый прогон нельзя склеить в валидный отклик."""
 
 
 class ResponseAdapter:

@@ -24,6 +24,8 @@ from backend.contexts.connectivity.domain.measure import load_lambda
 from backend.contexts.optimization.application.environment import (
     load_environment,
     make_evaluator,
+)
+from backend.contexts.optimization.application.policy_factory import (
     make_policy,
 )
 from backend.contexts.optimization.infrastructure.artifacts import (

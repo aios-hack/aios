@@ -28,8 +28,7 @@ output {
   border-radius: var(--radius-sm);
 }
 
-.transport-button--play:focus-visible,
-.council-column-pick:focus-visible {
+.focus-on-fill:focus-visible {
   outline-color: var(--color-accent-contrast);
   outline-offset: calc(var(--focus-ring-offset) * -2);
 }
@@ -48,7 +47,7 @@ output {
   flex-wrap: wrap;
   gap: var(--space-4) var(--space-6);
   padding: var(--space-3) 0 var(--space-4);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: var(--border-hairline) solid var(--color-border);
 }
 
 .app-header .header-controls {
@@ -130,7 +129,7 @@ output {
 @keyframes tile-rise {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.98);
+    transform: translateY(var(--rise-lg)) scale(0.98);
   }
   to {
     opacity: 1;
@@ -141,7 +140,7 @@ output {
 @keyframes view-rise {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(var(--rise-xl));
   }
   to {
     opacity: 1;
@@ -176,7 +175,7 @@ output {
   color: var(--color-accent);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
-  border: 1px solid var(--color-border-strong);
+  border: var(--border-hairline) solid var(--color-border-strong);
   font-family: inherit;
   text-decoration: none;
   cursor: pointer;
@@ -202,11 +201,15 @@ output {
   font-size: var(--font-size-xs);
 }
 
-.visually-hidden {
+.visually-hidden,
+.chronomap-announce,
+.timeline-caption,
+.abl-caption,
+.abl-standalone-title {
   position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
+  width: var(--border-hairline);
+  height: var(--border-hairline);
+  margin: calc(-1 * var(--border-hairline));
   padding: 0;
   overflow: hidden;
   clip-path: inset(50%);

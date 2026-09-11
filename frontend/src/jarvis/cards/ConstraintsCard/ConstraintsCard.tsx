@@ -1,7 +1,7 @@
 import { DASH, formatNumber } from '@/shared/lib/format';
 import { useI18n } from '@/shared/i18n/I18nContext';
 import type { Lang } from '@/shared/i18n/dictionaries';
-import { readConstraints } from '@/jarvis/cards/payloads/cardPayloads';
+import { readConstraints } from '@/jarvis/cards/payloads';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
 import type { ConstraintRow } from '@/jarvis/cards/payloads/payloadTypes';
 import './ConstraintsCard.css';

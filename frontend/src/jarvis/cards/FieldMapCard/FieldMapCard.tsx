@@ -3,7 +3,7 @@ import { useScenarioDataset } from '@/entities';
 import { useOptionalScenario } from '@/entities/scenarios/model/ScenarioContext';
 import { useT } from '@/shared/i18n/I18nContext';
 import { FIELD_SIZE, projectNodes } from '@/entities/graph/model/projection';
-import { readFieldMap } from '@/jarvis/cards/payloads/cardPayloads';
+import { readFieldMap } from '@/jarvis/cards/payloads';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
 import './FieldMapCard.css';
 
@@ -48,9 +48,9 @@ export const FieldMapCard = ({ payload, scenario = null }: FieldMapCardProps) =>
   const highlight = new Set(map.highlight);
 
   return (
-    <div className="jarvis-map">
+    <div className="jarvis-field-map">
       <svg
-        className="jarvis-map-plot"
+        className="jarvis-field-map-plot"
         viewBox={`0 0 ${VIEW} ${VIEW}`}
         role="img"
         aria-label={`${t('jarvis-cards.mapFocus')} ${map.focus.join(', ')}`}
@@ -64,7 +64,7 @@ export const FieldMapCard = ({ payload, scenario = null }: FieldMapCardProps) =>
           return (
             <line
               key={`${edge.injector}-${edge.producer}`}
-              className="jarvis-map-edge"
+              className="jarvis-field-map-edge"
               x1={from.x}
               y1={from.y}
               x2={to.x}
@@ -76,7 +76,7 @@ export const FieldMapCard = ({ payload, scenario = null }: FieldMapCardProps) =>
         {[...positions.entries()].map(([id, point]) => (
           <circle
             key={id}
-            className="jarvis-map-node"
+            className="jarvis-field-map-node"
             cx={point.x}
             cy={point.y}
             r={focus.has(id) ? 2.6 : 1.4}
@@ -84,7 +84,7 @@ export const FieldMapCard = ({ payload, scenario = null }: FieldMapCardProps) =>
           />
         ))}
       </svg>
-      <p className="jarvis-map-meta">
+      <p className="jarvis-field-map-meta">
         <span>
           {t('jarvis-cards.mapFocus')}: {map.focus.join(', ')}
         </span>

@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from backend.contexts.optimization.domain.errors import (
+    ComparisonError,
+    VerificationGuardError,
+)
+
 import json
 import sys
 import tempfile
@@ -27,6 +32,8 @@ from backend.domain.economics import (
 from backend.contexts.optimization.application.environment import (
     load_environment,
     make_evaluator,
+)
+from backend.contexts.optimization.application.policy_factory import (
     make_policy,
 )
 from backend.contexts.optimization.infrastructure.artifacts import (
@@ -37,8 +44,10 @@ from backend.contexts.optimization.application.search_use_case import (
     CONSTRAINTS,
     FINAL_CAP,
     SEED,
-    _peak_step_production,
     _repair_predicted_water_balance,
+)
+from backend.contexts.optimization.application.baseline_search import (
+    _peak_step_production,
 )
 from backend.contexts.policy.domain.fixed_point import resolve
 from backend.contexts.policy.domain.theta import default_theta
@@ -64,10 +73,6 @@ WORK_ROOT = Path("data/g7-submission")
 EXPECTED_HASH: str | None = None
 BASE_NPV = 11_873_122_324.91
 OIL_DENSITY_T_PER_M3 = 0.9131
-
-
-class VerificationGuardError(RuntimeError):
-    pass
 
 
 @dataclass(frozen=True, slots=True)
@@ -409,10 +414,6 @@ def persist_observation(
 
 
 COMPARISON_SCHEMA_VERSION = "1.0"
-
-
-class ComparisonError(RuntimeError):
-    pass
 
 
 @dataclass(frozen=True, slots=True)

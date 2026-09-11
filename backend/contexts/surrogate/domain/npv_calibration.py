@@ -10,6 +10,10 @@ calibration changes only the economic score, never well trajectories.
 
 from __future__ import annotations
 
+from backend.contexts.surrogate.domain.errors import (
+    NpvCalibrationError,
+)
+
 import json
 import math
 from dataclasses import asdict, dataclass
@@ -20,10 +24,6 @@ from backend.shared.json_io import read_json
 
 
 FORMAT = "aios.surrogate-npv-calibration.v1"
-
-
-class NpvCalibrationError(ValueError):
-    """A calibration cannot be fitted, loaded, or applied safely."""
 
 
 @dataclass(frozen=True, slots=True)

@@ -7,7 +7,7 @@ import {
   submittedOf,
   totalsOf,
   valueFor
-} from '@/pages/money-comparison/comparison';
+} from '@/pages/money-comparison/model/comparison';
 
 const npvFile = (preTax: number, withTax: number): NpvFile => ({
   wells: [],

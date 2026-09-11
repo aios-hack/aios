@@ -15,7 +15,7 @@ import { ConsoleInspector } from '@/features/inspector/ui';
 import { ScenarioBadge } from '@/features/scenario-switch/ui/ScenarioBadge';
 import { StatusChip } from '@/features/trust-board/ui';
 import { WorkspaceNav } from '@/features/workspace-nav/ui';
-import '@/app/ConsoleScene/ConsoleShell.css';
+import '@/app/App/ConsoleShell.css';
 
 const ConsoleShell = () => {
   const { t, lang } = useI18n();

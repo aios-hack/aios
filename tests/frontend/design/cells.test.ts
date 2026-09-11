@@ -8,8 +8,8 @@ import {
   CHRONO_METRICS,
   type CellContext,
   type Palette
-} from '@/pages/history-matrix/cells';
-import { PALETTE_TOKENS } from '@/pages/history-matrix/cells';
+} from '@/pages/history-matrix/model/cells';
+import { PALETTE_TOKENS } from '@/pages/history-matrix/model/cells';
 import { publicPath } from '@support/paths';
 
 const timeline = JSON.parse(

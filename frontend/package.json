@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "export-routes": "node --experimental-strip-types scripts/export-routes.ts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

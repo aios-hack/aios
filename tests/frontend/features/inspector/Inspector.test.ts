@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { srcPath } from '@support/paths';
+import { APP_SHELL_CSS } from '@support/layout';
 
 const read = (...parts: string[]): string =>
   readFileSync(srcPath(...parts), 'utf-8');
@@ -13,7 +14,7 @@ const blockOf = (css: string, selector: string): string => {
 };
 
 describe('the well card floats over the scene instead of squeezing it', () => {
-  const shell = read('app', 'ConsoleScene', 'ConsoleShell.css');
+  const shell = readFileSync(APP_SHELL_CSS, 'utf-8');
 
   it('never gives the card a grid column that would resize the content', () => {
     expect(shell).not.toMatch(/\[data-inspector='open'\]\s*\{[^}]*grid-template-columns/);
@@ -27,7 +28,7 @@ describe('the well card floats over the scene instead of squeezing it', () => {
 });
 
 describe('the dimmed backdrop leaves the transport usable', () => {
-  const shell = read('app', 'ConsoleScene', 'ConsoleShell.css');
+  const shell = readFileSync(APP_SHELL_CSS, 'utf-8');
 
   it('stops above the player instead of covering it', () => {
     const scrim = blockOf(shell, '.console-scrim');
@@ -57,7 +58,7 @@ describe('the dimmed backdrop leaves the transport usable', () => {
 
 describe('the card announces itself with motion, not a jump', () => {
   const css = read('features', 'inspector', 'ui', 'Inspector', 'Inspector.css');
-  const shell = read('app', 'ConsoleScene', 'ConsoleShell.css');
+  const shell = readFileSync(APP_SHELL_CSS, 'utf-8');
 
   it('slides in from the edge it is anchored to', () => {
     const frames = css.match(/@keyframes inspector-in\s*\{[\s\S]*?\n\}/)?.[0] ?? '';

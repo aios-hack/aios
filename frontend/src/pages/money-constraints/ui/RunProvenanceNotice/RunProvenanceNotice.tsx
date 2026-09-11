@@ -3,7 +3,7 @@ import type { RunManifest } from '@/entities/runs/model/runTypes';
 import {
   isEquilibriumUnclaimed,
   isFallbackStrategy
-} from '@/pages/money-constraints/ui/runFields';
+} from '@/pages/money-constraints/model/runFields';
 
 export const RunProvenanceNotice = ({
   manifest

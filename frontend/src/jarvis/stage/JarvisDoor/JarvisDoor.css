@@ -36,7 +36,7 @@
   flex: none;
   width: var(--size-icon-button);
   height: var(--size-icon-button);
-  border: 1px solid var(--color-border);
+  border: var(--border-hairline) solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-jarvis-ink);
 }
@@ -60,7 +60,7 @@
 .jarvis-door-key {
   flex: none;
   padding: 0 var(--space-1);
-  border: 1px solid var(--color-border);
+  border: var(--border-hairline) solid var(--color-border);
   border-radius: var(--radius-sm);
   font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);

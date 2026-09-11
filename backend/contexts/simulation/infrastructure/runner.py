@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.simulation.domain.errors import (
+    OpmRunnerError,
+)
+
 import hashlib
 import json
 import os
@@ -24,7 +28,7 @@ from backend.shared.paths import out_root
 from backend.contexts.runs.infrastructure.provenance import DEFAULT_OPM_IMAGE, OPM_IMAGE_ENV
 
 from backend.contexts.reservoir.infrastructure.opm_deck import EmittedOpmDeck, bundle_hash
-from .preflight import (
+from backend.contexts.simulation.infrastructure.preflight import (
     DockerPreflightError,
     ImageReference,
     PreflightReport,
@@ -119,10 +123,6 @@ _PYTEST_ENV = "PYTEST_CURRENT_TEST"
 _INITIATOR_TEST = "test"
 _INITIATOR_UNKNOWN = "unknown"
 _KNOWN_INITIATORS: frozenset[str] = frozenset({"cli", "ui", _INITIATOR_TEST})
-
-
-class OpmRunnerError(ValueError):
-    pass
 
 
 def budget_journal_path() -> Path:

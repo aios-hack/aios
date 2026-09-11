@@ -14,6 +14,10 @@ heavy ML stack; install ``aios[ml]`` to train or load a checkpoint.
 
 from __future__ import annotations
 
+from backend.contexts.surrogate.domain.errors import (
+    SurrogateModelError,
+)
+
 import hashlib
 import json
 import math
@@ -130,10 +134,6 @@ _NUMERIC_NAMES: tuple[str, ...] = (
     "event_count",
     "fixed_event_count",
 )
-
-
-class SurrogateModelError(ValueError):
-    """Training data, checkpoint, or candidate axes are inconsistent."""
 
 
 @contextmanager

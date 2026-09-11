@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.assistant.domain.errors import (
+    RouteError,
+)
+
 from typing import Any, Mapping
 
 WORKSPACE_VIEWS: Mapping[str, tuple[str, ...]] = {
@@ -28,10 +32,6 @@ ROUTE_BY_CARD: Mapping[str, tuple[str, str]] = {
     "constraints": ("money", "constraints"),
     "council": ("decisions", "council"),
 }
-
-
-class RouteError(ValueError):
-    pass
 
 
 def check_route(workspace: str, view: str) -> tuple[str, str]:

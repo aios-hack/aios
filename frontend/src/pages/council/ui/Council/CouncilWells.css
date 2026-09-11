@@ -1,0 +1,205 @@
+.council-table-wrap {
+  --council-col-xs: 96px;
+  --council-col-sm: 104px;
+  --council-col-md: 112px;
+  --council-col-lg: 124px;
+  --council-col-xl: 164px;
+
+  overflow-x: auto;
+  border: var(--border-hairline) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-sunken);
+}
+
+.council-table {
+  width: 100%;
+  min-width: var(--size-table-wide-min);
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.council-col-well {
+  width: 10%;
+  min-width: var(--council-col-sm);
+}
+
+.council-col-decision {
+  width: 11%;
+  min-width: var(--council-col-md);
+}
+
+.council-col-rule {
+  width: 9%;
+  min-width: var(--council-col-xs);
+}
+
+.council-col-num {
+  width: 13%;
+  min-width: var(--council-col-lg);
+}
+
+.council-col-constraint {
+  width: 18%;
+  min-width: var(--council-col-xl);
+}
+
+.council-table th,
+.council-table td {
+  padding: var(--space-2) var(--space-4);
+  border-bottom: var(--border-hairline) solid var(--color-border-subtle);
+  text-align: left;
+  vertical-align: baseline;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.council-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  border-bottom: var(--border-hairline) solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.council-table tbody tr:last-child th,
+.council-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.council-table td.council-cell-num {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+
+.council-table tbody tr {
+  cursor: pointer;
+  transition: background var(--duration-state) var(--ease-out);
+  animation: council-row-in var(--duration-state) var(--ease-out) both;
+  animation-delay: calc(var(--stagger-step) * var(--council-row-index, 0) / 4);
+}
+
+.council-table tbody tr:hover {
+  background: var(--color-row-hover);
+}
+
+.council-table tr[data-state='path'],
+.council-table tr[data-selected='true'] {
+  background: var(--color-accent-dim-2);
+}
+
+.council-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: var(--space-2) 0;
+  min-height: var(--size-control-height);
+  border: none;
+  background: none;
+  color: inherit;
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+  transition: color var(--duration-state) var(--ease-out);
+}
+
+.council-sort-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.council-sort-button:hover,
+.council-sort-button[data-active='true'] {
+  color: var(--color-accent);
+}
+
+.council-sort-arrow {
+  flex: none;
+  width: 1.2em;
+  text-align: center;
+  color: var(--color-accent);
+  opacity: var(--opacity-sort-idle);
+  transition: opacity var(--duration-state) var(--ease-out);
+}
+
+.council-sort-button:hover .council-sort-arrow,
+.council-sort-arrow[data-active='true'] {
+  opacity: 1;
+}
+
+.council-well-button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--size-control-height);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  cursor: pointer;
+  transition: color var(--duration-state) var(--ease-out);
+}
+
+.council-verb {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+}
+
+.council-rule {
+  color: var(--color-text-muted);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-mono);
+}
+
+.council-table .jarvis-explain {
+  margin-left: var(--space-2);
+  color: var(--color-text-muted);
+  transition: color var(--duration-state) var(--ease-out);
+}
+
+.council-table tr:hover .jarvis-explain,
+.council-table tr[data-selected='true'] .jarvis-explain,
+.council-table .jarvis-explain:hover,
+.council-table .jarvis-explain:focus-visible {
+  color: var(--color-jarvis-ink);
+}
+
+.council-constraint {
+  color: var(--color-danger);
+}
+
+
+@keyframes council-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rise-md));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .council-table tbody tr {
+    animation: none;
+  }
+
+  .council-table tbody tr,
+  .council-sort-button,
+  .council-sort-arrow,
+  .council-well-button,
+  .council-table .jarvis-explain {
+    transition: none;
+  }
+}

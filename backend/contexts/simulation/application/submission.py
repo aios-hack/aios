@@ -30,6 +30,10 @@ Economics → FinalNpvArtifact
 
 from __future__ import annotations
 
+from backend.contexts.simulation.domain.errors import (
+    SubmissionTractError,
+)
+
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -65,10 +69,6 @@ from backend.contexts.simulation.infrastructure.response_loader import (
 from backend.contexts.simulation.infrastructure.runner import OpmRunner
 
 _SCHEDULE_INCLUDE = "Model_Z_sch.inc"
-
-
-class SubmissionTractError(ValueError):
-    """Тождество §10.5 не выполнено — какие именно, перечислены в сообщении."""
 
 
 @dataclass(frozen=True, slots=True)

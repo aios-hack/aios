@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.reservoir.domain.errors import (
+    OpmDeckError,
+)
+
 import hashlib
 import re
 import shutil
@@ -24,7 +28,7 @@ from backend.core.contracts import (
 )
 from backend.domain.schedule import LosslessBlock, ParsedSchedule, parse_schedule
 
-from .summary import (
+from backend.contexts.reservoir.infrastructure.summary import (
     RegionPlan,
     SummaryPlan,
     SummaryPlanError,
@@ -64,10 +68,6 @@ DIAGNOSTIC_MARKER_TEXT = (
     "Этот дек не идёт в сдачу. Сдаваемое расписание им не меняется — "
     "управляющий и фиксированный слои те же, отличается только отчётность.\n"
 )
-
-
-class OpmDeckError(ValueError):
-    pass
 
 
 @dataclass(frozen=True, slots=True)

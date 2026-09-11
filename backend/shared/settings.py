@@ -40,6 +40,13 @@ def _text(environ: Mapping[str, str], name: str) -> str | None:
     return value or None
 
 
+def _flag(environ: Mapping[str, str], name: str) -> bool:
+    raw = environ.get(name)
+    if raw is None:
+        return False
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _path(environ: Mapping[str, str], name: str) -> Path | None:
     value = _text(environ, name)
     return Path(value).expanduser() if value is not None else None
@@ -108,6 +115,7 @@ class Settings:
     lambda_workers: int
     lambda_limit: int | None
     lambda_selection_path: Path | None
+    lambda_strict: bool
 
     search_diagnostics_path: Path
     search_result_path: Path
@@ -186,6 +194,7 @@ class Settings:
                 else None
             ),
             lambda_selection_path=_path(source, "AIOS_LAMBDA_SELECTION_PATH"),
+            lambda_strict=_flag(source, "AIOS_LAMBDA_STRICT"),
             search_diagnostics_path=(
                 _path(source, "AIOS_SEARCH_DIAGNOSTICS_PATH") or DEFAULT_SEARCH_DIAGNOSTICS_PATH
             ),
@@ -255,6 +264,7 @@ ENV_VARIABLES: tuple[str, ...] = (
     "AIOS_LAMBDA_WORKERS",
     "AIOS_LAMBDA_LIMIT",
     "AIOS_LAMBDA_SELECTION_PATH",
+    "AIOS_LAMBDA_STRICT",
     "AIOS_SEARCH_DIAGNOSTICS_PATH",
     "AIOS_SEARCH_RESULT_PATH",
     "AIOS_SEARCH_FIXED_POINT_CAP",

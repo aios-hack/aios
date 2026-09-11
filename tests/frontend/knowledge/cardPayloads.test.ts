@@ -25,7 +25,7 @@ import {
   readSystemMap,
   readWell,
   readWellList
-} from '@/jarvis/cards/payloads/cardPayloads';
+} from '@/jarvis/cards/payloads';
 import { publicPath } from '@support/paths';
 
 const fixtureDir = publicPath('jarvis', 'fixtures');
@@ -46,7 +46,7 @@ const readers: Record<string, (payload: unknown) => unknown> = {
   glossary: readGlossary,
   guide: readGuide,
   doc: readDoc,
-  'system-map': (payload: unknown) => readSystemMap(payload, 'ru'),
+  'system-map': readSystemMap,
   'status-board': readStatusBoard,
   'run-list': readRunList,
   run: readRun,

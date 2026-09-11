@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { AblationEntry } from '@/pages/money-rank/npv/ablation';
+import type { AblationEntry } from '@/pages/money-rank/model/ablation';
 import {
   ABLATION_SORT_KEYS,
   isNumericAblationKey,
   sortAblationEntries,
   type AblationLabels,
   type AblationSortKey
-} from '@/pages/money-rank/npv/ablationSorting';
+} from '@/pages/money-rank/model/ablationSorting';
 
 const entry = (
   rule: string,

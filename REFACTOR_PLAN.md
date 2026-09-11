@@ -18,7 +18,7 @@
 2. **Бэкенд — DDD «контекст-первый»**: `backend/shared` (общее ядро), `backend/contexts/<имя>`
    с тремя слоями внутри каждого (`domain`, `application`, `infrastructure`),
    `backend/interfaces` (CLI и HTTP). Карта контекстов и разрешённые зависимости — §3.2.
-3. **Фронт — слайсы**: `app → widgets → pages → features → entities → shared`, Джарвис —
+3. **Фронт — слайсы**: `app → pages → features → entities → shared`, Джарвис —
    отдельный самодостаточный слайс `jarvis` с теми же правилами внутри. Каждый компонент — своя
    папка `Name/Name.tsx + Name.css + index.ts`. Импорты только через алиас `@/`.
 4. **Один каталог тестов на оба стека**: `tests/backend/**`, `tests/frontend/**`,
@@ -145,8 +145,6 @@ frontend/
     features/                      возможности с состоянием
       timeline-player/  inspector/  command-palette/  trust-board/  scenario-switch/
       ask-jarvis/  header-controls/  workspace-nav/  provenance-banner/
-    widgets/                       крупные части экрана из фич
-      console-shell/  console-header/
     pages/                         экраны; один экран — одна папка
       overview/  field-projection/  field-maps/  history-matrix/  history-wall/  history-table/
       council/  rules/  money-rank/  money-comparison/  money-constraints/
@@ -161,8 +159,8 @@ frontend/
 ```
 
 Правило зависимостей (сверху вниз, без стрелок вверх и без циклов):
-`app → widgets → pages → features → entities → shared`; `jarvis` может импортировать
-`entities` и `shared`, а `features/ask-jarvis`, `features/workspace-nav`, `widgets/console-shell`
+`app → pages → features → entities → shared`; `jarvis` может импортировать
+`entities` и `shared`, а `features/ask-jarvis`, `features/workspace-nav` и `app`
 могут импортировать `jarvis` через его `index.ts`. `shared` не импортирует никого.
 
 ---
@@ -336,7 +334,7 @@ class UnavailableError(AiosError)       функция сознательно н
 | `api/types.ts` (454) | `entities/<имя>/types.ts` — по сущности; `data/validators.ts` (521) → `entities/<имя>/validate.ts`; `data/datasets.ts` → `entities/registry.ts`; `useMapLayer`, `useRuns`, `useHierarchyStep` встают в реестр, а не мимо |
 | `app/events.ts` | `entities/events/derive.ts` |
 | `app/{TimeScale*, useStepPlayback, useAxisCollapse, useBackdrop*}` + `state/PlaybackContext` + `ui/PlaybackSettings` + `views/Timeline/StepControls` | `features/timeline-player/` (`PlaybackProvider` без `axisCollapsed`; свёрнутость оси — `features/timeline-player/model/axis.ts`) |
-| `state/ConsoleContext` | `app/router/` (`WORKSPACES`, `WORKSPACE_VIEWS`, `RouterProvider`, `useRoute`); `morphRequest` уходит в `widgets/console-shell/model/morph.ts` |
+| `state/ConsoleContext` | `app/router/` (`WORKSPACES`, `WORKSPACE_VIEWS`, `RouterProvider`, `useRoute`); `morphRequest` уходит в `shared/lib/morph` |
 | `state/ScenarioContext` | `features/scenario-switch/` (контекст) + `entities/scenarios/url.ts` (`scenarioDataUrl`, `isSafeScenarioId`) |
 | `state/TimelineContext`, `state/ProvenanceContext`, `app/HistoryViewContext` | `features/timeline-player/model/selection.tsx`, `features/provenance-banner/`, `pages/history-*/model/view.tsx` |
 | `ui/Inspector` + `views/WellCard` | `features/inspector/` (`Inspector`, `ConsoleInspector`) и `entities/wells/ui/WellCard/` |
@@ -570,6 +568,13 @@ C-задачи выполняет тот агент, чей стек они за
   отсутствие `{ru,en}` в payload карточек, якоря `data-guide` против `guide.json`.
 - [ ] **C-09** Золотой прогон.
 
+**Решение координатора по слою `widgets` (11.09):** слой **упразднён**. После волны 1
+в нём остались только маршрутные обёртки (`Money`, `History`, `Decisions` — переключатели
+вкладок внутри рабочего пространства, это страницы) и шапка без собственного компонента.
+Обёртки переехали в `pages`, сцена и данные рабочего пространства — в `app/ConsoleScene`,
+шапку рисует `App.tsx`. Целевой порядок слоёв — `app → pages → features → entities → shared`
+плюс слайс `jarvis`. Пустой слой ради симметрии — тот же мусор, что пустой пакет (Z-08a).
+
 ### 7.4 Волна 3 — язык, имена, шимы
 
 **A**
@@ -763,6 +768,30 @@ C-задачи выполняет тот агент, чей стек они за
 - `[B→координатор]` `tsconfig.json` пришлось дополнить: `"typeRoots": ["./node_modules/@types", "./node_modules"]`. Без этого `tsc` не находит типы из тестов вне `frontend/` (`node_modules` есть только в `frontend/`). В `vite.config.ts` по той же причине добавлен плагин `aios-resolve-outside-root` (резолвит голые пакеты из `frontend/node_modules` для файлов в `tests/`) и `server.fs.allow` на корень репозитория. Новых npm-зависимостей нет.
 - `[B→координатор]` `index.html` указывал на `/src/main.tsx`; после переноса в `app/` исправлен на `/src/app/main.tsx`. Это ловится только `vite build`, не тестами — стоит добавить сборку в приёмку волны.
 - `[B→координатор]` Разбиты сверх плана (все были > 250 строк): `Chronomap.tsx` 407 → 245 (`shared/lib/layout/useStageBox.ts`, `pages/history-matrix/model/{readoutBounds,chronoLegend}.ts`); `useWallCanvas.ts` 252 → 93 (`pages/history-wall/wallPainter.ts`). Публичные `paintWall`, `paintWallCursor`, `readoutBoundsOf`, `OBSTRUCTION_SELECTORS` переехали в новые модули, тесты переключены на них.
+
+- `[B→координатор]` **Волна 2 стартовала со сломанного `vite build`**: `app/ConsoleScene/ConsoleShell.css` после переноса координатора импортировал `../console-header/ConsoleHeader.css` и `./ui/ConsoleScene/ConsoleScene.css` — оба пути не существуют, сборка падала (тесты этого не ловят, CSS `@import` проверяет только vite). Починено: `ConsoleShell.css` и `ConsoleHeader.css` лежат в `app/App/` рядом с `App.tsx`, который их рендерит; `ConsoleScene.css` импортирует сам `ConsoleScene.tsx`. Каталог `widgets/` удалён целиком — в `console-header` не было компонента, только CSS шапки, которую рисует `App.tsx`. Слой `widgets` в §2.2 фронта фактически пуст; предлагаю убрать его из правила зависимостей.
+- `[B→координатор]` B-07: каждая страница теперь `index.ts` + `ui/<Component>/` + `model/`. Вложенный слой `pages/money-rank/npv/` расплющен (`npv/NpvRank` → `ui/NpvRank`, `npv/ablation.ts` → `model/ablation.ts`). Публичные символы не исчезли, изменились только пути; тесты переключены. Списки путей в тестах переписаны с литеральных сегментов на константы `@support/layout` (`pageUiPath`, `COUNCIL_CSS`, `CHRONOMAP_CSS`, …) — требование §4.5 закрыто.
+- `[B→координатор]` B-11 снял трёхуровневый разбор маршрута. Был `ConsoleScene` → switch по workspace → обёртки `pages/{history,decisions,money}` → switch по view. Стало: реестр `app/router/pages.ts` (`PAGES['<workspace>/<view>']`, все 11 страниц лениво) и один `ErrorBoundary` + `Suspense` в `ConsoleScene`. Обёртки `pages/{history,decisions,money}` удалены; их CSS переехал к страницам, которые эти классы рисуют; `data-testid="money-workspace"` теперь на `MoneyRank` и `MoneyComparison`. `HistoryViewContext` разделяли две страницы (`history-matrix`, `history-wall`), поэтому он ушёл в `entities/timeline/model/` и встал в `AppProviders`. Главный чанк 377 КБ → 366 КБ.
+- `[B→координатор]` B-10: заведён настоящий `shared/ui/IconButton` (`IconButton` + `IconIsland`, `forwardRef` для триггера `Popover`) — раньше в папке лежал только CSS, а четыре компонента подключали его через `@import '../../../../shared/ui/IconButton/IconButton.css'`, то есть относительным путём мимо алиаса. Все четыре `@import` удалены, компонент импортирует свой CSS сам. Правило «размеры токенами»: ~320 литералов `px` вне темы сведены к нулю (осталось только объявление токенов и `@media`) — рамки через `--border-hairline`/`--border-thick`, штрихи через `--stroke-hairline`/`--stroke-thick`, подъёмы появления через `--rise-{sm,md,lg,xl}`, остальное — локальные custom properties в корневом блоке компонента. В `@support/layout` добавлены `pxOf`/`declaredPx`, чтобы тесты читали значение через токен, а не литерал.
+- `[B→координатор]` B-10, владение классами: найдено 13 классов, объявленных в двух файлах сразу. Исправлено — `FieldMapCard` получил свой namespace `jarvis-field-map-*` (делил `.jarvis-map*` с `SystemMapCard`); анимация `.icon-button-glyph` из `HeaderControls` перестала течь на все кнопки-иконки (теперь `.header-controls .icon-button-glyph`); `.time-scale-island`/`.playback-settings-island` уехали из `StepControls.css` в `TimeScalePlayer.css` — их рисует `TimeScale`; четыре копии `.visually-hidden` сведены в одну в `app/styles/styles.css`; фокус на залитой кнопке стал утилитой `.focus-on-fill` вместо перечисления чужих классов в глобальном листе. Остальные совпадения — разбитые по 250 строк листы одного и того же компонента, это нормально.
+- `[B→координатор]` B-08 выполнен по схеме A (`[A→B]` ниже). Раскладка разнесена скриптом с посимвольной сверкой: `knowledge/{glossary,guide,system}.json` без единого `{ru,en}`, тексты в `knowledge/i18n/{ru,en}/*.json` по `id`; сверено обратной сборкой — расхождений ноль, и файлы проходят `parse_*`/`missing_ids` из `contexts/assistant/domain/knowledge.py`. `routes.json` генерируется `frontend/scripts/export-routes.ts` (`npm run export-routes`) из `shared/router/routes.ts`. Добавлен `tests/support/frontend/knowledge.ts` — единственная точка чтения базы знаний из тестов.
+- `[B→координатор]` B-08, находка в данных: в разметке стояли четыре якоря `data-guide`, которых не было в `guide.json` (`money-provenance`, `money-runs`, `projection-edges-hint`, `projection-groups-toggle`) — то есть Джарвис не мог подсветить эти блоки. Добавлены в `guide.json` и в оба языка. Ещё: узел `console` в `system.json` ссылался на `frontend/src/views` и `frontend/src/ui`, которых нет с волны 1 — заменено на текущие слои.
+- `[B→A]` В `system.json` узел `llm` ссылается на `backend/infrastructure/llm`, этого пути после волны 1 нет. Назови верный путь (`contexts/assistant/infrastructure/llm`?) — поправлю в данных.
+- `[B→координатор]` B-09: `textOf`/`pickLang` удалены, карточки читают одноязычный payload (`strOrNull`), `readSystemMap` больше не принимает `lang`. `jarvis/cards/payloads` разрезан по одному файлу на тип (было 6 файлов на 21 читатель, стало 21 + `index.ts`-барреля + общие `payloadPrimitives`/`scalars`/`runRow`).
+- `[B→координатор]` Тестов стало 1413 в 94 файлах против 1403 в 93 — добавлен `tests/architecture/frontend/knowledge-parity.test.ts` (10 проверок: ни одного `{ru,en}` в нейтральных файлах, паритет `id` по языкам, совпадение длин позиционных массивов `where_in_platform`/`controls`). Это фронтовая половина C-08; вторая половина (`data-guide` против `guide.json`) уже живёт в `tests/frontend/knowledge/knowledge.test.ts`. Ни один существующий тест не удалён.
+- `[B→координатор]` `tsconfig.json` дополнен: `"allowImportingTsExtensions": true` и `scripts`/`../tests/architecture/frontend` в `include` — иначе `export-routes.ts` и архитектурные тесты фронта не проверяются `tsc`. Новых npm-зависимостей нет.
+- `[B→координатор]` `Console.test.tsx` собирал дерево провайдеров вручную и разошёлся с `AppProviders` (после переезда `HistoryViewProvider` тест падал, а приложение работало). Переведён на `AppProviders` — расхождение больше невозможно. Остальные 9 тестов со своими стеками провайдеров рендерят отдельные компоненты, их не трогал.
+
+- `[A→B] схема готова`: `backend/contexts/assistant/domain/knowledge.py`. Раскладка базы знаний после A-12/B-08.
+  **Нейтральные файлы** `frontend/public/jarvis/knowledge/{glossary,guide,system}.json` — прежняя форма, но из каждой записи убраны все объекты `{ru, en}`:
+  - `glossary.json` → `{version, terms: [...]}`. Запись термина: `id`, `aliases` (плоский список строк, оба языка вперемешку — это поисковый индекс, не текст), `formula`, `unit`, `source`, `related`, `where_in_platform: [{workspace, view, spotlight}]`. Полей `term`, `definition`, `where_in_platform[].what`, `notice` в нейтральном файле **нет**.
+  - `guide.json` → `{version, screens: [...], elements: [...]}`. Экран: `workspace`, `view`, `controls: [{spotlight, hotkey?}]`. Элемент: `id`, `controls: [{spotlight, hotkey?}]`. Полей `title`, `what`, `how_to_read`, `controls[].label`, `questions`, `notice` в нейтральном файле **нет**.
+  - `system.json` → `{version, nodes: [...], edges: [...]}`. Узел: `id`, `kind` (из `ui|service|domain|infra|data|doc`), `doc`, `route`, `files`. Ребро: `{from, to}`. Полей `label`, `summary`, `edges[].label`, `source` в нейтральном файле **нет**.
+  **Языковые файлы** `frontend/public/jarvis/knowledge/i18n/{ru,en}/{glossary,guide,system}.json` — по одному объекту на файл, ключ = идентификатор записи, значение = только текст:
+  - `i18n/<lang>/glossary.json` → `{notice, terms: {"<id>": {term, definition, where_in_platform: ["<строка на место i>", ...]}}}`. Массив `where_in_platform` позиционно соответствует массиву нейтрального файла.
+  - `i18n/<lang>/guide.json` → `{notice, screens: {"<workspace>/<view>": {title, what, how_to_read, controls: ["<подпись кнопки i>", ...], questions: [...]}}, elements: {"<id>": {title, what, how_to_read, controls: [...], questions: [...]}}}`. Ключ экрана строит `screen_id` (`"overview/fund"`), массив `controls` позиционно соответствует нейтральному.
+  - `i18n/<lang>/system.json` → `{source, nodes: {"<id>": {label, summary}}, edges: {"<from>-><to>": {label}}}`. Ключ ребра строит `edge_id` (`"console->web"`).
+  Правила: каждый `id` нейтрального файла обязан быть в **обоих** языках; ни одного объекта `{ru, en}` внутри значений; длины позиционных массивов (`where_in_platform`, `controls`) обязаны совпадать с нейтральными. Разбор и проверки — функции `parse_*`, `screen_id`, `edge_id`, `missing_ids` из модуля схемы; `KnowledgeSchemaError` бросается ровно там, где встретился остаток `{ru, en}`. Бэкенд (`KnowledgeStore.localized(lang)`) собирает одноязычные карточки; фронт получает плоские строки и `.ru`/`.en` больше не выбирает.
 
 ---
 

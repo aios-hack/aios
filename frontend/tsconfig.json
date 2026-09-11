@@ -5,6 +5,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "strict": true,
     "noUnusedLocals": true,
@@ -25,5 +26,12 @@
       "@support/*": ["../tests/support/frontend/*"]
     }
   },
-  "include": ["src", "vite.config.ts", "../tests/frontend", "../tests/support/frontend"]
+  "include": [
+    "src",
+    "scripts",
+    "vite.config.ts",
+    "../tests/frontend",
+    "../tests/support/frontend",
+    "../tests/architecture/frontend"
+  ]
 }

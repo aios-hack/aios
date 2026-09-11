@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ReactNode } from 'react';
 import type { FieldNormBand, TimelineStep } from '@/entities/timeline/types';
 import { I18nProvider } from '@/shared/i18n/I18nContext';
-import { CompensationPanel } from '@/pages/history-table/CompensationPanel/CompensationPanel';
+import { CompensationPanel } from '@/pages/history-table/ui/CompensationPanel/CompensationPanel';
 
 const DIAGNOSTIC_BAND: FieldNormBand = {
   min: 0.85,

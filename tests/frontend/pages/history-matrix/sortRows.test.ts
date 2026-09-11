@@ -8,7 +8,7 @@ import {
   sortRows,
   ungroupedCount,
   type ChronoRow
-} from '@/pages/history-matrix/sortRows';
+} from '@/pages/history-matrix/model/sortRows';
 
 const graph = (): GraphFile =>
   ({

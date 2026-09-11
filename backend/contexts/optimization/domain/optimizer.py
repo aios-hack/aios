@@ -54,6 +54,10 @@
 
 from __future__ import annotations
 
+from backend.contexts.optimization.domain.errors import (
+    OptimizerError,
+)
+
 import math
 import random
 from dataclasses import dataclass
@@ -68,10 +72,6 @@ from backend.contexts.optimization.domain.linalg import (
     symmetrize,
     transpose_matrix_vector,
 )
-
-
-class OptimizerError(ValueError):
-    """Поиск не может быть поставлен: вырожденные границы, пустая θ, нулевой бюджет."""
 
 
 class ObjectiveFunction(Protocol):

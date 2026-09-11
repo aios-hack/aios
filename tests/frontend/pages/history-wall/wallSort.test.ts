@@ -6,7 +6,7 @@ import {
   sortWallRows,
   ungroupedWells,
   type WallRow
-} from '@/pages/history-wall/wallSort';
+} from '@/pages/history-wall/model/wallSort';
 
 const groups = new Map<string, string>([
   ['2', 'G1'],

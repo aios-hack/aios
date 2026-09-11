@@ -19,12 +19,14 @@ from backend.contexts.optimization.infrastructure.artifacts import (
 )
 from backend.contexts.constraints.application.cases import load_case
 from backend.contexts.optimization.application.environment import (
-    SELF_REFERENCE_SKIP_REASON,
     LambdaDesyncError,
+    SELF_REFERENCE_SKIP_REASON,
     SearchEnvironment,
     format_ood_exceedances,
     load_environment,
     make_evaluator,
+)
+from backend.contexts.optimization.domain.physics_gate import (
     missing_invariants,
 )
 from backend.core.contracts import Constraints, Schedule, hash_schedule

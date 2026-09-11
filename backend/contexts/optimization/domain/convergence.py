@@ -51,15 +51,15 @@
 
 from __future__ import annotations
 
+from backend.contexts.optimization.domain.errors import (
+    ConvergenceError,
+)
+
 from collections.abc import Sequence
 from dataclasses import dataclass
 
 from backend.contexts.optimization.application.verification import CandidateCheck, RoundReport
 from backend.contexts.surrogate.domain.crm import spearman
-
-
-class ConvergenceError(ValueError):
-    """Критерий нельзя замерить: пустая история, вырожденная сетка порогов."""
 
 
 # --- Три кандидата §10.4 ----------------------------------------------------

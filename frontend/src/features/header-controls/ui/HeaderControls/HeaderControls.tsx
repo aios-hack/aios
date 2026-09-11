@@ -1,6 +1,7 @@
 import { MoonStarsIcon, SunIcon } from '@phosphor-icons/react';
 import { useI18n } from '@/shared/i18n/I18nContext';
 import { useTheme } from '@/shared/theme/ThemeContext';
+import { IconButton, IconIsland } from '@/shared/ui/IconButton';
 import './HeaderControls.css';
 
 export const HeaderControls = () => {
@@ -10,24 +11,20 @@ export const HeaderControls = () => {
 
   return (
     <div className="header-controls">
-      <div className="icon-island">
-        <button
-          type="button"
-          className="icon-button"
+      <IconIsland>
+        <IconButton
+          glyph
           data-guide="header-theme"
           onClick={toggleTheme}
-          aria-label={t(`theme.${nextTheme}`)}
-          title={t(`theme.${nextTheme}`)}
+          label={t(`theme.${nextTheme}`)}
         >
-          <span className="icon-button-glyph" aria-hidden="true">
-            {theme === 'light' ? (
-              <MoonStarsIcon size={15} weight="duotone" />
-            ) : (
-              <SunIcon size={15} weight="duotone" />
-            )}
-          </span>
-        </button>
-      </div>
+          {theme === 'light' ? (
+            <MoonStarsIcon size={15} weight="duotone" />
+          ) : (
+            <SunIcon size={15} weight="duotone" />
+          )}
+        </IconButton>
+      </IconIsland>
       <button
         type="button"
         className="lang-toggle"

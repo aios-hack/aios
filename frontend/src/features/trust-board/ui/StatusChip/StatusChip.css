@@ -1,6 +1,10 @@
-@import '../../../../shared/ui/IconButton/IconButton.css';
 
 .status-chip-wrap {
+  --status-pop-min: 300px;
+  --status-pop-max: 380px;
+  --status-rise-a: 4px;
+  --status-rise-b: 6px;
+
   position: relative;
   flex: none;
   padding: var(--space-1);
@@ -12,10 +16,10 @@
   left: 0;
   z-index: var(--z-drawer);
   width: max-content;
-  min-width: 300px;
-  max-width: min(380px, calc(100vw - var(--space-6) * 2));
+  min-width: var(--status-pop-min);
+  max-width: min(var(--status-pop-max), calc(100vw - var(--space-6) * 2));
   padding: 0;
-  border: 1px solid var(--color-border-strong);
+  border: var(--border-hairline) solid var(--color-border-strong);
   border-radius: var(--radius-md);
   background: var(--color-surface);
   box-shadow: var(--shadow-backdrop);
@@ -34,7 +38,7 @@
 @keyframes status-chip-in {
   from {
     opacity: 0;
-    translate: 0 -6px;
+    translate: 0 calc(-1 * var(--status-rise-b));
     scale: 0.97;
   }
 }
@@ -42,7 +46,7 @@
 @keyframes status-chip-out {
   to {
     opacity: 0;
-    translate: 0 -4px;
+    translate: 0 calc(-1 * var(--status-rise-a));
     scale: 0.98;
   }
 }

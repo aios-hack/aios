@@ -1,4 +1,4 @@
-from .diagnostics import (
+from backend.contexts.assistant.infrastructure.llm.diagnostics import (
     Finding,
     PATTERNS,
     Thresholds,
@@ -12,7 +12,7 @@ from .diagnostics import (
     detect_wct_rise_without_oil,
     diagnose,
 )
-from .explainer import (
+from backend.contexts.assistant.infrastructure.llm.explainer import (
     DecisionExplanation,
     build_explanation_prompt,
     explain,

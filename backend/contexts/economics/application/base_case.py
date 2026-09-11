@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.economics.domain.errors import (
+    BaseCaseError,
+)
+
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -30,10 +34,6 @@ from backend.contexts.economics.domain.npv import BalanceSheetInputs, CellFlows,
 from backend.shared.json_io import read_json
 
 RUB_PER_MILLION: float = 1_000_000.0
-
-
-class BaseCaseError(ValueError):
-    pass
 
 
 @dataclass(frozen=True, slots=True)

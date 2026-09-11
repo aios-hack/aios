@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.economics.domain.errors import (
+    NormativesError,
+)
+
 import hashlib
 import re
 import zipfile
@@ -42,10 +46,6 @@ METHODOLOGY_LOCKED_RUB: dict[str, float] = {
     "event_cost_rub": 1_000_000.0,
     "conversion_base_cost_rub": 5_000_000.0,
 }
-
-
-class NormativesError(ValueError):
-    pass
 
 
 def _to_float(value: Any, code: str) -> float:

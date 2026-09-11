@@ -51,6 +51,10 @@
 
 from __future__ import annotations
 
+from backend.contexts.surrogate.domain.errors import (
+    MetricsError,
+)
+
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -67,10 +71,6 @@ from backend.core.contracts import (
 from backend.contexts.economics.domain.esp import EspStateMachine, pick_initial_esp
 from backend.contexts.economics.domain.fund import FundState, classify_fund_state, track_well
 from backend.contexts.surrogate.domain.crm import spearman
-
-
-class MetricsError(ValueError):
-    """Метрику нельзя посчитать на этих данных: расходятся оси, пусто, k вне выборки."""
 
 
 # --- Деньги: ранжирование кандидатов ---------------------------------------

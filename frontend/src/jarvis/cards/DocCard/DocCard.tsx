@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useT } from '@/shared/i18n/I18nContext';
 import { Markdown } from '@/jarvis/markdown/Markdown/Markdown';
-import { readDoc } from '@/jarvis/cards/payloads/cardPayloads';
+import { readDoc } from '@/jarvis/cards/payloads';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
 import { highlightTerms } from '@/jarvis/cards/lib/docHighlight';
 import type { DocHit } from '@/jarvis/cards/payloads/payloadTypes';

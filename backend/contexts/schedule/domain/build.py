@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.schedule.domain.errors import (
+    ScheduleBuildError,
+)
+
 import re
 from dataclasses import dataclass
 from datetime import date
@@ -15,7 +19,7 @@ from backend.core.contracts import (
     WellState,
 )
 
-from .canonical import (
+from backend.contexts.schedule.domain.canonical import (
     ScheduleCanonicalError,
     canonicalize,
     canonicalize_control_events,
@@ -23,15 +27,11 @@ from .canonical import (
     find_control_conflicts,
     hash_canonical_schedule,
 )
-from .lossless import ParsedSchedule, ScheduleParseError, parse_schedule
-from .replay import ReplayError, replay_initial_state
+from backend.contexts.schedule.domain.lossless import ParsedSchedule, ScheduleParseError, parse_schedule
+from backend.contexts.schedule.domain.replay import ReplayError, replay_initial_state
 
 _WELSPECS_RE = re.compile(rb"^WELSPECS\b(.*?)^/\s*$", re.MULTILINE | re.DOTALL)
 _WELSPECS_WELL_RE = re.compile(rb"^\s*'([^']+)'", re.MULTILINE)
-
-
-class ScheduleBuildError(ValueError):
-    pass
 
 
 @dataclass(frozen=True, slots=True)

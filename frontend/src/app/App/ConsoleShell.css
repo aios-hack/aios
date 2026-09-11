@@ -1,0 +1,112 @@
+@import './ConsoleHeader.css';
+
+.app.console {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--size-nav) minmax(0, 1fr);
+  grid-template-rows: var(--h-header) minmax(0, 1fr);
+  grid-template-areas:
+    'header header'
+    'nav scene';
+  gap: 0;
+  height: 100vh;
+  min-height: 0;
+  min-width: var(--size-console-min);
+  padding: 0;
+  overflow: hidden;
+  --size-plot-viewport: calc(
+    100vh - var(--h-header) - var(--h-axis-space, var(--h-timeaxis)) - var(--space-7)
+  );
+}
+
+.app.console[data-axis='collapsed'] {
+  --h-axis-space: 46px;
+}
+
+:root:has(.app.console[data-axis='collapsed']) {
+  --h-player-opaque: 16px;
+}
+
+
+
+.console-area-header {
+  grid-area: header;
+  position: relative;
+  z-index: var(--z-popover);
+}
+
+.console-area-nav {
+  grid-area: nav;
+  min-width: 0;
+}
+
+.console-area-scene {
+  grid-area: scene;
+}
+
+.console-area-scene::after {
+  content: '';
+  display: block;
+  flex: none;
+  height: var(--h-axis-space, var(--h-timeaxis));
+  transition: height var(--duration-drawer) var(--ease-emphasis);
+}
+
+.console-area-inspector {
+  position: fixed;
+  top: var(--h-header);
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  width: min(var(--size-card-max), 100vw);
+  min-width: 0;
+  padding: var(--space-5) var(--space-5) calc(var(--h-player-opaque) + var(--space-5));
+  pointer-events: none;
+}
+
+.console-area-inspector > * {
+  pointer-events: auto;
+}
+
+.console-scrim {
+  position: fixed;
+  inset: var(--h-header) 0 var(--h-player-opaque) 0;
+  z-index: 0;
+  background: var(--color-backdrop);
+  pointer-events: auto;
+  animation: console-scrim-in var(--duration-drawer) var(--ease-out) both;
+}
+
+.console-scrim[data-closing='true'] {
+  animation: console-scrim-out var(--duration-state) var(--ease-out) both;
+}
+
+@keyframes console-scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes console-scrim-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .console-scrim,
+  .console-scrim[data-closing='true'] {
+    animation: none;
+  }
+}
+
+.console-area-timeaxis {
+  grid-area: unset;
+}

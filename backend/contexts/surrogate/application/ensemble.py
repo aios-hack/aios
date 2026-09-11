@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from backend.contexts.surrogate.domain.errors import (
+    TrajectoryEnsembleError,
+)
+
 import hashlib
 import json
 import math
@@ -10,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from backend.contexts.surrogate.domain.features import SurrogateInput
-from .model import TrajectorySurrogate, _features
+from backend.contexts.surrogate.application.model import TrajectorySurrogate, _features
 from backend.contexts.robustness.domain.ood import ScoredPrediction, score
 from backend.contexts.surrogate.domain.raw_model_output import (
     RawModelOutput,
@@ -19,10 +23,6 @@ from backend.contexts.surrogate.domain.raw_model_output import (
 from backend.shared.json_io import read_json
 
 FORMAT = "aios.trajectory-ensemble.v1"
-
-
-class TrajectoryEnsembleError(ValueError):
-    pass
 
 
 @dataclass(frozen=True, slots=True)

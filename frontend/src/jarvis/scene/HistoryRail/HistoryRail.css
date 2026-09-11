@@ -1,4 +1,6 @@
 .jarvis-rail {
+  --jarvis-rail-nudge: 3px;
+
   display: flex;
   align-items: flex-end;
   gap: var(--space-3);
@@ -88,7 +90,7 @@
   place-items: center;
   width: var(--size-jarvis-bead);
   height: var(--size-jarvis-bead);
-  border: 1px solid var(--color-border);
+  border: var(--border-hairline) solid var(--color-border);
   border-radius: var(--radius-pill);
   background: var(--color-surface);
   transition:
@@ -103,7 +105,7 @@
   line-height: 1;
   color: var(--color-jarvis-ink);
   transform: rotate(calc(var(--glyph-index) * 90deg - 45deg))
-    translateY(calc(-1 * var(--size-jarvis-bead) / 2 + 3px))
+    translateY(calc(-1 * var(--size-jarvis-bead) / 2 + var(--jarvis-rail-nudge)))
     rotate(calc(var(--glyph-index) * -90deg + 45deg));
 }
 
@@ -164,7 +166,7 @@
   gap: var(--space-1);
   width: var(--size-jarvis-bead-preview);
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border-strong);
+  border: var(--border-hairline) solid var(--color-border-strong);
   border-radius: var(--radius-md);
   background: var(--color-surface-solid);
   transform: translateX(-50%);

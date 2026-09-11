@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.economics.domain.errors import (
+    LedgerError,
+)
+
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
@@ -11,11 +15,7 @@ from backend.core.contracts import (
     is_excluded_by_negative_rule,
 )
 
-from .fund import ACTIVE_FUND_STATES, FundState, FundTransition, track_well
-
-
-class LedgerError(ValueError):
-    pass
+from backend.contexts.economics.domain.fund import ACTIVE_FUND_STATES, FundState, FundTransition, track_well
 
 
 @dataclass(frozen=True, slots=True)

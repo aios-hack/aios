@@ -9,7 +9,7 @@ import { PlaybackProvider, usePlayback } from '@/entities/timeline/model/Playbac
 import { TimelineProvider, useTimeline } from '@/entities/timeline/model/TimelineContext';
 import { ViewStatus } from '@/shared/ui/ViewStatus';
 import { StepControls } from '@/features/timeline-player/ui/StepControls/StepControls';
-import { WellsTable } from '@/pages/history-table/WellsTable/WellsTable';
+import { WellsTable } from '@/pages/history-table/ui/WellsTable/WellsTable';
 
 const { ru } = dictionaries;
 

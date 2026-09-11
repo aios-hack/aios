@@ -1,8 +1,10 @@
 .legend {
+  --legend-min-w: 210px;
+
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  min-width: 210px;
+  min-width: var(--legend-min-w);
 }
 
 .legend-title {
@@ -27,7 +29,7 @@
   display: block;
   height: var(--space-4);
   border-radius: var(--radius-pill);
-  border: 1px solid var(--color-border);
+  border: var(--border-hairline) solid var(--color-border);
 }
 
 .legend-scale {
@@ -52,7 +54,7 @@
   flex: none;
   width: var(--size-swatch);
   height: var(--size-swatch);
-  border: 1px solid var(--color-border);
+  border: var(--border-hairline) solid var(--color-border);
   border-radius: var(--radius-sm);
 }
 

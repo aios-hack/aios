@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.assistant.domain.errors import (
+    UpstreamError,
+)
+
 import json
 import time
 import urllib.error
@@ -25,10 +29,6 @@ DEFAULT_MAX_TOKENS = 2400
 DEFAULT_TEMPERATURE = 0.2
 DEFAULT_TIMEOUT = 60.0
 RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
-
-
-class UpstreamError(RuntimeError):
-    pass
 
 
 class _ToolCallBuffer:

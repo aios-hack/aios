@@ -6,7 +6,7 @@ import {
   layerOptions,
   shownCount,
   type LayerFilter
-} from '@/pages/field-projection/layerFilter';
+} from '@/pages/field-projection/model/layerFilter';
 import {
   easeInOut,
   edgeOpacityAt,

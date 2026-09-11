@@ -5,7 +5,7 @@ import type { ScenarioEntry } from '@/entities/scenarios/types';
 import { dictionaries } from '@/shared/i18n/dictionaries';
 import { I18nProvider } from '@/shared/i18n/I18nContext';
 import { ThemeProvider } from '@/shared/theme/ThemeContext';
-import { MoneyProvenance } from '@/pages/money-comparison/MoneyProvenance/MoneyProvenance';
+import { MoneyProvenance } from '@/pages/money-comparison/ui/MoneyProvenance/MoneyProvenance';
 
 const { ru } = dictionaries;
 

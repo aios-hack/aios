@@ -1,0 +1,115 @@
+.abl-unmeasured {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-style: italic;
+}
+
+.abl-zero {
+  color: var(--color-text-muted);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-medium);
+}
+
+.abl-delta {
+  color: var(--color-text);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.abl-contribution {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  width: 100%;
+  max-width: 12ch;
+}
+
+.abl-share-value {
+  text-align: right;
+}
+
+.abl-share-value {
+  color: var(--color-text-muted);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.abl-bar-track {
+  width: 100%;
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+}
+
+.abl-bar {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  transform: scaleX(var(--abl-bar-ratio, 0));
+  transform-origin: left center;
+  transition: transform var(--duration-drawer) var(--ease-emphasis);
+}
+
+.abl-table tbody tr:hover {
+  background: var(--color-row-hover);
+}
+
+.abl-table tbody tr[data-state='unmeasured'] .abl-rule-code,
+.abl-table tbody tr[data-state='disabled'] .abl-rule-code,
+.abl-table tbody tr[data-state='zero'] .abl-rule-code {
+  color: var(--color-text-muted);
+}
+
+.abl-table tbody tr[data-state='disabled'] .abl-rule-name,
+.abl-table tbody tr[data-state='disabled'] .abl-statement-text {
+  color: var(--color-text-subtle);
+}
+
+.abl-table tbody tr {
+  animation: abl-row-in var(--duration-drawer) var(--ease-out) both;
+  animation-delay: calc(var(--stagger-step) * var(--abl-row-index, 0) / 4);
+}
+
+@keyframes abl-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rise-md));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .abl-table {
+    min-width: 0;
+  }
+
+  .abl-table th,
+  .abl-table td {
+    padding: var(--space-2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .abl-table tbody tr {
+    animation: none;
+  }
+
+  .abl-bar,
+  .abl-summary-fill,
+  .abl-sort-button,
+  .abl-sort-arrow {
+    transition: none;
+  }
+}

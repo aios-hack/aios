@@ -10,8 +10,19 @@ from pathlib import Path
 
 from backend.interfaces.http.console.proxy import forward, is_jarvis_path
 from backend.interfaces.cli.runner import run as run_cli
+from backend.interfaces.http.kit.errors import to_response
+from backend.contexts.runs.domain.errors import RunRequestError
+from backend.shared.errors import AiosError
 
 DEFAULT_DIST = Path("/app/frontend/dist")
+MAX_BODY_BYTES = 100_000
+BODY_SIZE_REJECTED = "Некорректный размер условий."
+BODY_SHAPE_REJECTED = "Ожидается документ с условиями."
+BODY_NUMBER_REJECTED = "Некорректное число."
+
+
+def _reject_constant(value: str) -> float:
+    raise RunRequestError(BODY_NUMBER_REJECTED)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -78,16 +89,21 @@ class SpaRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
         try:
             length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 100_000:
-                raise ValueError('Некорректный размер условий.')
-            payload = json.loads(self.rfile.read(length), parse_constant=lambda value: (_ for _ in ()).throw(ValueError('Некорректное число.')))
+            if not 0 < length <= MAX_BODY_BYTES:
+                raise RunRequestError(BODY_SIZE_REJECTED)
+            payload = json.loads(
+                self.rfile.read(length),
+                parse_constant=_reject_constant,
+            )
             if not isinstance(payload, dict):
-                raise ValueError('Ожидается документ с условиями.')
+                raise RunRequestError(BODY_SHAPE_REJECTED)
             self._json(202, self.runs.start(payload))
+        except AiosError as error:
+            status, body = to_response(error)
+            self._json(status, body)
         except (ValueError, TypeError) as error:
-            self._json(400, {'error': 'Проверьте условия: диапазоны значений, долю возврата воды и обе границы компенсации.'})
-        except RuntimeError as error:
-            self._json(409, {'error': str(error)})
+            status, body = to_response(RunRequestError(str(error)))
+            self._json(status, body)
 
     def send_head(self):  # type: ignore[override]
         path = self.translate_path(self.path)

@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from backend.contexts.economics.domain.errors import (
+    ParityError,
+    ReferenceUnavailableError,
+)
+
 import importlib.util
 import sys
 from collections.abc import Mapping, Sequence
@@ -62,14 +67,6 @@ REFERENCE_KEY_BY_FIELD: dict[str, str] = {
 EVENT_COST_KEYS: tuple[str, ...] = ("gtmM", "startStopCostM", "conversionOpexM")
 
 MACHINE_RELATIVE_TOLERANCE: float = 1e-12
-
-
-class ReferenceUnavailableError(RuntimeError):
-    pass
-
-
-class ParityError(AssertionError):
-    pass
 
 
 @dataclass(frozen=True, slots=True)

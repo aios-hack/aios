@@ -10,8 +10,8 @@ import { I18nProvider } from '@/shared/i18n/I18nContext';
 import { ScenarioProvider } from '@/entities/scenarios/model/ScenarioContext';
 import { TimelineProvider } from '@/entities/timeline/model/TimelineContext';
 import { FieldProjection } from '@/pages/field-projection';
-import { NpvRank } from '@/pages/money-rank/npv';
-import { ScenarioLibrary } from '@/pages/money-comparison/ScenarioLibrary/ScenarioLibrary';
+import { NpvRank } from '@/pages/money-rank/ui/NpvRank';
+import { ScenarioLibrary } from '@/pages/money-comparison/ui/ScenarioLibrary/ScenarioLibrary';
 
 const graphFixture = (id: string): GraphFile => ({
   window: { start: '2007-01-01', end: '2008-07-01' },

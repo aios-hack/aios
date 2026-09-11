@@ -24,6 +24,10 @@
 
 from __future__ import annotations
 
+from backend.contexts.simulation.domain.errors import (
+    DatasetPlanError,
+)
+
 import hashlib
 import random
 from dataclasses import dataclass, field
@@ -56,10 +60,6 @@ class PerturbationFamily(Enum):
     UNREACHABLE = "UNREACHABLE"
     SHUTDOWN = "SHUTDOWN"
     CONVERSION = "CONVERSION"
-
-
-class DatasetPlanError(ValueError):
-    """План нельзя построить однозначно из базового расписания."""
 
 
 @dataclass(frozen=True, slots=True)

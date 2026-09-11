@@ -6,7 +6,7 @@ import {
   HASH_ROWS,
   HOW_FIELDS,
   VERSION_FIELDS
-} from '@/pages/money-constraints/ui/runFields';
+} from '@/pages/money-constraints/model/runFields';
 
 interface RunProvenanceDetailsProps {
   manifest: RunManifest | undefined;

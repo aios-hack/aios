@@ -29,9 +29,14 @@ from backend.core.contracts import (
     WellState,
 )
 from backend.contexts.optimization.application import environment as _environment
+from backend.contexts.optimization.domain import errors as optimization_errors
+from backend.contexts.optimization.domain import physics_gate
+from backend.contexts.optimization.domain import search_environment as _search_environment
 from backend.contexts.optimization.application import search_use_case as _search_use_case
 
 SEARCH_SOURCE = Path(_environment.__file__)
+PHYSICS_SOURCE = Path(physics_gate.__file__)
+ERRORS_SOURCE = Path(optimization_errors.__file__)
 RUN_SOURCE = Path(_search_use_case.__file__)
 
 
@@ -80,7 +85,7 @@ def _minimal_schedule() -> Schedule:
 
 
 def test_search_environment_declares_the_anchor_with_check_pair_types() -> None:
-    environment = _class_def(_module_ast(SEARCH_SOURCE), "SearchEnvironment")
+    environment = _class_def(_module_ast(Path(_search_environment.__file__)), "SearchEnvironment")
     annotations = _annotations(environment)
 
     assert annotations["reference_schedule"] == "Schedule | None"
@@ -256,43 +261,12 @@ _PHYSICS_LATE_OPEN_STEP = 50
 
 
 def _search_namespace() -> dict[str, object]:
-    physics = pytest.importorskip(
+    pytest.importorskip(
         "backend.contexts.surrogate.domain.physics_checks",
         reason="физические проверки суррогата требуют torch (extras ml)",
     )
-    module = _module_ast(SEARCH_SOURCE)
-    wanted = set(_PHYSICS_FUNCTIONS)
-    body = [
-        node
-        for node in module.body
-        if (isinstance(node, ast.FunctionDef) and node.name in wanted)
-        or (isinstance(node, ast.ClassDef) and node.name in _PHYSICS_CLASSES)
-    ]
-    found = {node.name for node in body}
-    assert found == wanted | set(_PHYSICS_CLASSES), f"не найдено: {sorted((wanted | set(_PHYSICS_CLASSES)) - found)}"
-    namespace: dict[str, object] = {
-        "Invariant": physics.Invariant,
-        "PhysicsReport": physics.PhysicsReport,
-        "PhysicsCheckError": physics.PhysicsCheckError,
-        "Severity": physics.Severity,
-        "severity_of": physics.severity_of,
-        "check_pair": physics.check_pair,
-        "check_prediction": physics.check_prediction,
-        "Mapping": Mapping,
-        "Sequence": Sequence,
-        "Schedule": Schedule,
-        "RawModelOutput": physics.RawModelOutput,
-        "ScheduleSearchError": ValueError,
-        "SearchEnvironment": object,
-        "_DIFFERENTIAL_INVARIANT_NAMES": (
-            physics.Invariant.INJECTION_RESPONSE.value,
-            physics.Invariant.MATERIAL_BALANCE.value,
-        ),
-    }
-    exec(
-        compile(ast.Module(body=body, type_ignores=[]), str(SEARCH_SOURCE), "exec"),
-        namespace,
-    )
+    namespace: dict[str, object] = dict(vars(physics_gate))
+    namespace.update(vars(optimization_errors))
     return namespace
 
 
@@ -428,7 +402,7 @@ def _differential_names(physics) -> tuple[str, str]:
 def test_evaluator_calls_check_pair_not_check_prediction_alone() -> None:
     module = _module_ast(SEARCH_SOURCE)
     evaluator_source = ast.unparse(_function_def(module, "make_evaluator"))
-    report_source = ast.unparse(_function_def(module, "full_physics_report"))
+    report_source = ast.unparse(_function_def(_module_ast(PHYSICS_SOURCE), "full_physics_report"))
 
     assert "full_physics_report(env, schedule, scored.output)" in evaluator_source
     assert "check_prediction" not in evaluator_source
@@ -520,7 +494,7 @@ def test_absent_anchor_rejects_the_candidate_with_a_named_reason() -> None:
 
 
 def test_absent_anchor_is_never_silently_downgraded_to_check_prediction() -> None:
-    source = ast.unparse(_function_def(_module_ast(SEARCH_SOURCE), "full_physics_report"))
+    source = ast.unparse(_function_def(_module_ast(PHYSICS_SOURCE), "full_physics_report"))
     guard = source.split("MissingReferenceError")[0]
 
     assert "check_prediction" not in guard

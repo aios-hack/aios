@@ -1,6 +1,6 @@
 import type { Translate } from '@/shared/i18n/I18nContext';
 import type { ConstraintsDoc } from '@/entities/scenarios/types';
-import { YEAR_SECTIONS } from '@/pages/money-constraints/constraints';
+import { YEAR_SECTIONS } from '@/pages/money-constraints/model/constraints';
 
 interface RunConditionsProps {
   constraints: ConstraintsDoc;

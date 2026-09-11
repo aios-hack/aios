@@ -28,11 +28,14 @@ from backend.contexts.constraints.domain.constraints import (
 )
 from backend.contexts.constraints.domain.constraints import water_supply_policy
 from backend.contexts.schedule.domain.canonical import canonicalize
+from backend.contexts.optimization.domain import injection_budget
 from backend.contexts.optimization.application import environment as _environment
 from backend.contexts.optimization.application import search_use_case as _search_use_case
 from backend.contexts.optimization.application import water_baseline_run as _water_baseline_run
 
 SEARCH_SOURCE = Path(_environment.__file__)
+from backend.contexts.optimization.application import policy_factory as _policy_factory
+POLICY_SOURCE = Path(_policy_factory.__file__)
 RUN_SOURCE = Path(_search_use_case.__file__)
 BASELINE_SOURCE = Path(_water_baseline_run.__file__)
 
@@ -75,54 +78,7 @@ def _identity_projection(event: ControlEvent, hard: Any) -> ControlEvent:
     return event
 
 
-def _budget_namespace() -> dict[str, Any]:
-    module = _module_ast(SEARCH_SOURCE)
-    wanted = set(_BUDGET_NAMES)
-    constants = set(_BUDGET_CONSTANTS)
-    body: list[ast.stmt] = []
-    for node in module.body:
-        if isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in wanted:
-            body.append(node)
-        elif isinstance(node, ast.Assign):
-            targets = {
-                target.id for target in node.targets if isinstance(target, ast.Name)
-            }
-            if targets & constants:
-                body.append(node)
-    found = {
-        node.name
-        for node in body
-        if isinstance(node, (ast.FunctionDef, ast.ClassDef))
-    }
-    assert found == wanted, f"не найдено: {sorted(wanted - found)}"
-    holder = types.ModuleType("budget_under_test")
-    sys.modules["budget_under_test"] = holder
-    namespace: dict[str, Any] = holder.__dict__
-    namespace.update({
-        "__name__": "budget_under_test",
-        "annotations": __import__("__future__").annotations,
-        "math": math,
-        "dataclass": dataclass,
-        "replace": replace,
-        "canonicalize": canonicalize,
-        "Constraints": Constraints,
-        "ControlEvent": ControlEvent,
-        "EventKind": EventKind,
-        "Schedule": Schedule,
-        "Sequence": Sequence,
-        "HardConstraints": dict,
-        "project_to_hard_constraints": _identity_projection,
-        "Projection": object,
-        "water_supply_policy": water_supply_policy,
-    })
-    exec(
-        compile(ast.Module(body=body, type_ignores=[]), str(SEARCH_SOURCE), "exec"),
-        namespace,
-    )
-    return namespace
-
-
-BUDGET = _budget_namespace()
+BUDGET = vars(injection_budget)
 
 
 def _schedule(events: tuple[ControlEvent, ...]) -> Schedule:
@@ -315,7 +271,7 @@ def test_old_field_limit_helper_still_returns_the_same_number() -> None:
 
 
 def test_policy_records_the_budget_decision_in_the_trace_sink() -> None:
-    source = ast.unparse(_function_def(_module_ast(SEARCH_SOURCE), "make_policy"))
+    source = ast.unparse(_function_def(_module_ast(POLICY_SOURCE), "make_policy"))
 
     assert "injection_budget_for_step(" in source
     assert "budget_entries.append(budget)" in source
@@ -324,11 +280,18 @@ def test_policy_records_the_budget_decision_in_the_trace_sink() -> None:
 
 
 def test_policy_has_exactly_one_place_computing_the_ceiling() -> None:
-    source = SEARCH_SOURCE.read_text(encoding="utf-8")
+    context_root = SEARCH_SOURCE.parent.parent
+    sources = [
+        path.read_text(encoding="utf-8")
+        for path in sorted(context_root.rglob("*.py"))
+        if "__pycache__" not in path.parts
+    ]
 
-    assert source.count("def injection_budget_for_step(") == 1
-    assert source.count("injection_budget_for_step(") == 3
-    assert "step_field_limit *= WATER_COMMAND_SAFETY_FACTOR" not in source
+    assert sum(text.count("def injection_budget_for_step(") for text in sources) == 1
+    assert sum(text.count("injection_budget_for_step(") for text in sources) == 3
+    assert not any(
+        "step_field_limit *= WATER_COMMAND_SAFETY_FACTOR" in text for text in sources
+    )
 
 
 def test_damper_moves_up_towards_a_higher_proposal() -> None:
@@ -390,7 +353,7 @@ def test_damper_never_produces_a_ratchet_over_repeated_rounds() -> None:
 
 
 def test_policy_exposes_the_damper_switch() -> None:
-    source = ast.unparse(_function_def(_module_ast(SEARCH_SOURCE), "make_policy"))
+    source = ast.unparse(_function_def(_module_ast(POLICY_SOURCE), "make_policy"))
 
     assert "symmetric_damper" in source
     assert "symmetric=symmetric_damper" in source

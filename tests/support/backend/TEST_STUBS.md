@@ -6,7 +6,7 @@
 
 | Было | Стало | Строк | Кто использует |
 |---|---|---|---|
-| `backend/presentation/ui_export/fixtures.py` | `tests/support/backend/showcase_fixtures.py` | 299 | 11 тестов витрины и связности |
+| ui_export/fixtures.py (удалён в волне 1) | `tests/support/backend/showcase_fixtures.py` | 299 | 11 тестов витрины и связности |
 
 Шим старого пути **удалён**, а не оставлен: модуль не импортировался ни из одного боевого
 модуля — только из тестов, поэтому реэкспорт был бы фикцией. Импорты в 11 тестах переписаны
@@ -16,7 +16,7 @@
 
 | Модуль | Строк | Почему остаётся |
 |---|---|---|
-| `backend/contexts/assistant/application/recording_replay.py` (бывший `jarvis/fixtures.py`) | 114 | Это проигрыватель записей за командой CLI `jarvis --record`, а не фикстура (§6 плана). Боевой код. |
+| `backend/contexts/assistant/application/recording_replay.py` (бывший jarvis/fixtures.py) | 114 | Это проигрыватель записей за командой CLI `jarvis --record`, а не фикстура (§6 плана). Боевой код. |
 | `backend/contexts/assistant/infrastructure/recordings.py` | 315 | Содержимое записей. В волне 3 (A-16) становится JSON-ресурсами `infrastructure/recordings/*.json`, но и тогда остаётся боевым ресурсом, а не тестовой опорой. |
 | `backend/contexts/assistant/infrastructure/llm/fake_chat.py` | 58 | `FakeChatClient` нужен `recording_replay`, то есть боевой команде CLI. Перенос в `tests/support` оборвал бы `jarvis --record`. Кандидат на переезд только вместе с A-16, когда записи станут данными. |
 

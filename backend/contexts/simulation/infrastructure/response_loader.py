@@ -33,6 +33,10 @@ contracts/README.md §3, §6; docs/context/08_contracts.md §4.1.1, §4.3.
 
 from __future__ import annotations
 
+from backend.contexts.simulation.domain.errors import (
+    ResponseLoaderError,
+)
+
 from backend.contexts.schedule.domain.wcon import CONTROL_ORDER, commissioning_state
 
 import hashlib
@@ -61,10 +65,6 @@ from backend.core.contracts import (
 from backend.contexts.reservoir.domain.response import N_DECK_DATES
 
 from backend.contexts.reservoir.infrastructure.summary import _TOKEN_RE, SummaryPlan, _grid_index
-
-
-class ResponseLoaderError(ValueError):
-    """Артефакты RunResult нельзя превратить в корректный ResponseArtifact."""
 
 
 # --- бинарный слой: Fortran-record reader, работает на любом ECLIPSE-файле ---
@@ -372,7 +372,6 @@ class _WellTimeline:
         return self.baseline_setpoint
 
 
-
 def _build_well_timelines(schedule: Schedule) -> dict[str, _WellTimeline]:
     # Fixed commissioning precedes managed controls at the same step.
     events_by_well: dict[str, list[tuple[int, int, object]]] = {}
@@ -423,7 +422,6 @@ def _build_well_timelines(schedule: Schedule) -> dict[str, _WellTimeline]:
             first_commission_step=first_commission,
         )
     return timelines
-
 
 
 def _control_step_for_date(deck_date_index: int) -> int | None:

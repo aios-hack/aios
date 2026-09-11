@@ -42,7 +42,7 @@
 .jarvis-guide-hotkey {
   flex: none;
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--color-border);
+  border: var(--border-hairline) solid var(--color-border);
   border-radius: var(--radius-sm);
   font-family: var(--font-family-mono);
   font-size: var(--font-size-mono);

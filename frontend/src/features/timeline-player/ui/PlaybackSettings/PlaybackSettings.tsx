@@ -2,6 +2,7 @@ import { GearIcon } from '@phosphor-icons/react';
 import { useId } from 'react';
 import { useT } from '@/shared/i18n/I18nContext';
 import { usePlayback, type PlaySpeed } from '@/entities/timeline/model/PlaybackContext';
+import { IconButton } from '@/shared/ui/IconButton';
 import { Popover } from '@/shared/ui/Popover';
 import { Slider } from '@/shared/ui/Slider';
 import './PlaybackSettings.css';
@@ -21,19 +22,17 @@ export const PlaybackSettings = () => {
       label={t('playback.settings')}
       align="end"
       trigger={({ ref, open, onClick }) => (
-        <button
+        <IconButton
           ref={ref}
-          type="button"
-          className="icon-button playback-settings-trigger"
+          className="playback-settings-trigger"
           data-guide="player-speed"
-          aria-label={t('playback.settings')}
-          title={t('playback.settings')}
+          label={t('playback.settings')}
           aria-expanded={open}
           data-testid="playback-settings-trigger"
           onClick={onClick}
         >
           <GearIcon size={22} weight="fill" aria-hidden="true" />
-        </button>
+        </IconButton>
       )}
     >
       <div

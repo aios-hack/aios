@@ -49,6 +49,10 @@
 
 from __future__ import annotations
 
+from backend.contexts.robustness.domain.errors import (
+    OodError,
+)
+
 import math
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -75,10 +79,6 @@ CATEGORICAL_FEATURES: tuple[str, ...] = (
     "role",
     "operating_status",
 )
-
-
-class OodError(ValueError):
-    """Область нельзя построить или применить: пустая выборка, разошедшаяся статика."""
 
 
 @dataclass(frozen=True, slots=True)

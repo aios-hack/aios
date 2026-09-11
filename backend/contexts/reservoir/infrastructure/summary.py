@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.reservoir.domain.errors import (
+    SummaryPlanError,
+)
+
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -20,10 +24,6 @@ REGION_MARKUP_KEYWORD = "FIP_ZONE"
 REGION_REPORT_KEYWORD = "FIPNUM"
 REGION_PRESSURE_KEY = "RPR"
 REGION_VALUES_PER_LINE = 20
-
-
-class SummaryPlanError(ValueError):
-    pass
 
 
 @dataclass(frozen=True, slots=True, order=True)

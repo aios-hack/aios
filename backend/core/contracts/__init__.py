@@ -19,7 +19,7 @@ from backend.contexts.constraints.domain.constraints import (
     water_supply_policy,
 )
 from backend.contexts.economics.domain.economics import LineItems, NpvTable
-from .hashing import canonical_bytes, canonical_schedule_hash, content_hash, hash_schedule
+from backend.core.contracts.hashing import canonical_bytes, canonical_schedule_hash, content_hash, hash_schedule
 from backend.contexts.policy.domain.policy import (
     OptimizerResult,
     Rule,

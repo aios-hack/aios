@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.schedule.domain.errors import (
+    ScheduleEmitError,
+)
+
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,10 +24,6 @@ from backend.contexts.schedule.domain.lossless import (
 WELLS_SCHEDULE_FILE_NAME: str = "well_schedule.inc"
 
 _FUND_KEYWORDS: frozenset[str] = frozenset({"WCONPROD", "WCONINJE"})
-
-
-class ScheduleEmitError(ValueError):
-    pass
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,1 +1,1 @@
-export { Chronomap } from '@/pages/history-matrix/Chronomap/Chronomap';
+export { Chronomap } from '@/pages/history-matrix/ui/Chronomap';

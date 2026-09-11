@@ -1,6 +1,6 @@
 import { useLayoutEffect, useState } from 'react';
 import { useStageSettled } from '@/shared/lib/layout/useStageSettled';
-import type { ReadoutBounds } from '@/pages/history-matrix/ChronoTooltip/ChronoTooltip';
+import type { ReadoutBounds } from '@/pages/history-matrix/ui/ChronoTooltip/ChronoTooltip';
 
 export const OBSTRUCTION_SELECTORS = [
   '.time-scale-backdrop path',

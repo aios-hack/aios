@@ -27,6 +27,10 @@
 
 from __future__ import annotations
 
+from backend.contexts.connectivity.domain.errors import (
+    CampaignError,
+)
+
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -74,10 +78,6 @@ DEFAULT_BATCH_SEEDS = (20260820, 20260821, 20260822, 20260823)
 #: Сколько партий сливается в одну оценку. Половины обязаны быть
 #: независимыми: партии не пересекаются ни строками, ни сидом.
 BATCHES_PER_HALF = 2
-
-
-class CampaignError(ValueError):
-    """Кампанию нельзя собрать однозначно из дека и базового расписания."""
 
 
 @dataclass(frozen=True, slots=True)

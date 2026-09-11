@@ -1,1 +1,1 @@
-export { FieldMaps } from '@/pages/field-maps/FieldMaps/FieldMaps';
+export { FieldMaps } from '@/pages/field-maps/ui/FieldMaps';

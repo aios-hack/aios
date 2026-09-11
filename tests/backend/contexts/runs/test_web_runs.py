@@ -50,7 +50,7 @@ def test_failed_worker_is_not_a_verified_result(tmp_path):
     directory.mkdir()
     jobs.lock.acquire()
     data = {'run_id': 'web-test', 'status': 'running'}
-    with patch('backend.contexts.runs.application.web_runs.subprocess.run') as run:
+    with patch('backend.contexts.runs.infrastructure.worker_process.subprocess.run') as run:
         run.return_value.returncode = 1
         jobs._execute(directory, data, 'verify', 30)
     result = jobs.list()[0]

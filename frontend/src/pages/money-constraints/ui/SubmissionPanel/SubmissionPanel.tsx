@@ -1,8 +1,8 @@
 import { useFallbackI18n } from '@/shared/i18n/I18nContext';
 import type { RunSubmission } from '@/entities/runs/model/runTypes';
 import { ProvenanceRows } from '@/pages/money-constraints/ui/ProvenanceRows';
-import { BUNDLE_FIELDS } from '@/pages/money-constraints/ui/runFields';
-import { formatMoney } from '@/pages/money-constraints/ui/runMoney';
+import { BUNDLE_FIELDS } from '@/pages/money-constraints/model/runFields';
+import { formatMoney } from '@/pages/money-constraints/model/runMoney';
 
 interface SubmissionPanelProps {
   submission: RunSubmission | undefined;

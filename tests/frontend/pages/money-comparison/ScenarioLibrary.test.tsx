@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dictionaries } from '@/shared/i18n/dictionaries';
-import { ScenarioLibrary } from '@/pages/money-comparison/ScenarioLibrary/ScenarioLibrary';
+import { ScenarioLibrary } from '@/pages/money-comparison/ui/ScenarioLibrary/ScenarioLibrary';
 import { mockFetch, requested, withProviders } from '@support/testFixtures';
 
 const { ru } = dictionaries;

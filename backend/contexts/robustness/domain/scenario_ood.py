@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from backend.contexts.robustness.domain.errors import (
+    ScenarioDensityError,
+)
+
 import hashlib
 import json
 import math
@@ -13,10 +17,6 @@ import torch
 from torch import Tensor
 
 FORMAT = "aios.surrogate-scenario-density-domain.v1"
-
-
-class ScenarioDensityError(ValueError):
-    pass
 
 
 def _tensor_bytes(value: Tensor) -> bytes:

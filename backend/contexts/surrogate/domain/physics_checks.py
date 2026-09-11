@@ -27,6 +27,10 @@ OPM переведёт скважину на другой режим управ�
 
 from __future__ import annotations
 
+from backend.contexts.surrogate.domain.errors import (
+    PhysicsCheckError,
+)
+
 import math
 from collections import Counter
 from dataclasses import dataclass
@@ -36,8 +40,8 @@ from typing import Iterable, Mapping
 from backend.contexts.simulation.infrastructure.response_loader import _build_well_timelines
 from backend.core.contracts import EventKind, Lambda, OperatingStatus, Role, Schedule
 
-from .raw_model_output import RawModelOutput, RawWellStepPrediction
-from .schedule_roles import build_role_timelines
+from backend.contexts.surrogate.domain.raw_model_output import RawModelOutput, RawWellStepPrediction
+from backend.contexts.surrogate.domain.schedule_roles import build_role_timelines
 
 FORMAT = "aios.surrogate-physics-report.v1"
 
@@ -78,10 +82,6 @@ DEFAULT_RELATIVE_TOLERANCE = 5e-3
 # всем узлам: 103 скважины × 224 шага — 23 072 узла, и сломанный прогноз
 # способен дать флаг на каждом. Отчёт должен оставаться читаемым.
 DEFAULT_MAX_EXAMPLES_PER_INVARIANT = 8
-
-
-class PhysicsCheckError(ValueError):
-    """Проверку нельзя выполнить: вход противоречив, а не прогноз плох."""
 
 
 class Invariant(Enum):

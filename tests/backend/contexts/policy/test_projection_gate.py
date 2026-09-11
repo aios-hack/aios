@@ -23,7 +23,20 @@ from backend.contexts.policy.domain.agents.projection import (
 from backend.contexts.optimization.application import environment as _environment
 
 SEARCH_SOURCE = Path(_environment.__file__)
-GATE = "_admit"
+OPTIMIZATION_ROOT = SEARCH_SOURCE.parent.parent
+
+
+def _optimization_sources() -> list[Path]:
+    return [
+        path
+        for path in sorted(OPTIMIZATION_ROOT.rglob("*.py"))
+        if "__pycache__" not in path.parts
+    ]
+
+
+def _optimization_trees() -> list[ast.Module]:
+    return [ast.parse(path.read_text(encoding="utf-8")) for path in _optimization_sources()]
+GATE = "admit_candidate"
 
 
 def counting_projection(counter: list[ControlEvent]):
@@ -90,9 +103,9 @@ def _substitutable_names(tree: ast.Module, name: str) -> set[str]:
 
 
 def test_only_the_gate_writes_a_setpoint_into_the_schedule() -> None:
-    tree = ast.parse(SEARCH_SOURCE.read_text(encoding="utf-8"))
     outside = [
         (expression, lineno)
+        for tree in _optimization_trees()
         for expression, lineno in _pending_writes(tree)
         if _enclosing_function(tree, lineno) != GATE
     ]
@@ -103,9 +116,9 @@ def test_only_the_gate_writes_a_setpoint_into_the_schedule() -> None:
 
 
 def test_the_gate_passes_every_event_through_the_projection() -> None:
-    tree = ast.parse(SEARCH_SOURCE.read_text(encoding="utf-8"))
     gate = next(
         node
+        for tree in _optimization_trees()
         for node in ast.walk(tree)
         if isinstance(node, ast.FunctionDef) and node.name == GATE
     )
@@ -118,17 +131,20 @@ def test_the_gate_passes_every_event_through_the_projection() -> None:
 
 
 def test_every_writer_of_the_schedule_takes_a_projection() -> None:
-    tree = ast.parse(SEARCH_SOURCE.read_text(encoding="utf-8"))
-    callers = {
-        _enclosing_function(tree, node.lineno)
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id == GATE
-    }
-    callers.discard(GATE)
+    callers: set[tuple[int, str]] = set()
+    trees = _optimization_trees()
+    for index, tree in enumerate(trees):
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == GATE
+            ):
+                callers.add((index, _enclosing_function(tree, node.lineno)))
+    callers = {item for item in callers if item[1] != GATE}
     assert callers
-    for caller in sorted(callers):
+    for index, caller in sorted(callers):
+        tree = trees[index]
         assert "projection" in _substitutable_names(tree, caller), (
             f"{caller} пишет в расписание, но проекцию подменить нельзя: "
             f"шлюз не проверяем"

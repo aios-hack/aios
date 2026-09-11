@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from backend.contexts.assistant.domain.errors import (
+    ArtifactError,
+    RunError,
+)
+
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -57,10 +62,6 @@ SCENARIO_FILES: tuple[str, ...] = (
     "trace",
 )
 DEFAULT_SCENARIO = "base"
-
-
-class ArtifactError(RuntimeError):
-    pass
 
 
 def default_data_root(settings: Settings | None = None) -> Path:
@@ -320,10 +321,6 @@ class ArtifactStore:
 
     def wells_file(self) -> Mapping[str, Any]:
         return self.root_file("wells")
-
-
-class RunError(RuntimeError):
-    pass
 
 
 def default_runs_root(settings: Settings | None = None) -> Path:

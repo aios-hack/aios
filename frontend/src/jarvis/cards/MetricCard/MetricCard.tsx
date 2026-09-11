@@ -1,7 +1,7 @@
 import { Sparkline } from '@/shared/ui/Sparkline';
 import { DASH, formatNumber } from '@/shared/lib/format';
 import { useI18n } from '@/shared/i18n/I18nContext';
-import { readMetrics } from '@/jarvis/cards/payloads/cardPayloads';
+import { readMetrics } from '@/jarvis/cards/payloads';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
 import type { MetricPayload } from '@/jarvis/cards/payloads/payloadTypes';
 import './MetricCard.css';

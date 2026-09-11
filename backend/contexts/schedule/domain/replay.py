@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.schedule.domain.errors import (
+    ReplayError,
+)
+
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -11,13 +15,9 @@ from backend.core.contracts import (
     WellState,
 )
 
-from .lossless import LosslessBlock, ParsedSchedule, block_records, line_keyword
+from backend.contexts.schedule.domain.lossless import LosslessBlock, ParsedSchedule, block_records, line_keyword
 
 _FUND_KEYWORDS = ("WCONPROD", "WCONINJE")
-
-
-class ReplayError(ValueError):
-    pass
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.reservoir.domain.errors import (
+    PvtError,
+)
+
 import re
 from bisect import bisect_left
 from dataclasses import dataclass
@@ -12,10 +16,6 @@ _KEYWORD_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
 PVTO = "PVTO"
 PVTW = "PVTW"
 DENSITY = "DENSITY"
-
-
-class PvtError(ValueError):
-    pass
 
 
 def _strip_comment(line: str) -> str:

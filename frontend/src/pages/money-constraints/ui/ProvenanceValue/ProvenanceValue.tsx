@@ -6,7 +6,7 @@ import {
   HASH_FIELDS,
   isEquilibriumUnclaimed,
   strategyKeyOf
-} from '@/pages/money-constraints/ui/runFields';
+} from '@/pages/money-constraints/model/runFields';
 import { ProvenanceHash } from '@/pages/money-constraints/ui/ProvenanceHash/ProvenanceHash';
 
 interface ProvenanceValueProps {

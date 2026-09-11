@@ -11,11 +11,11 @@ import { dictionaries } from '@/shared/i18n/dictionaries';
 import { I18nProvider } from '@/shared/i18n/I18nContext';
 import { TimelineProvider } from '@/entities/timeline/model/TimelineContext';
 import { ThemeProvider } from '@/shared/theme/ThemeContext';
-import { FieldProjection } from '@/pages/field-projection/FieldProjection/FieldProjection';
-import { edgeRelation } from '@/pages/field-projection/EdgeLayer/EdgeLayer';
+import { FieldProjection } from '@/pages/field-projection/ui/FieldProjection/FieldProjection';
+import { edgeRelation } from '@/pages/field-projection/ui/EdgeLayer/EdgeLayer';
 import { easeInOut, fitLayout, lerp, placeNodes } from '@/entities/graph/model/interpolate';
 import { projectNodes, weightBounds } from '@/entities/graph/model/projection';
-import { GLYPH_SCALE, hitRadius, nearestGaps, nodeOpacity, TAP_MIN_PX } from '@/pages/field-projection/NodeLayer/NodeLayer';
+import { GLYPH_SCALE, hitRadius, nearestGaps, nodeOpacity, TAP_MIN_PX } from '@/pages/field-projection/ui/NodeLayer/NodeLayer';
 import { FALLBACK_PLOT_SIZE_PX, unitsPerPixel } from '@/entities/graph/model/useProjection';
 import {
   GROUP_GAP,
@@ -25,7 +25,7 @@ import {
   ringStroke,
   SELECT_GAP
 } from '@/entities/wells/ui/SelectionRings/SelectionRings';
-import { srcPath } from '@support/paths';
+import { APP_SHELL_CSS, FIELD_PROJECTION_CSS, SELECTION_RINGS_CSS } from '@support/layout';
 
 const { ru } = dictionaries;
 
@@ -548,8 +548,8 @@ describe('FieldProjection view', () => {
 });
 
 describe('the map fits the screen instead of forcing a scroll', () => {
-  const css = readFileSync(srcPath('pages', 'field-projection', 'FieldProjection', 'FieldProjection.css'), 'utf-8');
-  const consoleCss = readFileSync(srcPath('app', 'ConsoleScene', 'ConsoleShell.css'), 'utf-8');
+  const css = readFileSync(FIELD_PROJECTION_CSS, 'utf-8');
+  const consoleCss = readFileSync(APP_SHELL_CSS, 'utf-8');
 
   it('caps the plot against the visible height, not just its width', () => {
     const block = css.match(/\.field-projection-canvas\s*\{[^}]*\}/)?.[0] ?? '';
@@ -596,7 +596,7 @@ describe('the map fits the screen instead of forcing a scroll', () => {
 
 describe('the projection animates its edges and drops the redundant slider', () => {
   const css = readFileSync(
-    srcPath('pages', 'field-projection', 'FieldProjection', 'FieldProjection.css'),
+    FIELD_PROJECTION_CSS,
     'utf-8'
   );
 
@@ -758,7 +758,7 @@ describe('the selection reads at a glance without shouting', () => {
 
   it('animates the rings in and holds them still under reduced motion', () => {
     const ringCss = readFileSync(
-      srcPath('entities', 'wells', 'ui', 'SelectionRings', 'SelectionRings.css'),
+      SELECTION_RINGS_CSS,
       'utf-8'
     );
     expect(ringCss).toContain('@keyframes selection-ring-in');
@@ -770,7 +770,7 @@ describe('the selection reads at a glance without shouting', () => {
 
 describe('the layer switch animates the nodes it turns on and off', () => {
   const css = readFileSync(
-    srcPath('pages', 'field-projection', 'FieldProjection', 'FieldProjection.css'),
+    FIELD_PROJECTION_CSS,
     'utf-8'
   );
 

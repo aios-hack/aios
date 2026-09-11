@@ -1,30 +1,15 @@
 from __future__ import annotations
 
 from backend.contexts.optimization.application.environment import (
-    DAMPER_STEP_FRACTION,
     EnsembleSpreadError,
-    InjectionBudget,
-    LAMBDA_STRICT_ENV,
     LambdaDesyncError,
-    MissingReferenceError,
     OOD_EXCEEDANCE_LIMIT,
     OutOfDomainScheduleError,
-    PHYSICAL_HEADROOM,
     PhysicallyImpossibleScheduleError,
     PolicyFeedback,
-    Projection,
     SELF_REFERENCE_SKIP_REASON,
-    SETPOINT_STEP_M3_PER_DAY,
-    SOURCE_CASE_INJECTION_LIMIT,
-    SOURCE_COMMAND_MARGIN,
-    SOURCE_PHYSICAL_HEADROOM,
-    SOURCE_WATER_BALANCE,
-    SOURCE_WATER_BALANCE_REPAIR,
     ScheduleSearchError,
     SearchEnvironment,
-    UNCONSTRAINED_BUDGET_M3_PER_DAY,
-    UNCONSTRAINED_WELLS,
-    WATER_COMMAND_SAFETY_FACTOR,
     apply_ood_penalty,
     ensemble_members,
     ensemble_npv_sigma,
@@ -32,17 +17,42 @@ from backend.contexts.optimization.application.environment import (
     format_ood_exceedances,
     format_ood_worst,
     full_physics_report,
-    injection_budget_for_step,
     lambda_sync_provenance,
     load_environment,
     make_evaluator,
-    make_policy,
-    missing_invariants,
     npv_blend_provenance,
     ood_penalty_factor,
     physics_counters,
     predict_economics,
     spread_bracket,
+)
+from backend.contexts.optimization.application.policy_factory import (
+    make_policy,
+)
+from backend.contexts.optimization.domain.errors import (
+    MissingReferenceError,
+)
+from backend.contexts.optimization.domain.injection_budget import (
+    DAMPER_STEP_FRACTION,
+    InjectionBudget,
+    PHYSICAL_HEADROOM,
+    Projection,
+    SETPOINT_STEP_M3_PER_DAY,
+    SOURCE_CASE_INJECTION_LIMIT,
+    SOURCE_COMMAND_MARGIN,
+    SOURCE_PHYSICAL_HEADROOM,
+    SOURCE_WATER_BALANCE,
+    SOURCE_WATER_BALANCE_REPAIR,
+    UNCONSTRAINED_BUDGET_M3_PER_DAY,
+    UNCONSTRAINED_WELLS,
+    WATER_COMMAND_SAFETY_FACTOR,
+    injection_budget_for_step,
+)
+from backend.contexts.optimization.domain.physics_gate import (
+    missing_invariants,
+)
+from backend.contexts.optimization.domain.provenance import (
+    LAMBDA_STRICT_ENV,
 )
 
 

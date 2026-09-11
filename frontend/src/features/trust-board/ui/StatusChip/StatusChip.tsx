@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { IconButton, IconIsland } from '@/shared/ui/IconButton';
 import { useDataset } from '@/entities';
 import { useI18n } from '@/shared/i18n/I18nContext';
 import { DEFAULT_SCENARIO_ID, useOptionalScenario } from '@/entities/scenarios/model/ScenarioContext';
@@ -95,15 +96,14 @@ export const StatusChip = () => {
   );
 
   return (
-    <div className="icon-island status-chip-wrap">
-      <button
+    <IconIsland className="status-chip-wrap">
+      <IconButton
         ref={triggerRef}
-        type="button"
-        className="icon-button status-chip"
+        className="status-chip"
         data-guide="overview-trustboard"
         data-level={verdict.level}
         aria-expanded={open}
-        aria-label={t('trust.chip.label')}
+        label={t('trust.chip.label')}
         title={label}
         onClick={() => setOpen((value) => !value)}
       >
@@ -111,7 +111,7 @@ export const StatusChip = () => {
           ?
         </span>
         <span className="visually-hidden">{label}</span>
-      </button>
+      </IconButton>
       {mounted && (
         <div
           ref={popoverRef}
@@ -123,6 +123,6 @@ export const StatusChip = () => {
           <TrustBoard />
         </div>
       )}
-    </div>
+    </IconIsland>
   );
 };

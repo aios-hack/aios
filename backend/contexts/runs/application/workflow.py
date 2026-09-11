@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.runs.domain.errors import (
+    SubmissionError,
+)
+
 import json
 import shutil
 from dataclasses import asdict, dataclass
@@ -38,10 +42,6 @@ class WorkflowStatus(Enum):
     VERIFIED = "verified"
     REJECTED = "rejected"
     READY_TO_SUBMIT = "ready_to_submit"
-
-
-class SubmissionError(RuntimeError):
-    pass
 
 
 class Verification(Protocol):

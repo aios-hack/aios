@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ScenarioEntry } from '@/entities/scenarios/types';
 import { dictionaries } from '@/shared/i18n/dictionaries';
-import { isSyntheticArtifact, npvProvenanceOf } from '@/pages/money-comparison/provenance';
+import { isSyntheticArtifact, npvProvenanceOf } from '@/pages/money-comparison/model/provenance';
 
 const emptyConstraints: ScenarioEntry['constraints'] = {
   injection_limits: 0,

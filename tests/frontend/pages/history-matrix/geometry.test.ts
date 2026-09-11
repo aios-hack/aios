@@ -16,7 +16,7 @@ import {
   rowY,
   yearTicks,
   stepYearTicks
-} from '@/pages/history-matrix/geometry';
+} from '@/pages/history-matrix/model/geometry';
 
 const isDevicePixelAligned = (size: number, ratio: number): boolean =>
   Number.isInteger(Math.round(size * ratio * 1e6) / 1e6);

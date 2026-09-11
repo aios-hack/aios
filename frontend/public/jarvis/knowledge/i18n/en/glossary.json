@@ -1,0 +1,529 @@
+{
+  "notice": "Jarvis's curated term base. Definitions and formulas come from the organisers' methodology, the brief and the domain code; there are no invented sources.",
+  "terms": {
+    "npv": {
+      "term": "NPV",
+      "definition": "Sum of free cash flows over the whole horizon discounted to the first year of the calculation. Monthly free cash flow is EBITDA less profit tax less capital expenditure; discounting is annual at the WACC rate.",
+      "where_in_platform": [
+        "each well's contribution to the total",
+        "cumulative NPV by step"
+      ]
+    },
+    "ebitda": {
+      "term": "EBITDA",
+      "definition": "Revenue less operating expenditure, deductions and other included income or expense. In the methodology it is the base from which profit tax and capital expenditure are then subtracted.",
+      "where_in_platform": [
+        "the NPV breakdown by well is built on this value"
+      ]
+    },
+    "wacc": {
+      "term": "Discount rate (WACC)",
+      "definition": "The annual rate at which future-year cash flows are discounted to the first year of the calculation. It is set by the organisers' normatives and is not fitted during the calculation.",
+      "where_in_platform": [
+        "the NPV total is already discounted at this rate"
+      ]
+    },
+    "discount-factor": {
+      "term": "Discount factor",
+      "definition": "The multiplier that brings a year's free cash flow to the first year of the horizon. It is constant within a year: every month of the same year is discounted identically.",
+      "where_in_platform": [
+        "later years weigh less in the total"
+      ]
+    },
+    "opex": {
+      "term": "Operating expenditure (OPEX)",
+      "definition": "The month's cost total: per tonne of oil, per tonne of liquid, per cubic metre of injection, the upkeep of the active well stock, property tax, pump work, start-stop transitions and well conversions.",
+      "where_in_platform": [
+        "the cost normatives that OPEX is assembled from"
+      ]
+    },
+    "capex": {
+      "term": "Capital expenditure (CAPEX)",
+      "definition": "One-off investments that do not enter EBITDA and are subtracted from free cash flow directly: a pump size change, a conversion of a well to injection and similar measures.",
+      "where_in_platform": [
+        "rules R4 and R6 explicitly weigh the payback of such investments"
+      ]
+    },
+    "revenue": {
+      "term": "Revenue",
+      "definition": "Income from the sale of the oil produced in a month at the organisers' normative price. Water yields no revenue — only the cost of lifting and handling it.",
+      "where_in_platform": [
+        "the production the revenue is built from"
+      ]
+    },
+    "watercut": {
+      "term": "Water cut",
+      "definition": "The share of water in the produced liquid. It is one minus the volumetric share of oil in the liquid; it grows as the area is depleted and directly determines whether a well covers its own upkeep.",
+      "where_in_platform": [
+        "each well's water cut by step",
+        "node colour by water cut"
+      ]
+    },
+    "breakeven-watercut": {
+      "term": "Breakeven water cut",
+      "definition": "The water cut at which a well's annual margin reaches zero: income from the remaining oil exactly covers liquid lifting and well upkeep. Above it the well runs at a loss.",
+      "where_in_platform": [
+        "rule R0 compares the fact against this threshold"
+      ]
+    },
+    "liquid-rate": {
+      "term": "Liquid rate",
+      "definition": "The daily volume of liquid — oil together with water — that a well lifts to surface. It is the actual response value, not the assigned setpoint.",
+      "where_in_platform": [
+        "the rate series by step",
+        "the field's total production"
+      ]
+    },
+    "oil-rate": {
+      "term": "Oil rate",
+      "definition": "The daily mass of oil produced by a well. It alone yields revenue; liquid beyond it is water that must be lifted, separated and disposed of at a cost.",
+      "where_in_platform": [
+        "the field's production per step"
+      ]
+    },
+    "injection-rate": {
+      "term": "Injection rate",
+      "definition": "The daily volume of water an injection well pumps into the reservoir to maintain pressure. It costs money and pays off only through the production response of connected producers.",
+      "where_in_platform": [
+        "the field's total injection",
+        "injection nodes and their links"
+      ]
+    },
+    "compensation": {
+      "term": "Compensation",
+      "definition": "The ratio of injection to liquid offtake over an area. Below the corridor the reservoir depletes and pressure falls; above it, water is injected to no purpose and drives water cut up. Strictly the quantity is computed in reservoir conditions (see voidage replacement); the surface ratio of injection to offtake is a simplification.",
+      "where_in_platform": [
+        "the field compensation and its normative corridor",
+        "the injection allocation across areas"
+      ]
+    },
+    "ppd": {
+      "term": "Pressure maintenance",
+      "definition": "Maintaining reservoir pressure by injecting water through injection wells. Without it pressure falls, producers' bottomhole pressure drops and rates decline.",
+      "where_in_platform": [
+        "injectors and the producers linked to them"
+      ]
+    },
+    "bhp": {
+      "term": "Bottomhole pressure",
+      "definition": "The pressure at the well bottom. The difference between reservoir and bottomhole pressure drives inflow; the lower the bottomhole pressure, the stronger the inflow but the closer the pump is to its limit.",
+      "where_in_platform": [
+        "bottomhole pressure by step"
+      ]
+    },
+    "thp": {
+      "term": "Tubing head pressure",
+      "definition": "The pressure at the wellhead. It does not enter the economics of the calculation, but it is a mandatory column in the reference NPV calculator's input file.",
+      "where_in_platform": [
+        "wellhead values by well"
+      ]
+    },
+    "esp": {
+      "term": "ESP",
+      "definition": "An electric submersible pump — the mechanised lift method. Its size class sets the flow range; crossing the range boundary requires replacing the pump and paying for it.",
+      "where_in_platform": [
+        "rule R4 does not cross a size boundary for nothing"
+      ]
+    },
+    "esp-size": {
+      "term": "ESP size class",
+      "definition": "The pump class by flow range. It is a derived value: computed from the actual rate rather than stored beside the schedule. A size change is capital expenditure.",
+      "where_in_platform": [
+        "R4 decisions on pump size"
+      ]
+    },
+    "setpoint": {
+      "term": "Setpoint",
+      "definition": "The rate or injection target assigned to a well. The fact may differ from it: the reservoir and the pump answer with their own, while the setpoint is what we ask for.",
+      "where_in_platform": [
+        "the setpoint beside the fact",
+        "which setpoints the rules assigned"
+      ]
+    },
+    "fact-to-target": {
+      "term": "Fact to target",
+      "definition": "The ratio of actual rate to setpoint. Below one the well falls short of what was assigned: either the reservoir does not deliver or the pump has reached its limit.",
+      "where_in_platform": [
+        "the setpoint execution column"
+      ]
+    },
+    "connectivity": {
+      "term": "Connectivity",
+      "definition": "The measured strength of an injector's influence on a particular producer's output. Not geometry and not a guess: obtained by a design of experiments over a series of perturbed runs.",
+      "where_in_platform": [
+        "graph edges and their thickness"
+      ]
+    },
+    "lambda": {
+      "term": "Lambda",
+      "definition": "The coefficient of an injector's influence on a producer's cumulative liquid at a measured lag. It is measured by a DESIGN OF EXPERIMENTS over perturbed OPM runs, not derived from the distance between wells: distance does not imply a hydrodynamic link. Stability is checked between two batches of the plan; an unconfirmed edge is marked unverified and is not used by the group level. The λ slider on the Field screen cuts off weak links.",
+      "where_in_platform": [
+        "the λ threshold slider"
+      ]
+    },
+    "lag": {
+      "term": "Response lag",
+      "definition": "The delay between a change in injection and the production response — water does not travel through the reservoir instantly. It is measured in months and is accounted for when valuing injection.",
+      "where_in_platform": [
+        "the lag is stated beside the measured matrix"
+      ]
+    },
+    "area": {
+      "term": "Area",
+      "definition": "A group of wells linked by a common water flow. Compensation and injection limits are set per area, not per individual well.",
+      "where_in_platform": [
+        "the limit allocation across areas"
+      ]
+    },
+    "control-step": {
+      "term": "Control step",
+      "definition": "One month of the horizon at which the system takes decisions. There are 225 control dates in total and 224 control intervals between them.",
+      "where_in_platform": [
+        "the step axis and the events on it"
+      ]
+    },
+    "horizon": {
+      "term": "Horizon",
+      "definition": "The whole period over which NPV is computed: from the first control date to the terminal state. Beyond it the effects of decisions are not counted.",
+      "where_in_platform": [
+        "the field's full time axis"
+      ]
+    },
+    "deck": {
+      "term": "Deck",
+      "definition": "The input reservoir model for the flow simulator: grid, rock properties, wells and their operating schedule. The organisers' deck is source data that must not be substituted.",
+      "where_in_platform": [
+        "well coordinates come from the deck"
+      ]
+    },
+    "opm": {
+      "term": "OPM Flow",
+      "definition": "The open-source reservoir simulator used to verify a schedule. The run is honest and slow: a surrogate's prediction is never presented as a verified result.",
+      "where_in_platform": [
+        "the scenario's verification status"
+      ]
+    },
+    "surrogate": {
+      "term": "Surrogate model",
+      "definition": "A learned approximator of the simulator response: from a schedule it predicts what OPM would answer, and thereby RANKS schedule candidates and scores risk. What it is NOT: it does not measure connectivity (λ is measured by a design of experiments over perturbed OPM runs) and it does not pick wells (those are chosen by the policy rules, and setpoints pass through the projection onto hard constraints). Its prediction must be verified by a real run; outside the training region (high OOD) the prediction is not used.",
+      "where_in_platform": [
+        "predicted and verified NPV side by side"
+      ]
+    },
+    "ood": {
+      "term": "Out of distribution",
+      "definition": "An indication that the proposed schedule has left the region the surrogate was trained on. A high score means the prediction cannot be trusted and a simulator check is required.",
+      "where_in_platform": [
+        "the scenario's OOD score and its threshold"
+      ]
+    },
+    "regret": {
+      "term": "Regret",
+      "definition": "The drop in a plan's NPV under an adverse scenario compared with the best decision for that scenario. The worst regret shows what the plan risks if reality deviates.",
+      "where_in_platform": [
+        "the worst regret per scenario"
+      ]
+    },
+    "robustness": {
+      "term": "Robustness",
+      "definition": "A plan's ability to hold its result across the whole battery of scenarios, not only the nominal one. The robustness constraint must not be folded into a penalty on the objective.",
+      "where_in_platform": [
+        "the battery's scenarios and the drops on them"
+      ]
+    },
+    "scenario": {
+      "term": "Scenario",
+      "definition": "A named schedule variant with its own constraints and its own result. Scenarios are compared against each other by NPV, constraints and verification status.",
+      "where_in_platform": [
+        "the scenario list and their comparison"
+      ]
+    },
+    "whatif": {
+      "term": "What-if",
+      "definition": "A scenario framed as a question — what happens if, for instance, injection is cut. It exists for comparison against the base case, not for submission.",
+      "where_in_platform": [
+        "comparison of the base case with a what-if"
+      ]
+    },
+    "constraints": {
+      "term": "Constraints",
+      "definition": "The external bounds a schedule must lie within: injection and liquid limits, production floors, water-cut ceilings, well outages and infrastructure. A violated constraint makes a plan unusable.",
+      "where_in_platform": [
+        "the scenario constraints editor"
+      ]
+    },
+    "outage": {
+      "term": "Well outage",
+      "definition": "An externally imposed interval of steps during which a well does not operate: workover, no power, infrastructure limit. Policy decisions cannot override it.",
+      "where_in_platform": [
+        "the table of outages by well"
+      ]
+    },
+    "water-supply": {
+      "term": "Water availability",
+      "definition": "How much water per day the system can inject at all. The limit is allocated across areas below this ceiling, and only within it do the rules move injection.",
+      "where_in_platform": [
+        "water availability and the limit allocation"
+      ]
+    },
+    "active-fund": {
+      "term": "Active well stock",
+      "definition": "The number of wells operating at a step. Each costs money in upkeep regardless of how much oil it produced — which is why a loss-making one is cheaper shut in.",
+      "where_in_platform": [
+        "the number of active wells"
+      ]
+    },
+    "availability": {
+      "term": "Well availability",
+      "definition": "Whether a well has been commissioned. A non-commissioned one has neither role nor setpoint and is shut — this is normalised, otherwise the same state would yield different schedule hashes.",
+      "where_in_platform": [
+        "well commissioning events on the time axis"
+      ]
+    },
+    "role": {
+      "term": "Well role",
+      "definition": "What a well works as: producer, injector or no role. Changing role is not a switch but a capital measure with costs and a payback.",
+      "where_in_platform": [
+        "node colour by role"
+      ]
+    },
+    "role-conversion": {
+      "term": "Well conversion",
+      "definition": "Converting a producer into an injector. It costs money, so it is justified only if as an injector it will bring more than it did as a producer within an acceptable payback period.",
+      "where_in_platform": [
+        "conversion events on the time axis",
+        "rule R6 decisions"
+      ]
+    },
+    "operating-status": {
+      "term": "Operating status",
+      "definition": "Whether a well is open or shut at this step. Every transition between these states costs money — which is why toggling a well back and forth does not pay.",
+      "where_in_platform": [
+        "shut-ins on the time axis"
+      ]
+    },
+    "start-stop-cost": {
+      "term": "Start-stop cost",
+      "definition": "The cost of one well transition between open and shut. It is a derived value: computed from the number of transitions rather than stored beside the schedule.",
+      "where_in_platform": [
+        "the event cost normatives"
+      ]
+    },
+    "trace": {
+      "term": "Trace",
+      "definition": "The log of triggered rules: at which step, for which well, which rule, with what actual inputs and what decision. It is the source from which a why explanation is assembled.",
+      "where_in_platform": [
+        "Trace records by rule"
+      ]
+    },
+    "ablation": {
+      "term": "Ablation",
+      "definition": "Measuring each rule's contribution to the final NPV: the rule is switched off and the drop in the total is observed. A rule without a measured delta is marked as unmeasured, not as zero.",
+      "where_in_platform": [
+        "the rule contribution table",
+        "which rules are measured"
+      ]
+    },
+    "provenance": {
+      "term": "Provenance",
+      "definition": "A mark of where a value came from: a real run, the organisers' deck, or demonstration data. Synthetic data is always labelled and never presented as a calculation.",
+      "where_in_platform": [
+        "the trust board with artifact sources"
+      ]
+    },
+    "submitted": {
+      "term": "Submitted scenario",
+      "definition": "The scenario chosen for submission. The mark is set only after verification by a real run: a prediction is never submitted as a result.",
+      "where_in_platform": [
+        "which scenario is marked for submission"
+      ]
+    },
+    "rule-r0": {
+      "term": "Rule R0: Порог рентабельности",
+      "definition": "The well retention rule: while the annual margin at the current water cut covers upkeep, the well keeps working; once the water cut crosses the breakeven value, the well stops paying for itself.",
+      "where_in_platform": [
+        "the statement and firings of rule R0",
+        "the measured contribution of R0 to NPV"
+      ]
+    },
+    "rule-r1": {
+      "term": "Rule R1: Ценность закачки",
+      "definition": "The water allocation rule: injection goes where, by the measured influence matrix, a cubic metre of water turns into the largest oil increment, not where it would merely raise water cut.",
+      "where_in_platform": [
+        "the statement and firings of rule R1",
+        "the measured contribution of R1 to NPV"
+      ]
+    },
+    "rule-r2": {
+      "term": "Rule R2: Разгон чистых, придушивание обводнённых",
+      "definition": "The water-cut setpoint rule: clean wells get their liquid target raised and heavily watered wells lowered, because for the latter each extra cubic metre is almost entirely water.",
+      "where_in_platform": [
+        "the statement and firings of rule R2",
+        "the measured contribution of R2 to NPV"
+      ]
+    },
+    "rule-r3": {
+      "term": "Rule R3: Остановка после месяцев убытка",
+      "definition": "The confirmed shut-in rule: a well is closed not after a single bad month but after several loss-making ones in a row, and is reopened only with a margin below the breakeven water cut.",
+      "where_in_platform": [
+        "the statement and firings of rule R3",
+        "the measured contribution of R3 to NPV"
+      ]
+    },
+    "rule-r4": {
+      "term": "Rule R4: Граница типоразмера ЭЦН",
+      "definition": "The pump rule: speeding a well up does not cross a pump size boundary unless the production gain pays for replacing the pump.",
+      "where_in_platform": [
+        "the statement and firings of rule R4",
+        "the measured contribution of R4 to NPV"
+      ]
+    },
+    "rule-r5": {
+      "term": "Rule R5: Коридор компенсации участка",
+      "definition": "The compensation rule: an area's injection is held within the normative corridor of injection to offtake — allowing neither reservoir depletion nor pointless water injection.",
+      "where_in_platform": [
+        "the statement and firings of rule R5",
+        "the measured contribution of R5 to NPV"
+      ]
+    },
+    "rule-r6": {
+      "term": "Rule R6: Перевод в нагнетательные",
+      "definition": "The conversion rule: a well is converted to injection when its value as an injection source outweighs, within an acceptable payback, what it earns as a producer, accounting for the conversion cost.",
+      "where_in_platform": [
+        "the statement and firings of rule R6",
+        "the measured contribution of R6 to NPV"
+      ]
+    },
+    "rule-r7": {
+      "term": "Rule R7: Циклика высокообводнённых",
+      "definition": "The cyclic operation rule for heavily watered wells. The benefit of cycling is not confirmed by run data, so the rule remains a hypothesis and is off by default.",
+      "where_in_platform": [
+        "the statement and firings of rule R7",
+        "the measured contribution of R7 to NPV"
+      ]
+    },
+    "voidage-replacement": {
+      "term": "Voidage replacement",
+      "definition": "The ratio of injected to offtaken volume computed in RESERVOIR conditions rather than at the surface: rates are multiplied by the formation volume factors B_w and B_o from the deck PVT at the current reservoir pressure. The surface ratio of injection to offtake is a simplification; the correct quantity is the reservoir one. Model_Z has no free gas (Rs about 0.0054 at a bubble point of about 1.13 bar), so the gas term of the offtake is zero.",
+      "where_in_platform": [
+        "the field compensation and its corridor",
+        "the injection allocation across areas"
+      ]
+    },
+    "injection-corridor": {
+      "term": "Injection corridor",
+      "definition": "The admissible interval of compensation from C_min to C_max. Going above the corridor raises reservoir pressure and risks opening a fracture; going below it drops pressure, depletes the reservoir and loses production. The bounds are not assigned by us: they are measured from the organisers' base run as the interval from the minimum to the maximum base compensation widened by 0.05 on each side, and on the test case they are taken from the case itself. Under hard enforcement, leaving the corridor makes a schedule unusable.",
+      "where_in_platform": [
+        "the compensation corridor among the scenario constraints",
+        "the current compensation against the corridor"
+      ]
+    },
+    "external-water": {
+      "term": "Volume n, additional water",
+      "definition": "The volume of water the organisers permit to be injected beyond the produced water on the test case. In the contract this is the field external_water_m3_per_day. The check that injection does not exceed produced water plus n applies only if the case explicitly declares a water-source limit; otherwise injection is bounded not by the source but by the compensation corridor. If the case names the external water but not the reinjection fraction, the fraction defaults to 1.0 and is marked with the flag fraction_defaulted, so the default stays visible instead of dissolving into the number. An unlimited source is declared not by an infinite n but by the separate field water_supply_unlimited; combining that flag with the water keys (water_reinjection_fraction, water_reinjection_lag_steps, external_water_m3_per_day) is rejected — the source is either unlimited or described by numbers, never both.",
+      "where_in_platform": [
+        "the water source limit among the constraints",
+        "the field injection against the produced water"
+      ]
+    },
+    "reservoir-pressure": {
+      "term": "Reservoir pressure",
+      "definition": "The average reservoir pressure over the field (FPR) and by region (RPR over FIPNUM). It is available only after an OPM run: before that, pressure is estimated by the surrogate as a warning only. If the pressure policy is on but the run series is missing, that is an error, not a skipped check.",
+      "where_in_platform": [
+        "the field pressure at the selected step",
+        "the scenario's pressure check status"
+      ]
+    },
+    "pressure-floor": {
+      "term": "Pressure floor",
+      "definition": "The lower bound of reservoir pressure. It is computed as the maximum of the bubble point pressure with a margin and the pressure at which producers hit their bottomhole limit. For Model_Z the bubble point is about 1.13 bar, so the actual floor is set by operation rather than by gas liberation — this should be stated plainly, not hidden. Violations: FIELD_PRESSURE_BELOW_FLOOR and REGION_PRESSURE_BELOW_FLOOR.",
+      "where_in_platform": [
+        "the field pressure against its floor",
+        "the scenario's pressure violations"
+      ]
+    },
+    "pressure-ceiling": {
+      "term": "Pressure ceiling",
+      "definition": "The upper bound of reservoir pressure. Its physical meaning is not to open a fracture: the customer stated that above roughly 300 atm a fracture does open in practice. By default the ceiling is the initial pressure multiplied by 1.25; a value from the case takes priority. Violations: FIELD_PRESSURE_ABOVE_CEILING and REGION_PRESSURE_ABOVE_CEILING.",
+      "where_in_platform": [
+        "the field pressure against its ceiling",
+        "the scenario's pressure violations"
+      ]
+    },
+    "barrier": {
+      "term": "Barrier",
+      "definition": "An obstacle to flow between parts of the reservoir. In Model_Z this is NOT a fault: FAULTS and MULTFLT in the deck are both zero. The barriers are the boundary of an equilibration region EQLNUM (there are five, each with its own EQUIL line), pinch-out of layers PINCHREG, zero net-to-gross NTG, a band of inactive cells (56 per cent of cells are inactive) and a transmissibility multiplier below one. The geology reader supports FAULTS, MULTFLT, MULTX, MULTY, MULTZ, MULTREGT and NNC syntactically, so on a field with real faults the barriers will appear without a code change.",
+      "where_in_platform": [
+        "the barrier layer on the field map",
+        "edges crossing a barrier are drawn dashed"
+      ]
+    },
+    "eqlnum": {
+      "term": "Equilibration region (EQLNUM)",
+      "definition": "A region of the deck with its own EQUIL line — its own initial distribution of pressure and contacts. Model_Z has five such regions. The boundary between two different equilibration regions acts as a hydrodynamic barrier, because on either side of it the reservoir is initially equilibrated differently.",
+      "where_in_platform": [
+        "equilibration region boundaries on the map"
+      ]
+    },
+    "geology-prior": {
+      "term": "Geological prior",
+      "definition": "The expectation of a link between a pair of wells from geometry and rock properties: the harmonic mean of permeability times net-to-gross along the straight line between the wellheads over the perforated layers, plus the fraction of active cells on the path. This is NOT connectivity: distance and permeability do not imply a hydrodynamic link. The prior is used for checking — an edge with a large λ and a zero prior is the first to be re-verified.",
+      "where_in_platform": [
+        "graph edges and their verification"
+      ]
+    },
+    "compensation-scope": {
+      "term": "Compensation scope",
+      "definition": "Compensation is checked over the field and over the areas. An area with no injectors is not checked. An area with no offtake is a data error, not a zero: a quantity that cannot be computed must produce a refusal, not a stand-in value.",
+      "where_in_platform": [
+        "compensation by area",
+        "compensation over the field"
+      ]
+    },
+    "material-balance": {
+      "term": "Material balance",
+      "definition": "The volume conservation identities over a run: the change in oil in place matches cumulative oil production, and the change in water in place matches cumulative injection less produced water. A relative error above one per cent is the violation MATERIAL_BALANCE_BROKEN: the run is not considered trustworthy.",
+      "where_in_platform": [
+        "the balance identities in the run status"
+      ]
+    },
+    "incumbent": {
+      "term": "Incumbent",
+      "definition": "The most recent schedule confirmed sound by an OPM run and holding the best NPV among the confirmed ones. Only it is submitted: a candidate that looks better by the surrogate's prediction but has not been checked by the simulator does not replace the incumbent.",
+      "where_in_platform": [
+        "the confirmed scenarios and their NPV"
+      ]
+    },
+    "sound": {
+      "term": "Sound",
+      "definition": "A property of a run: the simulator reached the end of the horizon, the material balance identities hold, and there are no blocking constraint violations. A schedule without this property is not submitted, however good its NPV may look.",
+      "where_in_platform": [
+        "the scenario's sound status"
+      ]
+    },
+    "compensation-violation": {
+      "term": "Compensation violation",
+      "definition": "Compensation is the ratio of injection to offtake over a control step. The check yields violations of two kinds. COMPENSATION_OUT_OF_CORRIDOR: the quantity was computed but falls outside the corridor. COMPENSATION_UNDEFINED: the quantity cannot be computed because offtake at the step is zero and the ratio is undefined; this is a refusal, not a stand-in zero. Strictness is set by compensation_enforcement: the default diagnostic records the violation without blocking the schedule, while hard makes it blocking. The scope is set by compensation_scope: field checks the field only, groups the areas only, field_and_groups both; the default is field_and_groups.",
+      "where_in_platform": [
+        "the compensation enforcement and scope among the constraints",
+        "the field compensation against the corridor"
+      ]
+    },
+    "compensation-base-measurement": {
+      "term": "Base run compensation, measured",
+      "definition": "The compensation of the organisers' base run, measured from the response rather than assigned. Over 224 control steps in surface conditions: minimum 1.2016, p05 1.2138, median 1.2753, p95 1.4233, maximum 1.4567. Not one of the 224 steps falls inside the 0.85…1.15 corridor we had assigned: the base lies entirely above it, so such a corridor would describe our assumption rather than the reservoir. Recomputing the same steps in reservoir conditions through the formation volume factors shifts the value by 0.06…0.29 per cent, so on this case the choice of conditions changes almost nothing while the choice of corridor bounds changes everything.",
+      "where_in_platform": [
+        "the field compensation by step of the base run",
+        "the compensation corridor beside the base measurement"
+      ]
+    },
+    "physics-gate": {
+      "term": "Physics gate",
+      "definition": "The check of a surrogate prediction against seven physical invariants before a candidate goes to OPM. Five are computed on a single prediction: NON_NEGATIVE, WATERCUT_RANGE, CUMULATIVE_MONOTONIC, SHUT_WELL_FLOW, BHP_LIMIT. Two are differential — INJECTION_RESPONSE and MATERIAL_BALANCE — and compare the candidate against a reference, because an increment exists only relative to something. A candidate is admitted when admissible holds, which is both completeness, all seven actually computed, and the absence of blocking flags: a skipped invariant does not count as a passed one. Of the seven only BHP_LIMIT is a warning: a predicted bottomhole pressure outside the limit means OPM will switch the well to another control mode, not that the prediction is physically impossible. The other six are blocking.",
+      "where_in_platform": [
+        "the run trust board and the physical invariants",
+        "the physics flags beside the run status"
+      ]
+    }
+  }
+}

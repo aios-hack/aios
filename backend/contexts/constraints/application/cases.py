@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.constraints.domain.errors import (
+    CaseError,
+)
+
 import json
 from dataclasses import replace
 from datetime import date
@@ -95,10 +99,6 @@ REFUSED_SECTIONS: dict[str, str] = {
         "валидатор трактует такой сдвиг как изменение зафиксированной истории"
     ),
 }
-
-
-class CaseError(ValueError):
-    pass
 
 
 def _require_mapping(document: Any, section: str) -> dict[str, Any]:
@@ -272,14 +272,6 @@ def _load_well_state(data: dict[str, Any]) -> WellState:
         operating_status=OperatingStatus[data["operating_status"]],
         setpoint=data["setpoint"],
     )
-
-
-
-
-
-
-
-
 
 
 def load_case(path: str | Path, n_intervals: int = N_INTERVALS) -> Constraints:

@@ -1,4 +1,6 @@
 .jarvis-map {
+  --jarvis-map-node-font: 2.6px;
+
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -49,7 +51,7 @@
 
 .jarvis-map-text {
   fill: var(--color-text-muted);
-  font-size: 2.6px;
+  font-size: var(--jarvis-map-node-font);
   text-anchor: middle;
 }
 
@@ -112,7 +114,7 @@
 .jarvis-map-action {
   min-height: var(--size-hit-min);
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--color-border);
+  border: var(--border-hairline) solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text);

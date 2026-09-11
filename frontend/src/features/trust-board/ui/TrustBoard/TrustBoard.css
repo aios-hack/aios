@@ -1,4 +1,6 @@
 .trust-board {
+  --trust-rise: 4px;
+
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -6,7 +8,7 @@
 
 .trust-board-head {
   padding: var(--space-4) var(--space-4) var(--space-3);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: var(--border-hairline) solid var(--color-border);
 }
 
 .trust-board-title {
@@ -24,7 +26,7 @@
 }
 
 .trust-group + .trust-group {
-  border-top: 1px solid var(--color-border);
+  border-top: var(--border-hairline) solid var(--color-border);
 }
 
 .trust-group-title {
@@ -53,7 +55,7 @@
 }
 
 .trust-item + .trust-item {
-  border-top: 1px solid var(--color-border-subtle);
+  border-top: var(--border-hairline) solid var(--color-border-subtle);
 }
 
 .trust-label {
@@ -80,7 +82,7 @@
 
 .trust-board-foot {
   padding: var(--space-3) var(--space-4);
-  border-top: 1px solid var(--color-border);
+  border-top: var(--border-hairline) solid var(--color-border);
   font-size: var(--font-size-xs);
   text-wrap: pretty;
 }
@@ -121,6 +123,6 @@
 @keyframes trust-row-in {
   from {
     opacity: 0;
-    translate: 0 4px;
+    translate: 0 var(--trust-rise);
   }
 }

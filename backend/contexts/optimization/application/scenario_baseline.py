@@ -48,9 +48,15 @@ regret выходит отрицательным. Обнулять его нел
 
 from __future__ import annotations
 
+from backend.contexts.optimization.domain.errors import (
+    ScenarioBaselineError,
+)
+
 import hashlib
 from dataclasses import dataclass
-from typing import Protocol, Sequence
+from typing import (
+    Protocol,
+)
 
 from backend.core.contracts import Constraints, Theta
 
@@ -61,10 +67,6 @@ from backend.contexts.optimization.domain.optimizer import (
 )
 from backend.contexts.robustness.application.battery import FragilityBattery, Scenario, Split
 from backend.contexts.robustness.domain.regret import RegretReport, ScenarioOutcome
-
-
-class ScenarioBaselineError(ValueError):
-    """Бейзлайн нельзя посчитать: нет цели под сценарий, пустая батарея, нулевой бюджет."""
 
 
 class ObjectiveFactory(Protocol):

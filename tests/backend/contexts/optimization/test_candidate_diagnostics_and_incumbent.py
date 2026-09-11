@@ -19,6 +19,9 @@ from backend.shared.json_io import read_json
 
 RUN_SOURCE = Path(_search_use_case.__file__)
 SEARCH_SOURCE = Path(_environment.__file__)
+from backend.contexts.optimization.domain import errors as optimization_errors
+from backend.contexts.optimization.domain import ood_penalty
+from backend.contexts.optimization.domain import physics_gate
 
 FIELD_NAMES = (
     "schedule_hash",
@@ -50,57 +53,14 @@ def _function_def(module: ast.Module, name: str) -> ast.FunctionDef:
 
 
 def _run_namespace() -> dict[str, object]:
-    module = _module_ast(RUN_SOURCE)
-    wanted_functions = {
-        "candidate_card",
-        "incumbent_gate_passed",
-        "_physics_admissible",
-        "_evaluation_cards",
-        "_write_diagnostics_tail",
-    }
-    wanted_classes = {"IncumbentRecord", "IncumbentRegistry", "SearchRunError"}
-    body = [
-        node
-        for node in module.body
-        if (isinstance(node, ast.FunctionDef) and node.name in wanted_functions)
-        or (isinstance(node, ast.ClassDef) and node.name in wanted_classes)
-    ]
-    found = {node.name for node in body}
-    assert found == wanted_functions | wanted_classes, sorted(found)
-    holder = types.ModuleType("search_run_slice")
-    namespace = holder.__dict__
-    namespace.update(
-        {
-            "dataclass": dataclass,
-            "Mapping": Mapping,
-            "Sequence": Sequence,
-            "json": json,
-            "math": math,
-            "read_json": read_json,
-        }
-    )
-    sys.modules["search_run_slice"] = holder
-    exec(
-        compile(ast.Module(body=body, type_ignores=[]), str(RUN_SOURCE), "exec"),
-        namespace,
-    )
+    namespace: dict[str, object] = dict(vars(_search_use_case))
+    namespace.update(vars(optimization_errors))
     return namespace
 
 
 def _search_namespace() -> dict[str, object]:
-    module = _module_ast(SEARCH_SOURCE)
-    body = [
-        node
-        for node in module.body
-        if isinstance(node, ast.FunctionDef)
-        and node.name in ("format_ood_worst", "physics_counters")
-    ]
-    assert {node.name for node in body} == {"format_ood_worst", "physics_counters"}
-    namespace: dict[str, object] = {"OodScore": object, "PhysicsReport": object}
-    exec(
-        compile(ast.Module(body=body, type_ignores=[]), str(SEARCH_SOURCE), "exec"),
-        namespace,
-    )
+    namespace: dict[str, object] = dict(vars(ood_penalty))
+    namespace.update(vars(physics_gate))
     return namespace
 
 
@@ -361,14 +321,14 @@ def test_the_registry_records_hash_npv_and_order() -> None:
     json.dumps(dumped, ensure_ascii=False, allow_nan=False)
 
 
-def test_the_registry_is_written_beside_the_diagnostics(tmp_path: Path) -> None:
+def test_the_registry_is_written_beside_the_diagnostics(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     namespace = _run_namespace()
     path = tmp_path / "cmaes-diagnostics.json"
     path.write_text(
         json.dumps({"seed": 1, "evaluations": []}, ensure_ascii=False),
         encoding="utf-8",
     )
-    namespace["SEARCH_DIAGNOSTICS"] = path
+    monkeypatch.setattr(_search_use_case, "SEARCH_DIAGNOSTICS", path)
     registry = namespace["IncumbentRegistry"]()
     registry.promote(
         stage="finalist",

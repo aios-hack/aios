@@ -4,8 +4,8 @@ import type { ReactNode } from 'react';
 import type { TimelineStep, TimelineWellRow } from '@/entities/timeline/types';
 import { dictionaries } from '@/shared/i18n/dictionaries';
 import { I18nProvider } from '@/shared/i18n/I18nContext';
-import { overviewMetrics } from '@/pages/overview/overviewMetrics';
-import { OverviewCard } from '@/pages/overview/OverviewCard/OverviewCard';
+import { overviewMetrics } from '@/pages/overview/model/overviewMetrics';
+import { OverviewCard } from '@/pages/overview/ui/OverviewCard/OverviewCard';
 
 const STEP_COUNT = 6;
 

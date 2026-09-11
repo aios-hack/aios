@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dictionaries } from '@/shared/i18n/dictionaries';
-import { YEAR_SECTIONS } from '@/pages/money-constraints/constraints';
-import { ConstraintsEditor } from '@/pages/money-constraints/ConstraintsEditor/ConstraintsEditor';
+import { YEAR_SECTIONS } from '@/pages/money-constraints/model/constraints';
+import { ConstraintsEditor } from '@/pages/money-constraints/ui/ConstraintsEditor/ConstraintsEditor';
 import { flushProviders, mockFetch, withProviders } from '@support/testFixtures';
 
 const { ru } = dictionaries;

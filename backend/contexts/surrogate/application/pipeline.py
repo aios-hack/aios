@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from backend.contexts.surrogate.domain.errors import (
+    CycleError,
+)
+
 import argparse
 import hashlib
 import json
@@ -23,9 +27,9 @@ from backend.contexts.simulation.domain.perturbation_design import (
 )
 from backend.core.contracts import canonical_bytes
 
-from .model import ModelConfig, TrajectorySurrogate
+from backend.contexts.surrogate.application.model import ModelConfig, TrajectorySurrogate
 from backend.contexts.surrogate.infrastructure.model_z_context import build_model_z_context
-from .train import _examples, evaluate, split_samples
+from backend.contexts.surrogate.application.train import _examples, evaluate, split_samples
 
 
 PILOT_CONFIG = PlanConfig(
@@ -40,10 +44,6 @@ EXTRA_CONFIG = PlanConfig(
     n_shutdown_scenarios=87,
     n_conversion_scenarios=37,
 )
-
-
-class CycleError(RuntimeError):
-    pass
 
 
 def _now() -> str:

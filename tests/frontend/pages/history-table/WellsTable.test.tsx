@@ -4,9 +4,9 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import type { TimelineWellRow } from '@/entities/timeline/types';
 import { I18nProvider } from '@/shared/i18n/I18nContext';
-import { SORT_KEYS } from '@/pages/history-table/sorting';
-import { WellsTable } from '@/pages/history-table/WellsTable/WellsTable';
-import { srcPath } from '@support/paths';
+import { SORT_KEYS } from '@/pages/history-table/model/sorting';
+import { WellsTable } from '@/pages/history-table/ui/WellsTable/WellsTable';
+import { hidesVisuallyOnly, WELLS_TABLE_CSS } from '@support/layout';
 
 const WELL_COUNT = 20;
 
@@ -96,7 +96,7 @@ describe('wells table reveal order', () => {
 
 describe('the wells table matches the console table pattern', () => {
   const css = readFileSync(
-    srcPath('pages', 'history-table', 'WellsTable', 'WellsTable.css'),
+    WELLS_TABLE_CSS,
     'utf-8'
   );
 
@@ -111,9 +111,7 @@ describe('the wells table matches the console table pattern', () => {
   });
 
   it('keeps the caption available to assistive tech without showing it twice', () => {
-    const block = css.match(/\.timeline-caption\s*\{[^}]*\}/)?.[0] ?? '';
-    expect(block).toContain('clip-path');
-    expect(block).not.toContain('display: none');
+    expect(hidesVisuallyOnly('.timeline-caption')).toBe(true);
   });
 
   it('pins the header so the columns stay named down a long table', () => {

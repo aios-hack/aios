@@ -20,7 +20,7 @@ from backend.domain.schedule import (
 )
 from backend.contexts.schedule.application.emit import WELLS_SCHEDULE_FILE_NAME
 
-from .paths import (
+from backend.interfaces.cli.paths import (
     chdd_python_dir,
     docs_root,
     example_input_xlsx,

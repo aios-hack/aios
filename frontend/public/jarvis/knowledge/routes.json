@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "workspaces": [
+    {
+      "workspace": "overview",
+      "views": [
+        "fund"
+      ]
+    },
+    {
+      "workspace": "field",
+      "views": [
+        "projection",
+        "maps"
+      ]
+    },
+    {
+      "workspace": "history",
+      "views": [
+        "matrix",
+        "wall",
+        "table"
+      ]
+    },
+    {
+      "workspace": "decisions",
+      "views": [
+        "council",
+        "rules"
+      ]
+    },
+    {
+      "workspace": "money",
+      "views": [
+        "rank",
+        "comparison",
+        "constraints"
+      ]
+    }
+  ]
+}

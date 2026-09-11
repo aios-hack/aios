@@ -11,6 +11,10 @@
 
 from __future__ import annotations
 
+from backend.contexts.schedule.domain.errors import (
+    ScheduleCanonicalError,
+)
+
 import hashlib
 import math
 from dataclasses import replace
@@ -40,10 +44,6 @@ _KIND_RANK: dict[EventKind, int] = {
 
 _HASH_HEX_LENGTH = 64
 _DIGEST_BYTES = 32
-
-
-class ScheduleCanonicalError(ValueError):
-    """Расписание не канонизируется: конфликтующие события или битое состояние."""
 
 
 def _well_sort_key(well: str) -> str:

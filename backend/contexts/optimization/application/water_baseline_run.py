@@ -18,18 +18,20 @@ from backend.domain.schedule import canonicalize, validate_dynamic, validate_sta
 from backend.shared.resources import chdd_python_dir, model_z_dir
 from backend.contexts.schedule.infrastructure.json_io import load_schedule_json
 
-from .opm_active_calibration import WaterFamilyNpvCalibration
+from backend.contexts.optimization.application.opm_active_calibration import WaterFamilyNpvCalibration
 from backend.contexts.optimization.infrastructure.artifacts import (
     resolve_runtime_artifacts,
     validate_runtime_economic_head,
 )
 from backend.contexts.optimization.application.environment import (
-    SETPOINT_STEP_M3_PER_DAY,
-    _interval_produced_water_rate_m3_per_day,
     load_environment,
     make_evaluator,
 )
-from .verification_run import (
+from backend.contexts.optimization.domain.injection_budget import (
+    SETPOINT_STEP_M3_PER_DAY,
+    _interval_produced_water_rate_m3_per_day,
+)
+from backend.contexts.optimization.application.verification_run import (
     LAMBDA,
     OIL_DENSITY_T_PER_M3,
     RESPONSE,

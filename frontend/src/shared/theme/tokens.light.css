@@ -197,6 +197,17 @@
   --z-popover: 30;
   --z-skip-link: 40;
 
+  --rise-sm: 3px;
+  --rise-md: 6px;
+  --rise-lg: 8px;
+  --rise-xl: 12px;
+
+  --stroke-hairline: 1px;
+  --stroke-thick: 1.25px;
+
+  --border-hairline: 1px;
+  --border-thick: 2px;
+
   --focus-ring-width: 2px;
   --focus-ring-offset: 1px;
 

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.assistant.domain.errors import (
+    SessionError,
+)
+
 import threading
 from dataclasses import dataclass, field
 from typing import Sequence
@@ -11,10 +15,6 @@ HISTORY_LIMIT = 6
 MAX_QUESTION_LENGTH = 600
 ANSWER_EXCERPT = 300
 SUMMARY_LIMIT = 1200
-
-
-class SessionError(RuntimeError):
-    pass
 
 
 @dataclass(frozen=True, slots=True)

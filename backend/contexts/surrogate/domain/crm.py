@@ -48,14 +48,14 @@ CRM: пласт отвечает на закачку не мгновенно).
 
 from __future__ import annotations
 
+from backend.contexts.surrogate.domain.errors import (
+    CrmError,
+)
+
 from dataclasses import dataclass
 from typing import Iterable, Mapping, Sequence
 
 from backend.core.contracts import IntervalResponse, N_INTERVALS
-
-
-class CrmError(ValueError):
-    """Отклик или параметры не позволяют построить корректную базовую линию."""
 
 
 DEFAULT_TAU_INTERVALS = 1.0

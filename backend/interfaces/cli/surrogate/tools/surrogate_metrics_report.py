@@ -32,7 +32,12 @@ from backend.contexts.optimization.application.environment import (
     load_environment,
     predict_economics,
 )
-from backend.contexts.optimization.application.search_use_case import LAMBDA, RESPONSE
+from backend.contexts.optimization.application.search_use_case import (
+    RESPONSE,
+)
+from backend.contexts.optimization.application.verification_run import (
+    LAMBDA,
+)
 from backend.contexts.surrogate.application.adapter import ResponseAdapter
 from backend.contexts.surrogate.domain.features import ScheduleFeatureizer
 from backend.contexts.surrogate.domain.metrics import ranking_metrics

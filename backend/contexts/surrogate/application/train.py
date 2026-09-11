@@ -11,6 +11,10 @@ a quality measurement.
 
 from __future__ import annotations
 
+from backend.contexts.surrogate.domain.errors import (
+    TrainingCommandError,
+)
+
 import argparse
 import hashlib
 import json
@@ -32,7 +36,7 @@ from backend.core.contracts import NormativeSet, ResponseArtifact, canonical_byt
 from backend.domain.economics import analyze_base_case, load_normatives
 from backend.domain.schedule import parse_schedule
 
-from .adapter import ResponseAdapter
+from backend.contexts.surrogate.application.adapter import ResponseAdapter
 from backend.contexts.surrogate.domain.features import ScheduleFeatureizer
 from backend.contexts.surrogate.domain.metrics import (
     WellTrajectory,
@@ -40,7 +44,7 @@ from backend.contexts.surrogate.domain.metrics import (
     state_metrics,
     watercut_metrics,
 )
-from .model import (
+from backend.contexts.surrogate.application.model import (
     TARGET_NAMES,
     ModelConfig,
     TrainingExample,
@@ -51,10 +55,6 @@ from backend.contexts.surrogate.infrastructure.model_z_context import (
     ModelZFeatureArtifact,
     build_model_z_context,
 )
-
-
-class TrainingCommandError(ValueError):
-    pass
 
 
 @dataclass(frozen=True, slots=True)

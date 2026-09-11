@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.assistant.domain.errors import (
+    SttError,
+)
+
 import base64
 import json
 import os
@@ -39,10 +43,6 @@ PROMPT_EN = (
     "is no speech, return an empty string."
 )
 Opener = Callable[[urllib.request.Request, float], Any]
-
-
-class SttError(RuntimeError):
-    pass
 
 
 class SttUnavailable(SttError):

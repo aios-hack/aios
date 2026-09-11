@@ -4,20 +4,24 @@ from typing import Any, Callable, Mapping
 
 from backend.contexts.assistant.application.tools import (
     cases,
-    connectivity as connectivity_module,
     council,
     decisions,
     docs,
     fields,
-    knowledge as knowledge_module,
+    knowledge,
     patterns,
     ranking,
     rules,
-    run_history as run_history_module,
     runs,
     scenarios,
-    system as system_module,
+    system,
     wells,
+)
+from backend.contexts.assistant.application.tools.connectivity import (
+    connectivity,
+)
+from backend.contexts.assistant.application.tools.run_history import (
+    run_history,
 )
 from backend.contexts.assistant.application.tools.actions import build_action
 from backend.contexts.assistant.application.tools.context import Card, ToolContext, ToolFailure

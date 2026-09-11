@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.assistant.domain.errors import (
+    ToolFailure,
+)
+
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
@@ -11,10 +15,6 @@ from backend.contexts.assistant.infrastructure.artifacts import (
 )
 
 DEFAULT_LANG = "ru"
-
-
-class ToolFailure(RuntimeError):
-    pass
 
 
 @dataclass(frozen=True, slots=True)

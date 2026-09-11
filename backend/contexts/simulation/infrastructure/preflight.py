@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.shared.errors import (
+    InfrastructureError,
+)
+
 import enum
 import json
 import shutil
@@ -54,7 +58,9 @@ class PreflightProblem(enum.Enum):
     IMAGE_MISSING = "image-missing"
 
 
-class DockerPreflightError(RuntimeError):
+class DockerPreflightError(InfrastructureError):
+    default_code = "simulation.preflight"
+
 
     def __init__(self, report: "PreflightReport") -> None:
         super().__init__(report.message)

@@ -47,9 +47,9 @@
 .jarvis-physics-checks li {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   padding-left: var(--space-2);
-  border-left: 2px solid var(--color-border);
+  border-left: var(--border-thick) solid var(--color-border);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }

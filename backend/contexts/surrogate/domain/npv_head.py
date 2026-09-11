@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from backend.contexts.surrogate.domain.errors import (
+    ScenarioNpvHeadError,
+)
+
 import hashlib
 import json
 import math
@@ -14,7 +18,7 @@ from torch import Tensor
 
 from backend.core.contracts import N_INTERVALS
 
-from .features import SurrogateInput
+from backend.contexts.surrogate.domain.features import SurrogateInput
 from backend.contexts.surrogate.application.model import _features
 
 FORMAT = "aios.surrogate-scenario-npv-head.v1"
@@ -22,10 +26,6 @@ BASE_FEATURES = 21
 TEMPORAL_BINS = 28
 KernelName = Literal["linear", "poly2", "rbf"]
 FeatureSet = Literal["global", "temporal", "full"]
-
-
-class ScenarioNpvHeadError(ValueError):
-    pass
 
 
 def scenario_feature_vector(

@@ -10,7 +10,7 @@ from typing import Sequence
 from backend.core.contracts import RunResult, RunStatus, Schedule
 
 from backend.contexts.reservoir.infrastructure.opm_deck import EmittedOpmDeck
-from .runner import OpmRunner, OpmRunnerError, deck_hashes
+from backend.contexts.simulation.infrastructure.runner import OpmRunner, OpmRunnerError, deck_hashes
 
 _CACHEABLE_STATUSES = frozenset({RunStatus.OK, RunStatus.NOT_CONVERGED})
 

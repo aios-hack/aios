@@ -8,6 +8,10 @@ static data) and measured, date-scoped ``Lambda`` matrices.
 
 from __future__ import annotations
 
+from backend.contexts.surrogate.domain.errors import (
+    FeatureError,
+)
+
 from backend.contexts.schedule.domain.wcon import commissioning_state
 
 import math
@@ -58,10 +62,6 @@ _EVENT_ORDER = {
     EventKind.OPEN: 3,
     EventKind.SHUT: 3,
 }
-
-
-class FeatureError(ValueError):
-    """The schedule/context cannot produce unambiguous surrogate features."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -346,7 +346,6 @@ def _commissioning_state(event_operator: str, raw_args: tuple[str, ...]) -> _Mut
         return _MutableState.from_contract(commissioning_state(event_operator, raw_args))
     except ValueError as error:
         raise FeatureError(str(error)) from error
-
 
 
 def _apply_control(state: _MutableState, event: ControlEvent) -> None:

@@ -9,13 +9,14 @@ import { isAblationFile } from '@/entities';
 import { dictionaries } from '@/shared/i18n/dictionaries';
 import { I18nProvider } from '@/shared/i18n/I18nContext';
 import { TimelineProvider } from '@/entities/timeline/model/TimelineContext';
-import { coverageOf, stateOf, toEntries } from '@/pages/money-rank/npv/ablation';
+import { coverageOf, stateOf, toEntries } from '@/pages/money-rank/model/ablation';
 import {
   isNumericAblationKey,
   sortAblationEntries,
   type AblationSortKey
-} from '@/pages/money-rank/npv/ablationSorting';
-import { NpvRank } from '@/pages/money-rank/npv/NpvRank/NpvRank';
+} from '@/pages/money-rank/model/ablationSorting';
+import { NpvRank } from '@/pages/money-rank/ui/NpvRank/NpvRank';
+import { ABLATION_TABLE_CSS, hidesVisuallyOnly } from '@support/layout';
 import { publicPath, srcPath } from '@support/paths';
 
 const { ru } = dictionaries;
@@ -342,15 +343,7 @@ describe('ablation states its coverage as a figure, not as buried prose', () => 
   });
 
   it('drops the duplicated heading when the table is the whole page', () => {
-    const css = readFileSync(
-      srcPath('pages', 'money-rank', 'npv', 'AblationTable', 'AblationTable.css'),
-      'utf-8'
-    );
-    const hidden = css.match(
-      /\.abl\[data-standalone='true'\] \.abl-title\s*\{[^}]*\}/
-    );
-    expect(hidden).not.toBeNull();
-    expect((hidden as RegExpMatchArray)[0]).toContain('clip-path');
+    expect(hidesVisuallyOnly('.abl-standalone-title')).toBe(true);
   });
 
   it('caps only the prose, never the table wrapper', async () => {
@@ -359,7 +352,7 @@ describe('ablation states its coverage as a figure, not as buried prose', () => 
     expect(wrap.style.maxWidth).toBe('');
 
     const css = readFileSync(
-      srcPath('pages', 'money-rank', 'npv', 'AblationTable', 'AblationTable.css'),
+      ABLATION_TABLE_CSS,
       'utf-8'
     );
     const wrapBlock = css.match(/\.abl-table-wrap\s*\{[^}]*\}/);
@@ -381,7 +374,7 @@ describe('ablation rows reveal in order', () => {
 
   it('keeps the stagger delay after the animation shorthand that would reset it', () => {
     const css = readFileSync(
-      srcPath('pages', 'money-rank', 'npv', 'AblationTable', 'AblationTable.css'),
+      ABLATION_TABLE_CSS,
       'utf-8'
     );
     const block = css.match(/\.abl-table tbody tr \{[^}]*\}/)?.[0] ?? '';
@@ -393,7 +386,7 @@ describe('ablation rows reveal in order', () => {
 
   it('turns the row reveal off when the reader asks for reduced motion', () => {
     const css = readFileSync(
-      srcPath('pages', 'money-rank', 'npv', 'AblationTable', 'AblationTable.css'),
+      ABLATION_TABLE_CSS,
       'utf-8'
     );
     const reduced = css.match(

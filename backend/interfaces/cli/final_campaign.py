@@ -19,11 +19,13 @@ from backend.contexts.optimization.infrastructure.artifacts import (
 )
 from backend.contexts.optimization.application.environment import load_environment, make_evaluator
 from backend.contexts.optimization.application.search_use_case import (
-    _peak_step_production,
-    _repair_predicted_water_balance,
     _injection_transfer_plan,
+    _repair_predicted_water_balance,
     _transfer_injection,
     run_search,
+)
+from backend.contexts.optimization.application.baseline_search import (
+    _peak_step_production,
 )
 from backend.contexts.optimization.application.verification_run import verify_schedule
 from backend.application.runs import RunRequest, RunWorkflow

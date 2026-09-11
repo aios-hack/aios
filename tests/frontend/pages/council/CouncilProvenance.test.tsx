@@ -6,7 +6,7 @@ import type { TimelineFile } from '@/entities/timeline/types';
 import { isHierarchyFile } from '@/entities';
 import { I18nProvider } from '@/shared/i18n/I18nContext';
 import { TimelineProvider } from '@/entities/timeline/model/TimelineContext';
-import { Council } from '@/pages/council/Council/Council';
+import { Council } from '@/pages/council/ui/Council/Council';
 
 const STEP_COUNT = 2;
 

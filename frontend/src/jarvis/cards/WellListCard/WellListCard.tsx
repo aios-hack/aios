@@ -1,6 +1,6 @@
 import { DASH, formatNumber, formatPercent } from '@/shared/lib/format';
 import { useI18n } from '@/shared/i18n/I18nContext';
-import { readWellList } from '@/jarvis/cards/payloads/cardPayloads';
+import { readWellList } from '@/jarvis/cards/payloads';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
 import './WellListCard.css';
 

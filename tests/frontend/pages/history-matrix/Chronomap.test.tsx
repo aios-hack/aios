@@ -5,14 +5,14 @@ import type { ReactNode } from 'react';
 import type { GraphFile } from '@/entities/graph/types';
 import type { NpvFile } from '@/entities/npv/types';
 import type { TimelineFile, TimelineStep } from '@/entities/timeline/types';
-import { HistoryViewProvider } from '@/pages/history-matrix/model/HistoryViewContext';
+import { HistoryViewProvider } from '@/entities/timeline/model/HistoryViewContext';
 import { dictionaries } from '@/shared/i18n/dictionaries';
 import { I18nProvider } from '@/shared/i18n/I18nContext';
 import { TimelineProvider, useTimeline } from '@/entities/timeline/model/TimelineContext';
 import { ThemeProvider } from '@/shared/theme/ThemeContext';
 import { DASH } from '@/shared/lib/format';
 import { mixColors, parseColor, toCanvasColor } from '@/shared/lib/canvas/canvasColors';
-import { Chronomap } from '@/pages/history-matrix/Chronomap/Chronomap';
+import { Chronomap } from '@/pages/history-matrix/ui/Chronomap/Chronomap';
 import { readoutBoundsOf } from '@/pages/history-matrix/model/readoutBounds';
 import {
   readoutFlip,
@@ -20,7 +20,7 @@ import {
   readoutRoom,
   type HoverTarget,
   type ReadoutBounds
-} from '@/pages/history-matrix/ChronoTooltip/ChronoTooltip';
+} from '@/pages/history-matrix/ui/ChronoTooltip/ChronoTooltip';
 import {
   CHRONO_METRICS,
   PALETTE_TOKENS,
@@ -29,20 +29,20 @@ import {
   modeOf,
   readChronoPalette,
   type Palette
-} from '@/pages/history-matrix/cells';
+} from '@/pages/history-matrix/model/cells';
 import { npvCeilingOf } from '@/entities/wells/model/wellFacts';
-import { CELL_HEIGHT, CELL_WIDTH, CELL_WIDTH_MAX, GUTTER_LEFT, GUTTER_RIGHT, GUTTER_TOP, COLUMN_GAP, ROW_GAP, cellWidthFor, columnX, geometryOf, hitTest, yearTicks } from '@/pages/history-matrix/geometry';
+import { CELL_HEIGHT, CELL_WIDTH, CELL_WIDTH_MAX, GUTTER_LEFT, GUTTER_RIGHT, GUTTER_TOP, COLUMN_GAP, ROW_GAP, cellWidthFor, columnX, geometryOf, hitTest, yearTicks } from '@/pages/history-matrix/model/geometry';
 
 const CELL_FILL_HEIGHT = CELL_HEIGHT - ROW_GAP;
 const CELL_FILL_WIDTH = CELL_WIDTH - COLUMN_GAP;
-import { buildRows, sortRows, ungroupedCount } from '@/pages/history-matrix/sortRows';
-import { srcPath } from '@support/paths';
+import { buildRows, sortRows, ungroupedCount } from '@/pages/history-matrix/model/sortRows';
+import { CHRONOMAP_CSS, hidesVisuallyOnly } from '@support/layout';
 import {
   CURSOR_HALO_WIDTH,
   CURSOR_INK_WIDTH,
   paintChronomap,
   paintCursor
-} from '@/pages/history-matrix/useChronomapCanvas';
+} from '@/pages/history-matrix/model/useChronomapCanvas';
 
 const { ru } = dictionaries;
 
@@ -581,15 +581,7 @@ describe('Chronomap view', () => {
   });
 
   it('keeps the announcement for screen readers without printing it under the matrix', () => {
-    const css = readFileSync(
-      srcPath('pages', 'history-matrix', 'Chronomap', 'Chronomap.css'),
-      'utf-8'
-    );
-    const block = css.match(/\.chronomap-announce\s*\{[^}]*\}/)?.[0] ?? '';
-
-    expect(block).toContain('clip-path');
-    expect(block).not.toContain('display: none');
-    expect(block).not.toContain('visibility: hidden');
+    expect(hidesVisuallyOnly('.chronomap-announce')).toBe(true);
   });
 
   it('keeps clicks in the gutter from changing the selection', async () => {
@@ -1218,7 +1210,7 @@ describe('readout placement', () => {
 
   it('drives the flip from a shift property, never from an upward pixel translate (V11)', () => {
     const css = readFileSync(
-      srcPath('pages', 'history-matrix', 'Chronomap', 'Chronomap.css'),
+      CHRONOMAP_CSS,
       'utf-8'
     );
 

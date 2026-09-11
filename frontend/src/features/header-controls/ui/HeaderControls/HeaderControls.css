@@ -1,12 +1,13 @@
-@import '../../../../shared/ui/IconButton/IconButton.css';
 
 .header-controls {
+  --lang-toggle-pad: 3px;
+
   display: flex;
   align-items: center;
   gap: var(--space-3);
 }
 
-.icon-button-glyph {
+.header-controls .icon-button-glyph {
   animation: glyph-swap var(--duration-drawer) var(--ease-emphasis);
 }
 
@@ -23,12 +24,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .icon-button-glyph {
+  .header-controls .icon-button-glyph {
     animation: none;
   }
 
-  .icon-button,
-  .lang-thumb {
+  .header-controls .icon-button,
+  .header-controls .lang-thumb {
     transition: none;
   }
 }
@@ -39,7 +40,7 @@
   grid-template-columns: repeat(2, 1fr);
   align-items: center;
   height: var(--size-icon-button);
-  padding: 3px;
+  padding: var(--lang-toggle-pad);
   border: none;
   border-radius: var(--radius-pill);
   background: var(--color-accent-dim);
@@ -58,10 +59,10 @@
 
 .lang-thumb {
   position: absolute;
-  top: 3px;
-  bottom: 3px;
-  left: 3px;
-  width: calc(50% - 3px);
+  top: var(--lang-toggle-pad);
+  bottom: var(--lang-toggle-pad);
+  left: var(--lang-toggle-pad);
+  width: calc(50% - var(--lang-toggle-pad));
   border-radius: var(--radius-pill);
   background: var(--color-accent);
   transition: transform var(--duration-drawer) var(--ease-emphasis);

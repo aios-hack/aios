@@ -11,9 +11,9 @@ import { ScenarioProvider } from '@/entities/scenarios/model/ScenarioContext';
 import { TimelineProvider, useTimeline } from '@/entities/timeline/model/TimelineContext';
 import { ConsoleInspector } from '@/features/inspector/ui';
 import { ViewStatus } from '@/shared/ui/ViewStatus';
-import { ScenarioLibrary } from '@/pages/money-comparison/ScenarioLibrary/ScenarioLibrary';
+import { ScenarioLibrary } from '@/pages/money-comparison/ui/ScenarioLibrary/ScenarioLibrary';
 import { StepControls } from '@/features/timeline-player/ui/StepControls/StepControls';
-import { WellsTable } from '@/pages/history-table/WellsTable/WellsTable';
+import { WellsTable } from '@/pages/history-table/ui/WellsTable/WellsTable';
 
 const { ru } = dictionaries;
 

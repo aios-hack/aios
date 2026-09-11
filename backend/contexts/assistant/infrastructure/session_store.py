@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.assistant.domain.errors import (
+    SessionDiskError,
+)
+
 import json
 import re
 import threading
@@ -16,10 +20,6 @@ EVENTS_FILE = "events.jsonl"
 META_FILE = "meta.json"
 ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,80}$")
 MAX_EVENTS = 4000
-
-
-class SessionDiskError(RuntimeError):
-    pass
 
 
 def now() -> str:

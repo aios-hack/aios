@@ -4,9 +4,11 @@ import { describe, expect, it } from 'vitest';
 import { frontendPath, srcPath } from '@support/paths';
 import {
   BASE_STYLES_CSS,
+  CHRONOMAP_CSS,
   CONSOLE_SHELL_CSS,
   FIELD_MAP_CARD_DIR,
   PALETTE_CSS,
+  pageUiPath,
   PILL_EXEMPT_CSS,
   THEME_DIR,
   THEME_FILES,
@@ -341,9 +343,9 @@ describe('readable text on every surface', () => {
 
 describe('components ship the styles they render', () => {
   const routeComponents = [
-    { file: srcPath('pages', 'money-comparison', 'ScenarioLibrary', 'ScenarioLibrary.tsx'), css: 'ScenariosLibrary.css' },
-    { file: srcPath('pages', 'money-comparison', 'ScenarioComparison', 'ScenarioComparison.tsx'), css: 'ScenariosCompare.css' },
-    { file: srcPath('pages', 'money-constraints', 'ConstraintsEditor', 'ConstraintsEditor.tsx'), css: 'ScenariosEditor.css' }
+    { file: pageUiPath('money-comparison', 'ScenarioLibrary', 'ScenarioLibrary.tsx'), css: 'ScenariosLibrary.css' },
+    { file: pageUiPath('money-comparison', 'ScenarioComparison', 'ScenarioComparison.tsx'), css: 'ScenariosCompare.css' },
+    { file: pageUiPath('money-constraints', 'ConstraintsEditor', 'ConstraintsEditor.tsx'), css: 'ScenariosEditor.css' }
   ];
 
   for (const { file, css } of routeComponents) {
@@ -562,7 +564,7 @@ describe('the mode fills stay comfortable across a full-screen matrix', () => {
 
   it('light: a mode label uses an ink dark enough to read, never the pale fill', () => {
     const chronomapCss = readFileSync(
-      srcPath('pages', 'history-matrix', 'Chronomap', 'Chronomap.css'),
+      CHRONOMAP_CSS,
       'utf-8'
     );
     const block = chronomapCss.match(
@@ -616,7 +618,7 @@ describe('the step cursor separates itself from whatever cell it lands on', () =
   }
 
   it('draws the cursor at full strength, never as a translucent wash over the cells', () => {
-    const css = readFileSync(srcPath('pages', 'history-matrix', 'Chronomap', 'Chronomap.css'), 'utf-8');
+    const css = readFileSync(CHRONOMAP_CSS, 'utf-8');
     const block = css.match(/\.chronomap-cursor\s*\{[^}]*\}/)?.[0] ?? '';
     expect(block).not.toMatch(/opacity:\s*0?\.\d/);
   });

@@ -4,7 +4,7 @@ import type { UnseenResult } from '@/pages/money-constraints/model/runTypes';
 import {
   formatMoney,
   formatSignedPercent
-} from '@/pages/money-constraints/ui/runMoney';
+} from '@/pages/money-constraints/model/runMoney';
 
 const METRICS: readonly [string, string][] = [
   ['oil_mass_delta', 'runs.unseenOil'],

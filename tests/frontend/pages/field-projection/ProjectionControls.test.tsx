@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { dictionaries } from '@/shared/i18n/dictionaries';
 import { I18nProvider } from '@/shared/i18n/I18nContext';
 import { ThemeProvider } from '@/shared/theme/ThemeContext';
-import { edgesHintText, ProjectionControls, type EdgesMeta } from '@/pages/field-projection/ProjectionControls/ProjectionControls';
+import { edgesHintText, ProjectionControls, type EdgesMeta } from '@/pages/field-projection/ui/ProjectionControls/ProjectionControls';
 
 const { ru } = dictionaries;
 

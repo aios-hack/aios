@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.assistant.domain.errors import (
+    TtsError,
+)
+
 import asyncio
 import hashlib
 import re
@@ -32,10 +36,6 @@ INLINE_CODE = re.compile(r"`([^`]+)`")
 EMPHASIS_PATTERN = re.compile(r"(\*{1,3}|_{1,3})(\S.*?\S|\S)\1", re.DOTALL)
 SPACE_PATTERN = re.compile(r"[ \t]+")
 BLANK_PATTERN = re.compile(r"\n{3,}")
-
-
-class TtsError(RuntimeError):
-    pass
 
 
 class TtsUnavailable(TtsError):

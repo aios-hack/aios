@@ -8,8 +8,8 @@ import { isHierarchyFile } from '@/entities';
 import { dictionaries } from '@/shared/i18n/dictionaries';
 import { I18nProvider } from '@/shared/i18n/I18nContext';
 import { TimelineProvider, useTimeline } from '@/entities/timeline/model/TimelineContext';
-import { Council } from '@/pages/council/Council/Council';
-import { WellLevel } from '@/pages/council/WellLevel/WellLevel';
+import { Council } from '@/pages/council/ui/Council/Council';
+import { WellLevel } from '@/pages/council/ui/WellLevel/WellLevel';
 import {
   fieldSegments,
   groupOrder,
@@ -18,7 +18,8 @@ import {
   stepFor,
   ungroupedWells,
   wellsOf
-} from '@/pages/council/levels';
+} from '@/pages/council/model/levels';
+import { APP_SHELL_CSS, COUNCIL_CSS, declaredPx } from '@support/layout';
 import { srcPath } from '@support/paths';
 
 const { ru } = dictionaries;
@@ -380,13 +381,13 @@ describe('Council selection path', () => {
 
   it('rings the whole column, cap included, rather than the text panel alone', async () => {
     const css = readFileSync(
-      srcPath('pages', 'council', 'Council', 'CouncilField.css'),
+      COUNCIL_CSS.field,
       'utf-8'
     );
     expect(css).toMatch(/\.council-column\[data-open='true'\]\s*\{[^}]*outline:/);
     expect(css).toMatch(/\.council-column\[data-state='path'\]\s*\{[^}]*outline:/);
     const groups = readFileSync(
-      srcPath('pages', 'council', 'Council', 'CouncilGroups.css'),
+      COUNCIL_CSS.groups,
       'utf-8'
     );
     expect(groups).not.toMatch(/\.council-card\[data-open='true'\]/);
@@ -394,7 +395,7 @@ describe('Council selection path', () => {
 
   it('keeps an idle share legible, since a bare cap drops the coloured backing', () => {
     const css = readFileSync(
-      srcPath('pages', 'council', 'Council', 'CouncilField.css'),
+      COUNCIL_CSS.field,
       'utf-8'
     );
     const block = css.match(
@@ -406,7 +407,7 @@ describe('Council selection path', () => {
 
   it('paints cap text for a fill, not for a surface, on the groups that carry one', () => {
     const css = readFileSync(
-      srcPath('pages', 'council', 'Council', 'CouncilField.css'),
+      COUNCIL_CSS.field,
       'utf-8'
     );
     expect(css).not.toContain('--color-fill-scrim');
@@ -415,7 +416,7 @@ describe('Council selection path', () => {
 
   it('gives the dense well links a hit area larger than their glyphs', () => {
     const css = readFileSync(
-      srcPath('pages', 'council', 'Council', 'CouncilGroups.css'),
+      COUNCIL_CSS.groups,
       'utf-8'
     );
     const pad = css.match(/\.council-alloc-well::after\s*\{[^}]*\}/)?.[0];
@@ -433,7 +434,7 @@ describe('Council selection path', () => {
 
   it('dims the columns off the path, not a class that no longer renders', async () => {
     const css = readFileSync(
-      srcPath('pages', 'council', 'Council', 'Council.css'),
+      COUNCIL_CSS.council,
       'utf-8'
     );
     expect(css).toContain(".council-column[data-state='dim']");
@@ -463,17 +464,22 @@ describe('Council selection path', () => {
 
   it('pins the executor columns so they cannot resize as the step changes', () => {
     const css = readFileSync(
-      srcPath('pages', 'council', 'Council', 'CouncilWells.css'),
+      COUNCIL_CSS.wells,
       'utf-8'
     );
     expect(css).toMatch(/\.council-table\s*\{[^}]*table-layout:\s*fixed/);
-    const cols = [...css.matchAll(/\.council-col-[\w-]+\s*\{[^}]*width:\s*(\d+)px/g)];
+    const cols = [...css.matchAll(/\.council-col-[\w-]+\s*\{/g)].map((match) =>
+      declaredPx(css, match[0].slice(0, -2), 'min-width')
+    );
     expect(cols.length).toBeGreaterThan(0);
+    for (const width of cols) {
+      expect(width).toBeGreaterThan(0);
+    }
   });
 
   it('starts every value at the same edge as its own header', () => {
     const css = readFileSync(
-      srcPath('pages', 'council', 'Council', 'CouncilWells.css'),
+      COUNCIL_CSS.wells,
       'utf-8'
     );
     expect(css).toContain('.council-table td.council-cell-num');
@@ -529,20 +535,20 @@ describe('Council selection path', () => {
 
   it('leaves the time-axis reserve to the scene spacer instead of doubling it', () => {
     const css = readFileSync(
-      srcPath('pages', 'council', 'Council', 'Council.css'),
+      COUNCIL_CSS.council,
       'utf-8'
     );
     const block = css.match(/\.council\s*\{[^}]*\}/)?.[0] ?? '';
     expect(block).not.toMatch(/padding-bottom/);
 
-    const shell = readFileSync(srcPath('app', 'ConsoleScene', 'ConsoleShell.css'), 'utf-8');
+    const shell = readFileSync(APP_SHELL_CSS, 'utf-8');
     const spacer = shell.match(/\.console-area-scene::after\s*\{[^}]*\}/)?.[0] ?? '';
     expect(spacer).toMatch(/height:\s*var\(--h-axis-space/);
   });
 
   it('keeps the eight columns legible by scrolling instead of crushing them', () => {
     const css = readFileSync(
-      srcPath('pages', 'council', 'Council', 'CouncilWells.css'),
+      COUNCIL_CSS.wells,
       'utf-8'
     );
     expect(css).toMatch(/\.council-table-wrap\s*\{[^}]*overflow-x:\s*auto/);
@@ -636,7 +642,7 @@ describe('hierarchy validator', () => {
 
 describe('the council table reveals its rows like the other console tables', () => {
   const css = readFileSync(
-    srcPath('pages', 'council', 'Council', 'CouncilWells.css'),
+    COUNCIL_CSS.wells,
     'utf-8'
   );
 

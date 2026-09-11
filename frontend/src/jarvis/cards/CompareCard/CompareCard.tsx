@@ -1,6 +1,6 @@
 import { DASH, formatNumber } from '@/shared/lib/format';
 import { useI18n } from '@/shared/i18n/I18nContext';
-import { readCompare } from '@/jarvis/cards/payloads/cardPayloads';
+import { readCompare } from '@/jarvis/cards/payloads';
 import type { CompareConstraints, CompareStatus } from '@/jarvis/cards/payloads/payloadTypes';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
 import './CompareCard.css';

@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from backend.contexts.economics.domain.errors import (
+    DecompositionError,
+)
+
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 
 from backend.core.contracts import LineItems, NpvTable
 
-from .npv import (
+from backend.contexts.economics.domain.npv import (
     DISCOUNT_BASE_YEAR,
     CellFlows,
     allocate_income_tax,
@@ -15,10 +19,6 @@ from .npv import (
 
 MACHINE_ZERO_RUB: float = 1e-6
 MACHINE_RELATIVE_TOLERANCE: float = 1e-12
-
-
-class DecompositionError(ValueError):
-    pass
 
 
 class TaxBasis(Enum):

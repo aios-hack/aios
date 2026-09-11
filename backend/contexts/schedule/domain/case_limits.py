@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.schedule.domain.errors import (
+    CaseLimitsError,
+)
+
 from dataclasses import dataclass, field, replace
 from datetime import date
 import math
@@ -13,10 +17,6 @@ _EMPTY_YEARS: Mapping[int, float] = MappingProxyType({})
 DEFAULT_ROUNDS = 8
 _SAFETY = 0.98
 _MIN_FACTOR_STEP = 0.999
-
-
-class CaseLimitsError(RuntimeError):
-    pass
 
 
 class CaseLimitsForecastRequired(CaseLimitsError):

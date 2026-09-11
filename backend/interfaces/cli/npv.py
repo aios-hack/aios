@@ -23,8 +23,8 @@ from backend.contexts.economics.application.reference_parity import (
     run_reference,
 )
 
-from .loader import load_example_input
-from .paths import (
+from backend.interfaces.cli.loader import load_example_input
+from backend.interfaces.cli.paths import (
     chdd_python_dir,
     default_seed,
     example_input_xlsx,

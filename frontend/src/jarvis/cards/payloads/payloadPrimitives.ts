@@ -27,20 +27,6 @@ export const numbersOf = (value: unknown): Record<string, number> => {
   return out;
 };
 
-export const textOf = (value: unknown, lang = 'ru'): string | null => {
-  if (isStr(value)) {
-    return value;
-  }
-  if (!isRecord(value)) {
-    return null;
-  }
-  const picked = value[lang];
-  if (isStr(picked)) {
-    return picked;
-  }
-  return isStr(value.ru) ? value.ru : isStr(value.en) ? value.en : null;
-};
-
 export const sparkOf = (value: unknown): SparkPoint[] =>
   list(value)
     .filter((point): point is Record<string, unknown> => isRecord(point) && isNum(point.step))

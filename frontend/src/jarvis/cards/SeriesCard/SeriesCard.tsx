@@ -1,7 +1,7 @@
 import { Sparkline } from '@/shared/ui/Sparkline';
 import { DASH, formatNumber, formatStepDate } from '@/shared/lib/format';
 import { useI18n } from '@/shared/i18n/I18nContext';
-import { readSeries } from '@/jarvis/cards/payloads/cardPayloads';
+import { readSeries } from '@/jarvis/cards/payloads';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
 import './SeriesCard.css';
 import { clamp01 } from '@/shared/lib/math/clamp';

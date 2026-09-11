@@ -53,16 +53,16 @@ top-k вообще — а не отбрасываются после того, �
 
 from __future__ import annotations
 
+from backend.contexts.optimization.domain.errors import (
+    VerificationError,
+)
+
 from dataclasses import dataclass
 from typing import Protocol, Sequence
 
 from backend.core.contracts import OptimizerResult, ScenarioViolation, Theta
 
 from backend.contexts.optimization.domain.optimizer import optimize
-
-
-class VerificationError(ValueError):
-    """Цикл нельзя поставить или продолжить: пустой бюджет, отсутствующая цель."""
 
 
 # --- Что цикл получает извне ------------------------------------------------

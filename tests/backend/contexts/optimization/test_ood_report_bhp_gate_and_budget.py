@@ -223,10 +223,17 @@ def test_the_skip_reason_of_the_self_reference_names_the_cause() -> None:
     assert "не нарушен" in SELF_REFERENCE_SKIP_REASON
 
 
+def _optimization_context_source() -> str:
+    context_root = Path(_src_environment.__file__).parent.parent
+    return chr(10).join(
+        path.read_text(encoding="utf-8")
+        for path in sorted(context_root.rglob("*.py"))
+        if "__pycache__" not in path.parts
+    )
+
+
 def test_the_self_reference_skip_is_only_for_the_diagnostic_gate_off_mode() -> None:
-    search_source = (
-        Path(_src_environment.__file__)
-    ).read_text(encoding="utf-8")
+    search_source = _optimization_context_source()
 
     assert 'and not getattr(env, "physics_gate", True)' in search_source
     assert "MissingReferenceError.SELF_REFERENCE" in search_source
@@ -648,9 +655,7 @@ def test_the_bhp_gate_is_used_in_both_search_paths() -> None:
 
 
 def test_the_evaluator_publishes_the_exceedance_list() -> None:
-    search_source = (
-        Path(_src_environment.__file__)
-    ).read_text(encoding="utf-8")
+    search_source = _optimization_context_source()
 
     assert "evaluator.ood_exceedances = format_ood_exceedances(" in search_source
     assert "self.exceedances = tuple(dict(item) for item in exceedances)" in search_source

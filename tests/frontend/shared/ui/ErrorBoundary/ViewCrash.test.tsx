@@ -4,8 +4,8 @@ import type { NpvFile } from '@/entities/npv/types';
 import { dictionaries } from '@/shared/i18n/dictionaries';
 import { I18nProvider } from '@/shared/i18n/I18nContext';
 import { TimelineProvider } from '@/entities/timeline/model/TimelineContext';
-import { NpvRank } from '@/pages/money-rank/npv';
-import * as sorting from '@/pages/money-rank/npv/sorting';
+import { NpvRank } from '@/pages/money-rank/ui/NpvRank';
+import * as sorting from '@/pages/money-rank/model/sorting';
 import { ErrorBoundary } from '@/shared/ui/ErrorBoundary/ErrorBoundary';
 
 const { ru, en } = dictionaries;

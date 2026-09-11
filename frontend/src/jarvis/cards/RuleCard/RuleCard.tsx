@@ -1,6 +1,6 @@
 import { DASH, formatNumber, formatPercent } from '@/shared/lib/format';
 import { useI18n } from '@/shared/i18n/I18nContext';
-import { readRule, readRuleSummary } from '@/jarvis/cards/payloads/cardPayloads';
+import { readRule, readRuleSummary } from '@/jarvis/cards/payloads';
 import { EmptyPayload } from '@/jarvis/cards/EmptyPayload/EmptyPayload';
 import type { RulePayload } from '@/jarvis/cards/payloads/payloadTypes';
 import './RuleCard.css';

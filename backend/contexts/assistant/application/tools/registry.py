@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.assistant.domain.errors import (
+    ToolInputError,
+)
+
 from typing import Any, Mapping
 
 from backend.contexts.assistant.application.tools.schemas import (
@@ -33,10 +37,6 @@ __all__ = [
     "tool_specs",
     "validate_arguments",
 ]
-
-
-class ToolInputError(ValueError):
-    pass
 
 
 def tool_specs() -> tuple[ToolSpec, ...]:

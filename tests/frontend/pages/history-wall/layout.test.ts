@@ -16,7 +16,7 @@ import {
   tileWidthFor,
   tileX,
   tileY
-} from '@/pages/history-wall/layout';
+} from '@/pages/history-wall/model/layout';
 
 describe('columnsFor', () => {
   it('fits as many base tiles as the container holds', () => {

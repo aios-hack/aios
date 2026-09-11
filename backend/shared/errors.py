@@ -23,7 +23,7 @@ class AiosError(Exception):
         return self.message
 
 
-class DomainError(AiosError):
+class DomainError(AiosError, ValueError):
     default_code = "domain.error"
 
 
@@ -31,19 +31,19 @@ class ValidationError(DomainError):
     default_code = "validation.error"
 
 
-class NotFoundError(AiosError):
+class NotFoundError(AiosError, LookupError):
     default_code = "not_found"
 
 
-class ConflictError(AiosError):
+class ConflictError(AiosError, RuntimeError):
     default_code = "conflict"
 
 
-class ConfigurationError(AiosError):
+class ConfigurationError(AiosError, RuntimeError):
     default_code = "configuration.error"
 
 
-class InfrastructureError(AiosError):
+class InfrastructureError(AiosError, RuntimeError):
     default_code = "infrastructure.error"
 
 
@@ -51,7 +51,7 @@ class ExternalServiceError(InfrastructureError):
     default_code = "external_service.error"
 
 
-class UnavailableError(AiosError):
+class UnavailableError(AiosError, RuntimeError):
     default_code = "unavailable"
 
 

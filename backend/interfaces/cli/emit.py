@@ -6,7 +6,7 @@ from pathlib import Path
 from backend.core.contracts import content_hash
 from backend.domain.schedule import emit_from_deck
 
-from .paths import model_z_schedule, require
+from backend.interfaces.cli.paths import model_z_schedule, require
 from backend.interfaces.cli.runner import run as run_cli
 
 

@@ -5,7 +5,7 @@ import {
   averageWatercut,
   overviewMetrics,
   shutWellCount
-} from '@/pages/overview/overviewMetrics';
+} from '@/pages/overview/model/overviewMetrics';
 
 const well = (over: Partial<TimelineWellRow>): TimelineWellRow => ({
   well: 'P1',

@@ -36,6 +36,8 @@ from backend.contexts.optimization.application import search_use_case as _search
 RUN_SOURCE = Path(_search_use_case.__file__)
 SEARCH_SOURCE = Path(_environment.__file__)
 ARTIFACTS_SOURCE = Path(_artifacts.__file__)
+from backend.contexts.optimization.application import economics_prediction
+from backend.contexts.optimization.domain import errors as optimization_errors
 
 TORCH_PACKAGES = (
     "torch",
@@ -156,6 +158,7 @@ def _reload_search_run(environ: dict[str, str]) -> Any:
     saved = {name: os.environ.get(name) for name in environ}
     os.environ.update(environ)
     try:
+        sys.modules.pop("backend.contexts.optimization.application.search_config", None)
         sys.modules.pop("backend.contexts.optimization.application.search_use_case", None)
         return _load_module("backend.contexts.optimization.application.search_use_case")
     finally:
@@ -164,6 +167,7 @@ def _reload_search_run(environ: dict[str, str]) -> Any:
                 os.environ.pop(name, None)
             else:
                 os.environ[name] = value
+        sys.modules.pop("backend.contexts.optimization.application.search_config", None)
         sys.modules.pop("backend.contexts.optimization.application.search_use_case", None)
 
 
@@ -251,44 +255,14 @@ def test_the_guard_is_a_named_function_anyone_can_call(tmp_path: Path) -> None:
     )
 
 
-def _scoring_namespace() -> dict[str, object]:
-    module = _module_ast(SEARCH_SOURCE)
-    body = [
-        node
-        for node in module.body
-        if (
-            isinstance(node, ast.FunctionDef)
-            and node.name
-            in ("_validate_npv_scoring_is_unambiguous", "predict_economics")
-        )
-        or (isinstance(node, ast.ClassDef) and node.name == "ScheduleSearchError")
-        or (
-            isinstance(node, ast.Assign)
-            and isinstance(node.targets[0], ast.Name)
-            and node.targets[0].id == "_AMBIGUOUS_NPV_SCORING"
-        )
-    ]
-    found = {
-        node.name if not isinstance(node, ast.Assign) else node.targets[0].id
-        for node in body
-    }
-    assert found == {
-        "ScheduleSearchError",
-        "_AMBIGUOUS_NPV_SCORING",
-        "_validate_npv_scoring_is_unambiguous",
-        "predict_economics",
-    }, sorted(found)
-    namespace: dict[str, object] = {
-        "SearchEnvironment": object,
-        "ResponseArtifact": object,
-        "analyze_base_case": lambda *args, **kwargs: SimpleNamespace(
-            npv_methodology=100.0
-        ),
-    }
-    exec(
-        compile(ast.Module(body=body, type_ignores=[]), str(SEARCH_SOURCE), "exec"),
-        namespace,
+def _scoring_namespace(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
+    monkeypatch.setattr(
+        economics_prediction,
+        "analyze_base_case",
+        lambda *args, **kwargs: SimpleNamespace(npv_methodology=100.0),
     )
+    namespace: dict[str, object] = dict(vars(economics_prediction))
+    namespace.update(vars(optimization_errors))
     return namespace
 
 
@@ -314,8 +288,8 @@ class _ScoringEnv:
         self.policies = None
 
 
-def test_calibration_beside_a_head_is_never_silently_dropped_while_scoring() -> None:
-    namespace = _scoring_namespace()
+def test_calibration_beside_a_head_is_never_silently_dropped_while_scoring(monkeypatch: pytest.MonkeyPatch) -> None:
+    namespace = _scoring_namespace(monkeypatch)
     env = _ScoringEnv(_Head(), _Calibration())
 
     with pytest.raises(namespace["ScheduleSearchError"]) as error:
@@ -324,8 +298,8 @@ def test_calibration_beside_a_head_is_never_silently_dropped_while_scoring() -> 
     assert "калибровка" in str(error.value)
 
 
-def test_calibration_without_a_head_still_shapes_the_number() -> None:
-    namespace = _scoring_namespace()
+def test_calibration_without_a_head_still_shapes_the_number(monkeypatch: pytest.MonkeyPatch) -> None:
+    namespace = _scoring_namespace(monkeypatch)
     env = _ScoringEnv(None, _Calibration())
 
     parts = namespace["predict_economics"](env, object(), object())
@@ -334,8 +308,8 @@ def test_calibration_without_a_head_still_shapes_the_number() -> None:
     assert parts["blended"] == 205.0
 
 
-def test_a_head_without_a_calibration_blends_as_before() -> None:
-    namespace = _scoring_namespace()
+def test_a_head_without_a_calibration_blends_as_before(monkeypatch: pytest.MonkeyPatch) -> None:
+    namespace = _scoring_namespace(monkeypatch)
     env = _ScoringEnv(_Head(), None)
 
     parts = namespace["predict_economics"](env, object(), object())
@@ -444,7 +418,8 @@ _RUN_SEARCH_TORCH_BACKED = (
 
 
 def _run_search_import_namespace() -> dict[str, object]:
-    namespace: dict[str, object] = {
+    namespace: dict[str, object] = dict(vars(_search_use_case))
+    namespace.update({
         "hashlib": hashlib,
         "json": json,
         "math": math,
@@ -457,7 +432,7 @@ def _run_search_import_namespace() -> dict[str, object]:
         "Path": Path,
         "Mapping": Mapping,
         "Sequence": Sequence,
-    }
+    })
     for dotted, names in _RUN_SEARCH_IMPORT_SOURCES:
         module = importlib.import_module(dotted)
         for name in names:
@@ -511,6 +486,15 @@ _RUN_SEARCH_IMPORT_SOURCES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("backend.shared.errors", ("ConfigurationError",)),
     ("backend.shared.settings", ("Settings",)),
     ("backend.shared.json_io", ("read_json",)),
+    (
+        "backend.contexts.optimization.domain.errors",
+        (
+            "BhpToleranceError",
+            "ConnectivitySearchError",
+            "OpmBudgetError",
+            "SearchRunError",
+        ),
+    ),
 )
 
 

@@ -9,6 +9,12 @@
   --time-scale-crest: 126px;
   --time-scale-tail: 16px;
   --time-scale-grip-inset: 12px;
+  --time-scale-grip-w: 64px;
+  --time-scale-grip-h: 16px;
+  --time-scale-grip-bar-w: 40px;
+  --time-scale-grip-bar-h: 4px;
+  --time-scale-grip-bar-wide: 52px;
+  --time-scale-pad-b: 10px;
 
   position: relative;
   translate: 0 var(--time-scale-shift);
@@ -17,7 +23,7 @@
   flex-direction: column;
   gap: 0;
   width: 100%;
-  padding: var(--space-5) var(--space-5) 10px;
+  padding: var(--space-5) var(--space-5) var(--time-scale-pad-b);
   background: transparent;
 }
 
@@ -57,8 +63,8 @@
   z-index: 2;
   display: grid;
   place-items: center;
-  width: 64px;
-  height: 16px;
+  width: var(--time-scale-grip-w);
+  height: var(--time-scale-grip-h);
   padding: 0;
   border: none;
   background: transparent;
@@ -73,8 +79,8 @@
 
 .time-scale-grip-bar {
   display: block;
-  width: 40px;
-  height: 4px;
+  width: var(--time-scale-grip-bar-w);
+  height: var(--time-scale-grip-bar-h);
   border-radius: var(--radius-pill);
   background: var(--color-grip);
   transition: background var(--duration-state) var(--ease-out),
@@ -83,7 +89,7 @@
 
 .time-scale-grip:hover .time-scale-grip-bar,
 .time-scale-grip:focus-visible .time-scale-grip-bar {
-  width: 52px;
+  width: var(--time-scale-grip-bar-wide);
   background: var(--color-accent);
 }
 

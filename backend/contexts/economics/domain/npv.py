@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.economics.domain.errors import (
+    EconomicsError,
+)
+
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import date
@@ -15,8 +19,8 @@ from backend.core.contracts import (
     StateAtDate,
 )
 
-from .esp import EspStateMachine
-from .ledger import ProductionLedger, build_production_ledger
+from backend.contexts.economics.domain.esp import EspStateMachine
+from backend.contexts.economics.domain.ledger import ProductionLedger, build_production_ledger
 
 from backend.contexts.reservoir.domain.horizon import HORIZON
 
@@ -39,10 +43,6 @@ ZERO_LINE_ITEMS: LineItems = LineItems(
     df=0.0,
     discounted_fcf=0.0,
 )
-
-
-class EconomicsError(ValueError):
-    pass
 
 
 @dataclass(frozen=True, slots=True)

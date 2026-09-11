@@ -1,6 +1,10 @@
 
 from __future__ import annotations
 
+from backend.contexts.simulation.domain.errors import (
+    DatasetError,
+)
+
 import hashlib
 import json
 import os
@@ -23,7 +27,7 @@ from backend.core.contracts import (
 )
 from backend.domain.schedule import ValidationReport, validate_static
 
-from .cache import CachingOpmRunner, RunCache
+from backend.contexts.simulation.infrastructure.cache import CachingOpmRunner, RunCache
 from backend.contexts.simulation.domain.perturbation_design import (
     MaterializedSchedule,
     PerturbationFamily,
@@ -33,8 +37,8 @@ from backend.contexts.simulation.domain.perturbation_design import (
     materialize,
 )
 from backend.contexts.reservoir.infrastructure.opm_deck import EmittedOpmDeck, OpmDeckEmitter
-from .response_loader import ResponseLoader, load_density_by_pvtnum
-from .runner import OpmRunner, deck_hashes
+from backend.contexts.simulation.infrastructure.response_loader import ResponseLoader, load_density_by_pvtnum
+from backend.contexts.simulation.infrastructure.runner import OpmRunner, deck_hashes
 
 MANIFEST_NAME = "manifest.jsonl"
 PLAN_NAME = "plan.json"
@@ -52,10 +56,6 @@ COMPACTED_ON_REQUEST: tuple[str, ...] = (
 )
 
 CORES_PER_CONTAINER = 4
-
-
-class DatasetError(ValueError):
-    pass
 
 
 def default_max_workers() -> int:
