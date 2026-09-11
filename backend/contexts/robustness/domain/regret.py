@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Mapping
 
-from backend.core.contracts import ScenarioViolation
+from backend.contexts.policy.domain.policy import ScenarioViolation
 
-from backend.contexts.robustness.application.battery import FragilityBattery, Scenario, Split
+from backend.contexts.robustness.domain.battery import FragilityBattery, Scenario, Split
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,7 +17,7 @@ class ScenarioOutcome:
 
     def __post_init__(self) -> None:
         if not self.scenario_id:
-            raise ValueError("исход без идентификатора сценария")
+            raise ValueError("outcome without a scenario identifier")
 
     @property
     def regret(self) -> float:
@@ -28,8 +28,8 @@ class ScenarioOutcome:
         denominator = abs(self.npv_scenario_baseline)
         if denominator == 0.0:
             raise ValueError(
-                f"{self.scenario_id}: сценарный бейзлайн равен нулю, "
-                f"относительный regret не определён"
+                f"{self.scenario_id}: the scenario baseline is zero, "
+                f"relative regret is undefined"
             )
         return self.regret / denominator
 
@@ -42,13 +42,13 @@ class RegretReport:
 
     def __post_init__(self) -> None:
         if self.threshold < 0.0:
-            raise ValueError(f"порог regret {self.threshold} отрицателен")
+            raise ValueError(f"the regret threshold {self.threshold} is negative")
         identifiers = [o.scenario_id for o in self.outcomes]
         duplicates = sorted(
             {name for name in identifiers if identifiers.count(name) > 1}
         )
         if duplicates:
-            raise ValueError(f"повторяющиеся исходы сценариев: {duplicates}")
+            raise ValueError(f"duplicate scenario outcomes: {duplicates}")
 
     def of(self, split: Split) -> tuple[ScenarioOutcome, ...]:
         return tuple(o for o in self.outcomes if o.split is split)
@@ -59,8 +59,8 @@ class RegretReport:
                 scenario_id=outcome.scenario_id,
                 regret=outcome.regret,
                 what=(
-                    f"относительный regret {outcome.relative_regret:.4f} "
-                    f"превышает порог {self.threshold:.4f}"
+                    f"relative regret {outcome.relative_regret:.4f} "
+                    f"exceeds the threshold {self.threshold:.4f}"
                 ),
             )
             for outcome in self.of(split)
@@ -73,7 +73,7 @@ class RegretReport:
     def worst(self, split: Split) -> ScenarioOutcome:
         outcomes = self.of(split)
         if not outcomes:
-            raise ValueError(f"в части «{split.value}» нет ни одного исхода")
+            raise ValueError(f"split «{split.value}» has no outcomes")
         return max(outcomes, key=lambda o: o.relative_regret)
 
     def by_scenario(self, split: Split) -> Mapping[str, float]:
@@ -98,7 +98,7 @@ def scenario_of(battery: FragilityBattery, outcome: ScenarioOutcome) -> Scenario
     scenario = battery.by_id(outcome.scenario_id)
     if scenario.split is not outcome.split:
         raise ValueError(
-            f"{outcome.scenario_id}: исход отнесён к «{outcome.split.value}», "
-            f"а батарея объявляет «{scenario.split.value}»"
+            f"{outcome.scenario_id}: the outcome is assigned to «{outcome.split.value}», "
+            f"while the battery declares «{scenario.split.value}»"
         )
     return scenario

@@ -7,8 +7,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from backend.core.contracts import IntervalResponse, N_INTERVALS, T0
-from backend.core.paths import data_root
+from backend.contexts.reservoir.domain.response import IntervalResponse
+from backend.contexts.schedule.domain.schedule import N_INTERVALS, T0
+from backend.shared.paths import data_root
 from backend.contexts.economics.application.base_case import load_response_artifact
 from backend.contexts.schedule.domain.validate_dynamic import (
     COMPENSATION_RESERVOIR_CONDITIONS,
@@ -64,7 +65,7 @@ def year_of_control_step(control_step: int) -> int:
 def _percentile(ordered: Sequence[float], fraction: float) -> float:
     if not ordered:
         raise CompensationRangeError(
-            "распределение компенсации пусто: перцентиль считать не по чему"
+            "the compensation distribution is empty: there is nothing to compute a percentile from"
         )
     if len(ordered) == 1:
         return ordered[0]
@@ -78,8 +79,8 @@ def _percentile(ordered: Sequence[float], fraction: float) -> float:
 def distribution_of(values: Sequence[float]) -> Distribution:
     if not values:
         raise CompensationRangeError(
-            "распределение компенсации требует хотя бы одного шага с "
-            "определённой C(k), получено ноль: посчитать нечего"
+            "the compensation distribution requires at least one step with "
+            "a defined C(k), got zero: there is nothing to compute"
         )
     ordered = sorted(values)
     return Distribution(
@@ -114,9 +115,9 @@ def compensation_range(
 ) -> CompensationRange:
     if not interval_responses:
         raise CompensationRangeError(
-            "отклик базового прогона пуст: распределение C(k) измерять не по "
-            "чему. Инструмент меряет настоящий прогон, синтетикой его "
-            "подменять нельзя"
+            "the response of the base run is empty: there is nothing to measure the C(k) "
+            "distribution from. The tool measures a real run and must not be "
+            "substituted with synthetic data"
         )
     totals = _surface_totals(interval_responses)
     if reservoir_factors is None:
@@ -124,9 +125,9 @@ def compensation_range(
     else:
         if oil_density_t_per_m3 is None or oil_density_t_per_m3 <= 0.0:
             raise CompensationRangeError(
-                "пересчёт в пластовые условия запрошен парой (B_o, B_w), но "
-                "положительная плотность нефти не передана: объём нефти в "
-                "отборе по массе не восстановить"
+                "conversion to reservoir conditions was requested with the pair (B_o, B_w), but "
+                "a positive oil density was not supplied: the oil volume in the "
+                "offtake cannot be recovered from mass"
             )
         conditions = COMPENSATION_RESERVOIR_CONDITIONS
     steps: list[StepCompensation] = []
@@ -138,8 +139,8 @@ def compensation_range(
         else:
             if control_step >= len(reservoir_factors):
                 raise CompensationRangeError(
-                    f"пара (B_o, B_w) для шага {control_step} не передана: "
-                    f"получено {len(reservoir_factors)} пар"
+                    f"the pair (B_o, B_w) for step {control_step} was not supplied: "
+                    f"got {len(reservoir_factors)} pairs"
                 )
             oil_factor, water_factor = reservoir_factors[control_step]
             withdrawal, injected = reservoir_step_totals(
@@ -163,8 +164,8 @@ def compensation_range(
         )
     if not steps:
         raise CompensationRangeError(
-            f"ни на одном из {len(totals)} шагов отбор не положителен: "
-            "компенсация C(k) не определена нигде, распределения нет"
+            f"on none of the {len(totals)} steps is the offtake positive: "
+            "the compensation C(k) is not defined anywhere, there is no distribution"
         )
     by_year: dict[int, list[float]] = {}
     for step in steps:
@@ -202,7 +203,7 @@ def artifact_payload(
         "source_run_id": source_run_id,
         "response_hash": response_hash,
         "response_path": response_path.as_posix(),
-        "formula": "C(k) = сумма положительных injection_volume_delta / сумма положительных liquid_volume_delta",
+        "formula": "C(k) = sum of positive injection_volume_delta / sum of positive liquid_volume_delta",
         "surface": {
             "conditions": surface.conditions,
             "distribution": _distribution_payload(surface.distribution),
@@ -225,8 +226,8 @@ def artifact_payload(
     if reservoir is None:
         payload["reservoir"] = None
         payload["reservoir_notice"] = (
-            "объёмные коэффициенты B_o/B_w не переданы: пересчёт в пластовые "
-            "условия не выполнялся, приведено только поверхностное значение"
+            "the formation volume factors B_o/B_w were not supplied: conversion to reservoir "
+            "conditions was not performed, only the surface value is given"
         )
         return payload
     surface_by_step = {step.control_step: step.value for step in surface.steps}
@@ -269,9 +270,9 @@ def build_artifact(
 ) -> dict[str, object]:
     if not response_path.is_file():
         raise CompensationRangeError(
-            f"отклик базового прогона не найден: {response_path}. Коридор "
-            "компенсации меряется по настоящему прогону OPM; без отклика "
-            "инструмент не пишет пустой артефакт, а сообщает об ошибке"
+            f"the response of the base run was not found: {response_path}. The compensation "
+            "corridor is measured on a real OPM run; without a response the "
+            "tool reports an error instead of writing an empty artifact"
         )
     artifact = load_response_artifact(response_path)
     surface = compensation_range(artifact.interval_response)
@@ -304,16 +305,16 @@ def format_report(payload: dict[str, object]) -> str:
     distribution = surface["distribution"]
     assert isinstance(distribution, dict)
     lines = [
-        "КОРИДОР КОМПЕНСАЦИИ ПО БАЗОВОМУ ПРОГОНУ",
-        f"прогон {payload['source_run_id']}",
-        f"условия: {surface['conditions']}",
+        "COMPENSATION CORRIDOR FROM THE BASE RUN",
+        f"run {payload['source_run_id']}",
+        f"conditions: {surface['conditions']}",
         (
             f"min {distribution['min']:.4f}  p05 {distribution['p05']:.4f}  "
-            f"медиана {distribution['median']:.4f}  p95 {distribution['p95']:.4f}  "
-            f"max {distribution['max']:.4f}  (шагов {distribution['n_steps']})"
+            f"median {distribution['median']:.4f}  p95 {distribution['p95']:.4f}  "
+            f"max {distribution['max']:.4f}  (steps {distribution['n_steps']})"
         ),
         "",
-        "по годам: год  шагов  min  медиана  max",
+        "by year: year  steps  min  median  max",
     ]
     by_year = surface["by_year"]
     assert isinstance(by_year, dict)
@@ -334,18 +335,18 @@ def format_report(payload: dict[str, object]) -> str:
     difference = reservoir["relative_difference_to_surface"]
     assert isinstance(difference, dict)
     lines.append("")
-    lines.append(f"условия: {reservoir['conditions']}")
+    lines.append(f"conditions: {reservoir['conditions']}")
     lines.append(
         f"min {reservoir_distribution['min']:.4f}  "
         f"p05 {reservoir_distribution['p05']:.4f}  "
-        f"медиана {reservoir_distribution['median']:.4f}  "
+        f"median {reservoir_distribution['median']:.4f}  "
         f"p95 {reservoir_distribution['p95']:.4f}  "
         f"max {reservoir_distribution['max']:.4f}"
     )
     lines.append(
-        f"относительное отличие от поверхностного: "
+        f"relative difference from the surface value: "
         f"min {difference['min'] * 100.0:.4f}%  "
-        f"медиана {difference['median'] * 100.0:.4f}%  "
+        f"median {difference['median'] * 100.0:.4f}%  "
         f"max {difference['max'] * 100.0:.4f}%"
     )
     return "\n".join(lines)
@@ -362,8 +363,8 @@ def _field_pressure_from_run(output_dir: Path) -> tuple[float, ...]:
     )
     if smspec is None or unsmry is None:
         raise CompensationRangeError(
-            f"в каталоге прогона {output_dir} нет пары SMSPEC/UNSMRY: серию "
-            "пластового давления FPR прочитать не из чего"
+            f"the run directory {output_dir} has no SMSPEC/UNSMRY pair: there is nothing "
+            "to read the FPR reservoir pressure series from"
         )
     return _read_field_series(smspec, unsmry).field_pressure_bar
 
@@ -371,8 +372,8 @@ def _field_pressure_from_run(output_dir: Path) -> tuple[float, ...]:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Измеряет распределение компенсации C(k) по настоящему базовому "
-            "прогону и сохраняет артефакт data/compensation-base.json"
+            "Measures the compensation distribution C(k) on a real base "
+            "run and saves the artifact data/compensation-base.json"
         )
     )
     parser.add_argument("--response", type=Path, default=DEFAULT_RESPONSE)
@@ -397,7 +398,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     print(format_report(payload))
-    print(f"\nартефакт: {args.out}")
+    print(f"\nartifact: {args.out}")
     return 0
 
 

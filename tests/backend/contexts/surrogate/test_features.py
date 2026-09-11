@@ -5,19 +5,19 @@ from datetime import date
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     ControlEvent,
     EventKind,
     FixedDeckEvent,
-    Lambda,
     OperatingStatus,
     Role,
     Schedule,
     ScheduleMeta,
     WellState,
 )
-from backend.ml.surrogate import (
+from backend.contexts.connectivity.domain.connectivity import Lambda
+from backend.contexts.surrogate.domain.features import (
     FeatureContext,
     FeatureError,
     HistoryTargets,
@@ -122,25 +122,19 @@ def test_features_use_one_schedule_history_fixed_layer_static_and_lambda() -> No
     late0 = _node(result, 0, "LATE")
     late1 = _node(result, 1, "LATE")
 
-    # Накопления не обнуляются на t0: 1994--2006 приходит из исходного дека.
     assert p0.cumulative_target_liquid_m3 == 1_000.0 + 10.0 * 31
     assert p1.cumulative_target_liquid_m3 == p0.cumulative_target_liquid_m3
-    # Невведённая и остановленная скважины обе имеют нулевой эффективный
-    # дебит, но различаются отдельным признаком availability.
     assert late0.effective_target_rate_m3_per_day == 0.0
     assert late0.availability is Availability.NOT_COMMISSIONED
     assert p1.effective_target_rate_m3_per_day == 0.0
     assert p1.availability is Availability.AVAILABLE
     assert p1.operating_status is OperatingStatus.SHUT
-    # Ввод приходит из fixed_deck_events, а не из симулятора.
     assert late1.availability is Availability.AVAILABLE
     assert late1.cumulative_target_liquid_m3 == 7.0 * 28
     assert late1.fixed_event_count == 1
     assert p0.fixed_event_count == 1
     assert p0.static_values == (10.0, 20.0)
     assert result.static_feature_names == ("i", "j")
-    # Полная lambda сохранена ребром, агрегат использует накопление своего
-    # нагнетателя, включая ненулевую историю.
     edge0 = next(
         edge
         for edge in result.lambda_edges
@@ -199,20 +193,20 @@ def test_only_selected_lambda_window_is_used() -> None:
 
 def test_lambda_gap_or_overlap_is_rejected() -> None:
     gap = (_lambda(date(2007, 1, 2), date(2007, 12, 31)),)
-    with pytest.raises(FeatureError, match="ровно одно окно lambda"):
+    with pytest.raises(FeatureError, match="exactly one lambda window"):
         ScheduleFeatureizer().transform(_schedule(), _context(gap))
 
     overlap = (
         _lambda(date(2007, 1, 1), date(2007, 2, 1)),
         _lambda(date(2007, 2, 1), date(2007, 12, 31)),
     )
-    with pytest.raises(FeatureError, match="найдено 2"):
+    with pytest.raises(FeatureError, match="found 2"):
         ScheduleFeatureizer().transform(_schedule(), _context(overlap))
 
 
 def test_history_prefix_must_belong_to_the_same_schedule() -> None:
     context = replace(_context(), history_prefix_hash="another-history")
-    with pytest.raises(FeatureError, match="не из префикса этого Schedule"):
+    with pytest.raises(FeatureError, match="not built from a prefix of this Schedule"):
         ScheduleFeatureizer().transform(_schedule(), context)
 
 

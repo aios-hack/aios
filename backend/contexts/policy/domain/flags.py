@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Mapping
 
-from backend.core.contracts import Rule
+from backend.contexts.policy.domain.policy import Rule
 
 IMPLEMENTED_RULES: tuple[Rule, ...] = (
     Rule.R0,
@@ -19,8 +19,8 @@ IMPLEMENTED_RULES: tuple[Rule, ...] = (
 WATERCUT_CAP_FEATURE = "r0_watercut_cap"
 
 WATERCUT_CAP_UNMEASURED = (
-    "Глушение по потолку обводнённости прироста ЧДД на замере не показало: "
-    "признак по умолчанию выключен и включается только явным разрешением."
+    "Shut-in by the watercut ceiling showed no NPV gain in the measurement: "
+    "the flag is off by default and is switched on only by an explicit opt-in."
 )
 
 DEFAULT_FEATURE_FLAGS: Mapping[str, bool] = {
@@ -52,12 +52,12 @@ class RuleFlags:
         missing = set(Rule) - set(self.enabled)
         if missing:
             raise ValueError(
-                f"флаги объявлены не для всех правил: {sorted(r.value for r in missing)}"
+                f"flags are not declared for every rule: {sorted(r.value for r in missing)}"
             )
         unknown = set(self.features) - set(DEFAULT_FEATURE_FLAGS)
         if unknown:
             raise ValueError(
-                f"неизвестные признаки: {sorted(unknown)}"
+                f"unknown flags: {sorted(unknown)}"
             )
 
     def is_on(self, rule: Rule) -> bool:
@@ -65,7 +65,7 @@ class RuleFlags:
 
     def feature_on(self, name: str) -> bool:
         if name not in DEFAULT_FEATURE_FLAGS:
-            raise ValueError(f"неизвестный признак {name!r}")
+            raise ValueError(f"unknown flag {name!r}")
         return self.features.get(name, DEFAULT_FEATURE_FLAGS[name])
 
     def with_disabled(self, *rules: Rule) -> "RuleFlags":
@@ -82,7 +82,7 @@ class RuleFlags:
 
     def with_feature(self, name: str, on: bool) -> "RuleFlags":
         if name not in DEFAULT_FEATURE_FLAGS:
-            raise ValueError(f"неизвестный признак {name!r}")
+            raise ValueError(f"unknown flag {name!r}")
         updated = dict(self.features)
         updated[name] = on
         return RuleFlags(enabled=dict(self.enabled), features=updated)

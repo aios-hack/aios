@@ -6,28 +6,31 @@ from pathlib import Path
 
 import pytest
 
-from backend.infrastructure.opm import SubmissionTractError, submit_schedule
+from backend.contexts.simulation.application.submission import SubmissionTractError, submit_schedule
 from backend.contexts.simulation.infrastructure.cache import cache_key
 from backend.contexts.reservoir.infrastructure.opm_deck import OpmDeckEmitter
 from backend.contexts.simulation.infrastructure.runner import deck_hashes, summary_spec_hash
 from backend.contexts.simulation.application.submission import _run
-from backend.domain.configuration import default_config, economics_config_hash
-from backend.core.contracts import (
+from backend.contexts.constraints.domain.schema import default_config, economics_config_hash
+from backend.contexts.constraints.domain.config import (
     ArtifactHashes,
+    DEFAULT_NORMATIVES_2007,
+    NormativeSet,
+)
+from backend.contexts.schedule.domain.schedule import (
     ControlEvent,
     EventKind,
-    FinalNpvArtifact,
-    NormativeSet,
-    RunStatus,
     Schedule,
     ScheduleMeta,
-    DEFAULT_NORMATIVES_2007,
-    hash_schedule,
 )
-from backend.core.paths import data_root
-from backend.domain.economics import ESP_CATALOG_2007, methodology_version_hash
+from backend.contexts.runs.domain.run_result import FinalNpvArtifact, RunStatus
+from backend.shared.hashing import hash_schedule
+from backend.shared.paths import data_root
+from backend.contexts.economics.domain.esp import ESP_CATALOG_2007
+from backend.contexts.economics.domain.methodology_hash import methodology_version_hash
 from backend.contexts.economics.application.base_case import analyze_base_case
-from backend.domain.schedule import ViolationKind, parse_schedule
+from backend.contexts.schedule.domain.validate import ViolationKind
+from backend.contexts.schedule.domain.lossless import parse_schedule
 from backend.contexts.schedule.domain.build import deck_well_axis, initial_state_from_prefix
 from backend.contexts.schedule.domain.canonical import canonical_part_hash
 from backend.contexts.schedule.domain.validate_dynamic import _states_by_step
@@ -42,7 +45,7 @@ MODEL_Z = model_z_dir()
 WORK_ROOT = data_root() / "base_run"
 _SCHEDULE_INCLUDE = "Model_Z_sch.inc"
 
-pytestmark = [pytest.mark.skipif(MODEL_Z is None, reason=missing_reason('каталог Model_Z')), pytest.mark.slow, pytest.mark.opm]
+pytestmark = [pytest.mark.skipif(MODEL_Z is None, reason=missing_reason('Model_Z directory')), pytest.mark.slow, pytest.mark.opm]
 
 NORMATIVES = NormativeSet(**DEFAULT_NORMATIVES_2007, esp_catalog=ESP_CATALOG_2007)
 
@@ -98,7 +101,7 @@ def _submission_environment_unavailable_reason() -> str | None:
     if _cached_response_entry() is not None or docker_unavailable_reason() is None:
         return None
     return (
-        "нет пригодного кешированного отклика для submission-тракта и "
+        "there is no usable cached response for the submission tract and "
         f"{docker_unavailable_reason()}"
     )
 
@@ -106,7 +109,7 @@ def _submission_environment_unavailable_reason() -> str | None:
 requires_submission_response = pytest.mark.skipif(
     _submission_environment_unavailable_reason() is not None,
     reason=(
-        "приёмка submission-тракта требует настоящий кеш отклика или Docker; "
+        "submission tract acceptance requires a real response cache or Docker; "
         f"{_submission_environment_unavailable_reason()}"
     ),
 )
@@ -212,7 +215,7 @@ def test_validate_static_gate_rejects_before_any_run(schedule, config) -> None:
 def test_dynamic_gate_rejects_the_real_baseline_over_well_71(schedule, config) -> None:
     with pytest.raises(SubmissionTractError, match="validate_dynamic") as excinfo:
         submit_schedule(schedule, MODEL_Z, WORK_ROOT, config, use_cache=True)
-    assert f"{EXPECTED_TOTAL_VIOLATIONS} нарушени" in str(excinfo.value)
+    assert f"{EXPECTED_TOTAL_VIOLATIONS} violations" in str(excinfo.value)
 
 
 @pytest.fixture(scope="module")
@@ -328,9 +331,9 @@ def test_the_injector_overshoot_is_the_producer_to_injector_conversion_step(
 
 @requires_submission_response
 def test_strict_mode_lists_every_reason_at_once(schedule, config) -> None:
-    with pytest.raises(SubmissionTractError, match="звено А §10.5 не пройдено") as excinfo:
+    with pytest.raises(SubmissionTractError, match="link A §10.5 did not pass") as excinfo:
         submit_schedule(schedule, MODEL_Z, WORK_ROOT, config, use_cache=True)
 
     message = str(excinfo.value)
-    assert f"validate_dynamic: {EXPECTED_TOTAL_VIOLATIONS} нарушени" in message
-    assert "validate_dynamic не выполнялся" not in message
+    assert f"validate_dynamic: {EXPECTED_TOTAL_VIOLATIONS} violations" in message
+    assert "validate_dynamic was not run" not in message

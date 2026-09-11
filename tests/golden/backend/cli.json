@@ -9,7 +9,7 @@
   "submit_no_run_id": {
     "exit": 1,
     "stderr_tail": [
-      "submit требует --run-id проверенного прогона"
+      "submit requires --run-id of a verified run"
     ],
     "stdout_head": []
   },
@@ -23,7 +23,7 @@
   "verify_with_case": {
     "exit": 1,
     "stderr_tail": [
-      "verify не принимает --case: проверяется расписание сохранённого запуска вместе с кейсом, на котором оно было найдено"
+      "verify does not accept --case: the schedule of a saved run is checked together with the case it was found on"
     ],
     "stdout_head": []
   }

@@ -18,8 +18,8 @@
   ],
   "meta": {
     "kind": "wells-from-deck",
-    "notice_en": "Demonstration data, not a computed result",
-    "notice_ru": "Демонстрационные данные, не результат расчёта",
+    "notice": "Демонстрационные данные, не результат расчёта",
+    "notice_key": "showcase.notice.demo",
     "provenance": "deck",
     "seed": 20260815,
     "synthetic": false

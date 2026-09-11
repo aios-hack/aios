@@ -6,14 +6,14 @@ from datetime import datetime
 from pathlib import Path
 
 from backend.contexts.constraints.application.cases import CaseError, load_case
-from backend.application.runs import (
+from backend.contexts.runs.application.workflow import (
     MANIFEST_PROVENANCE_FIELDS,
     RunProvenance,
     RunRequest,
     RunWorkflow,
 )
 from backend.contexts.runs.application.workflow import SUBMISSION_BUNDLE_FIELDS, SubmissionError
-from backend.core.contracts import Constraints
+from backend.contexts.constraints.domain.constraints import Constraints
 from backend.shared.paths import out_root
 from backend.contexts.runs.infrastructure.provenance import git_commit
 from backend.contexts.constraints.infrastructure.constraints_io import (
@@ -38,6 +38,16 @@ from backend.shared.errors import ConflictError, NotFoundError, ValidationError
 from backend.contexts.showcase.infrastructure.artifact_io import load_schedule_json
 from backend.shared.settings import Settings
 from backend.shared.json_io import read_json
+from backend.contexts.optimization.application.comparison_document import (
+    print_comparison,
+)
+from backend.contexts.optimization.application.verification_run import (
+    compare_baseline_to_candidate,
+)
+from backend.contexts.optimization.application.verification_cli import (
+    load_comparison_inputs,
+)
+from backend.contexts.optimization.domain.errors import ComparisonError
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -48,13 +58,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--runs-root", type=Path, default=out_root() / "runs")
     parser.add_argument("--model-dir", type=Path, default=None)
-    parser.add_argument("--budget", type=int, default=None, help="число оценок поиска")
-    parser.add_argument("--seed", type=int, default=None, help="seed независимого поиска")
+    parser.add_argument("--budget", type=int, default=None, help="number of search evaluations")
+    parser.add_argument("--seed", type=int, default=None, help="seed of the independent search")
     parser.add_argument(
         "--case",
         type=Path,
         default=None,
-        help="файл кейса в формате Constraints; по умолчанию config/competition-constraints.json",
+        help="case file in Constraints format; defaults to config/competition-constraints.json",
     )
     return parser
 
@@ -66,7 +76,7 @@ def resolve_case(case_path: Path | None) -> Path | None:
         load_case(case_path)
     except CaseError as error:
         raise ValidationError(
-            f"кейс отклонён — {error}", code="runs.case_rejected", path=str(case_path)
+            f"case rejected - {error}", code="runs.case_rejected", path=str(case_path)
         ) from error
     return case_path
 
@@ -84,7 +94,7 @@ def resolve_constraints(case_path: Path | None) -> Constraints | None:
         return load_case(case_path)
     except CaseError as error:
         raise ValidationError(
-            f"кейс отклонён — {error}", code="runs.case_rejected", path=str(case_path)
+            f"case rejected - {error}", code="runs.case_rejected", path=str(case_path)
         ) from error
 
 
@@ -97,7 +107,7 @@ def resolve_normatives_sha256() -> str | None:
         return normatives_sha256(path)
     except NormativesError as error:
         raise ValidationError(
-            f"хеш нормативов не посчитан — {error}", code="economics.normatives"
+            f"normatives hash was not computed - {error}", code="economics.normatives"
         ) from error
 
 
@@ -129,15 +139,15 @@ def load_run_request(runs_root: Path, run_id: str) -> RunRequest:
     horizon_path = run_dir / "inputs" / "horizon.json"
     if horizon_path.is_file() and load_horizon(str(horizon_path)) != HORIZON:
         raise ConflictError(
-            f"Период процесса отличается от сохранённого прогона. "
-            f"Запустите новый процесс с AIOS_HORIZON_PATH={horizon_path}",
+            f"The process horizon differs from the saved run. "
+            f"Start a new process with AIOS_HORIZON_PATH={horizon_path}",
             code="runs.horizon_mismatch",
             run_id=run_id,
         )
     request_path = run_dir / "inputs" / "request.json"
     if not request_path.is_file():
         raise NotFoundError(
-            f"Запуск {run_id!r} не найден: {request_path}",
+            f"Run {run_id!r} not found: {request_path}",
             code="runs.not_found",
             run_id=run_id,
         )
@@ -180,13 +190,13 @@ def main(argv: list[str] | None = None) -> int:
     mode = args.mode
     if mode == "verify" and args.case is not None:
         raise SystemExit(
-            "verify не принимает --case: проверяется расписание сохранённого "
-            "запуска вместе с кейсом, на котором оно было найдено"
+            "verify does not accept --case: the schedule of a saved run is "
+            "checked together with the case it was found on"
         )
     if mode == "submit" and args.case is not None:
         raise SystemExit(
-            "submit не принимает --case: пакет собирается из уже "
-            "проверенного прогона"
+            "submit does not accept --case: the bundle is assembled from an "
+            "already verified run"
         )
     if mode in {"verify", "full"}:
         require_docker()
@@ -199,7 +209,7 @@ def main(argv: list[str] | None = None) -> int:
         search_options = {}
         if args.budget is not None:
             if args.budget <= 0:
-                raise SystemExit("--budget должен быть положительным")
+                raise SystemExit("--budget must be positive")
             search_options["budget"] = args.budget
         if args.seed is not None:
             search_options["seed"] = args.seed
@@ -225,11 +235,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if mode == "verify":
         if not args.run_id:
-            raise SystemExit("verify требует --run-id ранее найденного запуска")
+            raise SystemExit("verify requires --run-id of a previously found run")
         if args.case is not None:
             raise SystemExit(
-                "verify не принимает --case: проверяется расписание сохранённого "
-                "запуска вместе с кейсом, на котором оно было найдено"
+                "verify does not accept --case: the schedule of a saved run is "
+                "checked together with the case it was found on"
             )
         from backend.contexts.optimization.application.verification_run import verify_schedule
 
@@ -240,15 +250,15 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if mode == "compare":
         if not args.run_id:
-            raise SystemExit("compare требует --run-id проверяемого прогона")
+            raise SystemExit("compare requires --run-id of the run being checked")
         return compare(args.runs_root, args.run_id, args.case)
     if mode == "submit":
         if not args.run_id:
-            raise SystemExit("submit требует --run-id проверенного прогона")
+            raise SystemExit("submit requires --run-id of a verified run")
         if args.case is not None:
             raise SystemExit(
-                "submit не принимает --case: пакет собирается из уже "
-                "проверенного прогона вместе с кейсом, на котором он найден"
+                "submit does not accept --case: the bundle is assembled from an "
+                "already verified run together with the case it was found on"
             )
         return submit(args.runs_root, args.run_id, args.model_dir)
     return 0
@@ -264,28 +274,21 @@ def resolve_comparison_case(
     if constraints is None:
         if saved is None:
             raise SystemExit(
-                f"сравнение не собрано — кейс не найден ни в {chosen}, ни в "
-                f"{run_dir / 'inputs' / 'constraints.json'}"
+                f"comparison was not assembled - case not found in {chosen}, "
+                f"nor in {run_dir / 'inputs' / 'constraints.json'}"
             )
         return run_dir / "inputs" / "constraints.json", saved
     if saved is not None and constraints_hash(saved) != constraints_hash(constraints):
         raise SystemExit(
-            "сравнение не собрано — кейс "
-            f"{chosen} расходится с кейсом прогона {run_id}: "
-            f"{constraints_hash(constraints)} против {constraints_hash(saved)}. "
-            "База и кандидат обязаны идти под одним кейсом"
+            "comparison was not assembled - case "
+            f"{chosen} diverges from the case of run {run_id}: "
+            f"{constraints_hash(constraints)} against {constraints_hash(saved)}. "
+            "Baseline and candidate must run under the same case"
         )
     return chosen, constraints
 
 
 def compare(runs_root: Path, run_id: str, case_path: Path | None) -> int:
-    from backend.contexts.optimization.application.verification_run import (
-        ComparisonError,
-        compare_baseline_to_candidate,
-        load_comparison_inputs,
-        print_comparison,
-    )
-
     chosen, constraints = resolve_comparison_case(runs_root, run_id, case_path)
     request = load_run_request(runs_root, run_id)
     try:
@@ -302,9 +305,9 @@ def compare(runs_root: Path, run_id: str, case_path: Path | None) -> int:
             model_dir=inputs.model_dir,
         )
     except ComparisonError as error:
-        raise SystemExit(f"сравнение не собрано — {error}") from error
+        raise SystemExit(f"comparison was not assembled - {error}") from error
     print_comparison(document)
-    print(f"сравнение записано: {runs_root / run_id / 'comparison.json'}")
+    print(f"comparison written: {runs_root / run_id / 'comparison.json'}")
     return 0
 
 
@@ -315,7 +318,7 @@ def resolve_model_dir(model_dir: Path | None) -> Path:
         return model_z_dir()
     except FileNotFoundError as error:
         raise SystemExit(
-            f"пакет сдачи не собран — каталог модели не найден: {error}"
+            f"submission bundle was not assembled - model directory not found: {error}"
         ) from error
 
 
@@ -324,11 +327,11 @@ def submit(runs_root: Path, run_id: str, model_dir: Path | None) -> int:
     try:
         report = workflow.submit(run_id, resolve_model_dir(model_dir))
     except (SubmissionError, ScheduleEmitError, FileNotFoundError) as error:
-        raise SystemExit(f"пакет сдачи не собран — {error}") from error
+        raise SystemExit(f"submission bundle was not assembled - {error}") from error
     export_run_summary(report.manifest, runs_root / run_id / "ui")
-    print(f"пакет сдачи: {report.directory}")
-    print(f"расписание: {report.schedule_path}")
-    print(f"заявленный ЧДД, руб: {report.bundle.claimed_npv_rub:.2f}")
+    print(f"submission bundle: {report.directory}")
+    print(f"schedule: {report.schedule_path}")
+    print(f"claimed NPV, RUB: {report.bundle.claimed_npv_rub:.2f}")
     for name in SUBMISSION_BUNDLE_FIELDS:
         if name == "claimed_npv_rub":
             continue

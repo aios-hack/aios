@@ -1,5 +1,7 @@
 import type { JarvisAskContext, JarvisEvent } from '@/jarvis/transport/events';
 
+export type TransportMode = 'mock' | 'sse';
+
 export interface JarvisAsk {
   sessionId: string;
   question: string;
@@ -8,7 +10,7 @@ export interface JarvisAsk {
 }
 
 export interface JarvisTransport {
-  readonly mode: 'mock' | 'sse';
+  readonly mode: TransportMode;
   ask(ask: JarvisAsk, signal: AbortSignal): AsyncIterable<JarvisEvent>;
 }
 

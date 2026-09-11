@@ -5,7 +5,7 @@ from dataclasses import replace
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     ControlEvent,
     EventKind,
@@ -16,10 +16,9 @@ from backend.core.contracts import (
     ScheduleMeta,
     WellState,
 )
-from backend.core.contracts.hashing import CanonicalizationError
-from backend.domain.schedule import (
+from backend.shared.hashing import CanonicalizationError
+from backend.contexts.schedule.domain.canonical import (
     ScheduleCanonicalError,
-    build_schedule,
     canonical_bytes,
     canonical_digest,
     canonical_hash_parts,
@@ -29,10 +28,10 @@ from backend.domain.schedule import (
     ecmascript_number,
     hash_canonical_schedule,
     hash_parts_raw,
-    load_schedule,
     normalize_well_state,
-    parse_schedule,
 )
+from backend.contexts.schedule.domain.build import build_schedule, load_schedule
+from backend.contexts.schedule.domain.lossless import parse_schedule
 
 from tests.support.backend.environment import missing_reason, model_z_schedule
 
@@ -41,7 +40,7 @@ MODEL_Z_SCHEDULE = model_z_schedule()
 
 pytestmark = pytest.mark.skipif(
     MODEL_Z_SCHEDULE is None,
-    reason=missing_reason("дек Model_Z"),
+    reason=missing_reason("Model_Z deck"),
 )
 
 
@@ -282,7 +281,7 @@ def test_exact_duplicates_are_dropped_conflicts_are_rejected() -> None:
 
     assert canonicalize_control_events([event, event]) == (event,)
 
-    with pytest.raises(ScheduleCanonicalError, match="конфликтующие"):
+    with pytest.raises(ScheduleCanonicalError, match="conflicting"):
         canonicalize_control_events(
             [event, ControlEvent(control_step=0, well="7", kind=EventKind.SET_LRAT, value=31.0)]
         )
@@ -313,7 +312,7 @@ def test_initial_state_outside_axis_is_rejected() -> None:
     base = _sample()
     broken = replace(base, meta=replace(base.meta, wells=("1", "2")))
 
-    with pytest.raises(ScheduleCanonicalError, match="вне оси"):
+    with pytest.raises(ScheduleCanonicalError, match="outside the axis"):
         canonicalize(broken)
 
 

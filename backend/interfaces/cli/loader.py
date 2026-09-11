@@ -6,7 +6,11 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-from backend.core.contracts import ActiveControlMode, IntervalResponse, StateAtDate
+from backend.contexts.reservoir.domain.response import (
+    ActiveControlMode,
+    IntervalResponse,
+    StateAtDate,
+)
 
 
 @dataclass(frozen=True)

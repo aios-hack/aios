@@ -1,7 +1,7 @@
 # Конфигурация: файл кейса
 
 Кейс — это один JSON-файл в формате контракта `Constraints`
-(`backend/core/contracts/constraints.py`). Он полностью описывает условия задачи:
+(`backend/contexts/constraints/domain/constraints.py`). Он полностью описывает условия задачи:
 годовые лимиты, простои скважин и параметры инфраструктуры. Больше нигде условия
 задачи не задаются — чтобы воспроизвести прогон, достаточно этого файла, дека
 Model_Z и коммита.
@@ -9,7 +9,7 @@ Model_Z и коммита.
 Запуск на кейсе:
 
 ```
-PYTHONPATH=. python -m backend.presentation.cli.run full --case config/cases/base.json
+PYTHONPATH=. aios run full --case config/cases/base.json
 ```
 
 Без `--case` читается `config/competition-constraints.json` (или путь из
@@ -105,7 +105,7 @@ PYTHONPATH=. python -m backend.presentation.cli.run full --case config/cases/bas
 | `control_step_from` | целое 0…223 | Первый шаг управления простоя, включительно |
 | `control_step_to` | целое 0…223 | Последний шаг простоя, включительно |
 
-Горизонт — 224 шага управления (`N_INTERVALS`, `backend/core/contracts/schedule.py`):
+Горизонт — 224 шага управления (`N_INTERVALS`, `backend/contexts/schedule/domain/schedule.py`):
 это сетка контрольных дат Model_Z от 01.01.2007. Шаг вне горизонта и
 `control_step_from > control_step_to` — ошибки с указанием индекса элемента.
 
@@ -128,7 +128,7 @@ PYTHONPATH=. python -m backend.presentation.cli.run full --case config/cases/bas
 | `compensation_max` | число ≥ `compensation_min` | доля | Верхняя граница того же коридора. Он закрывает ловушку «разогнать закачку до максимума»: заказчик определил её именно через компенсацию (лекция 12.08, 01:02) | `1.15` — **назначено нами, не измерено.** Замер даёт `max_k C_base(k) = 1.4567`. Коридор, измеренный по базе, — `1.2016…1.4567` (замер CON-07) |
 | `compensation_enforcement` | `"diagnostic"` \| `"hard"` | — | `diagnostic` — выход за коридор попадает в отчёт, но расписание принимается; `hard` — выход за коридор блокирует расписание | `"diagnostic"`. Для сдачи переключается в `"hard"`: пока коридор не подтверждён на тестовом кейсе, блокировать по нему рискованно |
 | `compensation_scope` | `"field"` \| `"groups"` \| `"field_and_groups"` | — | Где проверяется коридор: только по полю, только по участкам или и там, и там. Значения с участками требуют передать в валидатор нарезку `Groups`, иначе проверка завершается ошибкой. Подробности — раздел «Область проверки компенсации» ниже | `"field_and_groups"`. Компенсация, сошедшаяся по полю, может быть нарушена на участке; проверяем обе области |
-| `bhp_producer_min_bar` | число > 0 | бар | Нижний предел забойного давления добывающей: `WBHP` ниже него — блокирующее нарушение `BHP_BELOW_PRODUCER_LIMIT` | `50.0` — предел дека Model_Z. Раньше был зашит константой в `backend/domain/schedule/validate_dynamic.py`; теперь константа лишь хранит это же умолчание, а истина берётся из кейса |
+| `bhp_producer_min_bar` | число > 0 | бар | Нижний предел забойного давления добывающей: `WBHP` ниже него — блокирующее нарушение `BHP_BELOW_PRODUCER_LIMIT` | `50.0` — предел дека Model_Z. Раньше был зашит константой в `backend/contexts/schedule/domain/validate_dynamic.py`; теперь константа лишь хранит это же умолчание, а истина берётся из кейса |
 | `bhp_injector_max_bar` | число > `bhp_producer_min_bar` | бар | Верхний предел забойного давления нагнетательной: `WBHP` выше него — блокирующее нарушение `BHP_ABOVE_INJECTOR_LIMIT` | `300.0` — предел дека Model_Z, та же история, что и у нижнего предела |
 | `pressure_floor_bar` | число > 0 | бар | Пол среднего пластового давления поля: `FPR` ниже него — блокирующее нарушение `FIELD_PRESSURE_BELOW_FLOOR` | **умолчания нет.** Если ключ не задан, проверка не запускается и в отчёте стоит `not_set` |
 | `pressure_ceiling_bar` | число > `pressure_floor_bar` | бар | Потолок среднего пластового давления поля: `FPR` выше него — блокирующее нарушение `FIELD_PRESSURE_ABOVE_CEILING` | **умолчания нет**, та же история, что и у пола |
@@ -165,8 +165,8 @@ PYTHONPATH=. python -m backend.presentation.cli.run full --case config/cases/bas
 по полю `C(k)` строго в коридоре.
 
 **Что требуется для проверки по участкам.** Валидатору нужна нарезка фонда —
-`Groups` из `backend/core/contracts/connectivity.py`, которую строит
-`backend/domain/connectivity/groups.py` по измеренной матрице влияния. Она
+`Groups` из `backend/contexts/connectivity/domain/connectivity.py`, которую строит
+`backend/contexts/connectivity/domain/groups.py` по измеренной матрице влияния. Она
 передаётся в `validate_dynamic` необязательным аргументом `groups`.
 
 **Что происходит при отсутствии групп.** Если кейс объявил `"groups"` или
@@ -273,12 +273,12 @@ V_воды(поверхн.)  = liquid_volume_delta − V_нефти(поверх
 `raw[147 + k]`.
 
 **Как коэффициенты попадают в валидатор.** Валидатор живёт в `domain`, ридер
-PVT (`backend/infrastructure/opm/pvt.py`) — в `infrastructure`, и импорт из
+PVT (`backend/contexts/reservoir/infrastructure/pvt.py`) — в `infrastructure`, и импорт из
 домена в инфраструктуру запрещён. Поэтому коэффициенты передаются готовыми,
 тем же приёмом, что и `oil_density_t_per_m3`: `validate_dynamic` принимает
 необязательный аргумент `reservoir_factors: Sequence[tuple[float, float]] |
 None` — по паре `(B_o, B_w)` на каждый из 224 шагов управления. Считает их
-инфраструктура: `backend/infrastructure/opm/base_run.py` даёт
+инфраструктура: `backend/contexts/simulation/application/baseline_diagnostics.py` даёт
 `reservoir_factors_for_steps(field_pressure_bar, tables, ...)` и
 `load_reservoir_factors(model_dir, field_pressure_bar, ...)`.
 
@@ -532,7 +532,7 @@ bhp_injector_max_bar`. Пустой коридор (верхний предел 
 
 Потолок закачки на каждом шаге управления считается в одной функции
 `injection_budget_for_step`
-(`backend/application/optimization/schedule_search.py`). Она берёт минимум из
+(`backend/contexts/optimization/application/environment.py`). Она берёт минимум из
 источников и называет победителя:
 
 | Источник в трассе | Откуда берётся | Причина ограничения |
@@ -569,8 +569,8 @@ bhp_injector_max_bar`. Пустой коридор (верхний предел 
 ```
 
 Оно живёт в валидаторе расписания
-(`backend/domain/schedule/validate_dynamic.py`) и в потолке закачки поисковика
-(`backend/application/optimization/schedule_search.py`), поэтому `n` не просто
+(`backend/contexts/schedule/domain/validate_dynamic.py`) и в потолке закачки поисковика
+(`backend/contexts/optimization/application/environment.py`), поэтому `n` не просто
 попадает в отчёт, а расширяет пространство допустимых расписаний.
 
 **Доля не обязательна.** Кейс, где задан только `n`, — допустимый кейс:
@@ -586,7 +586,7 @@ bhp_injector_max_bar`. Пустой коридор (верхний предел 
 ничего не сказали.
 
 Подстановка не бесшумна. Политика воды
-(`backend/core/contracts/constraints.py`) возвращает флаг `fraction_defaulted`:
+(`backend/contexts/constraints/domain/constraints.py`) возвращает флаг `fraction_defaulted`:
 `true` — долю выбрали мы, `false` — доля пришла из файла кейса. Отчёт по кейсу
 обязан показать этот флаг: число, выбранное нами за организаторов, должно быть
 видно как наше решение, а не выдаваться за исходные данные.
@@ -671,9 +671,9 @@ bhp_injector_max_bar`. Пустой коридор (верхний предел 
 ## `lambda-selection.json` — выбор канонической λ
 
 Путь к матрице связности λ больше не задаётся константой в
-`backend/application/optimization/search_run.py`. Он читается из этого файла
+`backend/contexts/optimization/application/search_use_case.py`. Он читается из этого файла
 резолвером `resolve_lambda_selection`
-(`backend/application/optimization/runtime_artifacts.py`). Файла нет — поиск
+(`backend/contexts/optimization/infrastructure/artifacts.py`). Файла нет — поиск
 падает с ошибкой, а не берёт умолчание: молча оптимизировать по неизвестно
 какой λ хуже отказа.
 
@@ -695,7 +695,7 @@ bhp_injector_max_bar`. Пустой коридор (верхний предел 
 проверяется на каждом прогоне.
 
 1. **Это единственная λ на диске.** Кампания замера связности
-   (`backend/application/connectivity_campaign.py`) не отрабатывала: в
+   (`backend/contexts/connectivity/application/connectivity_campaign.py`) не отрабатывала: в
    артефакте нет ни `artifact_id`, ни `measured_at`, ни `n_runs`,
    ни `source_run_ids` — тех полей, которые пишет `save_lambda`. Значит
    независимого от обучения замера λ у нас нет, и выдавать выгрузку за
@@ -805,7 +805,7 @@ PYTHONPATH=. python tools/lambda_compare.py <старый> <новый>
 
 ### Что осталось сделать тренеру
 
-`backend/ml/surrogate/train.py` заморожен и здесь не менялся. Правка,
+`backend/contexts/surrogate/application/train/` заморожен и здесь не менялся. Правка,
 которую в него надо внести:
 
 1. В начале обучения, **до** формирования батчей, загрузить набор тем же
@@ -830,7 +830,7 @@ PYTHONPATH=. python tools/lambda_compare.py <старый> <новый>
 
 ## λ и лаг в признаках модели
 
-`ScheduleFeatureizer` (`backend/ml/surrogate/features.py`) при сборке рёбер
+`ScheduleFeatureizer` (`backend/contexts/surrogate/domain/features/`) при сборке рёбер
 λ берёт закачку соседа с **текущего** шага
 (`states[injector].effective_target` и накопленную `injection[injector]`) и
 поле `lambda_.lag_months` не читает вовсе. В файле используются только

@@ -34,12 +34,12 @@ def test_calibration_round_trip_checks_model_version(tmp_path) -> None:
 
     assert NpvCalibration.load(path, model_version="model-1") == expected
     assert json.loads(path.read_text())["format"] == FORMAT
-    with pytest.raises(NpvCalibrationError, match="другой модели"):
+    with pytest.raises(NpvCalibrationError, match="a different model"):
         NpvCalibration.load(path, model_version="model-2")
 
 
 def test_non_monotone_calibration_is_rejected() -> None:
-    with pytest.raises(NpvCalibrationError, match="положительным"):
+    with pytest.raises(NpvCalibrationError, match="must be positive"):
         NpvCalibration(0.0, -1.0, "model-1")
 
 

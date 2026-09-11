@@ -15,14 +15,14 @@ def _load(lang: str) -> Mapping[str, str]:
     path = CATALOG_DIR / f"{lang}.json"
     if not path.is_file():
         raise ConfigurationError(
-            f"каталог сообщений {lang} не найден: {path}",
+            f"message catalog {lang} not found: {path}",
             code="i18n.catalog_missing",
             lang=lang,
         )
     payload = read_json(path)
     if not isinstance(payload, dict):
         raise ConfigurationError(
-            f"каталог сообщений {lang}: ожидается объект",
+            f"message catalog {lang}: an object is expected",
             code="i18n.catalog_malformed",
             lang=lang,
         )
@@ -56,7 +56,7 @@ class Messages:
             template = self._catalogs.get(DEFAULT_LANG, {}).get(key)
         if template is None:
             raise NotFoundError(
-                f"сообщение {key!r} отсутствует в каталоге", code="i18n.key_missing", key=key
+                f"message {key!r} is absent from the catalog", code="i18n.key_missing", key=key
             )
         if not params:
             return template

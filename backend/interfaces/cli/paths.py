@@ -55,8 +55,8 @@ def default_seed() -> int:
 def require(path: Path | None, what: str) -> Path:
     if path is None:
         raise SystemExit(
-            f"{what} недоступен: данные организаторов не поставляются с образом. "
-            f"Смонтируйте каталог docs и укажите {DOCS_ROOT_ENV_VAR} "
-            f"(в образе — /data/docs)."
+            f"{what} is unavailable: organizer data does not ship with the image. "
+            f"Mount the docs directory and set {DOCS_ROOT_ENV_VAR} "
+            f"(inside the image it is /data/docs)."
         )
     return path

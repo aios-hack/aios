@@ -5,7 +5,7 @@ import math
 from pathlib import Path
 from typing import Any
 
-from backend.core.contracts import RunArtifact
+from backend.contexts.runs.domain.run_artifact import RunArtifact
 
 
 def build_npv_by_well(artifact: RunArtifact) -> dict[str, Any]:

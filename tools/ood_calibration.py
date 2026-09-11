@@ -9,7 +9,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
-from backend.core.paths import out_root, project_root
+from backend.shared.paths import out_root, project_root
 
 FORMAT = "aios.ood-calibration.v1"
 DEFAULT_ARTIFACT = "out/ood-calibration.json"
@@ -64,9 +64,9 @@ def _read_json(path: Path) -> dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
-        raise OodCalibrationError(f"не читается {path}: {error}") from error
+        raise OodCalibrationError(f"{path} cannot be read: {error}") from error
     if not isinstance(payload, dict):
-        raise OodCalibrationError(f"{path}: ожидался объект JSON")
+        raise OodCalibrationError(f"{path}: a JSON object was expected")
     return payload
 
 
@@ -192,40 +192,40 @@ def choose_threshold(
 ) -> CalibrationResult:
     if not points:
         raise OodCalibrationError(
-            "калибровка невозможна: нет ни одной пары «прогноз против факта»; "
-            "нужен хотя бы один прогон с manifest.json, где заполнены "
-            "predicted_npv и verified_npv, и diagnostics.json с оценёнными кандидатами"
+            "calibration is impossible: there is not a single forecast-versus-fact pair; "
+            "at least one run with a manifest.json holding both "
+            "predicted_npv and verified_npv is required, plus a diagnostics.json with evaluated candidates"
         )
     if tolerated_relative_error <= 0.0 or not math.isfinite(tolerated_relative_error):
         raise OodCalibrationError(
-            f"допустимая относительная ошибка {tolerated_relative_error} "
-            "должна быть положительным конечным числом"
+            f"the tolerated relative error {tolerated_relative_error} "
+            "must be a positive finite number"
         )
     within = [point for point in points if point.relative_error <= tolerated_relative_error]
     reliable = len(points) >= MIN_POINTS_FOR_CURVE
     if not within:
         best = min(points, key=lambda item: item.relative_error)
         raise OodCalibrationError(
-            "калибровка невозможна: ни одна из "
-            f"{len(points)} измеренных точек не укладывается в допустимую "
-            f"ошибку {tolerated_relative_error:.6g}; минимальная измеренная "
-            f"ошибка {best.relative_error:.6g} на прогоне {best.run_id}"
+            "calibration is impossible: none of the "
+            f"{len(points)} measured points fits into the tolerated "
+            f"error {tolerated_relative_error:.6g}; the smallest measured "
+            f"error is {best.relative_error:.6g} on run {best.run_id}"
         )
     threshold = max(point.ood_score for point in within)
     origin = "measured-error-curve" if reliable else "measured-error-curve/insufficient-points"
     worst = max(point.relative_error for point in within)
     rationale = (
-        f"τ={threshold:.6g} — наибольший ood_score среди {len(within)} из "
-        f"{len(points)} измеренных точек, чья относительная ошибка прогноза ЧДД "
-        f"не превысила {tolerated_relative_error:.6g} (худшая внутри порога "
-        f"{worst:.6g}). Отвергнутых кандидатов с известным ood_score: "
+        f"tau={threshold:.6g} is the largest ood_score among {len(within)} of "
+        f"{len(points)} measured points whose relative NPV forecast error "
+        f"did not exceed {tolerated_relative_error:.6g} (the worst inside the threshold "
+        f"is {worst:.6g}). Rejected candidates with a known ood_score: "
         f"{len(rejected)}"
     )
     if not reliable:
         rationale += (
-            f". Точек {len(points)} < {MIN_POINTS_FOR_CURVE}: кривая «ошибка против OOD» "
-            "по такому числу точек ненадёжна, τ — нижняя граница, а не измеренная "
-            "точка перегиба"
+            f". Points {len(points)} < {MIN_POINTS_FOR_CURVE}: the error-versus-OOD curve "
+            "is unreliable on so few points, so tau is a lower bound rather than a measured "
+            "inflection point"
         )
     return CalibrationResult(
         threshold=threshold,
@@ -260,22 +260,22 @@ def write_artifact(result: CalibrationResult, path: Path) -> Path:
 def load_calibration(path: Path) -> CalibrationResult:
     payload = _read_json(path)
     if payload.get("format") != FORMAT:
-        raise OodCalibrationError(f"{path}: неподдерживаемый формат калибровки OOD")
+        raise OodCalibrationError(f"{path}: unsupported OOD calibration format")
     threshold = _finite_float(payload.get("threshold"))
     if threshold is None or threshold < 0.0:
-        raise OodCalibrationError(f"{path}: порог калибровки не конечен или отрицателен")
+        raise OodCalibrationError(f"{path}: the calibration threshold is not finite or is negative")
     count = payload.get("point_count")
     if not isinstance(count, int) or count < 1:
-        raise OodCalibrationError(f"{path}: калибровка без единой измеренной точки")
+        raise OodCalibrationError(f"{path}: a calibration without a single measured point")
     points = payload.get("points")
     if not isinstance(points, list) or len(points) != count:
         raise OodCalibrationError(
-            f"{path}: заявлено точек {count}, а записано "
-            f"{len(points) if isinstance(points, list) else 'не список'}"
+            f"{path}: {count} points are declared but "
+            f"{len(points) if isinstance(points, list) else 'not a list'} are recorded"
         )
     tolerated = _finite_float(payload.get("tolerated_relative_error"))
     if tolerated is None or tolerated <= 0.0:
-        raise OodCalibrationError(f"{path}: допустимая ошибка не задана")
+        raise OodCalibrationError(f"{path}: the tolerated error is not set")
     return CalibrationResult(
         threshold=threshold,
         threshold_origin=str(payload.get("threshold_origin", "unknown")),
@@ -313,16 +313,16 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
 
 
 def _report(result: CalibrationResult, destination: Path, stream: Any) -> None:
-    print(f"точек: {result.point_count}", file=stream)
+    print(f"points: {result.point_count}", file=stream)
     for point in result.points:
         print(
             f"  {point.run_id}: ood_score={point.ood_score:.6g}, "
-            f"отн. ошибка ЧДД={point.relative_error:.6g}",
+            f"relative NPV error={point.relative_error:.6g}",
             file=stream,
         )
     print(f"τ = {result.threshold:.6g} ({result.threshold_origin})", file=stream)
     print(result.rationale, file=stream)
-    print(f"артефакт: {destination}", file=stream)
+    print(f"artifact: {destination}", file=stream)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -331,7 +331,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         result = calibrate(list(roots), args.tolerated_relative_error)
     except OodCalibrationError as error:
-        print(f"ошибка: {error}", file=sys.stderr)
+        print(f"error: {error}", file=sys.stderr)
         return 1
     destination = write_artifact(result, args.out)
     _report(result, destination, sys.stdout)

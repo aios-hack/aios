@@ -29,14 +29,14 @@ from collections.abc import (
     Mapping,
     Sequence,
 )
-from backend.core.contracts import (
+from backend.contexts.constraints.domain.constraints import (
     CompensationPolicy,
     Constraints,
-    Groups,
-    IntervalResponse,
-    Schedule,
     compensation_policy,
 )
+from backend.contexts.connectivity.domain.connectivity import Groups
+from backend.contexts.reservoir.domain.response import IntervalResponse
+from backend.contexts.schedule.domain.schedule import Schedule
 from backend.contexts.constraints.domain.constraints import (
     COMPENSATION_MAX,
     COMPENSATION_MIN,
@@ -70,28 +70,29 @@ def _compensation_violation(
             well=None,
             value=injection,
             detail=(
-                f"шаг {control_step}, {where}: отбор жидкости за шаг равен "
-                f"{withdrawal:.6f} м³, компенсация C(k) = закачка / отбор "
-                f"не определена и в коридор {minimum}…{maximum} "
-                f"не проверялась; закачано {injection:.3f} м³; "
-                f"условия расчёта: {conditions}; границы: {source}"
+                f"step {control_step}, {where}: liquid withdrawal over the "
+                f"step equals {withdrawal:.6f} m3, compensation "
+                f"C(k) = injection / withdrawal is undefined and was not "
+                f"checked against the corridor {minimum}...{maximum}; "
+                f"injected {injection:.3f} m3; calculation conditions: "
+                f"{conditions}; bounds: {source}"
             ),
         )
     value = injection / withdrawal
     if minimum <= value <= maximum:
         return None
-    side = "ниже нижней" if value < minimum else "выше верхней"
+    side = "below the lower" if value < minimum else "above the upper"
     return Violation(
         kind=ViolationKind.COMPENSATION_OUT_OF_CORRIDOR,
         control_step=control_step,
         well=None,
         value=value,
         detail=(
-            f"шаг {control_step}, {where}: компенсация C(k) = {value:.4f} "
-            f"{side} границы коридора {minimum}…{maximum}; "
-            f"закачано {injection:.3f} м³ при отборе жидкости "
-            f"{withdrawal:.3f} м³; условия расчёта: {conditions}; "
-            f"границы: {source}"
+            f"step {control_step}, {where}: compensation C(k) = {value:.4f} "
+            f"is {side} bound of the corridor {minimum}...{maximum}; "
+            f"injected {injection:.3f} m3 against liquid withdrawal "
+            f"{withdrawal:.3f} m3; calculation conditions: {conditions}; "
+            f"bounds: {source}"
         ),
     )
 
@@ -104,15 +105,16 @@ def _compensation_disabled_checks(
             CONSTRAINT_COMPENSATION,
             (
                 f"infrastructure.{COMPENSATION_MIN}/{COMPENSATION_MAX} "
-                "не заданы: коридор компенсации C(k) не проверялся"
+                "are not set: the compensation corridor C(k) was not checked"
             ),
             enforcement=policy.enforcement,
         ),
         _not_set(
             CONSTRAINT_COMPENSATION_SCOPE,
             (
-                f"infrastructure.{COMPENSATION_SCOPE} = {policy.scope!r}, но "
-                "коридор выключен: область проверки применять не к чему"
+                f"infrastructure.{COMPENSATION_SCOPE} = {policy.scope!r}, "
+                "but the corridor is disabled: there is nothing to apply the "
+                "check scope to"
             ),
             enforcement=policy.enforcement,
         ),
@@ -133,9 +135,9 @@ def _compensation_field_check(
         return (), _not_set(
             CONSTRAINT_COMPENSATION,
             (
-                f"infrastructure.{COMPENSATION_SCOPE} = {policy.scope!r}: кейс "
-                "требует коридор только по участкам, разрез по полю целиком "
-                "не запрашивался"
+                f"infrastructure.{COMPENSATION_SCOPE} = {policy.scope!r}: "
+                "the case requires the corridor only per group, the "
+                "whole-field breakdown was not requested"
             ),
             enforcement=policy.enforcement,
         )
@@ -151,7 +153,7 @@ def _compensation_field_check(
             minimum,
             maximum,
             source,
-            "поле целиком",
+            "the whole field",
             conditions,
         )
         if violation is not None:
@@ -160,9 +162,10 @@ def _compensation_field_check(
         CONSTRAINT_COMPENSATION,
         found,
         (
-            f"коридор компенсации {minimum}…{maximum}, режим "
-            f"{policy.enforcement}: C(k) = закачка / отбор проверена по полю "
-            f"на {len(totals)} шагах в {conditions}{notice}"
+            f"compensation corridor {minimum}...{maximum}, mode "
+            f"{policy.enforcement}: C(k) = injection / withdrawal checked "
+            f"over the field on {len(totals)} steps under {conditions}"
+            f"{notice}"
         ),
         blocking_kinds=blocking_kinds_for_compensation(policy),
         enforcement=policy.enforcement,
@@ -187,20 +190,20 @@ def _compensation_groups_check(
             CONSTRAINT_COMPENSATION_SCOPE,
             (),
             (
-                f"infrastructure.{COMPENSATION_SCOPE} = {policy.scope!r}: кейс "
-                "требует коридор только по полю целиком, групповой разрез "
-                "не запрашивался"
+                f"infrastructure.{COMPENSATION_SCOPE} = {policy.scope!r}: "
+                "the case requires the corridor only over the whole field, "
+                "the per-group breakdown was not requested"
             ),
             blocking_kinds=frozenset(),
             enforcement=policy.enforcement,
         )
     if groups is None:
         raise ValueError(
-            f"infrastructure.{COMPENSATION_SCOPE} = {policy.scope!r} требует "
-            "нарезки фонда на участки, но Groups в валидатор не переданы: "
-            "групповой коридор C(k) объявлен кейсом и обязан быть посчитан. "
-            "Пропустить его значит выдать sound=true по ограничению, которое "
-            "никто не проверял"
+            f"infrastructure.{COMPENSATION_SCOPE} = {policy.scope!r} "
+            "requires the well stock to be split into groups, but Groups "
+            "were not supplied to the validator: the per-group corridor C(k) "
+            "is declared by the case and must be computed. Skipping it would "
+            "mean reporting sound=true for a constraint nobody checked"
         )
     totals = _compensation_group_totals(
         interval_responses, groups, reservoir_factors, oil_density_t_per_m3
@@ -219,7 +222,7 @@ def _compensation_groups_check(
                 minimum,
                 maximum,
                 source,
-                f"участок {group_id}",
+                f"group {group_id}",
                 conditions,
             )
             if violation is not None:
@@ -234,10 +237,11 @@ def _compensation_groups_check(
         blocking=any(kind in blocking_kinds for kind in kinds),
         enforcement=policy.enforcement,
         detail=(
-            f"infrastructure.{COMPENSATION_SCOPE} = {policy.scope!r}: коридор "
-            f"{minimum}…{maximum} проверен по участкам в {conditions}, нарезка "
-            f"{groups.group_hash} из {len(groups.groups)} участков, "
-            f"{len(totals)} пар шаг-участок{notice}"
+            f"infrastructure.{COMPENSATION_SCOPE} = {policy.scope!r}: the "
+            f"corridor {minimum}...{maximum} was checked per group under "
+            f"{conditions}, split {groups.group_hash} of "
+            f"{len(groups.groups)} groups, {len(totals)} step-group pairs"
+            f"{notice}"
         ),
     )
 
@@ -257,12 +261,13 @@ def _check_compensation(
     maximum = policy.maximum
     if minimum is None or maximum is None:
         raise ValueError(
-            "коридор компенсации объявлен включённым, но границы не заданы: "
-            "C(k) не с чем сравнивать"
+            "the compensation corridor is declared enabled, but the bounds "
+            "are not set: there is nothing to compare C(k) against"
         )
     source = (
         f"infrastructure.{COMPENSATION_MIN}/{COMPENSATION_MAX}, "
-        f"режим {policy.enforcement}, {limit_origin(constraints, COMPENSATION_MIN)}"
+        f"mode {policy.enforcement}, "
+        f"{limit_origin(constraints, COMPENSATION_MIN)}"
     )
     if reservoir_factors is None:
         conditions = COMPENSATION_SURFACE_CONDITIONS
@@ -271,15 +276,16 @@ def _check_compensation(
     else:
         if oil_density_t_per_m3 is None:
             raise ValueError(
-                "пересчёт компенсации в пластовые условия запрошен парой "
-                "(B_o, B_w), но плотность нефти не передана: объём нефти в "
-                "отборе по массе не восстановить, а подставить её за "
-                "организаторов нельзя"
+                "conversion of compensation to reservoir conditions was "
+                "requested by the (B_o, B_w) pair, but oil density was not "
+                "supplied: the oil volume in the withdrawal cannot be "
+                "recovered from mass, and it must not be substituted on "
+                "behalf of the organizers"
             )
         conditions = COMPENSATION_RESERVOIR_CONDITIONS
         notice = (
-            f" по B_o/B_w на {len(reservoir_factors)} шагах при плотности "
-            f"нефти {oil_density_t_per_m3} т/м³"
+            f" by B_o/B_w on {len(reservoir_factors)} steps at oil density "
+            f"{oil_density_t_per_m3} t/m3"
         )
         field_totals = _compensation_reservoir_totals(
             interval_responses, reservoir_factors, oil_density_t_per_m3

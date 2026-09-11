@@ -10,7 +10,7 @@ import random
 from dataclasses import dataclass
 from typing import Protocol, Sequence
 
-from backend.core.contracts import OptimizerResult, Theta
+from backend.contexts.policy.domain.policy import OptimizerResult, Theta
 from backend.contexts.policy.domain.policy import MAX_THETA_PARAMS
 
 from backend.contexts.optimization.domain.linalg import (
@@ -40,9 +40,9 @@ class SearchReport:
 
     def __post_init__(self) -> None:
         if not self.history:
-            raise OptimizerError("отчёт поиска без единой оценки")
+            raise OptimizerError("search report without a single evaluation")
         if self.generations < 1:
-            raise OptimizerError(f"поколений {self.generations} < 1")
+            raise OptimizerError(f"generations {self.generations} < 1")
 
     @property
     def evaluations(self) -> int:
@@ -78,17 +78,17 @@ class _Space:
     def of(cls, theta: Theta) -> "_Space":
         names = tuple(sorted(theta.values))
         if not names:
-            raise OptimizerError("θ без параметров: двигать нечего")
+            raise OptimizerError("θ has no parameters: there is nothing to move")
         if len(names) > MAX_THETA_PARAMS:
-            raise OptimizerError(f"θ: {len(names)} параметров > {MAX_THETA_PARAMS}")
+            raise OptimizerError(f"θ: {len(names)} parameters > {MAX_THETA_PARAMS}")
         lower: list[float] = []
         upper: list[float] = []
         for name in names:
             low, high = theta.bounds[name]
             if not math.isfinite(low) or not math.isfinite(high):
-                raise OptimizerError(f"границы {name} не конечны: ({low}, {high})")
+                raise OptimizerError(f"bounds of {name} are not finite: ({low}, {high})")
             if high <= low:
-                raise OptimizerError(f"вырожденные границы {name}: ({low}, {high})")
+                raise OptimizerError(f"degenerate bounds of {name}: ({low}, {high})")
             lower.append(float(low))
             upper.append(float(high))
         return cls(names=names, lower=tuple(lower), upper=tuple(upper))
@@ -177,15 +177,15 @@ def optimize(
     stall_generations: int = 20,
 ) -> SearchReport:
     if max_evaluations < 1:
-        raise OptimizerError(f"бюджет оценок {max_evaluations} < 1")
+        raise OptimizerError(f"evaluation budget {max_evaluations} < 1")
 
     space = _Space.of(start)
     size = space.size
     population = default_population(size) if population is None else population
     if population < 4:
-        raise OptimizerError(f"популяция {population} < 4")
+        raise OptimizerError(f"population {population} < 4")
     if not 0.0 < initial_sigma:
-        raise OptimizerError(f"начальный шаг {initial_sigma} не положителен")
+        raise OptimizerError(f"initial step {initial_sigma} is not positive")
 
     tuning = _Weights.of(size, population)
     rng = random.Random(seed)
@@ -200,17 +200,17 @@ def optimize(
     best: Evaluation | None = None
     best_generation = 0
     generation = 0
-    stop_reason = "бюджет оценок исчерпан"
+    stop_reason = "evaluation budget exhausted"
 
     while len(history) < max_evaluations:
         if max_evaluations - len(history) < population:
-            stop_reason = "бюджета не хватает на целое поколение"
+            stop_reason = "budget is not enough for a whole generation"
             break
 
         generation += 1
         eigenvalues, basis = jacobi_eigen(symmetrize(covariance))
         if min(eigenvalues) <= 0.0:
-            stop_reason = "ковариация потеряла положительную определённость"
+            stop_reason = "the covariance lost positive definiteness"
             break
         deviations = [math.sqrt(value) for value in eigenvalues]
 
@@ -293,19 +293,19 @@ def optimize(
             (tuning.c_sigma / tuning.d_sigma) * (path_sigma_norm / tuning.chi_n - 1.0)
         )
         if not math.isfinite(sigma) or sigma <= sigma_tolerance:
-            stop_reason = "шаг σ ниже допуска: поиск сошёлся"
+            stop_reason = "step σ below tolerance: the search converged"
             break
         if generation - best_generation >= stall_generations:
-            stop_reason = f"нет улучшения {stall_generations} поколений подряд"
+            stop_reason = f"no improvement for {stall_generations} generations in a row"
             break
         if all(abs(mean[i] - old_mean[i]) <= sigma_tolerance for i in range(size)):
-            stop_reason = "среднее перестало двигаться"
+            stop_reason = "the mean stopped moving"
             break
 
     if best is None:
         raise OptimizerError(
-            f"бюджет {max_evaluations} меньше одного поколения из {population} оценок: "
-            f"ни одна θ не была оценена"
+            f"budget {max_evaluations} is less than one generation of {population} evaluations: "
+            f"no θ was evaluated"
         )
 
     return SearchReport(

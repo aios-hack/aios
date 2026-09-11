@@ -17,7 +17,8 @@ import tokenize
 import types
 from pathlib import Path
 from dataclasses import dataclass, replace
-from backend.core.contracts import Constraints, canonical_bytes
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.shared.hashing import canonical_bytes
 from types import SimpleNamespace
 from typing import Any, Iterator, Mapping, Sequence
 
@@ -122,7 +123,7 @@ def _drop_stubbed(stubbed: list[str]) -> None:
     for name in [
         module
         for module in sys.modules
-        if module.startswith("backend.ml")
+        if module.startswith("backend.contexts.surrogate")
         or module.startswith("backend.contexts.optimization.application.environment")
         or module.startswith("backend.contexts.optimization.application.search_use_case")
     ]:
@@ -170,7 +171,7 @@ def _function_def(module: ast.Module, name: str) -> ast.FunctionDef:
     for node in module.body:
         if isinstance(node, ast.FunctionDef) and node.name == name:
             return node
-    raise AssertionError(f"функция {name} не найдена")
+    raise AssertionError(f"function {name} not found")
 
 
 def _reload_search_run(environ: dict[str, str]) -> Any:
@@ -210,8 +211,8 @@ def test_calibration_beside_a_head_is_refused_when_artifacts_resolve(
             }
         )
     message = str(error.value)
-    assert "калибровка" in message
-    assert "голова прямого прогноза" in message
+    assert "calibration" in message
+    assert "direct forecast head" in message
 
 
 def test_calibration_alone_resolves(artifact_tree: Path) -> None:
@@ -314,7 +315,7 @@ def test_calibration_beside_a_head_is_never_silently_dropped_while_scoring(monke
     with pytest.raises(namespace["ScheduleSearchError"]) as error:
         namespace["predict_economics"](env, object(), object())
 
-    assert "калибровка" in str(error.value)
+    assert "calibration" in str(error.value)
 
 
 def test_calibration_without_a_head_still_shapes_the_number(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -351,9 +352,21 @@ def test_run_search_hands_the_calibration_to_the_environment() -> None:
     assert "npv_calibration_path=artifacts.npv_calibration" in source
 
 
+def _run_path_source() -> str:
+    module = _context_module_ast(RUN_SOURCE)
+    parts = [ast.unparse(_function_def(module, "run_search"))]
+    for dotted, name in (
+        ("backend.contexts.optimization.application.search_provenance", "build_search_provenance"),
+        ("backend.contexts.optimization.application.finalist_selection", "evaluate_finalists"),
+    ):
+        source = Path(importlib.import_module(dotted).__file__).read_text(encoding="utf-8")
+        parts.append(ast.unparse(_function_def(ast.parse(source), name)))
+    return chr(10).join(parts)
+
+
 def test_both_return_paths_carry_the_strategy_and_the_equilibrium() -> None:
     module = _context_module_ast(RUN_SOURCE)
-    run_search = ast.unparse(_function_def(module, "run_search"))
+    run_search = _run_path_source()
     fallback = ast.unparse(_function_def(module, "_search_near_baseline"))
 
     assert "'search_strategy': 'cma-es'" in run_search
@@ -463,21 +476,23 @@ def _run_search_import_namespace() -> dict[str, object]:
 
 _RUN_SEARCH_IMPORT_SOURCES: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
-        "backend.core.contracts",
-        (
-            "OptimizerResult",
-            "ScenarioViolation",
-            "Schedule",
-            "Theta",
-            "EventKind",
-            "compensation_policy",
-            "hash_schedule",
-            "canonical_bytes",
-            "water_supply_policy",
-        ),
+        "backend.contexts.policy.domain.policy",
+        ("OptimizerResult", "ScenarioViolation", "Theta"),
     ),
+    (
+        "backend.contexts.schedule.domain.schedule",
+        ("EventKind", "Schedule"),
+    ),
+    (
+        "backend.contexts.constraints.domain.constraints",
+        ("compensation_policy", "water_supply_policy"),
+    ),
+    ("backend.shared.hashing", ("canonical_bytes", "hash_schedule")),
     ("backend.contexts.schedule.domain.schedule", ("MAX_LRAT_M3_PER_DAY",)),
-    ("backend.domain.economics", ("load_response_artifact",)),
+    (
+        "backend.contexts.economics.application.base_case",
+        ("load_response_artifact",),
+    ),
     (
         "backend.contexts.optimization.infrastructure.artifacts",
         (
@@ -490,10 +505,12 @@ _RUN_SEARCH_IMPORT_SOURCES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("backend.contexts.policy.domain.fixed_point", ("FixedPointResult", "resolve")),
     ("backend.contexts.policy.domain.theta", ("default_theta",)),
     ("backend.contexts.schedule.domain.case_limits", ("YearlyProduction", "apply_case_limits")),
+    ("backend.contexts.schedule.domain.canonical", ("canonicalize",)),
     (
-        "backend.domain.schedule",
-        ("ViolationKind", "canonicalize", "validate_dynamic", "validate_static"),
+        "backend.contexts.schedule.domain.validate",
+        ("ViolationKind", "validate_static"),
     ),
+    ("backend.contexts.schedule.domain.validate_dynamic", ("validate_dynamic",)),
     (
         "backend.contexts.schedule.domain.validate_dynamic",
         ("FIRST_CONTROL_DECK_DATE_INDEX", "year_of_step"),
@@ -513,6 +530,10 @@ _RUN_SEARCH_IMPORT_SOURCES: tuple[tuple[str, tuple[str, ...]], ...] = (
             "OpmBudgetError",
             "SearchRunError",
         ),
+    ),
+    (
+        "backend.contexts.optimization.application.finalist_selection",
+        ("evaluate_finalists",),
     ),
 )
 
@@ -633,6 +654,26 @@ def _run_search_stubs(
         "ScenarioViolation": SimpleNamespace,
         "model_z_dir": lambda: Path("model-z"),
         "chdd_python_dir": lambda: Path("chdd"),
+        "evaluate_finalists": lambda ranked, **kwargs: (
+            []
+            if not ranked
+            else [
+                (
+                    evaluated.npv,
+                    ranked[0].theta,
+                    object(),
+                    final,
+                    check,
+                    (),
+                    "hash",
+                    evaluated.sigma,
+                )
+            ],
+            [],
+        ),
+        "_write_diagnostics_head": lambda **kwargs: None,
+        "_write_diagnostics_tail": lambda *args, **kwargs: None,
+        "select_finalist": lambda finalists, _beta: finalists[0],
     }
 
 
@@ -659,8 +700,12 @@ def test_fallback_path_marks_the_equilibrium_as_not_claimed(
 
 
 def test_seeded_provenance_already_names_both_fields() -> None:
-    source = ast.unparse(_function_def(_context_module_ast(RUN_SOURCE), "run_search"))
-    seeded = source.split("calls = ")[0]
+    source = Path(
+        importlib.import_module(
+            "backend.contexts.optimization.application.search_provenance"
+        ).__file__
+    ).read_text(encoding="utf-8")
+    seeded = ast.unparse(_function_def(ast.parse(source), "build_search_provenance"))
 
     assert "'search_strategy': 'cma-es'" in seeded
     assert "'policy_equilibrium': 'not-claimed'" in seeded
@@ -687,7 +732,7 @@ def test_caps_are_read_from_the_environment() -> None:
     assert module.FINAL_CAP == 12
 
 
-@pytest.mark.parametrize("value", ["0", "-1", "два", ""])
+@pytest.mark.parametrize("value", ["0", "-1", "two", ""])
 def test_an_unusable_cap_is_an_error_not_a_silent_default(value: str) -> None:
     with pytest.raises(Exception) as error:
         _reload_search_run({"AIOS_SEARCH_FIXED_POINT_CAP": value})
@@ -701,7 +746,7 @@ def test_run_search_takes_the_caps_as_arguments() -> None:
     names = {argument.arg for argument in run_search.args.kwonlyargs}
 
     assert {"search_cap", "final_cap"} <= names
-    source = ast.unparse(run_search)
+    source = _run_path_source()
     assert "initial, search_cap)" in source
     assert "initial, final_cap\n" in source or "initial, final_cap)" in source
     assert "'search_fixed_point_cap': str(search_cap)" in source
@@ -711,9 +756,9 @@ def test_run_search_takes_the_caps_as_arguments() -> None:
 def test_a_non_positive_cap_argument_is_refused() -> None:
     module = _reload_search_run({})
 
-    with pytest.raises(module.SearchRunError, match="положительным"):
+    with pytest.raises(module.SearchRunError, match="must be positive"):
         module.run_search(search_cap=0)
-    with pytest.raises(module.SearchRunError, match="положительным"):
+    with pytest.raises(module.SearchRunError, match="must be positive"):
         module.run_search(final_cap=-3)
 
 

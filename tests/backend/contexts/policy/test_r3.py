@@ -4,18 +4,15 @@ from dataclasses import replace
 
 import pytest
 
-from backend.core.contracts import ControlEvent, EventKind, Rule
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind
+from backend.contexts.policy.domain.policy import Rule
 
-from backend.domain.policy import (
-    RuleContext,
-    RuleFlags,
-    RuleOutcome,
-    WellMemory,
-    annual_margin_rub,
-    apply_rule,
-    default_theta,
-    make_theta,
-)
+from backend.contexts.policy.domain.state import RuleContext
+from backend.contexts.policy.domain.flags import RuleFlags
+from backend.contexts.policy.domain.rules import RuleOutcome, apply_rule
+from backend.contexts.policy.domain.memory import WellMemory
+from backend.contexts.policy.domain.economics import annual_margin_rub
+from backend.contexts.policy.domain.theta import default_theta, make_theta
 from backend.contexts.policy.domain.rules import r0, r3
 from tests.backend.contexts.policy.conftest import memory_of, producer, state_of
 

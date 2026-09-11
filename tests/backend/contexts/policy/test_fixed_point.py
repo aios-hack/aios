@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     ControlEvent,
     EventKind,
@@ -13,11 +13,11 @@ from backend.core.contracts import (
     Schedule,
     ScheduleMeta,
     WellState,
-    hash_schedule,
 )
+from backend.shared.hashing import hash_schedule
 
 from backend.contexts.constraints.domain.schema import DEFAULT_BUDGETS
-from backend.domain.policy import Evaluation, FixedPointResult, resolve
+from backend.contexts.policy.domain.fixed_point import Evaluation, FixedPointResult, resolve
 from backend.contexts.policy.domain.fixed_point import Visited
 
 WELL = "42"
@@ -169,7 +169,7 @@ def test_an_oscillating_input_does_not_loop_forever() -> None:
     assert result.converged is False
     assert result.iterations == 2
     assert len(result.visited) == 2
-    assert recorder.calls == 3  # two cycle nodes plus one honest reevaluation
+    assert recorder.calls == 3
 
 
 def test_hitting_the_cap_reports_not_converged() -> None:

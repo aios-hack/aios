@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from backend.application.runs import RunManifest
+from backend.contexts.runs.application.workflow import RunManifest
 
 
 def export_run_summary(manifest: RunManifest, out_dir: Path) -> Path:

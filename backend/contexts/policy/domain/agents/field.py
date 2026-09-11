@@ -20,10 +20,10 @@ class FieldCoordinator:
     name: str = FIELD_COORDINATOR
     level: Level = Level.FIELD
     responsibilities: tuple[str, ...] = (
-        "читает лимит закачки поля из Constraints, а не назначает его сам",
-        "считает спрос участка на воду правилом R1 по измеренной λ",
-        "раздаёт квоты участкам пропорционально спросу, не превышая лимит поля",
-        "читает лимит жидкости поля и делит его по маржинальной ценности отбора",
+        "reads the field injection limit from Constraints instead of setting it itself",
+        "computes the area demand for water with rule R1 from the measured lambda",
+        "hands quotas to areas in proportion to demand without exceeding the field limit",
+        "reads the field liquid limit and splits it by the marginal value of offtake",
     )
     trace_agent: str = FIELD_AGENT
 
@@ -53,8 +53,8 @@ class FieldCoordinator:
     ) -> Proposal:
         if flags is None:
             raise ValueError(
-                f"{self.name}: без RuleFlags спрос участка считать нечем — "
-                f"формула предельной ценности живёт в правиле R1"
+                f"{self.name}: without RuleFlags there is nothing to compute the area demand with - "
+                f"the marginal value formula lives in rule R1"
             )
         allocation = self.allocate(
             state,

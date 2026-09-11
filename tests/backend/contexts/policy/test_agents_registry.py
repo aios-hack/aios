@@ -4,16 +4,13 @@ from dataclasses import replace
 
 import pytest
 
-from backend.core.contracts import ControlEvent, EventKind, Rule
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind
+from backend.contexts.policy.domain.policy import Rule
 
-from backend.domain.policy import (
-    FIELD_AGENT,
-    Level,
-    RuleContext,
-    RuleFlags,
-    default_theta,
-    run_step,
-)
+from backend.contexts.policy.application.hierarchy import FIELD_AGENT, Level, run_step
+from backend.contexts.policy.domain.state import RuleContext
+from backend.contexts.policy.domain.flags import RuleFlags
+from backend.contexts.policy.domain.theta import default_theta
 from backend.contexts.policy.domain.agents import (
     DEFAULT_AGENTS,
     DEFAULT_REGISTRY,
@@ -84,12 +81,12 @@ def test_every_agent_name_is_unique() -> None:
 
 
 def test_a_duplicate_name_is_refused() -> None:
-    with pytest.raises(ValueError, match="встречается дважды"):
+    with pytest.raises(ValueError, match="occurs twice"):
         AgentRegistry(agents=(FieldCoordinator(), FieldCoordinator()))
 
 
 def test_an_empty_registry_is_refused() -> None:
-    with pytest.raises(ValueError, match="реестр агентов пуст"):
+    with pytest.raises(ValueError, match="the agent registry is empty"):
         AgentRegistry(agents=())
 
 
@@ -113,7 +110,7 @@ def test_every_agent_states_what_it_is_responsible_for() -> None:
 
 def test_an_agent_without_responsibilities_is_refused() -> None:
     mute = replace(FieldCoordinator(), responsibilities=())
-    with pytest.raises(ValueError, match="без описанной ответственности"):
+    with pytest.raises(ValueError, match="without a described responsibility"):
         AgentRegistry(agents=(mute,))
 
 
@@ -124,7 +121,7 @@ def test_call_order_on_a_step_goes_field_then_group_then_well() -> None:
 
 
 def test_registry_refuses_a_name_it_does_not_hold() -> None:
-    with pytest.raises(ValueError, match="нет в реестре"):
+    with pytest.raises(ValueError, match="is not in the registry"):
         DEFAULT_REGISTRY.of("PressureAgent")
 
 
@@ -187,7 +184,7 @@ def test_an_explicit_registry_gives_the_same_step_as_the_default(
 
 
 def test_a_proposal_without_an_author_is_refused() -> None:
-    with pytest.raises(ValueError, match="без имени агента"):
+    with pytest.raises(ValueError, match="without an agent name"):
         Proposal(
             level=Level.WELL,
             agent="",
@@ -201,7 +198,7 @@ def test_a_proposal_that_loses_the_rule_behind_a_decision_is_refused() -> None:
     event = ControlEvent(
         control_step=0, well="i1", kind=EventKind.SET_RATE, value=10.0
     )
-    with pytest.raises(ValueError, match="не восстановимо"):
+    with pytest.raises(ValueError, match="cannot be recovered"):
         Proposal(
             level=Level.WELL,
             agent="i1",
@@ -252,7 +249,7 @@ def test_the_group_allocator_proposes_inside_its_quota(
 def test_the_well_executor_does_not_invent_a_decision(
     context: RuleContext,
 ) -> None:
-    with pytest.raises(ValueError, match="не изобретает решений"):
+    with pytest.raises(ValueError, match="does not invent decisions"):
         DEFAULT_REGISTRY.of("WellExecutor").propose(two_group_state(), context)
 
 
@@ -260,5 +257,5 @@ def test_the_field_coordinator_has_no_rules_of_its_own(
     context: RuleContext,
 ) -> None:
     scoped = two_group_context(context)
-    with pytest.raises(ValueError, match="без RuleFlags"):
+    with pytest.raises(ValueError, match="without RuleFlags"):
         DEFAULT_REGISTRY.of("FieldCoordinator").propose(two_group_state(), scoped)

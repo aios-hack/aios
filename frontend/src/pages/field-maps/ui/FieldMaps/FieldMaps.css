@@ -24,9 +24,8 @@
   width: min(100%, 100cqh);
   max-width: 100%;
   aspect-ratio: 1 / 1;
-  background: var(--color-map-nodata);
-  border: var(--border-hairline) solid var(--color-border);
-  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 0;
   touch-action: none;
   cursor: crosshair;
 }
@@ -48,13 +47,21 @@
 }
 
 .field-maps-well-label {
-  fill: var(--color-map-well);
+  fill: var(--color-text-muted);
   font-family: var(--font-family-mono);
-  font-size: inherit;
+  font-variant-numeric: tabular-nums;
+  dominant-baseline: middle;
   paint-order: stroke;
   stroke: var(--color-surface-solid);
-  stroke-width: 0.25;
+  stroke-width: var(--border-thick);
+  stroke-opacity: 0.55;
+  vector-effect: non-scaling-stroke;
   pointer-events: none;
+}
+
+.field-maps-well-label[data-pinned='true'] {
+  fill: var(--color-text);
+  font-weight: var(--font-weight-bold);
 }
 
 .field-maps-readout {

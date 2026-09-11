@@ -4,17 +4,13 @@ from dataclasses import dataclass, replace
 
 import pytest
 
-from backend.core.contracts import ControlEvent, EventKind, Rule, TraceEntry
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind
+from backend.contexts.policy.domain.policy import Rule, TraceEntry
 
-from backend.domain.policy import (
-    Level,
-    LeveledTraceEntry,
-    PolicyState,
-    RuleContext,
-    RuleFlags,
-    default_theta,
-    run_step,
-)
+from backend.contexts.policy.application.hierarchy import Level, LeveledTraceEntry, run_step
+from backend.contexts.policy.domain.state import PolicyState, RuleContext
+from backend.contexts.policy.domain.flags import RuleFlags
+from backend.contexts.policy.domain.theta import default_theta
 from backend.contexts.policy.domain.agents import (
     DEFAULT_REGISTRY,
     AgentRegistry,
@@ -96,7 +92,7 @@ class RecordingWellAgent:
     level: Level = Level.WELL
     rank: int = 10
     responsibilities: tuple[str, ...] = (
-        "записывает факт своего вызова, чтобы расширение реестра было проверяемо",
+        "records the fact of its own invocation so that extending the registry is verifiable",
     )
 
     def propose(self, state: PolicyState, context: RuleContext) -> Proposal:
@@ -118,7 +114,7 @@ class InjectionCapAgent:
     level: Level = Level.WELL
     rank: int = 20
     responsibilities: tuple[str, ...] = (
-        "держит потолок закачки на скважину и не поднимает чужой потолок",
+        "holds the per-well injection ceiling and never raises somebody else's ceiling",
     )
 
     def propose(self, state: PolicyState, context: RuleContext) -> Proposal:
@@ -147,7 +143,7 @@ class VetoWellAgent:
     level: Level = Level.WELL
     rank: int = 30
     responsibilities: tuple[str, ...] = (
-        "запрещает исполнение решения целиком, а не обнуляет уставку",
+        "forbids the decision as a whole rather than zeroing the setpoint",
     )
 
     def propose(self, state: PolicyState, context: RuleContext) -> Proposal:
@@ -168,7 +164,7 @@ class SilentWellAgent:
     level: Level = Level.WELL
     rank: int = 40
     responsibilities: tuple[str, ...] = (
-        "не предлагает ничего и потому ничего не меняет",
+        "proposes nothing and therefore changes nothing",
     )
 
     def propose(self, state: PolicyState, context: RuleContext) -> Proposal:
@@ -289,7 +285,7 @@ def test_by_level_orders_agents_by_declared_rank_not_by_registration(
 
 
 def test_two_agents_claiming_one_rank_on_one_level_are_refused() -> None:
-    with pytest.raises(ValueError, match="заявили ранг"):
+    with pytest.raises(ValueError, match="declared rank"):
         AgentRegistry(
             agents=(
                 FieldCoordinator(),
@@ -309,7 +305,7 @@ def test_a_default_agent_without_a_rank_field_sits_at_rank_zero() -> None:
 
 
 def test_a_non_integer_rank_is_refused() -> None:
-    with pytest.raises(ValueError, match="не целое"):
+    with pytest.raises(ValueError, match="is not an integer"):
         rank_of(SilentWellAgent(rank="first"))  # type: ignore[arg-type]
 
 
@@ -332,7 +328,7 @@ def test_a_floor_is_restricted_by_the_larger_of_the_two() -> None:
 def test_a_bound_never_compares_against_a_different_quantity() -> None:
     ceiling = Bound("i1", EventKind.SET_RATE, BoundSense.CEILING, 100.0)
     floor = Bound("i1", EventKind.SET_RATE, BoundSense.FLOOR, 100.0)
-    with pytest.raises(ValueError, match="границы разных величин"):
+    with pytest.raises(ValueError, match="bounds on different quantities"):
         ceiling.tightened_by(floor)
 
 
@@ -398,7 +394,7 @@ def test_a_veto_is_not_a_zero_setpoint() -> None:
 
 
 def test_a_veto_may_not_carry_a_decision() -> None:
-    with pytest.raises(ValueError, match="вето с 1 решениями"):
+    with pytest.raises(ValueError, match="a veto carrying 1 decisions"):
         Proposal(
             level=Level.WELL,
             agent="i1",
@@ -415,7 +411,7 @@ def test_a_veto_may_not_carry_a_decision() -> None:
 
 
 def test_a_veto_without_a_reason_is_refused() -> None:
-    with pytest.raises(ValueError, match="вето без причины"):
+    with pytest.raises(ValueError, match="a veto without a reason"):
         Proposal(
             level=Level.WELL,
             agent="i1",
@@ -427,7 +423,7 @@ def test_a_veto_without_a_reason_is_refused() -> None:
 
 
 def test_a_reason_without_a_veto_is_refused() -> None:
-    with pytest.raises(ValueError, match="причина вето при вердикте"):
+    with pytest.raises(ValueError, match="a veto reason under verdict"):
         Proposal(
             level=Level.WELL,
             agent="i1",
@@ -440,7 +436,7 @@ def test_a_reason_without_a_veto_is_refused() -> None:
 
 def test_the_same_bound_declared_twice_is_refused() -> None:
     bound = Bound("i1", EventKind.SET_RATE, BoundSense.CEILING, 10.0)
-    with pytest.raises(ValueError, match="объявлена дважды"):
+    with pytest.raises(ValueError, match="is declared twice"):
         Proposal(
             level=Level.WELL,
             agent="i1",
@@ -620,12 +616,12 @@ def test_merging_proposals_of_two_levels_is_refused() -> None:
     well_side = Proposal(
         level=Level.WELL, agent="i1", decisions=(), rule_by_decision=(), trace=()
     )
-    with pytest.raises(ValueError, match="разных уровней"):
+    with pytest.raises(ValueError, match="different levels"):
         merge_proposals((field_side, well_side), 0)
 
 
 def test_merging_nothing_is_refused_instead_of_returning_an_empty_step() -> None:
-    with pytest.raises(ValueError, match="пустого списка"):
+    with pytest.raises(ValueError, match="an empty list of proposals"):
         merge_proposals((), 0)
 
 
@@ -739,7 +735,7 @@ def test_the_step_is_the_same_however_the_extra_agents_were_registered(
 def test_a_level_left_without_an_agent_reports_an_error(
     context: RuleContext,
 ) -> None:
-    with pytest.raises(ValueError, match="не обслуживает ни один агент"):
+    with pytest.raises(ValueError, match="is served by no agent"):
         a_step(
             context,
             AgentRegistry(agents=(FieldCoordinator(), GroupAllocator())),

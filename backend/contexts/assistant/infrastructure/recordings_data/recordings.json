@@ -1,0 +1,309 @@
+[
+  {
+    "name": "why-well-13",
+    "question": "Почему скважина 13 так работает?",
+    "console": {
+      "scenario": "whatif-injection-cut",
+      "step": 10,
+      "date": "2007-11-01",
+      "selected_well": "13",
+      "workspace": "decisions",
+      "view": "rules"
+    },
+    "calls": [
+      {
+        "name": "well_snapshot",
+        "args": {
+          "well": "13",
+          "step": 10
+        }
+      },
+      {
+        "name": "well_series",
+        "args": {
+          "well": "13",
+          "metric": "watercut",
+          "from_step": 0,
+          "to_step": 10,
+          "window": [
+            4,
+            10
+          ]
+        }
+      },
+      {
+        "name": "explain_decision",
+        "args": {
+          "well": "13",
+          "step": 10
+        }
+      }
+    ],
+    "caption": "Скважина 13 держится на правиле R1: при обводнённости 0,614 система выставила ей уставку по жидкости, потому что закачка на этом участке ещё превращается в нефть, а не в воду."
+  },
+  {
+    "name": "who-drags-npv",
+    "question": "Кто тянет ЧДД вниз?",
+    "console": {
+      "step": 96,
+      "date": "2015-01-01",
+      "workspace": "money",
+      "view": "rank"
+    },
+    "calls": [
+      {
+        "name": "rank_wells",
+        "args": {
+          "by": "npv",
+          "order": "asc",
+          "limit": 10
+        }
+      },
+      {
+        "name": "connectivity",
+        "args": {
+          "well": "76",
+          "limit": 8
+        }
+      },
+      {
+        "name": "field_metrics",
+        "args": {
+          "step": 96
+        }
+      }
+    ],
+    "caption": "Итог тянут вниз десять скважин, худшая из них — 76: она работает в минус, а её соседи по матрице влияния показывают, куда уходит закачка."
+  },
+  {
+    "name": "field-in-2015",
+    "question": "Что случилось с фондом в 2015 году?",
+    "console": {
+      "step": 96,
+      "date": "2015-01-01",
+      "workspace": "history",
+      "view": "matrix"
+    },
+    "calls": [
+      {
+        "name": "field_events",
+        "args": {
+          "from_step": 96,
+          "to_step": 107
+        }
+      },
+      {
+        "name": "field_metrics",
+        "args": {
+          "step": 96
+        }
+      },
+      {
+        "name": "well_snapshot",
+        "args": {
+          "well": "72",
+          "step": 102
+        }
+      }
+    ],
+    "caption": "За 2015 год фонд пополнился одной скважиной — 72 введена в июле; остальной год фонд отработал без вводов, переводов и остановок."
+  },
+  {
+    "name": "compare-scenarios",
+    "question": "Сравни base и whatif-injection-cut",
+    "console": {
+      "step": 96,
+      "date": "2015-01-01",
+      "workspace": "money",
+      "view": "comparison"
+    },
+    "calls": [
+      {
+        "name": "compare_scenarios",
+        "args": {
+          "a": "base",
+          "b": "whatif-injection-cut"
+        }
+      },
+      {
+        "name": "rule_impact",
+        "args": {}
+      }
+    ],
+    "caption": "Срезанная закачка меняет итог по методике и перераспределяет вклад по скважинам; сильнее всего расходятся те, кто стоял ближе к нагнетанию."
+  },
+  {
+    "name": "what-is-npv",
+    "question": "Что такое ЧДД?",
+    "console": {
+      "step": 223,
+      "date": "2025-08-01",
+      "workspace": "overview",
+      "view": "fund"
+    },
+    "calls": [
+      {
+        "name": "explain_term",
+        "args": {
+          "query": "ЧДД",
+          "lang": "ru"
+        }
+      },
+      {
+        "name": "field_metrics",
+        "args": {
+          "step": 223
+        }
+      },
+      {
+        "name": "platform_guide",
+        "args": {
+          "workspace": "money",
+          "view": "rank",
+          "lang": "ru"
+        }
+      }
+    ],
+    "caption": "ЧДД — дисконтированная разница выручки и затрат за весь горизонт; итог по сценарию рядом, а разложение по скважинам живёт на «Деньгах»."
+  },
+  {
+    "name": "where-is-connectivity",
+    "question": "Где посмотреть, кто с кем связан?",
+    "console": {
+      "step": 96,
+      "date": "2015-01-01",
+      "selected_well": "13",
+      "workspace": "overview",
+      "view": "fund"
+    },
+    "calls": [
+      {
+        "name": "platform_guide",
+        "args": {
+          "workspace": "field",
+          "view": "projection",
+          "lang": "ru"
+        }
+      },
+      {
+        "name": "connectivity",
+        "args": {
+          "well": "13",
+          "limit": 6
+        }
+      }
+    ],
+    "caption": "Связи живут на «Поле → Проекция»: узлы — скважины, рёбра — измеренное влияние закачки, а ползунок λ убирает слабые связи с карты."
+  },
+  {
+    "name": "how-system-works",
+    "question": "Как устроена система?",
+    "console": {
+      "step": 96,
+      "date": "2015-01-01",
+      "workspace": "overview",
+      "view": "fund"
+    },
+    "calls": [
+      {
+        "name": "system_map",
+        "args": {
+          "focus": "jarvis",
+          "depth": 2
+        }
+      },
+      {
+        "name": "search_docs",
+        "args": {
+          "query": "архитектура компоненты суррогат политика физика",
+          "k": 2,
+          "scope": "docs"
+        }
+      }
+    ],
+    "caption": "Консоль и Джарвис живут на витрине, а расчёт идёт по цепочке поиск → суррогат → политика → физика → OPM; карта показывает, кто кому что передаёт.",
+    "answer": "## Из чего собран AIOS\n\n- **Консоль** — витрина JSON: фонд, деньги, решения, поле.\n- **Джарвис** — SSE-сервис поверх той же витрины и базы знаний.\n- **Поиск расписаний** зовёт **суррогат**, суррогат отдаёт отклик и ЧДД, **политика** режет решения правилами, **физика** проверяет инварианты, **OPM Flow** подтверждает итог настоящим симулятором.\n- Результат каждого прогона ложится в каталог прогона: манифест, расписание, отчёты проверки, пакет сдачи."
+  },
+  {
+    "name": "champion-run",
+    "question": "Какой прогон чемпион и почему?",
+    "console": {
+      "step": 96,
+      "date": "2015-01-01",
+      "workspace": "money",
+      "view": "comparison"
+    },
+    "calls": [
+      {
+        "name": "search_docs",
+        "args": {
+          "query": "чемпион расписание проверено OPM статус пакета",
+          "k": 2,
+          "scope": "docs"
+        }
+      },
+      {
+        "name": "case_constraints",
+        "args": {}
+      }
+    ],
+    "caption": "Чемпионом считается расписание, которое прошло настоящий OPM и уложилось в ограничения кейса, а не то, которому суррогат обещал больше всех."
+  },
+  {
+    "name": "council-at-96",
+    "question": "Что решил совет на шаге 96?",
+    "console": {
+      "step": 96,
+      "date": "2015-01-01",
+      "workspace": "decisions",
+      "view": "council"
+    },
+    "calls": [
+      {
+        "name": "council_step",
+        "args": {
+          "step": 96
+        }
+      },
+      {
+        "name": "rule_impact",
+        "args": {}
+      }
+    ],
+    "caption": "На этом шаге отработали три уровня: координатор поля выдал квоту, групповой распределитель раздал её по скважинам, исполнитель применил к каждой своё правило."
+  },
+  {
+    "name": "how-to-verify",
+    "question": "Как запустить verify?",
+    "console": {
+      "step": 96,
+      "date": "2015-01-01",
+      "workspace": "money",
+      "view": "comparison"
+    },
+    "calls": [
+      {
+        "name": "search_docs",
+        "args": {
+          "query": "как запустить verify команда",
+          "k": 3,
+          "scope": "docs"
+        }
+      }
+    ],
+    "caption": "Верификация — второй шаг сборки пакета: она прогоняет найденное расписание через настоящий Flow и ставит статус.",
+    "answer": "## Верификация прогона\n\n```bash\nPYTHONIOENCODING=utf-8 .venv/Scripts/python.exe -m backend.interfaces.cli.run verify \\\n  --run-id final-2026-09-09\n```\n\nКоманда намеренно не принимает `--case`: расписание проверяется на том же кейсе, на котором было найдено."
+  },
+  {
+    "name": "what-i-asked",
+    "question": "Что я спрашивал до этого?",
+    "console": {
+      "step": 96,
+      "date": "2015-01-01",
+      "workspace": "overview",
+      "view": "fund"
+    },
+    "calls": [],
+    "caption": "В этой сессии разговор начался только что: прежних вопросов у меня не записано, спросите заново — отвечу и запомню."
+  }
+]

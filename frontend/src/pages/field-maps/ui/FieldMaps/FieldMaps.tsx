@@ -55,6 +55,9 @@ const FieldMapsReady = ({ index }: { index: MapsIndexFile }) => {
     index.nj
   );
 
+  const plotWidth = Math.min(box.width, box.height);
+  const unitsPerPixel = plotWidth > 0 ? viewBox.width / plotWidth : 0;
+
   const rows = useMemo(
     () => rowsAtStep(timeline.status === 'ready' ? timeline.data : null, stepIndex),
     [timeline, stepIndex]
@@ -174,8 +177,10 @@ const FieldMapsReady = ({ index }: { index: MapsIndexFile }) => {
               rows={rows}
               bounds={bhp}
               selectedWell={selectedWell}
+              hoveredWell={hoveredWell}
               showLabels={showLabels}
               scale={scale}
+              unitsPerPixel={unitsPerPixel}
               onSelectWell={onSelectWell}
               onHoverWell={setHoveredWell}
               onFocusWell={onMove}

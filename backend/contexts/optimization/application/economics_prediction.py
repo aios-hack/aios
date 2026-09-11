@@ -6,12 +6,8 @@ from backend.contexts.optimization.domain.search_environment import (
 from backend.contexts.optimization.domain.provenance import (
     _validate_npv_scoring_is_unambiguous,
 )
-from backend.core.contracts import (
-    ResponseArtifact,
-)
-from backend.domain.economics import (
-    analyze_base_case,
-)
+from backend.contexts.runs.domain.run_result import ResponseArtifact
+from backend.contexts.economics.application.base_case import analyze_base_case
 
 
 def predict_economics(env: SearchEnvironment, model_input, response: ResponseArtifact) -> dict[str, float]:

@@ -10,7 +10,7 @@ from backend.contexts.optimization.infrastructure.artifacts import resolve_runti
 from backend.contexts.reservoir.domain.horizon import HORIZON
 from backend.contexts.connectivity.infrastructure.groups_artifact import load as load_groups
 from backend.contexts.surrogate.domain.features import ScheduleFeatureizer
-from backend.contexts.surrogate.application.model import _features
+from backend.contexts.surrogate.domain.vectorize import build_features
 from backend.contexts.surrogate.infrastructure.model_z_context import ModelZFeatureArtifact
 from backend.contexts.surrogate.domain.npv_block_head import load_direct_npv_head
 from backend.contexts.surrogate.domain.npv_economic_features import scenario_feature_vector
@@ -73,7 +73,7 @@ def main(argv=None):
         tick = time.perf_counter()
         with torch.inference_mode():
             model_input = featureizer.transform(request.schedule, context.context)
-            x, indices = _features(model_input, head.wells, scenario_context=False)
+            x, indices = build_features(model_input, head.wells, scenario_context=False)
             vector = scenario_feature_vector(x, indices, n_wells=len(head.wells), feature_set="economic")
             prediction = head.predict_vector(vector)
             ood = domain.score(vector[:domain.feature_width])

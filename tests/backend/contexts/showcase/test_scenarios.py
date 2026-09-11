@@ -5,7 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import Constraints, FinalNpvArtifact, RunArtifact, WellOutage
+from backend.contexts.constraints.domain.constraints import Constraints, WellOutage
+from backend.contexts.runs.domain.run_result import FinalNpvArtifact
+from backend.contexts.runs.domain.run_artifact import RunArtifact
 
 from backend.contexts.showcase.infrastructure.artifact_io import dump_bundle
 from tests.support.backend.showcase_fixtures import make_synthetic_artifact
@@ -81,7 +83,7 @@ def test_year_keys_are_strings_in_json_and_ints_in_python() -> None:
 def test_watercut_in_percent_is_rejected() -> None:
     document = constraints_to_json(Constraints())
     document["watercut_limits"] = {"2008": 50.0}
-    with pytest.raises(ValueError, match="долей 0..1"):
+    with pytest.raises(ValueError, match="fraction 0\\.\\.1"):
         constraints_from_json(document, n_intervals=224)
 
 
@@ -95,14 +97,14 @@ def test_watercut_at_bounds_is_accepted() -> None:
 def test_negative_limit_is_rejected() -> None:
     document = constraints_to_json(Constraints())
     document["liquid_limits"] = {"2007": -1.0}
-    with pytest.raises(ValueError, match="отрицательным"):
+    with pytest.raises(ValueError, match="cannot be negative"):
         constraints_from_json(document, n_intervals=224)
 
 
 def test_non_integer_year_is_rejected() -> None:
     document = constraints_to_json(Constraints())
-    document["injection_limits"] = {"две тысячи седьмой": 10.0}
-    with pytest.raises(ValueError, match="целым числом"):
+    document["injection_limits"] = {"two thousand seven": 10.0}
+    with pytest.raises(ValueError, match="must be an integer"):
         constraints_from_json(document, n_intervals=224)
 
 
@@ -111,7 +113,7 @@ def test_outage_beyond_horizon_is_rejected() -> None:
     document["well_outages"] = [
         {"well": "10", "control_step_from": 0, "control_step_to": 224}
     ]
-    with pytest.raises(ValueError, match="вне горизонта"):
+    with pytest.raises(ValueError, match="outside the horizon"):
         constraints_from_json(document, n_intervals=224)
 
 
@@ -121,7 +123,7 @@ def test_outage_horizon_follows_n_intervals_parameter() -> None:
         {"well": "10", "control_step_from": 0, "control_step_to": 5}
     ]
     assert constraints_from_json(document, n_intervals=6).well_outages[0].control_step_to == 5
-    with pytest.raises(ValueError, match="вне горизонта"):
+    with pytest.raises(ValueError, match="outside the horizon"):
         constraints_from_json(document, n_intervals=5)
 
 
@@ -130,14 +132,14 @@ def test_outage_reversed_range_is_rejected() -> None:
     document["well_outages"] = [
         {"well": "10", "control_step_from": 7, "control_step_to": 3}
     ]
-    with pytest.raises(ValueError, match="больше control_step_to"):
+    with pytest.raises(ValueError, match="exceeds control_step_to"):
         constraints_from_json(document, n_intervals=224)
 
 
 def test_unknown_section_is_rejected_not_silently_dropped() -> None:
     document = constraints_to_json(Constraints())
     document["bhp_limits"] = {"2007": 50.0}
-    with pytest.raises(ValueError, match="неизвестные разделы"):
+    with pytest.raises(ValueError, match="unknown document sections"):
         constraints_from_json(document, n_intervals=224)
 
 
@@ -201,7 +203,7 @@ def test_index_separates_submitted_from_what_if(tmp_path: Path) -> None:
 def test_two_submitted_scenarios_raise(tmp_path: Path) -> None:
     first = _write_artifact(tmp_path / "final_a.json", submitted=True)
     second = _write_artifact(tmp_path / "final_b.json", submitted=True)
-    with pytest.raises(ValueError, match="более чем у одного сценария"):
+    with pytest.raises(ValueError, match="more than one scenario"):
         build_scenario_index([first, second])
 
 
@@ -274,9 +276,6 @@ def test_export_scenarios_json_writes_readable_index(tmp_path: Path) -> None:
 
 
 def test_robustness_fields_default_to_not_measured(tmp_path: Path) -> None:
-    """F8: сценарий, о котором ничего не мерили, несёт четыре `null`.
-    Отсутствия поля быть не должно — интерфейс отличает «не измерено» от
-    «поля нет» только по наличию ключа."""
 
     path = _write_artifact(tmp_path / "what_if.json", submitted=False)
     entry = build_scenario_index([path])["scenarios"][0]
@@ -331,9 +330,9 @@ def test_final_npv_is_a_number_together_with_its_run(tmp_path: Path) -> None:
 
 
 def test_half_of_the_final_npv_pair_is_rejected() -> None:
-    with pytest.raises(ValueError, match="половина пары"):
+    with pytest.raises(ValueError, match="half of the pair"):
         ScenarioRobustness(final_npv_rub=1.0)
-    with pytest.raises(ValueError, match="половина пары"):
+    with pytest.raises(ValueError, match="half of the pair"):
         ScenarioRobustness(final_npv_run_id="run-42")
 
 
@@ -344,7 +343,7 @@ def test_ood_score_without_a_threshold_is_rejected() -> None:
 
 def test_unknown_battery_part_is_rejected() -> None:
     assert set(REGRET_PARTS) == {"optimization", "holdout"}
-    with pytest.raises(ValueError, match="неизвестна"):
+    with pytest.raises(ValueError, match="unknown battery part"):
         WorstRegret(scenario_id="S-07", value_rub=1.0, part="dev")
 
 

@@ -4,14 +4,15 @@ from datetime import date
 
 import pytest
 
-from backend.core.contracts import IntervalResponse, N_INTERVALS, StateAtDate
-from backend.domain.economics import (
+from backend.contexts.reservoir.domain.response import IntervalResponse, StateAtDate
+from backend.contexts.schedule.domain.schedule import N_INTERVALS
+from backend.contexts.economics.domain.npv import (
     BalanceSheetInputs,
     Economics,
     build_cell_flows,
-    build_production_ledger,
     compute_npv_table,
 )
+from backend.contexts.economics.domain.ledger import build_production_ledger
 from backend.contexts.economics.domain.decomposition import (
     MACHINE_ZERO_RUB,
     DecompositionError,
@@ -138,7 +139,7 @@ def test_invariant_report_is_ok_on_a_realistic_case() -> None:
     table, flows, years = field_case()
     report = check_invariants(table, years)
     assert report.ok, report.format()
-    assert "инварианты" in report.format()
+    assert "invariants" in report.format()
     report.raise_if_violated()
 
 
@@ -155,7 +156,7 @@ def test_invariant_report_detects_a_broken_table() -> None:
     )
     report = check_invariants(broken, years)
     assert not report.ok
-    assert any("месячное" in item.name for item in report.failures)
+    assert any("monthly" in item.name for item in report.failures)
     with pytest.raises(DecompositionError):
         report.raise_if_violated()
 
@@ -186,8 +187,8 @@ def test_both_bases_are_signed_and_differ_by_the_tax() -> None:
     after = result.ranking(TaxBasis.WITH_ALLOCATED_TAX)
     assert before.basis is TaxBasis.BEFORE_TAX
     assert after.basis is TaxBasis.WITH_ALLOCATED_TAX
-    assert "до налога" in before.caption
-    assert "с распределённым налогом" in after.caption
+    assert "before income tax" in before.caption
+    assert "with allocated tax" in after.caption
     assert all(item.income_tax == 0.0 for item in before.contributions)
     assert sum(item.income_tax for item in after.contributions) == pytest.approx(
         sum(item.income_tax for item in table.by_year.values()), abs=MACHINE_ZERO_RUB

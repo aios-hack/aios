@@ -27,12 +27,12 @@ from backend.contexts.optimization.application.environment import (
     exceedance_record,
     format_ood_exceedances,
 )
-from backend.core.contracts import Constraints
+from backend.contexts.constraints.domain.constraints import Constraints
 from backend.contexts.constraints.domain.constraints import (
     BHP_INJECTOR_MAX_BAR,
     BHP_PRODUCER_MIN_BAR,
 )
-from backend.domain.schedule import ViolationKind
+from backend.contexts.schedule.domain.validate import ViolationKind
 from backend.contexts.schedule.domain.validate import Violation
 from backend.contexts.robustness.domain.ood import Exceedance, OodScore
 from backend.interfaces.cli.surrogate import check as _check
@@ -188,7 +188,7 @@ def _check_function(name: str) -> ast.FunctionDef:
     for node in _check_source().body:
         if isinstance(node, ast.FunctionDef) and node.name == name:
             return node
-    raise AssertionError(f"функция {name} не найдена")
+    raise AssertionError(f"function {name} not found")
 
 
 def _check_constant(name: str) -> str:
@@ -199,7 +199,7 @@ def _check_constant(name: str) -> str:
             and node.targets[0].id == name
         ):
             return ast.literal_eval(node.value)
-    raise AssertionError(f"константа {name} не найдена")
+    raise AssertionError(f"constant {name} not found")
 
 
 def test_surrogate_check_turns_the_physics_gate_off_instead_of_falling_over() -> None:
@@ -214,13 +214,13 @@ def test_the_report_says_the_differential_invariants_were_not_checked_and_why() 
 
     assert "INJECTION_RESPONSE" in note
     assert "MATERIAL_BALANCE" in note
-    assert "опора" in note
-    assert "не определён" in note or "не определены" in note
+    assert "reference" in note
+    assert "undefined" in note or "not computed" in note
 
 
 def test_the_skip_reason_of_the_self_reference_names_the_cause() -> None:
-    assert "одно расписание" in SELF_REFERENCE_SKIP_REASON
-    assert "не нарушен" in SELF_REFERENCE_SKIP_REASON
+    assert "the same schedule" in SELF_REFERENCE_SKIP_REASON
+    assert "it is not violated" in SELF_REFERENCE_SKIP_REASON
 
 
 def _optimization_context_source() -> str:
@@ -277,7 +277,7 @@ def _measured(delta: float) -> BhpTolerance:
         origin="metrics-report-p95",
         source="report.json",
         n_states=1000,
-        detail="δ измерена",
+        detail="delta measured",
     )
 
 
@@ -286,7 +286,7 @@ UNMEASURED = BhpTolerance(
     origin="unmeasured-report-absent",
     source="none",
     n_states=0,
-    detail="отчёт не считался",
+    detail="report was not read",
 )
 
 
@@ -325,14 +325,14 @@ def test_exactly_delta_is_not_beyond_delta() -> None:
 
 
 def test_a_bhp_violation_without_a_measured_pressure_is_an_error_not_a_pass() -> None:
-    with pytest.raises(BhpToleranceError, match="забойного давления"):
+    with pytest.raises(BhpToleranceError, match="bottomhole pressure"):
         bhp_exceedance_bar(
             _bhp(ViolationKind.BHP_BELOW_PRODUCER_LIMIT, math.nan), _case(50.0, 300.0)
         )
 
 
 def test_a_non_bhp_kind_is_refused_by_the_tolerance_helper() -> None:
-    with pytest.raises(BhpToleranceError, match="не нарушение канала BHP"):
+    with pytest.raises(BhpToleranceError, match="is not a BHP channel violation"):
         bhp_exceedance_bar(
             _bhp(ViolationKind.LRAT_ABOVE_CEILING, 10.0), _case(50.0, 300.0)
         )
@@ -402,13 +402,13 @@ def test_an_absent_report_leaves_delta_unmeasured_and_says_so(tmp_path: Path) ->
 
     assert decision.delta_bar is None
     assert decision.origin == "unmeasured-report-absent"
-    assert "придумывать" in decision.detail
+    assert "must not be invented" in decision.detail
 
 
 def test_a_declared_report_that_is_absent_is_an_error_not_a_silent_default(
     tmp_path: Path,
 ) -> None:
-    with pytest.raises(BhpToleranceError, match="отсутствующий"):
+    with pytest.raises(BhpToleranceError, match="points at a missing"):
         _bhp_tolerance_decision(
             {"AIOS_SURROGATE_METRICS_PATH": str(tmp_path / "absent.json")}
         )
@@ -417,7 +417,7 @@ def test_a_declared_report_that_is_absent_is_an_error_not_a_silent_default(
 def test_a_report_without_an_opm_response_leaves_delta_unmeasured(
     tmp_path: Path,
 ) -> None:
-    path = _metrics(tmp_path, {"channel": "bhp", "unavailable": "нет отклика OPM"})
+    path = _metrics(tmp_path, {"channel": "bhp", "unavailable": "no OPM response"})
 
     decision = _bhp_tolerance_decision({"AIOS_SURROGATE_METRICS_PATH": str(path)})
 
@@ -426,9 +426,9 @@ def test_a_report_without_an_opm_response_leaves_delta_unmeasured(
 
 
 def test_a_report_with_a_non_numeric_p95_is_an_error(tmp_path: Path) -> None:
-    path = _metrics(tmp_path, {"channel": "bhp", "bhp_error_bar_p95": "много"})
+    path = _metrics(tmp_path, {"channel": "bhp", "bhp_error_bar_p95": "a lot"})
 
-    with pytest.raises(BhpToleranceError, match="не число"):
+    with pytest.raises(BhpToleranceError, match="is not a number"):
         _bhp_tolerance_decision({"AIOS_SURROGATE_METRICS_PATH": str(path)})
 
 
@@ -437,7 +437,7 @@ def test_a_report_with_no_measured_state_is_an_error(tmp_path: Path) -> None:
         tmp_path, {"channel": "bhp", "bhp_error_bar_p95": 3.0, "n_states": 0}
     )
 
-    with pytest.raises(BhpToleranceError, match="без единого измеренного состояния"):
+    with pytest.raises(BhpToleranceError, match="without a single measured state"):
         _bhp_tolerance_decision({"AIOS_SURROGATE_METRICS_PATH": str(path)})
 
 
@@ -451,7 +451,7 @@ def test_the_operator_can_override_delta(tmp_path: Path) -> None:
 
 
 def test_a_negative_override_is_refused(tmp_path: Path) -> None:
-    with pytest.raises(BhpToleranceError, match="неотрицательным"):
+    with pytest.raises(BhpToleranceError, match="non-negative"):
         _bhp_tolerance_decision(
             {"AIOS_BHP_GATE_DELTA_BAR": "-1", "AIOS_PROJECT_ROOT": str(tmp_path)}
         )
@@ -517,14 +517,14 @@ def test_a_broken_journal_line_is_an_error_not_a_skipped_run(tmp_path: Path) -> 
     path = tmp_path / "opm-budget.jsonl"
     path.write_text('{"run_id": "a"}\nnot json\n', encoding="utf-8")
 
-    with pytest.raises(OpmBudgetError, match="не разбирается"):
+    with pytest.raises(OpmBudgetError, match="cannot be parsed"):
         read_opm_budget(path)
 
 
 def test_a_journal_entry_without_a_run_id_is_an_error(tmp_path: Path) -> None:
     path = _journal(tmp_path, [{"status": "OK"}])
 
-    with pytest.raises(OpmBudgetError, match="без run_id"):
+    with pytest.raises(OpmBudgetError, match="without run_id"):
         read_opm_budget(path)
 
 
@@ -577,7 +577,27 @@ def _run_function(name: str) -> ast.FunctionDef:
     for node in _run_source().body:
         if isinstance(node, ast.FunctionDef) and node.name == name:
             return node
-    raise AssertionError(f"функция {name} не найдена")
+    raise AssertionError(f"function {name} not found")
+
+
+def _module_function(module: object, name: str) -> ast.FunctionDef:
+    source = Path(module.__file__).read_text(encoding="utf-8")
+    for node in ast.parse(source).body:
+        if isinstance(node, ast.FunctionDef) and node.name == name:
+            return node
+    raise AssertionError(f"function {name} not found")
+
+
+def _finalist_function(name: str) -> ast.FunctionDef:
+    from backend.contexts.optimization.application import finalist_selection
+
+    return _module_function(finalist_selection, name)
+
+
+def _provenance_function(name: str) -> ast.FunctionDef:
+    from backend.contexts.optimization.application import search_provenance
+
+    return _module_function(search_provenance, name)
 
 
 def test_the_search_measures_its_own_wallclock_and_reads_the_journal() -> None:
@@ -599,7 +619,7 @@ def test_a_run_clock_that_was_never_started_is_an_error_not_a_zero() -> None:
     saved = dict(module.RUN_CLOCK)
     module.RUN_CLOCK.update({"journal": None, "mark": 0, "started": None})
     try:
-        with pytest.raises(OpmBudgetError, match="не начат"):
+        with pytest.raises(OpmBudgetError, match="was not started"):
             module.close_run_clock(5)
     finally:
         module.RUN_CLOCK.update(saved)
@@ -649,11 +669,12 @@ def test_the_search_does_not_keep_a_second_opm_counter() -> None:
 
 def test_the_bhp_gate_is_used_in_both_search_paths() -> None:
     baseline = ast.unparse(_run_function("_search_near_baseline"))
-    core = ast.unparse(_run_function("run_search"))
+    core = ast.unparse(_finalist_function("evaluate_finalists"))
+    provenance = ast.unparse(_provenance_function("build_search_provenance"))
 
     assert "surrogate_blocking_violations" in baseline
     assert "surrogate_blocking_violations" in core
-    assert "bhp_tolerance.as_provenance()" in core
+    assert "bhp_tolerance.as_provenance()" in provenance
 
 
 def test_the_evaluator_publishes_the_exceedance_list() -> None:

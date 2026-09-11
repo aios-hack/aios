@@ -27,13 +27,21 @@ from backend.contexts.optimization.application.baseline_search import (
     _peak_step_production,
 )
 from backend.contexts.optimization.application.verification_run import verify_schedule
-from backend.application.runs import RunRequest, RunWorkflow
-from backend.core.contracts import EventKind, hash_schedule
+from backend.contexts.runs.application.workflow import RunRequest, RunWorkflow
+from backend.contexts.schedule.domain.schedule import EventKind
+from backend.shared.errors import DomainError
+from backend.shared.hashing import hash_schedule
 from backend.contexts.reservoir.domain.horizon import HORIZON
 from backend.shared.paths import data_root
-from backend.domain.schedule import build_schedule, canonicalize, parse_schedule, validate_static
+from backend.contexts.schedule.domain.build import build_schedule
+from backend.contexts.schedule.domain.canonical import canonicalize
+from backend.contexts.schedule.domain.lossless import parse_schedule
+from backend.contexts.schedule.domain.validate import validate_static
 from backend.contexts.schedule.domain.case_limits import apply_case_limits
-from backend.domain.economics import load_response_artifact, save_response_artifact
+from backend.contexts.economics.application.base_case import (
+    load_response_artifact,
+    save_response_artifact,
+)
 from backend.contexts.optimization.domain.observed_repair import (
     repair_from_observation,
     production_from_observation,
@@ -71,18 +79,18 @@ def local_candidates(schedule, lambda_, count, seed):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--case", type=Path, required=True)
-    parser.add_argument("--root", type=Path, required=True, help="новый каталог кампании")
+    parser.add_argument("--root", type=Path, required=True, help="new campaign directory")
     parser.add_argument("--evaluations", type=int, default=120)
     parser.add_argument("--opm-budget", type=int, default=8)
     parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--seed", type=int, default=20260911)
-    parser.add_argument("--global-search", action="store_true", help="добавить CMA-ES в каждом раунде")
-    parser.add_argument("--resume", action="store_true", help="продолжить кампанию и использовать сохранённый кэш OPM")
-    parser.add_argument("--direct-only", action="store_true", help="OPM-поиск по измеренной воде без весов и ранжирования суррогатом")
+    parser.add_argument("--global-search", action="store_true", help="add CMA-ES in every round")
+    parser.add_argument("--resume", action="store_true", help="continue the campaign and use the saved OPM cache")
+    parser.add_argument("--direct-only", action="store_true", help="OPM search over measured water without surrogate weights or ranking")
     parser.add_argument("--water-margins", nargs="+", type=float, default=[0.0, 0.85, 0.95],
-                        help="резервные пробы: 0 — закрытая закачка, затем доли измеренной доступной воды")
+                        help="fallback probes: 0 means injection shut in, then fractions of the measured available water")
     parser.add_argument("--production-scales", nargs="+", type=float, default=[],
-                        help="после водных проб: повысить отбор при измеренном запасе давления, например 1.25")
+                        help="after the water probes: raise offtake when a pressure margin is measured, for example 1.25")
     args = parser.parse_args(argv)
     if min(args.evaluations, args.opm_budget, args.rounds) < 1:
         parser.error("budgets must be positive")
@@ -287,7 +295,7 @@ def main(argv=None):
                             "physics_counts": dict(scored.physics),
                             "physics_not_checked": dict(physics.skipped) if physics else {},
                             "requires_opm": True})
-            except ValueError as error:
+            except (DomainError, ValueError) as error:
                 record({"round": round_index, "candidate": index, "stage": "surrogate-rejected", "reason": str(error)})
             if index % 10 == 0:
                 print(f"round {round_index + 1}: scored {index + 1}/{len(candidates)}, eligible {len(ranked)}", flush=True)

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from backend.core.contracts import ControlEvent, EventKind, NormativeSet, Role, Rule, Theta, TraceEntry
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind, Role
+from backend.contexts.constraints.domain.config import NormativeSet
+from backend.contexts.policy.domain.policy import Rule, Theta, TraceEntry
 
 from backend.contexts.policy.domain.economics import annual_margin_rub
 from backend.contexts.policy.domain.rules.base import RuleOutcome
@@ -9,7 +11,7 @@ from backend.contexts.policy.domain.theta import read
 
 RULE = Rule.R7
 ADMISSION_CRITERION = (
-    "Периодически останавливаем высокообводнённые, чтобы вовлечь защемлённое."
+    "Periodically shut in the heavily watered wells to mobilise the trapped oil."
 )
 THETA_NAMES: tuple[str, ...] = ("r7_cycle_months", "r7_watercut_floor")
 
@@ -18,8 +20,8 @@ PHASES_PER_CYCLE = 2
 MONTHS_PER_YEAR = 12.0
 
 BENEFIT_UNCONFIRMED = (
-    "Выгода циклики данными не подтверждена: без измеренного прироста "
-    "правило не срабатывает и остаётся гипотезой. Флаг по умолчанию выключен."
+    "The benefit of cycling is not confirmed by data: without a measured gain "
+    "the rule does not fire and remains a hypothesis. The flag is off by default."
 )
 
 
@@ -30,7 +32,7 @@ def cycle_cost_rub(event_cost_rub: float) -> float:
 def cycle_period_months(cycle_months: float) -> int:
     period = int(cycle_months)
     if period <= 0:
-        raise ValueError(f"период цикла {cycle_months} не положителен")
+        raise ValueError(f"the cycle period {cycle_months} is not positive")
     return period
 
 

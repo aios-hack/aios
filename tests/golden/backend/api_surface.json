@@ -1,57 +1,38 @@
 {
-  "backend/application/cases.py": [
-    "CaseError",
-    "constraints_from_json",
-    "load_case",
-    "load_schedule_json"
+  "backend/contexts/assistant/__init__.py": [
+    "build_assistant"
   ],
-  "backend/application/connectivity_campaign.py": [
-    "main"
-  ],
-  "backend/application/connectivity_measure.py": [
-    "main"
-  ],
-  "backend/application/connectivity_plan.py": [
-    "campaign_plan",
-    "specs_of"
-  ],
-  "backend/application/jarvis/answer.py": [
+  "backend/contexts/assistant/application/answer.py": [
     "Split",
     "marker_position",
     "split_answer"
   ],
-  "backend/application/jarvis/artifacts.py": [
-    "ArtifactError",
-    "ArtifactStore",
-    "RunError",
-    "RunRecord",
-    "RunStore",
-    "ScenarioIndex",
-    "WellSteps",
-    "default_data_root",
-    "default_runs_root",
-    "documents",
-    "exists",
-    "field",
-    "latest_run_id",
-    "provenance",
-    "read",
-    "recorded",
-    "require_step",
-    "require_well",
-    "root",
-    "root_file",
-    "run_ids",
-    "scenario",
-    "scenario_entry",
-    "scenarios",
-    "step",
-    "step_count",
-    "step_for_date",
-    "submitted",
-    "wells_file"
+  "backend/contexts/assistant/application/assistant_service.py": [
+    "JarvisService",
+    "available",
+    "briefing",
+    "capabilities",
+    "console_context",
+    "disk",
+    "first",
+    "health",
+    "orchestrator",
+    "query_context",
+    "remove_session",
+    "session_events",
+    "session_rows",
+    "sessions",
+    "stt",
+    "tts"
   ],
-  "backend/application/jarvis/caption.py": [
+  "backend/contexts/assistant/application/briefing_cache.py": [
+    "BriefingCache",
+    "clear",
+    "get",
+    "put",
+    "ttl"
+  ],
+  "backend/contexts/assistant/application/caption.py": [
     "GuardedAnswer",
     "GuardedCaption",
     "code_sources",
@@ -59,41 +40,151 @@
     "guard_answer_text",
     "guard_with_retry"
   ],
-  "backend/application/jarvis/docs_index.py": [
-    "Chunk",
-    "DocsIndex",
-    "DocsIndexError",
-    "Hit",
-    "Stamp",
-    "as_dict",
-    "chunks",
-    "chunks_of_knowledge",
-    "chunks_of_markdown",
-    "chunks_of_plain",
-    "collect_chunks",
-    "default_cache_path",
-    "default_roots",
-    "load_index",
-    "numbers_in",
-    "repository_root",
-    "reset_shared_index",
-    "search",
-    "shared_index",
-    "size",
-    "slug",
-    "sources",
-    "stamps",
-    "stem",
-    "tokenize"
+  "backend/contexts/assistant/application/orchestrator.py": [
+    "Orchestrator",
+    "ask",
+    "briefing",
+    "disk",
+    "docs",
+    "model",
+    "provider",
+    "sessions",
+    "system"
   ],
-  "backend/application/jarvis/fixtures.py": [
+  "backend/contexts/assistant/application/orchestrator_compose.py": [
+    "call_tool",
+    "compose",
+    "compress_session",
+    "evidence_of",
+    "live_status"
+  ],
+  "backend/contexts/assistant/application/orchestrator_events.py": [
+    "Cancelled",
+    "Event",
+    "as_dict",
+    "stamp"
+  ],
+  "backend/contexts/assistant/application/recording_replay.py": [
     "Clock",
     "Recording",
     "replay",
     "to_jsonl",
     "write"
   ],
-  "backend/application/jarvis/guard.py": [
+  "backend/contexts/assistant/application/suggestions.py": [
+    "build_suggestions"
+  ],
+  "backend/contexts/assistant/application/tools/__init__.py": [
+    "error_card",
+    "run_tool"
+  ],
+  "backend/contexts/assistant/application/tools/actions.py": [
+    "build_action",
+    "check_route"
+  ],
+  "backend/contexts/assistant/application/tools/cases.py": [
+    "case_constraints"
+  ],
+  "backend/contexts/assistant/application/tools/connectivity.py": [
+    "connectivity"
+  ],
+  "backend/contexts/assistant/application/tools/context.py": [
+    "Card",
+    "ToolContext",
+    "as_dict",
+    "index",
+    "lang",
+    "resolve_step",
+    "run_store",
+    "scenario_name"
+  ],
+  "backend/contexts/assistant/application/tools/council.py": [
+    "council_step"
+  ],
+  "backend/contexts/assistant/application/tools/decisions.py": [
+    "NoTraceEntry",
+    "explain_decision"
+  ],
+  "backend/contexts/assistant/application/tools/docs.py": [
+    "search_docs"
+  ],
+  "backend/contexts/assistant/application/tools/fields.py": [
+    "field_events",
+    "field_events_rows",
+    "field_metrics"
+  ],
+  "backend/contexts/assistant/application/tools/knowledge.py": [
+    "explain_term",
+    "platform_guide"
+  ],
+  "backend/contexts/assistant/application/tools/labels.py": [
+    "pick",
+    "title"
+  ],
+  "backend/contexts/assistant/application/tools/patterns.py": [
+    "find_patterns"
+  ],
+  "backend/contexts/assistant/application/tools/ranking.py": [
+    "rank_wells"
+  ],
+  "backend/contexts/assistant/application/tools/registry.py": [
+    "definition",
+    "tool_specs",
+    "validate_arguments"
+  ],
+  "backend/contexts/assistant/application/tools/rules.py": [
+    "explain_decision",
+    "rule_impact",
+    "rule_statement"
+  ],
+  "backend/contexts/assistant/application/tools/run_history.py": [
+    "Located",
+    "compare_runs",
+    "latest_run",
+    "physics_report",
+    "run_detail",
+    "run_history"
+  ],
+  "backend/contexts/assistant/application/tools/runs.py": [
+    "run_status",
+    "submission_summary"
+  ],
+  "backend/contexts/assistant/application/tools/scenarios.py": [
+    "compare_scenarios"
+  ],
+  "backend/contexts/assistant/application/tools/schemas/base.py": [
+    "ToolDefinition",
+    "obj"
+  ],
+  "backend/contexts/assistant/application/tools/system.py": [
+    "system_map",
+    "system_status"
+  ],
+  "backend/contexts/assistant/application/tools/wells.py": [
+    "well_series",
+    "well_snapshot"
+  ],
+  "backend/contexts/assistant/domain/console_context.py": [
+    "ConsoleContext",
+    "as_dict"
+  ],
+  "backend/contexts/assistant/domain/errors.py": [
+    "ArtifactError",
+    "DocsIndexError",
+    "KnowledgeError",
+    "NoApiKeyError",
+    "RouteError",
+    "RunError",
+    "SessionDiskError",
+    "SessionError",
+    "SttError",
+    "SystemMapError",
+    "ToolFailure",
+    "ToolInputError",
+    "TtsError",
+    "UpstreamError"
+  ],
+  "backend/contexts/assistant/domain/guard.py": [
     "CodeResult",
     "GuardResult",
     "allowed_numbers",
@@ -107,51 +198,55 @@
     "strip_code",
     "unsupported_numbers"
   ],
-  "backend/application/jarvis/knowledge.py": [
-    "Knowledge",
-    "KnowledgeError",
+  "backend/contexts/assistant/domain/knowledge.py": [
+    "Element",
+    "ElementText",
+    "KnowledgeSchemaError",
     "Screen",
+    "ScreenControl",
+    "ScreenText",
+    "SystemEdge",
+    "SystemEdgeText",
+    "SystemNode",
+    "SystemNodeText",
     "Term",
-    "as_payload",
-    "default_knowledge_root",
-    "elements",
-    "find_screen",
-    "find_term",
-    "normalize",
+    "TermPlace",
+    "TermText",
+    "edge_id",
+    "missing_ids",
+    "parse_controls",
+    "parse_element",
+    "parse_element_text",
+    "parse_screen",
+    "parse_screen_text",
+    "parse_system_edge",
+    "parse_system_edge_text",
+    "parse_system_node",
+    "parse_system_node_text",
+    "parse_term",
+    "parse_term_text",
+    "payload",
+    "screen_id"
+  ],
+  "backend/contexts/assistant/domain/ports.py": [
+    "DocumentSearch",
+    "SessionArchive",
+    "ShowcaseReader",
+    "SpeechRecognition",
+    "SpeechSynthesis",
+    "available",
+    "cache_root",
+    "exists",
+    "path",
+    "read",
+    "reload",
     "root",
-    "screen",
-    "screen_count",
-    "screens",
-    "spotlights",
-    "term_count",
-    "terms"
+    "search",
+    "transcribe"
   ],
-  "backend/application/jarvis/orchestrator.py": [
-    "Cancelled",
-    "Event",
-    "Orchestrator",
-    "as_dict",
-    "ask",
-    "briefing",
-    "disk",
-    "docs",
-    "model",
-    "provider",
-    "sessions",
-    "stamp",
-    "system"
-  ],
-  "backend/application/jarvis/prompt.py": [
-    "about_lines",
-    "build_system_prompt",
-    "context_lines",
-    "format_rules",
-    "live_lines"
-  ],
-  "backend/application/jarvis/session.py": [
+  "backend/contexts/assistant/domain/session.py": [
     "Exchange",
     "Session",
-    "SessionError",
     "SessionStore",
     "absorb_summary",
     "as_text",
@@ -171,10 +266,210 @@
     "summary",
     "summary_request"
   ],
-  "backend/application/jarvis/session_store.py": [
+  "backend/contexts/assistant/infrastructure/artifacts/runs.py": [
+    "RunRecord",
+    "RunStore",
+    "default_runs_root",
+    "documents",
+    "exists",
+    "field",
+    "latest_run_id",
+    "read",
+    "recorded",
+    "root",
+    "run_ids"
+  ],
+  "backend/contexts/assistant/infrastructure/artifacts/scenarios.py": [
+    "ArtifactStore",
+    "ScenarioIndex",
+    "WellSteps",
+    "default_data_root",
+    "provenance",
+    "require_step",
+    "require_well",
+    "root",
+    "root_file",
+    "scenario",
+    "scenario_entry",
+    "scenarios",
+    "step",
+    "step_count",
+    "step_for_date",
+    "submitted"
+  ],
+  "backend/contexts/assistant/infrastructure/docs_index/chunking.py": [
+    "chunks_of_knowledge",
+    "chunks_of_markdown",
+    "chunks_of_plain"
+  ],
+  "backend/contexts/assistant/infrastructure/docs_index/index.py": [
+    "DocsIndex",
+    "as_dict",
+    "chunks",
+    "search",
+    "size",
+    "sources",
+    "stamps"
+  ],
+  "backend/contexts/assistant/infrastructure/docs_index/models.py": [
+    "Chunk",
+    "Hit",
+    "Stamp",
+    "as_dict"
+  ],
+  "backend/contexts/assistant/infrastructure/docs_index/sources.py": [
+    "collect_stamps",
+    "default_cache_path",
+    "default_roots",
+    "relative_source",
+    "repository_root",
+    "resolve_knowledge_root",
+    "stamps_match",
+    "walk_documents"
+  ],
+  "backend/contexts/assistant/infrastructure/docs_index/store.py": [
+    "DocsIndexCache",
+    "clear",
+    "collect_chunks",
+    "get",
+    "load_index",
+    "reset_shared_index",
+    "shared_index"
+  ],
+  "backend/contexts/assistant/infrastructure/docs_index/text.py": [
+    "build_snippet",
+    "cut_into_pieces",
+    "numbers_in",
+    "slug",
+    "split_sections",
+    "stem",
+    "tokenize"
+  ],
+  "backend/contexts/assistant/infrastructure/knowledge.py": [
+    "KnowledgeStore",
+    "LocalizedElement",
+    "LocalizedScreen",
+    "LocalizedTerm",
+    "aliases",
+    "as_payload",
+    "default_knowledge_root",
+    "elements",
+    "find_screen",
+    "find_term",
+    "id",
+    "localized",
+    "normalize",
+    "notice",
+    "root",
+    "screen",
+    "screen_count",
+    "screens",
+    "spotlights",
+    "term",
+    "term_count",
+    "terms",
+    "title",
+    "view",
+    "workspace"
+  ],
+  "backend/contexts/assistant/infrastructure/llm/anthropic_chat.py": [
+    "AnthropicChatClient",
+    "model",
+    "provider",
+    "stream"
+  ],
+  "backend/contexts/assistant/infrastructure/llm/chat.py": [
+    "ChatClient",
+    "model",
+    "provider",
+    "stream"
+  ],
+  "backend/contexts/assistant/infrastructure/llm/chat_events.py": [
+    "ChatMessage",
+    "Done",
+    "TextDelta",
+    "ToolCall",
+    "ToolSpec"
+  ],
+  "backend/contexts/assistant/infrastructure/llm/client.py": [
+    "LlmClient",
+    "complete"
+  ],
+  "backend/contexts/assistant/infrastructure/llm/diagnostics/detectors.py": [
+    "detect_all",
+    "detect_injection_response_lag",
+    "detect_injection_without_response",
+    "detect_liquid_jump_flat_oil",
+    "detect_oil_rise_without_liquid",
+    "detect_pressure_drop_at_high_rates",
+    "detect_wct_rise_without_oil"
+  ],
+  "backend/contexts/assistant/infrastructure/llm/diagnostics/model.py": [
+    "Finding",
+    "TextClient",
+    "Thresholds",
+    "complete",
+    "sorted_steps",
+    "steps_by_well",
+    "wells_with_role"
+  ],
+  "backend/contexts/assistant/infrastructure/llm/diagnostics/prompt.py": [
+    "build_diagnosis_prompt",
+    "diagnose"
+  ],
+  "backend/contexts/assistant/infrastructure/llm/explainer.py": [
+    "DecisionExplanation",
+    "build_explanation_prompt",
+    "explain",
+    "explain_decision",
+    "export_explanations_json"
+  ],
+  "backend/contexts/assistant/infrastructure/llm/fake_chat.py": [
+    "FakeChatClient",
+    "model",
+    "provider",
+    "stream",
+    "turns"
+  ],
+  "backend/contexts/assistant/infrastructure/llm/openrouter.py": [
+    "OpenRouterClient",
+    "absorb",
+    "drain",
+    "model",
+    "parse_sse_lines",
+    "provider",
+    "stream"
+  ],
+  "backend/contexts/assistant/infrastructure/llm/provider.py": [
+    "build_client"
+  ],
+  "backend/contexts/assistant/infrastructure/llm/tools_format.py": [
+    "to_anthropic_messages",
+    "to_anthropic_tools",
+    "to_openai_messages",
+    "to_openai_tools"
+  ],
+  "backend/contexts/assistant/infrastructure/prompt.py": [
+    "PromptResources",
+    "about_lines",
+    "build_system_prompt",
+    "context_label",
+    "context_lines",
+    "format_rules",
+    "language_name",
+    "lines",
+    "live_label",
+    "live_lines",
+    "section"
+  ],
+  "backend/contexts/assistant/infrastructure/recordings.py": [
+    "build_console",
+    "build_recording",
+    "load_recordings"
+  ],
+  "backend/contexts/assistant/infrastructure/session_store.py": [
     "Meta",
     "SessionDisk",
-    "SessionDiskError",
     "append",
     "as_dict",
     "as_row",
@@ -193,9 +488,8 @@
     "root",
     "set_summary"
   ],
-  "backend/application/jarvis/stt.py": [
+  "backend/contexts/assistant/infrastructure/stt.py": [
     "SttEngine",
-    "SttError",
     "SttUnavailable",
     "Transcript",
     "as_dict",
@@ -209,126 +503,33 @@
     "prompt",
     "transcribe"
   ],
-  "backend/application/jarvis/suggestions.py": [
-    "build_suggestions"
-  ],
-  "backend/application/jarvis/system_map.py": [
+  "backend/contexts/assistant/infrastructure/system_map.py": [
     "Edge",
     "Node",
     "SystemMap",
-    "SystemMapError",
     "as_dict",
     "brief",
     "default_system_path",
+    "doc",
     "edge_count",
     "edges",
+    "files",
     "find",
+    "id",
+    "kind",
+    "label",
     "neighbourhood",
     "node",
     "node_count",
     "nodes",
     "path",
-    "reset_shared_system_map",
-    "shared_system_map",
-    "source"
+    "route",
+    "source",
+    "summary",
+    "target"
   ],
-  "backend/application/jarvis/tools/__init__.py": [
-    "error_card",
-    "run_tool"
-  ],
-  "backend/application/jarvis/tools/actions.py": [
-    "RouteError",
-    "build_action",
-    "check_route"
-  ],
-  "backend/application/jarvis/tools/cases.py": [
-    "case_constraints"
-  ],
-  "backend/application/jarvis/tools/connectivity.py": [
-    "connectivity"
-  ],
-  "backend/application/jarvis/tools/context.py": [
-    "Card",
-    "ConsoleContext",
-    "ToolContext",
-    "ToolFailure",
-    "as_dict",
-    "index",
-    "lang",
-    "resolve_step",
-    "run_store",
-    "scenario_name"
-  ],
-  "backend/application/jarvis/tools/council.py": [
-    "council_step"
-  ],
-  "backend/application/jarvis/tools/decisions.py": [
-    "NoTraceEntry",
-    "explain_decision"
-  ],
-  "backend/application/jarvis/tools/docs.py": [
-    "search_docs"
-  ],
-  "backend/application/jarvis/tools/fields.py": [
-    "field_events",
-    "field_events_rows",
-    "field_metrics"
-  ],
-  "backend/application/jarvis/tools/knowledge.py": [
-    "explain_term",
-    "platform_guide"
-  ],
-  "backend/application/jarvis/tools/labels.py": [
-    "pick",
-    "title"
-  ],
-  "backend/application/jarvis/tools/patterns.py": [
-    "find_patterns"
-  ],
-  "backend/application/jarvis/tools/ranking.py": [
-    "rank_wells"
-  ],
-  "backend/application/jarvis/tools/registry.py": [
-    "ToolInputError",
-    "definition",
-    "tool_specs",
-    "validate_arguments"
-  ],
-  "backend/application/jarvis/tools/rules.py": [
-    "explain_decision",
-    "rule_impact",
-    "rule_statement"
-  ],
-  "backend/application/jarvis/tools/run_history.py": [
-    "Located",
-    "compare_runs",
-    "latest_run",
-    "physics_report",
-    "run_detail",
-    "run_history"
-  ],
-  "backend/application/jarvis/tools/runs.py": [
-    "run_status",
-    "submission_summary"
-  ],
-  "backend/application/jarvis/tools/scenarios.py": [
-    "compare_scenarios"
-  ],
-  "backend/application/jarvis/tools/schemas.py": [
-    "ToolDefinition",
-    "obj"
-  ],
-  "backend/application/jarvis/tools/system.py": [
-    "system_map",
-    "system_status"
-  ],
-  "backend/application/jarvis/tools/wells.py": [
-    "well_series",
-    "well_snapshot"
-  ],
-  "backend/application/jarvis/tts.py": [
+  "backend/contexts/assistant/infrastructure/tts.py": [
     "TtsEngine",
-    "TtsError",
     "TtsUnavailable",
     "Voice",
     "as_dict",
@@ -346,380 +547,20 @@
     "synthesize",
     "voices"
   ],
-  "backend/application/optimization/champion.py": [
-    "promote_champion"
+  "backend/contexts/connectivity/application/campaign.py": [
+    "setup"
   ],
-  "backend/application/optimization/convergence.py": [
-    "CalibrationReport",
-    "ConvergenceError",
-    "CriterionMeasurement",
-    "CriterionSweep",
-    "absolute_deviation_criterion",
-    "agreement_rate",
-    "agreements",
-    "best",
-    "both_criterion",
-    "criterion",
-    "measure",
-    "measure_criteria",
-    "rank_agreement_criterion",
-    "rank_key",
-    "stable",
-    "sweep_of",
-    "trust_was_justified",
-    "verdict",
-    "winner"
-  ],
-  "backend/application/optimization/interface.py": [
-    "NominalObjective",
-    "Objective",
-    "ProvenanceSource",
-    "ScenarioEvaluator",
-    "ScenarioOutcome"
-  ],
-  "backend/application/optimization/linalg.py": [
-    "identity",
-    "jacobi_eigen",
-    "matrix_vector",
-    "symmetrize",
-    "transpose_matrix_vector"
-  ],
-  "backend/application/optimization/observed_repair.py": [
-    "commissioning_controls",
-    "production_from_observation",
-    "repair_from_observation"
-  ],
-  "backend/application/optimization/opm_active_calibration.py": [
-    "CalibratedNpv",
-    "OpmActiveCalibrationError",
-    "WaterFamilyNpvCalibration",
-    "load",
-    "predict",
-    "trusted"
-  ],
-  "backend/application/optimization/runtime_artifacts.py": [
-    "BundleVerdict",
-    "FileVerdict",
-    "LambdaSelection",
-    "OodThresholdDecision",
-    "RuntimeArtifactError",
-    "RuntimeArtifacts",
-    "as_dict",
-    "as_provenance",
-    "exit_code",
-    "mismatched",
-    "ok",
-    "resolve_lambda_selection",
-    "resolve_ood_threshold",
-    "resolve_runtime_artifacts",
-    "validate_npv_scoring_is_unambiguous",
-    "validate_runtime_economic_head",
-    "verify_bundle"
-  ],
-  "backend/application/optimization/scenario_baseline.py": [
-    "BaselineSearch",
-    "ObjectiveFactory",
-    "RegretComputation",
-    "ScenarioBaselineError",
-    "compute_regret",
-    "evaluation_budget",
-    "scenario_baseline",
-    "scenario_seed",
-    "search_of",
-    "total_evaluations",
-    "underpowered_scenarios",
-    "worst_scenarios"
-  ],
-  "backend/application/optimization/schedule_search.py": [
-    "EnsembleSpreadError",
-    "InjectionBudget",
-    "LambdaDesyncError",
-    "MissingReferenceError",
-    "OutOfDomainScheduleError",
-    "PhysicallyImpossibleScheduleError",
-    "PolicyFeedback",
-    "ScheduleSearchError",
-    "SearchEnvironment",
-    "apply_ood_penalty",
-    "as_trace_entry",
-    "ensemble_members",
-    "ensemble_npv_sigma",
-    "evaluator",
-    "exceedance_record",
-    "format_ood_exceedances",
-    "format_ood_worst",
-    "full_physics_report",
-    "has_reference",
-    "injection_budget_for_step",
-    "lambda_sync_provenance",
-    "load_environment",
-    "make_evaluator",
-    "make_policy",
-    "missing_invariants",
-    "npv_blend_provenance",
-    "ood_penalty_factor",
-    "physics_counters",
-    "policy",
-    "predict_economics",
-    "spread_bracket",
-    "unconstrained"
-  ],
-  "backend/application/optimization/search.py": [
-    "Evaluation",
-    "ObjectiveFunction",
-    "OptimizerError",
-    "SearchReport",
-    "default_population",
-    "evaluations",
-    "feasible_found",
-    "feasible_history",
-    "is_better",
-    "of",
-    "optimize",
-    "size",
-    "to_theta",
-    "to_unit"
-  ],
-  "backend/application/optimization/search_run.py": [
-    "BhpTolerance",
-    "BhpToleranceError",
-    "ConnectivitySearchError",
-    "IncumbentRecord",
-    "IncumbentRegistry",
-    "OodThreshold",
-    "OpmBudgetError",
-    "RunBudget",
-    "SearchOutcome",
-    "SearchRunError",
-    "as_dict",
-    "as_list",
-    "as_provenance",
-    "bhp_exceedance_bar",
-    "candidate_card",
-    "close_run_clock",
-    "current",
-    "forecast",
-    "incumbent_gate_passed",
-    "main",
-    "measure_run_budget",
-    "measured",
-    "objective",
-    "promote",
-    "read_opm_budget",
-    "records",
-    "run_search",
-    "select_finalist",
-    "start_run_clock",
-    "surrogate_blocking_violations"
-  ],
-  "backend/application/optimization/verification.py": [
-    "CandidateCheck",
-    "ConvergenceCriterion",
-    "Retrainer",
-    "RoundReport",
-    "SurrogateVerdict",
-    "SurrogateVersion",
-    "TruthOracle",
-    "TruthVerdict",
-    "VerificationError",
-    "VerificationReport",
-    "converged_rounds",
-    "deviation",
-    "objective",
-    "relative_deviation",
-    "run_verification_loop",
-    "table",
-    "total_runs",
-    "trust_region_objective"
-  ],
-  "backend/application/optimization/verification_run.py": [
-    "ComparisonError",
-    "ComparisonInputs",
-    "ComparisonSide",
-    "ConditionCheck",
-    "GuardCheck",
-    "GuardReport",
-    "GuardedVerification",
-    "VerificationGuardError",
-    "as_dict",
-    "blocking_violations",
-    "build_comparison_document",
-    "checked",
-    "checks",
-    "compare_baseline_to_candidate",
-    "dynamic_violations",
-    "equal_conditions",
-    "fully_checked",
-    "holds",
-    "load_comparison_inputs",
-    "main",
-    "npv",
-    "persist_observation",
-    "print_comparison",
-    "project_baseline",
-    "raise_if_broken",
-    "refuse_unequal_conditions",
-    "resolve_guard_report",
-    "static_violations",
-    "unchecked",
-    "verify_schedule",
-    "verify_schedule_with_guard",
-    "violations_by_kind"
-  ],
-  "backend/application/optimization/water_baseline_run.py": [
+  "backend/contexts/connectivity/application/connectivity_campaign.py": [
     "main"
   ],
-  "backend/application/runs/workflow.py": [
-    "RunManifest",
-    "RunProvenance",
-    "RunRequest",
-    "RunWorkflow",
-    "SubmissionError",
-    "SubmissionReport",
-    "Verification",
-    "WorkflowStatus",
-    "as_dict",
-    "from_dict",
-    "full",
-    "search",
-    "submit",
-    "verify"
+  "backend/contexts/connectivity/application/connectivity_measure.py": [
+    "main"
   ],
-  "backend/core/contracts/config.py": [
-    "ArtifactHashes",
-    "Budgets",
-    "ChargeInitialEsp",
-    "Config",
-    "EspCatalogEntry",
-    "NormativeSet",
-    "Policies",
-    "QuantizationPolicy"
+  "backend/contexts/connectivity/application/connectivity_plan.py": [
+    "campaign_plan",
+    "specs_of"
   ],
-  "backend/core/contracts/connectivity.py": [
-    "Groups",
-    "Lambda"
-  ],
-  "backend/core/contracts/constraints.py": [
-    "BhpLimits",
-    "CompensationPolicy",
-    "Constraints",
-    "FieldPressureLimits",
-    "RegionPressureLimits",
-    "WaterSupplyPolicy",
-    "WellOutage",
-    "bhp_limits",
-    "compensation_policy",
-    "constraint_source",
-    "enabled",
-    "field_pressure_limits",
-    "hard",
-    "limit",
-    "limit_origin",
-    "region_pressure_limits",
-    "source_key",
-    "source_label",
-    "water_safety_factor",
-    "water_supply_policy"
-  ],
-  "backend/core/contracts/economics.py": [
-    "LineItems",
-    "NpvTable"
-  ],
-  "backend/core/contracts/hashing.py": [
-    "CanonicalizationError",
-    "canonical_bytes",
-    "canonical_schedule_hash",
-    "content_hash",
-    "ecmascript_number",
-    "hash_schedule"
-  ],
-  "backend/core/contracts/policy.py": [
-    "OptimizerResult",
-    "Rule",
-    "ScenarioViolation",
-    "Theta",
-    "TraceEntry"
-  ],
-  "backend/core/contracts/response.py": [
-    "ActiveControlMode",
-    "IntervalResponse",
-    "StateAtDate",
-    "StatePair",
-    "is_excluded_by_negative_rule",
-    "join_by_control_step",
-    "watercut"
-  ],
-  "backend/core/contracts/run_artifact.py": [
-    "RunArtifact"
-  ],
-  "backend/core/contracts/schedule.py": [
-    "Availability",
-    "ControlEvent",
-    "EventKind",
-    "FixedDeckEvent",
-    "OperatingStatus",
-    "Role",
-    "Schedule",
-    "ScheduleMeta",
-    "WellState",
-    "utf16_code_units"
-  ],
-  "backend/core/contracts/simulation.py": [
-    "FinalNpvArtifact",
-    "OpmRunArtifact",
-    "ResponseArtifact",
-    "RunResult",
-    "RunStatus",
-    "SubmissionArtifact",
-    "SubmissionBundle",
-    "SummarySpec"
-  ],
-  "backend/core/horizon.py": [
-    "Horizon",
-    "history_offset",
-    "load_horizon"
-  ],
-  "backend/core/paths.py": [
-    "data_root",
-    "out_root",
-    "project_root"
-  ],
-  "backend/core/provenance.py": [
-    "git_commit",
-    "git_dirty",
-    "opm_image",
-    "package_versions",
-    "python_version"
-  ],
-  "backend/domain/configuration/constraints_io.py": [
-    "constraints_from_json",
-    "constraints_hash",
-    "constraints_to_json"
-  ],
-  "backend/domain/configuration/io.py": [
-    "ConfigError",
-    "dump_config",
-    "load_config",
-    "parse_config"
-  ],
-  "backend/domain/configuration/normatives.py": [
-    "NormativeSource",
-    "NormativesLoader",
-    "load",
-    "normatives_from_mapping"
-  ],
-  "backend/domain/configuration/schema.py": [
-    "ConnectivityMeasurementParams",
-    "config_hash",
-    "default_config",
-    "default_policies",
-    "default_rules",
-    "default_seeds",
-    "economics_config_hash",
-    "seed_for",
-    "validate"
-  ],
-  "backend/domain/connectivity/amplitude.py": [
+  "backend/contexts/connectivity/domain/amplitude.py": [
     "AmplitudeMeasurement",
     "AmplitudeProbe",
     "AmplitudeVerdict",
@@ -752,61 +593,65 @@
     "sweep_amplitudes",
     "systematic_shortfall"
   ],
-  "backend/domain/connectivity/campaign.py": [
-    "CampaignError",
+  "backend/contexts/connectivity/domain/campaign_plan.py": [
     "CampaignSetup",
     "level_factor",
-    "n_runs",
-    "setup"
+    "n_runs"
   ],
-  "backend/domain/connectivity/deck.py": [
-    "DeckSchedule",
-    "DeckWellRecord",
-    "date_index",
-    "parse_deck_schedule",
-    "records_at"
+  "backend/contexts/connectivity/domain/connectivity.py": [
+    "Groups",
+    "Lambda"
   ],
-  "backend/domain/connectivity/doe.py": [
+  "backend/contexts/connectivity/domain/doe.py": [
+    "plackett_burman",
+    "plans_for_windows"
+  ],
+  "backend/contexts/connectivity/domain/doe_diagnostics.py": [
     "AchievabilityCheck",
     "AchievabilityReport",
-    "Amplitude",
-    "DoEPlan",
-    "Level",
     "Orthogonality",
-    "PlanRow",
     "achievability",
     "achievability_ok",
     "achieved",
+    "full_rank",
+    "orthogonality_of",
+    "realized_matrix",
+    "relative_shortfall",
+    "shortfall_m3_per_day",
+    "shortfalls",
+    "suggested_amplitude",
+    "systematic_shortfall"
+  ],
+  "backend/contexts/connectivity/domain/doe_plan.py": [
+    "Amplitude",
+    "DoEPlan",
+    "Level",
+    "PlanRow",
     "amplitude_from_prior",
     "balance",
     "column_balance",
     "column_balanced",
     "column_of",
     "design_matrix",
-    "full_rank",
     "high",
     "low",
     "n_runs",
-    "orthogonality_of",
     "padding_columns",
-    "plackett_burman",
     "plan_runs",
     "plan_width",
-    "plans_for_windows",
-    "realized_matrix",
     "relative_high",
     "relative_low",
-    "relative_shortfall",
     "row_balanced",
-    "shortfall_m3_per_day",
-    "shortfalls",
     "step_m3_per_day",
-    "suggested_amplitude",
-    "systematic_shortfall",
     "target",
     "targets"
   ],
-  "backend/domain/connectivity/estimator.py": [
+  "backend/contexts/connectivity/domain/errors.py": [
+    "CampaignError",
+    "GroupsArtifactError",
+    "GroupsProvenanceError"
+  ],
+  "backend/contexts/connectivity/domain/estimator.py": [
     "Batch",
     "DriveMatrix",
     "Fit",
@@ -825,7 +670,7 @@
     "stability_between",
     "width"
   ],
-  "backend/domain/connectivity/fund.py": [
+  "backend/contexts/connectivity/domain/fund.py": [
     "ActiveFund",
     "FundHistory",
     "Window",
@@ -837,30 +682,104 @@
     "slice_windows",
     "state_at"
   ],
-  "backend/domain/connectivity/groups.py": [
-    "GroupingParams",
-    "GroupingReport",
-    "QuantileStep",
-    "QuantileSweep",
-    "build_groups",
-    "collapsed",
+  "backend/contexts/connectivity/domain/grouping_clusters.py": [
     "coverage_of",
     "find",
     "group_hash",
     "group_sizes",
     "lambda_hash",
     "moved_share",
-    "split_cut",
-    "split_quantile",
-    "sweep_quantiles",
     "validate_groups",
     "weight_threshold"
   ],
-  "backend/domain/connectivity/groups_artifact.py": [
+  "backend/contexts/connectivity/domain/grouping_params.py": [
+    "GroupingParams",
+    "GroupingReport",
+    "collapsed"
+  ],
+  "backend/contexts/connectivity/domain/groups.py": [
+    "QuantileStep",
+    "QuantileSweep",
+    "build_groups",
+    "split_cut",
+    "split_quantile",
+    "sweep_quantiles"
+  ],
+  "backend/contexts/connectivity/domain/hadamard.py": [
+    "hadamard",
+    "is_hadamard",
+    "is_prime",
+    "normalized"
+  ],
+  "backend/contexts/connectivity/domain/lambda_artifact.py": [
+    "LambdaProvenance",
+    "artifact_id",
+    "is_recorded",
+    "load_lambda",
+    "load_lambda_provenance",
+    "load_lambda_with_provenance",
+    "missing_fields",
+    "save_lambda",
+    "verify_artifact_id"
+  ],
+  "backend/contexts/connectivity/domain/lambda_window.py": [
+    "WindowApplicability",
+    "as_provenance",
+    "detail",
+    "is_extrapolation",
+    "window_applicability"
+  ],
+  "backend/contexts/connectivity/domain/measure.py": [
+    "measure"
+  ],
+  "backend/contexts/connectivity/domain/measurement_report.py": [
+    "CampaignMetadata",
+    "CampaignSample",
+    "MeasurementReport",
+    "nonzero_edges"
+  ],
+  "backend/contexts/connectivity/domain/setpoints.py": [
+    "SetpointChange",
+    "StepDistribution",
+    "absolute_step_m3_per_day",
+    "absolute_steps",
+    "amplitude_prior",
+    "change_share",
+    "dominant_step_range",
+    "median_level_m3_per_day",
+    "quantile",
+    "relative_step",
+    "relative_steps",
+    "setpoint_changes",
+    "step_histogram"
+  ],
+  "backend/contexts/connectivity/domain/sweep.py": [
+    "ResponseSource",
+    "SweepRun",
+    "WindowSteps",
+    "build_measurement",
+    "build_probe",
+    "contains",
+    "cumulative_liquid",
+    "injection_setpoints",
+    "interval_response",
+    "length",
+    "mean_injection_rate",
+    "perturbed_schedule",
+    "responders_of",
+    "state_at_date",
+    "sweep_targets"
+  ],
+  "backend/contexts/connectivity/infrastructure/deck.py": [
+    "DeckSchedule",
+    "DeckWellRecord",
+    "date_index",
+    "parse_deck_schedule",
+    "records_at"
+  ],
+  "backend/contexts/connectivity/infrastructure/groups_artifact.py": [
     "GroupsArtifact",
-    "GroupsArtifactError",
     "GroupsProvenance",
-    "GroupsProvenanceError",
     "artifact_hash",
     "build_artifact",
     "cache_key",
@@ -884,132 +803,182 @@
     "verify_against_lambda",
     "window"
   ],
-  "backend/domain/connectivity/hadamard.py": [
-    "hadamard",
-    "is_hadamard",
-    "is_prime",
-    "normalized"
+  "backend/contexts/constraints/application/cases.py": [
+    "constraints_from_json",
+    "load_case"
   ],
-  "backend/domain/connectivity/measure.py": [
-    "CampaignMetadata",
-    "CampaignSample",
-    "LambdaProvenance",
-    "MeasurementReport",
-    "WindowApplicability",
-    "artifact_id",
-    "as_provenance",
-    "detail",
-    "is_extrapolation",
-    "is_recorded",
-    "load_lambda",
-    "load_lambda_provenance",
-    "load_lambda_with_provenance",
-    "measure",
-    "missing_fields",
-    "nonzero_edges",
-    "save_lambda",
-    "verify_artifact_id",
-    "window_applicability"
+  "backend/contexts/constraints/domain/config.py": [
+    "ArtifactHashes",
+    "Budgets",
+    "ChargeInitialEsp",
+    "Config",
+    "EspCatalogEntry",
+    "NormativeSet",
+    "Policies",
+    "QuantizationPolicy"
   ],
-  "backend/domain/connectivity/setpoints.py": [
-    "SetpointChange",
-    "StepDistribution",
-    "absolute_step_m3_per_day",
-    "absolute_steps",
-    "amplitude_prior",
-    "change_share",
-    "dominant_step_range",
-    "median_level_m3_per_day",
-    "quantile",
-    "relative_step",
-    "relative_steps",
-    "setpoint_changes",
-    "step_histogram"
+  "backend/contexts/constraints/domain/constraint_types.py": [
+    "BhpLimits",
+    "CompensationPolicy",
+    "Constraints",
+    "FieldPressureLimits",
+    "RegionPressureLimits",
+    "WaterSupplyPolicy",
+    "WellOutage",
+    "enabled",
+    "hard",
+    "limit",
+    "source_key"
   ],
-  "backend/domain/connectivity/sweep.py": [
-    "ResponseSource",
-    "SweepRun",
-    "WindowSteps",
-    "build_measurement",
-    "build_probe",
-    "contains",
-    "cumulative_liquid",
-    "injection_setpoints",
-    "interval_response",
-    "length",
-    "mean_injection_rate",
-    "perturbed_schedule",
-    "responders_of",
-    "state_at_date",
-    "sweep_targets"
+  "backend/contexts/constraints/domain/constraints.py": [
+    "bhp_limits",
+    "compensation_policy",
+    "constraint_source",
+    "field_pressure_limits",
+    "limit_origin",
+    "region_pressure_limits",
+    "source_label",
+    "water_safety_factor",
+    "water_supply_policy"
   ],
-  "backend/domain/economics/base_case.py": [
+  "backend/contexts/constraints/domain/errors.py": [
+    "CaseError",
+    "ConfigError"
+  ],
+  "backend/contexts/constraints/domain/normatives.py": [
+    "NormativeSource",
+    "NormativesLoader",
+    "load",
+    "normatives_from_mapping"
+  ],
+  "backend/contexts/constraints/domain/schema.py": [
+    "ConnectivityMeasurementParams",
+    "config_hash",
+    "default_config",
+    "default_policies",
+    "default_rules",
+    "default_seeds",
+    "economics_config_hash",
+    "seed_for",
+    "validate"
+  ],
+  "backend/contexts/constraints/infrastructure/constraints_io.py": [
+    "constraints_from_json",
+    "constraints_hash",
+    "constraints_to_json"
+  ],
+  "backend/contexts/constraints/infrastructure/io.py": [
+    "dump_config",
+    "load_config",
+    "parse_config"
+  ],
+  "backend/contexts/economics/application/base_case/analysis.py": [
     "BaseCaseAnalysis",
-    "BaseCaseError",
+    "analyze_base_case",
+    "format_report",
+    "loss_making_wells",
+    "npv_methodology",
+    "ranking",
+    "structure_by_year",
+    "years"
+  ],
+  "backend/contexts/economics/application/base_case/artifacts.py": [
+    "interval_start_dates",
+    "load_response_artifact",
+    "responses_by_well_from_artifact",
+    "save_response_artifact",
+    "states_by_well_from_artifact"
+  ],
+  "backend/contexts/economics/application/base_case/totals.py": [
     "CostStructure",
     "EventTally",
     "VolumeTotals",
-    "analyze_base_case",
     "cost_structure",
     "esp_total_rub",
     "event_cost_total_rub",
     "field_totals",
-    "format_report",
-    "interval_start_dates",
-    "load_response_artifact",
-    "loss_making_wells",
-    "npv_methodology",
     "opex_total",
     "outflow_total",
-    "ranking",
-    "responses_by_well_from_artifact",
-    "save_response_artifact",
     "shares",
-    "states_by_well_from_artifact",
-    "structure_by_year",
     "tally_events",
-    "volume_totals",
-    "years"
+    "volume_totals"
   ],
-  "backend/domain/economics/decomposition.py": [
-    "DecompositionError",
+  "backend/contexts/economics/application/parity_comparison.py": [
+    "Discrepancy",
+    "ParityReport",
+    "absolute",
+    "compare_line_items",
+    "compare_with_reference",
+    "matched",
+    "npv_absolute",
+    "raise_if_mismatched",
+    "reference_line_items"
+  ],
+  "backend/contexts/economics/application/reference_parity.py": [
+    "build_reference_records",
+    "deck_dates_from_interval_starts",
+    "load_reference_module",
+    "reference_assumptions",
+    "reference_pumps",
+    "run_reference"
+  ],
+  "backend/contexts/economics/domain/decomposition/contributions.py": [
+    "annual_income_tax_by_well",
+    "well_contributions_from_flows",
+    "well_ranking"
+  ],
+  "backend/contexts/economics/domain/decomposition/invariants.py": [
+    "check_invariants",
+    "check_monthly_to_annual",
+    "check_per_well_to_total",
+    "interval_series"
+  ],
+  "backend/contexts/economics/domain/decomposition/report.py": [
+    "NpvDecomposition",
+    "decompose",
+    "npv_methodology",
+    "ranking"
+  ],
+  "backend/contexts/economics/domain/decomposition/types.py": [
     "IntervalPoint",
     "IntervalSeries",
     "InvariantReport",
     "InvariantResidual",
-    "NpvDecomposition",
     "TaxBasis",
     "WellContribution",
     "WellRanking",
     "absolute",
-    "annual_income_tax_by_well",
     "best",
     "by_year",
     "caption",
-    "check_invariants",
-    "check_monthly_to_annual",
-    "check_per_well_to_total",
     "control_steps",
-    "decompose",
     "failures",
     "format",
-    "interval_series",
     "max_absolute",
     "negative",
-    "npv_methodology",
     "ok",
     "raise_if_violated",
-    "ranking",
     "residual",
     "residuals",
     "scale",
     "total_discounted_fcf",
-    "well_contributions_from_flows",
-    "well_ranking",
     "within",
     "worst"
   ],
-  "backend/domain/economics/esp.py": [
+  "backend/contexts/economics/domain/economics.py": [
+    "LineItems",
+    "NpvTable"
+  ],
+  "backend/contexts/economics/domain/errors.py": [
+    "BaseCaseError",
+    "DecompositionError",
+    "EconomicsError",
+    "LedgerError",
+    "NormativesError",
+    "ParityError",
+    "ReferenceUnavailableError"
+  ],
+  "backend/contexts/economics/domain/esp.py": [
     "EspEvent",
     "EspEventKind",
     "EspStateMachine",
@@ -1021,7 +990,7 @@
     "total_opex_rub",
     "track_well"
   ],
-  "backend/domain/economics/fund.py": [
+  "backend/contexts/economics/domain/fund.py": [
     "FundState",
     "FundTransition",
     "WellFundTrack",
@@ -1029,9 +998,8 @@
     "track_well",
     "transition_costs"
   ],
-  "backend/domain/economics/ledger.py": [
+  "backend/contexts/economics/domain/ledger.py": [
     "CumulativeSeries",
-    "LedgerError",
     "LedgerRow",
     "PeriodAggregate",
     "ProductionLedger",
@@ -1051,58 +1019,332 @@
     "total_liquid_volume_m3",
     "total_oil_mass_t"
   ],
-  "backend/domain/economics/methodology_hash.py": [
+  "backend/contexts/economics/domain/methodology_hash.py": [
     "methodology_version_hash"
   ],
-  "backend/domain/economics/normatives_io.py": [
-    "NormativesError",
+  "backend/contexts/economics/domain/npv/cell_flows.py": [
+    "build_cell_flows"
+  ],
+  "backend/contexts/economics/domain/npv/evaluator.py": [
+    "Economics",
+    "discount_base_year",
+    "evaluate",
+    "evaluate_ledger",
+    "evaluate_with_flows",
+    "normatives",
+    "policies"
+  ],
+  "backend/contexts/economics/domain/npv/table.py": [
+    "compute_npv_table",
+    "npv_table_from_flows"
+  ],
+  "backend/contexts/economics/domain/npv/terms.py": [
+    "BalanceSheetInputs",
+    "CellFlows",
+    "allocate_income_tax",
+    "annual_income_tax",
+    "discount_factor",
+    "ebitda",
+    "monthly_income_tax_sum",
+    "opex_total",
+    "taxable_profit"
+  ],
+  "backend/contexts/economics/infrastructure/normatives_io.py": [
     "load_normatives",
     "normatives_sha256",
     "parse_normative_set",
     "read_normative_sheets"
   ],
-  "backend/domain/economics/npv.py": [
-    "BalanceSheetInputs",
-    "CellFlows",
-    "Economics",
-    "EconomicsError",
-    "allocate_income_tax",
-    "annual_income_tax",
-    "build_cell_flows",
-    "compute_npv_table",
-    "discount_base_year",
-    "discount_factor",
-    "ebitda",
-    "evaluate",
-    "evaluate_ledger",
-    "evaluate_with_flows",
-    "monthly_income_tax_sum",
-    "normatives",
-    "npv_table_from_flows",
-    "opex_total",
-    "policies",
-    "taxable_profit"
+  "backend/contexts/optimization/application/baseline_search.py": [
+    "forecast"
   ],
-  "backend/domain/economics/reference_parity.py": [
-    "Discrepancy",
-    "ParityError",
-    "ParityReport",
-    "ReferenceUnavailableError",
-    "absolute",
-    "build_reference_records",
-    "compare_line_items",
-    "compare_with_reference",
-    "deck_dates_from_interval_starts",
-    "load_reference_module",
-    "matched",
-    "npv_absolute",
-    "raise_if_mismatched",
-    "reference_assumptions",
-    "reference_line_items",
-    "reference_pumps",
-    "run_reference"
+  "backend/contexts/optimization/application/comparison_document.py": [
+    "ComparisonSide",
+    "ConditionCheck",
+    "as_dict",
+    "blocking_violations",
+    "build_comparison_document",
+    "dynamic_violations",
+    "equal_conditions",
+    "holds",
+    "npv",
+    "print_comparison",
+    "project_baseline",
+    "refuse_unequal_conditions",
+    "static_violations",
+    "violations_by_kind"
   ],
-  "backend/domain/policy/agents/base.py": [
+  "backend/contexts/optimization/application/economics_prediction.py": [
+    "predict_economics"
+  ],
+  "backend/contexts/optimization/application/ensemble_spread.py": [
+    "ensemble_members",
+    "ensemble_npv_sigma",
+    "spread_bracket"
+  ],
+  "backend/contexts/optimization/application/environment.py": [
+    "evaluator",
+    "load_environment",
+    "make_evaluator"
+  ],
+  "backend/contexts/optimization/application/finalist_selection.py": [
+    "evaluate_finalists"
+  ],
+  "backend/contexts/optimization/application/observation_store.py": [
+    "persist_observation"
+  ],
+  "backend/contexts/optimization/application/opm_active_calibration.py": [
+    "CalibratedNpv",
+    "WaterFamilyNpvCalibration",
+    "load",
+    "predict",
+    "trusted"
+  ],
+  "backend/contexts/optimization/application/policy_factory.py": [
+    "make_policy",
+    "policy"
+  ],
+  "backend/contexts/optimization/application/scenario_baseline.py": [
+    "BaselineSearch",
+    "ObjectiveFactory",
+    "RegretComputation",
+    "compute_regret",
+    "evaluation_budget",
+    "scenario_baseline",
+    "scenario_seed",
+    "search_of",
+    "total_evaluations",
+    "underpowered_scenarios",
+    "worst_scenarios"
+  ],
+  "backend/contexts/optimization/application/schedule_introspection.py": [
+    "PolicyFeedback"
+  ],
+  "backend/contexts/optimization/application/search_cli.py": [
+    "main"
+  ],
+  "backend/contexts/optimization/application/search_provenance.py": [
+    "build_search_provenance"
+  ],
+  "backend/contexts/optimization/application/search_use_case.py": [
+    "objective",
+    "run_search"
+  ],
+  "backend/contexts/optimization/application/verification.py": [
+    "objective",
+    "run_verification_loop",
+    "trust_region_objective"
+  ],
+  "backend/contexts/optimization/application/verification_cli.py": [
+    "ComparisonInputs",
+    "load_comparison_inputs",
+    "main"
+  ],
+  "backend/contexts/optimization/application/verification_guard.py": [
+    "GuardCheck",
+    "GuardReport",
+    "as_dict",
+    "checked",
+    "checks",
+    "fully_checked",
+    "holds",
+    "raise_if_broken",
+    "unchecked"
+  ],
+  "backend/contexts/optimization/application/verification_run.py": [
+    "GuardedVerification",
+    "compare_baseline_to_candidate",
+    "resolve_guard_report",
+    "verify_schedule",
+    "verify_schedule_with_guard"
+  ],
+  "backend/contexts/optimization/application/water_baseline_run.py": [
+    "main"
+  ],
+  "backend/contexts/optimization/domain/convergence.py": [
+    "CalibrationReport",
+    "CriterionMeasurement",
+    "CriterionSweep",
+    "absolute_deviation_criterion",
+    "agreement_rate",
+    "agreements",
+    "best",
+    "both_criterion",
+    "criterion",
+    "measure",
+    "measure_criteria",
+    "rank_agreement_criterion",
+    "rank_key",
+    "stable",
+    "sweep_of",
+    "trust_was_justified",
+    "verdict",
+    "winner"
+  ],
+  "backend/contexts/optimization/domain/errors.py": [
+    "BhpToleranceError",
+    "ComparisonError",
+    "ConnectivitySearchError",
+    "ConvergenceError",
+    "EnsembleSpreadError",
+    "LambdaDesyncError",
+    "MissingReferenceError",
+    "OpmActiveCalibrationError",
+    "OpmBudgetError",
+    "OptimizerError",
+    "OutOfDomainScheduleError",
+    "PhysicallyImpossibleScheduleError",
+    "RuntimeArtifactError",
+    "ScenarioBaselineError",
+    "ScheduleSearchError",
+    "SearchRunError",
+    "VerificationError",
+    "VerificationGuardError"
+  ],
+  "backend/contexts/optimization/domain/gates/bhp_tolerance.py": [
+    "BhpTolerance",
+    "as_provenance",
+    "bhp_exceedance_bar",
+    "measured",
+    "surrogate_blocking_violations"
+  ],
+  "backend/contexts/optimization/domain/gates/incumbent.py": [
+    "IncumbentRecord",
+    "IncumbentRegistry",
+    "as_dict",
+    "as_list",
+    "current",
+    "incumbent_gate_passed",
+    "promote",
+    "records"
+  ],
+  "backend/contexts/optimization/domain/gates/ood_threshold.py": [
+    "OodThreshold",
+    "as_provenance"
+  ],
+  "backend/contexts/optimization/domain/gates/opm_budget.py": [
+    "RunBudget",
+    "as_dict",
+    "as_provenance",
+    "close_run_clock",
+    "measure_run_budget",
+    "read_opm_budget",
+    "start_run_clock"
+  ],
+  "backend/contexts/optimization/domain/injection_budget.py": [
+    "InjectionBudget",
+    "admit_candidate",
+    "as_trace_entry",
+    "injection_budget_for_step",
+    "unconstrained"
+  ],
+  "backend/contexts/optimization/domain/interface.py": [
+    "NominalObjective",
+    "Objective",
+    "ProvenanceSource",
+    "ScenarioEvaluator",
+    "ScenarioOutcome"
+  ],
+  "backend/contexts/optimization/domain/linalg.py": [
+    "identity",
+    "jacobi_eigen",
+    "matrix_vector",
+    "symmetrize",
+    "transpose_matrix_vector"
+  ],
+  "backend/contexts/optimization/domain/observed_repair.py": [
+    "commissioning_controls",
+    "production_from_observation",
+    "repair_from_observation"
+  ],
+  "backend/contexts/optimization/domain/ood_penalty.py": [
+    "apply_ood_penalty",
+    "exceedance_record",
+    "format_ood_exceedances",
+    "format_ood_worst",
+    "ood_penalty_factor"
+  ],
+  "backend/contexts/optimization/domain/optimizer.py": [
+    "Evaluation",
+    "ObjectiveFunction",
+    "SearchReport",
+    "default_population",
+    "evaluations",
+    "feasible_found",
+    "feasible_history",
+    "is_better",
+    "of",
+    "optimize",
+    "size",
+    "to_theta",
+    "to_unit"
+  ],
+  "backend/contexts/optimization/domain/physics_gate.py": [
+    "full_physics_report",
+    "missing_invariants",
+    "physics_counters"
+  ],
+  "backend/contexts/optimization/domain/provenance.py": [
+    "lambda_sync_provenance",
+    "npv_blend_provenance"
+  ],
+  "backend/contexts/optimization/domain/search_environment.py": [
+    "SearchEnvironment",
+    "has_reference"
+  ],
+  "backend/contexts/optimization/domain/selection.py": [
+    "SearchOutcome",
+    "select_finalist"
+  ],
+  "backend/contexts/optimization/domain/verification_types.py": [
+    "CandidateCheck",
+    "ConvergenceCriterion",
+    "Retrainer",
+    "RoundReport",
+    "SurrogateVerdict",
+    "SurrogateVersion",
+    "TruthOracle",
+    "TruthVerdict",
+    "VerificationReport",
+    "converged_rounds",
+    "deviation",
+    "relative_deviation",
+    "table",
+    "total_runs"
+  ],
+  "backend/contexts/optimization/infrastructure/artifacts.py": [
+    "BundleVerdict",
+    "FileVerdict",
+    "RuntimeArtifacts",
+    "as_dict",
+    "exit_code",
+    "mismatched",
+    "ok",
+    "resolve_runtime_artifacts",
+    "validate_npv_scoring_is_unambiguous",
+    "validate_runtime_economic_head",
+    "verify_bundle"
+  ],
+  "backend/contexts/optimization/infrastructure/champion.py": [
+    "promote_champion"
+  ],
+  "backend/contexts/optimization/infrastructure/diagnostics_journal.py": [
+    "candidate_card"
+  ],
+  "backend/contexts/optimization/infrastructure/lambda_selection.py": [
+    "LambdaSelection",
+    "as_provenance",
+    "resolve_lambda_selection"
+  ],
+  "backend/contexts/optimization/infrastructure/ood_calibration.py": [
+    "OodThresholdDecision",
+    "as_provenance",
+    "resolve_ood_threshold"
+  ],
+  "backend/contexts/policy/application/hierarchy.py": [
+    "run_step"
+  ],
+  "backend/contexts/policy/domain/agents/base.py": [
     "Agent",
     "Bound",
     "BoundSense",
@@ -1118,18 +1360,18 @@
     "propose",
     "tightened_by"
   ],
-  "backend/domain/policy/agents/field.py": [
+  "backend/contexts/policy/domain/agents/field.py": [
     "FieldCoordinator",
     "allocate",
     "propose"
   ],
-  "backend/domain/policy/agents/group.py": [
+  "backend/contexts/policy/domain/agents/group.py": [
     "GroupAllocator",
     "decide",
     "propose",
     "trace_agent_for"
   ],
-  "backend/domain/policy/agents/pressure.py": [
+  "backend/contexts/policy/domain/agents/pressure.py": [
     "PressureAgent",
     "PressureCorridor",
     "PressureRestriction",
@@ -1149,13 +1391,13 @@
     "trace_for",
     "width_bar"
   ],
-  "backend/domain/policy/agents/projection.py": [
+  "backend/contexts/policy/domain/agents/projection.py": [
     "HardConstraints",
     "cap_for",
     "hard_constraints_from_case",
     "project_to_hard_constraints"
   ],
-  "backend/domain/policy/agents/registry.py": [
+  "backend/contexts/policy/domain/agents/registry.py": [
     "AgentRegistry",
     "by_level",
     "call_order",
@@ -1165,7 +1407,7 @@
     "rank_of",
     "with_agents"
   ],
-  "backend/domain/policy/agents/water.py": [
+  "backend/contexts/policy/domain/agents/water.py": [
     "WaterAgent",
     "WaterCeiling",
     "as_bound",
@@ -1176,26 +1418,26 @@
     "trace_for",
     "water_ceiling_for"
   ],
-  "backend/domain/policy/agents/well.py": [
+  "backend/contexts/policy/domain/agents/well.py": [
     "WellExecutor",
     "execute",
     "propose",
     "trace_agent_for"
   ],
-  "backend/domain/policy/budget.py": [
+  "backend/contexts/policy/domain/budget.py": [
     "baseline_injection_by_step",
     "injection_ceiling_for_well",
     "interval_produced_water_rate_m3_per_day",
     "liquid_limit_for_step",
     "production_floor_for_step"
   ],
-  "backend/domain/policy/economics.py": [
+  "backend/contexts/policy/domain/economics.py": [
     "annual_margin_rub",
     "breakeven_watercut",
     "oil_margin_rub_per_m3_liquid",
     "oil_margin_rub_per_t"
   ],
-  "backend/domain/policy/fixed_point.py": [
+  "backend/contexts/policy/domain/fixed_point.py": [
     "Evaluation",
     "Evaluator",
     "FixedPointResult",
@@ -1211,7 +1453,7 @@
     "resolve",
     "settled"
   ],
-  "backend/domain/policy/flags.py": [
+  "backend/contexts/policy/domain/flags.py": [
     "RuleFlags",
     "all_off",
     "feature_on",
@@ -1220,49 +1462,38 @@
     "with_enabled",
     "with_feature"
   ],
-  "backend/domain/policy/hierarchy.py": [
-    "run_step"
+  "backend/contexts/policy/domain/hierarchy_shared.py": [
+    "group_of",
+    "observations_by_group",
+    "restrict",
+    "wells_without_group"
   ],
-  "backend/domain/policy/levels.py": [
-    "FieldAllocation",
-    "GroupDecision",
-    "GroupLimit",
+  "backend/contexts/policy/domain/levels/__init__.py": [
     "HierarchyResult",
-    "HierarchyTrace",
-    "Level",
-    "LeveledTraceEntry",
-    "ProductionFloorCheck",
+    "injected_m3_per_day"
+  ],
+  "backend/contexts/policy/domain/levels/field.py": [
+    "FieldAllocation",
+    "GroupLimit",
     "allocate_field",
     "allocated_liquid_m3_per_day",
     "allocated_m3_per_day",
-    "as_entry",
-    "as_run_trace",
-    "attempted",
-    "binding_watercut_limit",
-    "by_agent",
-    "by_level",
-    "by_rule",
-    "check_production_floor",
-    "count_by_level",
-    "decide_group",
-    "execute_well",
     "field_limit_from_constraints",
-    "group_demand_rub_per_m3",
-    "group_liquid_demand_rub_per_day",
-    "group_of",
-    "injected_m3_per_day",
-    "levels_of",
-    "levels_present",
-    "observations_by_group",
-    "of",
-    "predicted_oil_t_per_day",
-    "restrict",
-    "rules_for_group",
-    "unreachable",
-    "watercut_cap_shutins",
-    "wells_without_group"
+    "of"
   ],
-  "backend/domain/policy/memory.py": [
+  "backend/contexts/policy/domain/levels/field_demand.py": [
+    "group_demand_rub_per_m3",
+    "group_liquid_demand_rub_per_day"
+  ],
+  "backend/contexts/policy/domain/levels/group.py": [
+    "GroupDecision",
+    "decide_group",
+    "rules_for_group"
+  ],
+  "backend/contexts/policy/domain/levels/well.py": [
+    "execute_well"
+  ],
+  "backend/contexts/policy/domain/memory.py": [
     "PolicyMemory",
     "WellMemory",
     "converted_at",
@@ -1278,50 +1509,65 @@
     "with_loss",
     "with_profit"
   ],
-  "backend/domain/policy/rules/__init__.py": [
+  "backend/contexts/policy/domain/policy.py": [
+    "OptimizerResult",
+    "Rule",
+    "ScenarioViolation",
+    "Theta",
+    "TraceEntry"
+  ],
+  "backend/contexts/policy/domain/production_floor.py": [
+    "ProductionFloorCheck",
+    "as_entry",
+    "attempted",
+    "check_production_floor",
+    "predicted_oil_t_per_day",
+    "unreachable"
+  ],
+  "backend/contexts/policy/domain/rules/__init__.py": [
     "apply_all",
     "apply_rule",
     "superseded"
   ],
-  "backend/domain/policy/rules/base.py": [
+  "backend/contexts/policy/domain/rules/base.py": [
     "PolicyRule",
     "RuleOutcome",
     "merge"
   ],
-  "backend/domain/policy/rules/r0.py": [
+  "backend/contexts/policy/domain/rules/r0.py": [
     "apply"
   ],
-  "backend/domain/policy/rules/r1.py": [
+  "backend/contexts/policy/domain/rules/r1.py": [
     "apply",
     "held_target",
     "marginal_value_rub_per_m3"
   ],
-  "backend/domain/policy/rules/r2.py": [
+  "backend/contexts/policy/domain/rules/r2.py": [
     "apply",
     "target_rate_m3_per_day"
   ],
-  "backend/domain/policy/rules/r3.py": [
+  "backend/contexts/policy/domain/rules/r3.py": [
     "advance",
     "apply",
     "reopen_threshold",
     "shut_is_confirmed"
   ],
-  "backend/domain/policy/rules/r4.py": [
+  "backend/contexts/policy/domain/rules/r4.py": [
     "annual_gain_rub",
     "apply"
   ],
-  "backend/domain/policy/rules/r5.py": [
+  "backend/contexts/policy/domain/rules/r5.py": [
     "apply",
     "compensation",
     "corrected_group_injection",
     "corridor_bounds"
   ],
-  "backend/domain/policy/rules/r6.py": [
+  "backend/contexts/policy/domain/rules/r6.py": [
     "annual_injection_value_rub",
     "apply",
     "payback_years"
   ],
-  "backend/domain/policy/rules/r7.py": [
+  "backend/contexts/policy/domain/rules/r7.py": [
     "apply",
     "cycle_cost_rub",
     "cycle_is_justified",
@@ -1330,7 +1576,7 @@
     "is_rest_phase",
     "measured_uplift_rub"
   ],
-  "backend/domain/policy/state.py": [
+  "backend/contexts/policy/domain/state.py": [
     "PolicyState",
     "RuleContext",
     "WellObservation",
@@ -1338,7 +1584,7 @@
     "producers",
     "watercut"
   ],
-  "backend/domain/policy/theta.py": [
+  "backend/contexts/policy/domain/theta.py": [
     "ThetaRegistry",
     "ThetaSpec",
     "bounds",
@@ -1360,7 +1606,7 @@
     "used",
     "without"
   ],
-  "backend/domain/policy/trace.py": [
+  "backend/contexts/policy/domain/trace.py": [
     "RunResultWithTrace",
     "RunTrace",
     "TraceCollector",
@@ -1386,7 +1632,102 @@
     "trace_hash",
     "wells"
   ],
-  "backend/domain/robustness/battery.py": [
+  "backend/contexts/policy/domain/trace_types.py": [
+    "HierarchyTrace",
+    "Level",
+    "LeveledTraceEntry",
+    "as_run_trace",
+    "by_agent",
+    "by_level",
+    "by_rule",
+    "count_by_level",
+    "levels_of",
+    "levels_present"
+  ],
+  "backend/contexts/policy/domain/watercut_shutins.py": [
+    "binding_watercut_limit",
+    "watercut_cap_shutins"
+  ],
+  "backend/contexts/reservoir/application/deck.py": [
+    "load_completions",
+    "load_oil_density_by_well",
+    "load_wellheads"
+  ],
+  "backend/contexts/reservoir/application/well_geometry.py": [
+    "build_wells_data",
+    "default_deck_path",
+    "export_wells_json",
+    "main",
+    "occupied_k_values",
+    "split_layers"
+  ],
+  "backend/contexts/reservoir/domain/errors.py": [
+    "OpmDeckError",
+    "PvtError",
+    "SummaryPlanError"
+  ],
+  "backend/contexts/reservoir/domain/horizon.py": [
+    "Horizon",
+    "default_horizon",
+    "history_offset",
+    "load_horizon"
+  ],
+  "backend/contexts/reservoir/domain/response.py": [
+    "ActiveControlMode",
+    "IntervalResponse",
+    "StateAtDate",
+    "StatePair",
+    "is_excluded_by_negative_rule",
+    "join_by_control_step",
+    "watercut"
+  ],
+  "backend/contexts/reservoir/infrastructure/opm_deck.py": [
+    "OpmDeckEmitter",
+    "emit"
+  ],
+  "backend/contexts/reservoir/infrastructure/opm_deck_files.py": [
+    "EmittedOpmDeck",
+    "EmittedSchedule",
+    "bundle_hash"
+  ],
+  "backend/contexts/reservoir/infrastructure/opm_deck_render.py": [
+    "flush",
+    "render_control_period_include",
+    "render_schedule_include",
+    "render_submission_history"
+  ],
+  "backend/contexts/reservoir/infrastructure/pvt.py": [
+    "Densities",
+    "OilBranch",
+    "OilTable",
+    "PvtRegion",
+    "PvtTables",
+    "WaterTable",
+    "close_branch",
+    "formation_volume_factor_at",
+    "gas_oil_ratio_at",
+    "load_pvt",
+    "oil_formation_volume_factor",
+    "parse_pvt",
+    "pressure_bar",
+    "region",
+    "region_count",
+    "saturated_rs",
+    "saturation_pressure_bar",
+    "viscosity_at",
+    "water_formation_volume_factor"
+  ],
+  "backend/contexts/reservoir/infrastructure/summary.py": [
+    "RegionPlan",
+    "SummaryConnection",
+    "SummaryPlan",
+    "build_region_plan",
+    "build_summary_plan",
+    "render_region_report_array",
+    "render_region_summary_include",
+    "render_summary_include"
+  ],
+  "backend/contexts/robustness/domain/battery.py": [
     "FragilityBattery",
     "Scenario",
     "Split",
@@ -1402,7 +1743,7 @@
     "of",
     "split_by_declaration"
   ],
-  "backend/domain/robustness/catalog.py": [
+  "backend/contexts/robustness/domain/catalog.py": [
     "BatteryBasis",
     "battery_of",
     "default_battery",
@@ -1411,7 +1752,30 @@
     "perturbations_of",
     "years"
   ],
-  "backend/domain/robustness/perturbation.py": [
+  "backend/contexts/robustness/domain/errors.py": [
+    "OodError",
+    "ScenarioDensityError"
+  ],
+  "backend/contexts/robustness/domain/ood.py": [
+    "Exceedance",
+    "FeatureRange",
+    "OodScore",
+    "ScoredPrediction",
+    "TrainingDomain",
+    "categories_of",
+    "degenerate",
+    "domain_of_inputs",
+    "exceedance",
+    "fit_domain",
+    "inside",
+    "predict_with_score",
+    "range_of",
+    "score",
+    "width",
+    "worst",
+    "worst_offenders"
+  ],
+  "backend/contexts/robustness/domain/perturbation.py": [
     "InfrastructureLimit",
     "InjectionCap",
     "LiquidCap",
@@ -1422,7 +1786,7 @@
     "WellsOut",
     "apply"
   ],
-  "backend/domain/robustness/regret.py": [
+  "backend/contexts/robustness/domain/regret.py": [
     "RegretReport",
     "ScenarioOutcome",
     "by_scenario",
@@ -1437,51 +1801,100 @@
     "violations",
     "worst"
   ],
-  "backend/domain/schedule/build.py": [
-    "ControlEventConflict",
-    "ScheduleBuildError",
-    "build_schedule",
-    "canonical_control_events",
-    "canonical_fixed_events",
-    "control_dates",
-    "deck_well_axis",
-    "detect_control_conflicts",
-    "initial_state_from_prefix",
-    "load_schedule",
-    "schedule_hash_parts"
+  "backend/contexts/robustness/domain/scenario_ood.py": [
+    "ScenarioDensityDomain",
+    "embed",
+    "is_inside",
+    "load",
+    "n_components",
+    "save",
+    "score",
+    "scores"
   ],
-  "backend/domain/schedule/canonical.py": [
-    "ScheduleCanonicalError",
-    "canonical_digest",
-    "canonical_hash_parts",
-    "canonical_part_hash",
-    "canonicalize",
-    "canonicalize_control_events",
-    "canonicalize_fixed_events",
-    "contracts_hash",
-    "find_control_conflicts",
-    "hash_canonical_schedule",
-    "hash_parts_raw",
-    "normalize_initial_state",
-    "normalize_well_state"
+  "backend/contexts/runs/application/run_projection.py": [
+    "project_run",
+    "project_runs"
   ],
-  "backend/domain/schedule/case_limits.py": [
-    "CaseLimitsError",
-    "CaseLimitsForecastRequired",
-    "CaseLimitsNotConverged",
-    "CaseLimitsOutcome",
-    "ProductionForecast",
-    "YearlyProduction",
-    "apply_case_limits",
-    "apply_case_limits_report",
-    "by_kind"
+  "backend/contexts/runs/application/web_runs.py": [
+    "WebRuns",
+    "comparison",
+    "list",
+    "new_run_id",
+    "recover_interrupted",
+    "root",
+    "start",
+    "validated_budget",
+    "validated_constraints",
+    "validated_mode",
+    "validated_run_id",
+    "write_json_document"
   ],
-  "backend/domain/schedule/emit.py": [
+  "backend/contexts/runs/application/workflow.py": [
+    "RunWorkflow",
+    "full",
+    "search",
+    "submit",
+    "verify"
+  ],
+  "backend/contexts/runs/application/workflow_models.py": [
+    "RunManifest",
+    "RunProvenance",
+    "RunRequest",
+    "SubmissionReport",
+    "Verification",
+    "WorkflowStatus",
+    "as_dict",
+    "from_dict"
+  ],
+  "backend/contexts/runs/domain/errors.py": [
+    "RunBusyError",
+    "RunNotFoundError",
+    "RunRequestError",
+    "SubmissionError"
+  ],
+  "backend/contexts/runs/domain/run_artifact.py": [
+    "RunArtifact"
+  ],
+  "backend/contexts/runs/domain/run_result.py": [
+    "FinalNpvArtifact",
+    "OpmRunArtifact",
+    "ResponseArtifact",
+    "RunResult",
+    "RunStatus",
+    "SubmissionArtifact",
+    "SubmissionBundle",
+    "SummarySpec"
+  ],
+  "backend/contexts/runs/infrastructure/job_store.py": [
+    "JobStore",
+    "artifact",
+    "job_paths",
+    "read",
+    "recover_interrupted",
+    "run_directory",
+    "write"
+  ],
+  "backend/contexts/runs/infrastructure/opm_log_reader.py": [
+    "flow_seconds_of",
+    "logs_of",
+    "progress_of",
+    "tail_of"
+  ],
+  "backend/contexts/runs/infrastructure/provenance.py": [
+    "git_commit",
+    "git_dirty",
+    "opm_image",
+    "package_versions",
+    "python_version"
+  ],
+  "backend/contexts/runs/infrastructure/worker_process.py": [
+    "run_worker"
+  ],
+  "backend/contexts/schedule/application/emit.py": [
     "EmitStats",
     "EmittedSchedule",
     "RoundTripReport",
     "ScheduleDivergence",
-    "ScheduleEmitError",
     "ScheduleRoundTripReport",
     "content_hash",
     "emit_from_deck",
@@ -1496,23 +1909,61 @@
     "verify_schedule_round_trip",
     "write"
   ],
-  "backend/domain/schedule/json_io.py": [
-    "load_schedule_json"
+  "backend/contexts/schedule/domain/build.py": [
+    "ControlEventConflict",
+    "build_schedule",
+    "canonical_control_events",
+    "canonical_fixed_events",
+    "control_dates",
+    "deck_well_axis",
+    "detect_control_conflicts",
+    "initial_state_from_prefix",
+    "load_schedule",
+    "schedule_hash_parts"
   ],
-  "backend/domain/schedule/lossless.py": [
+  "backend/contexts/schedule/domain/canonical.py": [
+    "canonical_digest",
+    "canonical_hash_parts",
+    "canonical_part_hash",
+    "canonicalize",
+    "canonicalize_control_events",
+    "canonicalize_fixed_events",
+    "contracts_hash",
+    "find_control_conflicts",
+    "hash_canonical_schedule",
+    "hash_parts_raw",
+    "normalize_initial_state",
+    "normalize_well_state"
+  ],
+  "backend/contexts/schedule/domain/case_limits.py": [
+    "CaseLimitsForecastRequired",
+    "CaseLimitsNotConverged",
+    "CaseLimitsOutcome",
+    "ProductionForecast",
+    "YearlyProduction",
+    "apply_case_limits",
+    "apply_case_limits_report",
+    "by_kind"
+  ],
+  "backend/contexts/schedule/domain/errors.py": [
+    "CaseLimitsError",
+    "ReplayError",
+    "ScheduleBuildError",
+    "ScheduleCanonicalError",
+    "ScheduleEmitError",
+    "ScheduleParseError"
+  ],
+  "backend/contexts/schedule/domain/lossless.py": [
     "LosslessBlock",
-    "LosslessEmitter",
     "ParsedSchedule",
-    "ScheduleParseError",
     "block_records",
-    "emit",
+    "emit_lossless",
     "fixed_blocks",
     "line_keyword",
     "parse_schedule"
   ],
-  "backend/domain/schedule/replay.py": [
+  "backend/contexts/schedule/domain/replay.py": [
     "Conversion",
-    "ReplayError",
     "ReplayResult",
     "freeze",
     "history_blocks",
@@ -1520,155 +1971,258 @@
     "replay_initial_state",
     "touch"
   ],
-  "backend/domain/schedule/validate.py": [
+  "backend/contexts/schedule/domain/schedule.py": [
+    "Availability",
+    "ControlEvent",
+    "EventKind",
+    "FixedDeckEvent",
+    "OperatingStatus",
+    "Role",
+    "Schedule",
+    "ScheduleMeta",
+    "WellState"
+  ],
+  "backend/contexts/schedule/domain/validate/deck.py": [
+    "check_conflicts",
+    "check_constraints",
+    "check_fixed_layer",
+    "fixed_layer_hash"
+  ],
+  "backend/contexts/schedule/domain/validate/events.py": [
     "CandidateEvent",
+    "as_candidate",
+    "candidates"
+  ],
+  "backend/contexts/schedule/domain/validate/roles.py": [
+    "check_roles_and_conversions",
+    "commissioning_roles",
+    "commissioning_steps"
+  ],
+  "backend/contexts/schedule/domain/validate/setpoints.py": [
+    "check_lrat_ceiling",
+    "check_setpoint_ranges",
+    "check_step_range"
+  ],
+  "backend/contexts/schedule/domain/validate/static_validation.py": [
+    "validate_static"
+  ],
+  "backend/contexts/schedule/domain/validate/vocabulary.py": [
     "ConstraintCheck",
     "StaticValidationError",
     "ValidationReport",
     "Violation",
     "ViolationKind",
-    "as_candidate",
     "as_dict",
     "by_kind",
-    "candidates",
-    "check_conflicts",
-    "check_constraints",
-    "check_fixed_layer",
-    "check_lrat_ceiling",
-    "check_roles_and_conversions",
-    "check_setpoint_ranges",
-    "check_step_range",
-    "commissioning_roles",
-    "commissioning_steps",
     "counts",
-    "fixed_layer_hash",
     "format",
     "ok",
-    "raise_if_violated",
-    "validate_static"
+    "raise_if_violated"
   ],
-  "backend/domain/schedule/validate_dynamic.py": [
+  "backend/contexts/schedule/domain/validate_dynamic.py": [
+    "check_dynamic_constraints",
+    "validate_dynamic"
+  ],
+  "backend/contexts/schedule/domain/validation/checks/__init__.py": [
+    "DynamicCheck",
+    "check_named"
+  ],
+  "backend/contexts/schedule/domain/validation/checks/bhp_limits.py": [
+    "bhp_constraint_check",
+    "check_bhp_limits"
+  ],
+  "backend/contexts/schedule/domain/validation/checks/compensation_totals.py": [
+    "reservoir_step_totals"
+  ],
+  "backend/contexts/schedule/domain/validation/checks/control_modes.py": [
+    "check_control_modes"
+  ],
+  "backend/contexts/schedule/domain/validation/checks/intent_versus_fact.py": [
+    "check_intent_versus_fact"
+  ],
+  "backend/contexts/schedule/domain/validation/checks/interval_signs.py": [
+    "check_interval_signs"
+  ],
+  "backend/contexts/schedule/domain/validation/checks/material_balance.py": [
+    "check_material_balance"
+  ],
+  "backend/contexts/schedule/domain/validation/checks/pressure.py": [
+    "check_field_pressure",
+    "check_region_pressure"
+  ],
+  "backend/contexts/schedule/domain/validation/checks/response_axes.py": [
+    "check_response_axes"
+  ],
+  "backend/contexts/schedule/domain/validation/checks/role_consistency.py": [
+    "check_role_consistency"
+  ],
+  "backend/contexts/schedule/domain/validation/checks/target_ratio.py": [
+    "check_target_ratio"
+  ],
+  "backend/contexts/schedule/domain/validation/coverage.py": [
+    "constraint_fields_to_cover",
+    "verified_constraint_checks"
+  ],
+  "backend/contexts/schedule/domain/validation/interpreter.py": [
+    "control_step_of_level",
+    "control_step_pressures",
+    "level_deck_date_index",
+    "year_of_step"
+  ],
+  "backend/contexts/schedule/domain/validation/kinds.py": [
+    "constraint_kinds"
+  ],
+  "backend/contexts/schedule/domain/validation/report.py": [
     "DynamicReport",
     "DynamicValidationError",
     "FieldSeries",
     "RegionSeries",
     "TargetRatio",
     "achieved",
-    "bhp_constraint_check",
     "blocking_dynamic_violation_kinds",
     "blocking_kinds_for_compensation",
     "blocking_ok",
     "blocking_violations",
     "by_kind",
-    "check_bhp_limits",
-    "check_control_modes",
-    "check_dynamic_constraints",
-    "check_field_pressure",
-    "check_intent_versus_fact",
-    "check_interval_signs",
-    "check_material_balance",
-    "check_region_pressure",
-    "check_response_axes",
-    "check_role_consistency",
-    "check_target_ratio",
-    "constraint_fields_to_cover",
-    "constraint_kinds",
-    "control_step_of_level",
-    "control_step_pressures",
     "counts",
     "format",
     "has_material_balance",
     "has_regions",
-    "level_deck_date_index",
     "modes",
     "ok",
     "ordered_violation_kinds",
     "raise_if_violated",
     "ratio",
     "regions",
-    "reservoir_step_totals",
     "undershooting",
-    "validate_dynamic",
-    "verified_constraint_checks",
-    "violations",
-    "year_of_step"
+    "violations"
   ],
-  "backend/domain/schedule/wcon.py": [
+  "backend/contexts/schedule/domain/wcon.py": [
     "commissioning_state"
   ],
-  "backend/infrastructure/llm/anthropic_chat.py": [
-    "AnthropicChatClient",
-    "model",
-    "provider",
-    "stream"
+  "backend/contexts/schedule/infrastructure/json_io.py": [
+    "load_schedule_json"
   ],
-  "backend/infrastructure/llm/chat.py": [
-    "ChatClient",
-    "model",
-    "provider",
-    "stream"
+  "backend/contexts/showcase/application/base_artifact.py": [
+    "BaseArtifactResult",
+    "build_base_artifact",
+    "real_meta"
   ],
-  "backend/infrastructure/llm/chat_events.py": [
-    "ChatMessage",
-    "Done",
-    "TextDelta",
-    "ToolCall",
-    "ToolSpec"
+  "backend/contexts/showcase/application/build_showcase.py": [
+    "build_demo",
+    "export_scenario",
+    "main"
   ],
-  "backend/infrastructure/llm/client.py": [
-    "LlmClient",
-    "complete"
+  "backend/contexts/showcase/application/champion_export.py": [
+    "main"
   ],
-  "backend/infrastructure/llm/diagnostics.py": [
-    "Finding",
-    "TextClient",
-    "Thresholds",
-    "build_diagnosis_prompt",
+  "backend/contexts/showcase/application/exporters/ablation_view.py": [
+    "ablation_meta",
+    "build_ablation",
+    "export_ablation_json"
+  ],
+  "backend/contexts/showcase/application/exporters/compensation_view.py": [
+    "compensation_norm",
+    "reservoir_compensation"
+  ],
+  "backend/contexts/showcase/application/exporters/graph_view.py": [
+    "build_lambda_graph",
+    "export_graph_json",
+    "file_sha256",
+    "lambda_provenance"
+  ],
+  "backend/contexts/showcase/application/exporters/hierarchy_view.py": [
+    "build_hierarchy",
+    "export_hierarchy_json",
+    "export_hierarchy_steps",
+    "run_hierarchy_steps",
+    "split_hierarchy"
+  ],
+  "backend/contexts/showcase/application/exporters/maps_view.py": [
+    "DeckGrid",
+    "bounds",
+    "build_index",
+    "categorical_codes",
+    "cell_centres",
+    "cells",
+    "cube",
+    "default_grid_path",
+    "default_regs_path",
+    "export_maps",
+    "layer",
+    "layer_tops",
+    "load_wells",
+    "main",
+    "quantise",
+    "read_values"
+  ],
+  "backend/contexts/showcase/application/exporters/npv_view.py": [
+    "build_npv_by_well",
+    "discounted_tax_for_well",
+    "export_npv_json"
+  ],
+  "backend/contexts/showcase/application/exporters/physics_view.py": [
+    "ScenarioPhysics",
+    "admissible",
     "complete",
-    "detect_all",
-    "detect_injection_response_lag",
-    "detect_injection_without_response",
-    "detect_liquid_jump_flat_oil",
-    "detect_oil_rise_without_liquid",
-    "detect_pressure_drop_at_high_rates",
-    "detect_wct_rise_without_oil",
-    "diagnose"
+    "from_dict",
+    "from_report",
+    "physics_json"
   ],
-  "backend/infrastructure/llm/explainer.py": [
-    "DecisionExplanation",
-    "build_explanation_prompt",
-    "explain",
-    "explain_decision",
-    "export_explanations_json"
+  "backend/contexts/showcase/application/exporters/timeline.py": [
+    "build_timeline",
+    "build_trace",
+    "export_timeline_json",
+    "export_trace_json"
   ],
-  "backend/infrastructure/llm/fake_chat.py": [
-    "FakeChatClient",
-    "model",
-    "provider",
-    "stream",
-    "turns"
+  "backend/contexts/showcase/application/notices.py": [
+    "apply_notice",
+    "notice_fields"
   ],
-  "backend/infrastructure/llm/openrouter.py": [
-    "OpenRouterClient",
-    "UpstreamError",
-    "absorb",
-    "drain",
-    "model",
-    "parse_sse_lines",
-    "provider",
-    "stream"
+  "backend/contexts/showcase/application/plan_export.py": [
+    "main"
   ],
-  "backend/infrastructure/llm/provider.py": [
-    "NoApiKeyError",
-    "build_client"
+  "backend/contexts/showcase/application/run_summary.py": [
+    "export_run_summary"
   ],
-  "backend/infrastructure/llm/tools_format.py": [
-    "to_anthropic_messages",
-    "to_anthropic_tools",
-    "to_openai_messages",
-    "to_openai_tools"
+  "backend/contexts/showcase/application/scenarios.py": [
+    "ScenarioRobustness",
+    "WorstRegret",
+    "build_scenario_index",
+    "export_scenarios_json"
   ],
-  "backend/infrastructure/opm/base_run.py": [
+  "backend/contexts/showcase/application/showcase_meta.py": [
+    "confirmed_base_robustness",
+    "deck_scale",
+    "demo_meta",
+    "hierarchy_meta"
+  ],
+  "backend/contexts/showcase/application/showcase_script.py": [
+    "build_demo_script",
+    "export_demo_script_json",
+    "field_events"
+  ],
+  "backend/contexts/showcase/infrastructure/artifact_io.py": [
+    "dump_bundle",
+    "load_bundle"
+  ],
+  "backend/contexts/showcase/infrastructure/synthetic_artifact.py": [
+    "build_demo_artifact"
+  ],
+  "backend/contexts/showcase/infrastructure/synthetic_response.py": [
+    "interval_rows",
+    "state_rows"
+  ],
+  "backend/contexts/showcase/infrastructure/synthetic_rng.py": [
+    "Rng",
+    "between",
+    "control_events",
+    "demo_hash",
+    "initial_state",
+    "roles_of",
+    "unit"
+  ],
+  "backend/contexts/simulation/application/baseline_diagnostics.py": [
     "BaseRunReport",
     "ConversionCheck",
     "FieldSeries",
@@ -1688,7 +2242,50 @@
     "reservoir_factors_for_steps",
     "run_base_case"
   ],
-  "backend/infrastructure/opm/cache.py": [
+  "backend/contexts/simulation/application/submission.py": [
+    "IdentityCheck",
+    "SubmissionResult",
+    "failed_identities",
+    "npv_methodology",
+    "sound",
+    "submit_schedule"
+  ],
+  "backend/contexts/simulation/domain/errors.py": [
+    "DatasetError",
+    "DatasetPlanError",
+    "OpmRunnerError",
+    "ResponseLoaderError",
+    "SubmissionTractError"
+  ],
+  "backend/contexts/simulation/domain/perturbation_design.py": [
+    "MaterializedSchedule",
+    "commissioned_wells",
+    "materialize",
+    "role_of"
+  ],
+  "backend/contexts/simulation/domain/perturbation_plan.py": [
+    "build_plan"
+  ],
+  "backend/contexts/simulation/domain/perturbation_spec.py": [
+    "BaselineProfile",
+    "ConversionToggle",
+    "LevelPerturbation",
+    "PerturbationFamily",
+    "PerturbationPlan",
+    "PerturbationSpec",
+    "PlanConfig",
+    "ShutdownWindow",
+    "UnreachableTarget",
+    "baseline_profile",
+    "by_family",
+    "controllable",
+    "dataset_base_schedule",
+    "families",
+    "n_unreachable_targets",
+    "plan_hash",
+    "spec_hash"
+  ],
+  "backend/contexts/simulation/infrastructure/cache.py": [
     "CachingOpmRunner",
     "RunCache",
     "cache_key",
@@ -1697,72 +2294,45 @@
     "run_data_file",
     "store"
   ],
-  "backend/infrastructure/opm/dataset.py": [
-    "DatasetBuildReport",
-    "DatasetError",
+  "backend/contexts/simulation/infrastructure/dataset.py": [
     "DatasetGenerator",
+    "base_schedule",
+    "build",
+    "emit_deck",
+    "prepare",
+    "retain_schedule",
+    "runner",
+    "schedule_dir",
+    "schedule_keys",
+    "work"
+  ],
+  "backend/contexts/simulation/infrastructure/dataset_manifest.py": [
+    "DatasetBuildReport",
     "DatasetManifest",
     "DatasetSample",
     "RunMetadata",
     "SkippedScenario",
     "append",
-    "base_schedule",
-    "build",
     "by_family",
     "completed_scenarios",
     "dataset_hash",
     "default_max_workers",
-    "emit_deck",
     "from_json",
     "n_from_cache",
     "n_simulated",
-    "prepare",
     "read",
-    "retain_schedule",
-    "runner",
-    "schedule_dir",
-    "schedule_keys",
-    "to_json",
-    "work"
+    "to_json"
   ],
-  "backend/infrastructure/opm/dataset_plan.py": [
-    "BaselineProfile",
-    "ConversionToggle",
-    "DatasetPlanError",
-    "LevelPerturbation",
-    "MaterializedSchedule",
-    "PerturbationFamily",
-    "PerturbationPlan",
-    "PerturbationSpec",
-    "PlanConfig",
-    "ShutdownWindow",
-    "UnreachableTarget",
-    "baseline_profile",
-    "build_plan",
-    "by_family",
-    "commissioned_wells",
-    "controllable",
-    "dataset_base_schedule",
-    "families",
-    "materialize",
-    "n_unreachable_targets",
-    "plan_hash",
-    "role_of",
-    "spec_hash"
+  "backend/contexts/simulation/infrastructure/deck_hashes.py": [
+    "DeckHashes",
+    "deck_hashes",
+    "static_deck_hash",
+    "summary_spec_hash"
   ],
-  "backend/infrastructure/opm/opm_deck.py": [
-    "EmittedOpmDeck",
-    "EmittedSchedule",
-    "OpmDeckEmitter",
-    "OpmDeckError",
-    "bundle_hash",
-    "emit",
-    "flush",
-    "render_control_period_include",
-    "render_schedule_include",
-    "render_submission_history"
+  "backend/contexts/simulation/infrastructure/eclipse_binary.py": [
+    "load_density_by_pvtnum"
   ],
-  "backend/infrastructure/opm/preflight.py": [
+  "backend/contexts/simulation/infrastructure/preflight.py": [
     "DockerPreflightError",
     "ImageReference",
     "PreflightProblem",
@@ -1774,43 +2344,13 @@
     "resolve_image_reference",
     "run_docker"
   ],
-  "backend/infrastructure/opm/pvt.py": [
-    "Densities",
-    "OilBranch",
-    "OilTable",
-    "PvtError",
-    "PvtRegion",
-    "PvtTables",
-    "WaterTable",
-    "close_branch",
-    "formation_volume_factor_at",
-    "gas_oil_ratio_at",
-    "load_pvt",
-    "oil_formation_volume_factor",
-    "parse_pvt",
-    "pressure_bar",
-    "region",
-    "region_count",
-    "saturated_rs",
-    "saturation_pressure_bar",
-    "viscosity_at",
-    "water_formation_volume_factor"
-  ],
-  "backend/infrastructure/opm/response_loader.py": [
+  "backend/contexts/simulation/infrastructure/response_loader.py": [
     "ResponseLoader",
-    "ResponseLoaderError",
-    "is_commissioned",
-    "load",
-    "load_density_by_pvtnum",
-    "operating_status",
-    "setpoint"
+    "load"
   ],
-  "backend/infrastructure/opm/runner.py": [
-    "DeckHashes",
+  "backend/contexts/simulation/infrastructure/runner.py": [
     "OpmRunner",
-    "OpmRunnerError",
     "budget_journal_path",
-    "deck_hashes",
     "default_run_as_user",
     "image_reference",
     "mount_path",
@@ -1820,88 +2360,20 @@
     "resolve_initiator",
     "result",
     "run",
-    "run_data_file",
-    "static_deck_hash",
-    "summary_spec_hash"
+    "run_data_file"
   ],
-  "backend/infrastructure/opm/submission.py": [
-    "IdentityCheck",
-    "SubmissionResult",
-    "SubmissionTractError",
-    "failed_identities",
-    "npv_methodology",
-    "sound",
-    "submit_schedule"
+  "backend/contexts/simulation/infrastructure/well_timeline.py": [
+    "build_well_timelines",
+    "is_commissioned",
+    "operating_status",
+    "setpoint"
   ],
-  "backend/infrastructure/opm/summary.py": [
-    "RegionPlan",
-    "SummaryConnection",
-    "SummaryPlan",
-    "SummaryPlanError",
-    "build_region_plan",
-    "build_summary_plan",
-    "render_region_report_array",
-    "render_region_summary_include",
-    "render_summary_include"
-  ],
-  "backend/infrastructure/resources.py": [
-    "chdd_python_dir",
-    "docs_root",
-    "find_docs_root",
-    "model_z_dir",
-    "normatives_xlsx"
-  ],
-  "backend/ml/surrogate/adapter.py": [
-    "AdapterError",
+  "backend/contexts/surrogate/application/adapter.py": [
     "ResponseAdapter",
     "adapt"
   ],
-  "backend/ml/surrogate/crm.py": [
-    "BaselineComparison",
-    "CrmBaseline",
-    "CrmError",
-    "CrmEvaluation",
-    "CrmMetrics",
-    "CrmModel",
-    "CrmSplit",
-    "allocation_of",
-    "compare_to_baseline",
-    "fit",
-    "generalization_gap",
-    "holdout_intervals",
-    "holdout_steps",
-    "injector_allocation_sums",
-    "max_injector_allocation_sum",
-    "predict_liquid",
-    "spearman",
-    "train_steps"
-  ],
-  "backend/ml/surrogate/cycle.py": [
-    "CycleError",
-    "CycleState",
-    "event",
-    "main",
-    "on_epoch",
-    "phase",
-    "resume_extra",
-    "run",
-    "save",
-    "stage",
-    "update_stage"
-  ],
-  "backend/ml/surrogate/dashboard.py": [
-    "Handler",
-    "collect_status",
-    "do_GET",
-    "do_HEAD",
-    "do_POST",
-    "log_message",
-    "main",
-    "status"
-  ],
-  "backend/ml/surrogate/ensemble.py": [
+  "backend/contexts/surrogate/application/ensemble.py": [
     "TrajectoryEnsemble",
-    "TrajectoryEnsembleError",
     "dataset_hash",
     "domain",
     "load",
@@ -1910,83 +2382,163 @@
     "wells",
     "write_manifest"
   ],
-  "backend/ml/surrogate/features.py": [
-    "FeatureContext",
-    "FeatureError",
-    "HistoryTargets",
-    "LambdaEdgeFeature",
-    "ScheduleFeatureizer",
-    "SurrogateInput",
-    "WellStepFeatures",
-    "effective_target",
-    "from_contract",
-    "history_targets_from_deck",
-    "transform"
-  ],
-  "backend/ml/surrogate/metrics.py": [
-    "AcceptanceVerdict",
-    "MetricsError",
-    "NpvRankingMetrics",
-    "StateMetrics",
-    "SurrogateMetrics",
-    "WatercutMetrics",
-    "WellTrajectory",
-    "accept_against_baseline",
-    "excluded_deck_steps",
-    "first_interval_end_deck_step",
-    "margin",
-    "money_absolute_error_rub",
-    "ranking_metrics",
-    "state_metrics",
-    "watercut_metrics"
-  ],
-  "backend/ml/surrogate/model.py": [
-    "EpochMetrics",
-    "ModelConfig",
-    "Standardizer",
-    "SurrogateModelError",
-    "TrainingExample",
-    "TrainingResult",
+  "backend/contexts/surrogate/application/model.py": [
     "TrajectorySurrogate",
     "fit",
     "fit_tensors",
-    "forward",
     "initialize",
-    "inverse",
     "load",
     "predict",
+    "save"
+  ],
+  "backend/contexts/surrogate/application/model_training.py": [
+    "fit_tensors"
+  ],
+  "backend/contexts/surrogate/application/pipeline/cli.py": [
+    "main",
+    "resume_extra",
+    "run"
+  ],
+  "backend/contexts/surrogate/application/pipeline/state.py": [
+    "CycleState",
+    "event",
+    "phase",
     "save",
+    "stage",
+    "update_stage"
+  ],
+  "backend/contexts/surrogate/application/pipeline/training.py": [
+    "on_epoch"
+  ],
+  "backend/contexts/surrogate/application/train/cli.py": [
+    "main"
+  ],
+  "backend/contexts/surrogate/application/train/evaluation.py": [
+    "evaluate",
+    "money_rub_per_unit"
+  ],
+  "backend/contexts/surrogate/application/train/samples.py": [
+    "Split",
+    "split_samples"
+  ],
+  "backend/contexts/surrogate/application/validation.py": [
     "split_examples",
-    "target_mae",
+    "target_mae"
+  ],
+  "backend/contexts/surrogate/domain/crm/fitting.py": [
+    "CrmBaseline",
+    "fit"
+  ],
+  "backend/contexts/surrogate/domain/crm/prediction.py": [
+    "compare_to_baseline",
+    "predict_liquid"
+  ],
+  "backend/contexts/surrogate/domain/crm/statistics.py": [
+    "spearman"
+  ],
+  "backend/contexts/surrogate/domain/crm/types.py": [
+    "BaselineComparison",
+    "CrmEvaluation",
+    "CrmMetrics",
+    "CrmModel",
+    "CrmSplit",
+    "allocation_of",
+    "generalization_gap",
+    "holdout_intervals",
+    "holdout_steps",
+    "injector_allocation_sums",
+    "max_injector_allocation_sum",
+    "train_steps"
+  ],
+  "backend/contexts/surrogate/domain/errors.py": [
+    "AdapterError",
+    "BlockNpvHeadError",
+    "CrmError",
+    "CycleError",
+    "FeatureError",
+    "MetricsError",
+    "ModelZContextError",
+    "NpvCalibrationError",
+    "PhysicsCheckError",
+    "ScenarioNpvHeadError",
+    "SurrogateModelError",
+    "TrainingCommandError",
+    "TrajectoryEnsembleError"
+  ],
+  "backend/contexts/surrogate/domain/features/deck.py": [
+    "history_targets_from_deck"
+  ],
+  "backend/contexts/surrogate/domain/features/featureizer.py": [
+    "ScheduleFeatureizer",
     "transform"
   ],
-  "backend/ml/surrogate/model_z_context.py": [
-    "ModelZContextError",
-    "ModelZFeatureArtifact",
-    "build_model_z_context",
-    "estimate_training_lambda",
-    "load",
-    "save",
-    "to_payload"
+  "backend/contexts/surrogate/domain/features/types.py": [
+    "FeatureContext",
+    "HistoryTargets",
+    "LambdaEdgeFeature",
+    "SurrogateInput",
+    "WellStepFeatures",
+    "effective_target",
+    "from_contract"
   ],
-  "backend/ml/surrogate/npv_block_head.py": [
+  "backend/contexts/surrogate/domain/metrics/acceptance.py": [
+    "AcceptanceVerdict",
+    "SurrogateMetrics",
+    "accept_against_baseline",
+    "margin"
+  ],
+  "backend/contexts/surrogate/domain/metrics/ranking.py": [
+    "NpvRankingMetrics",
+    "ranking_metrics"
+  ],
+  "backend/contexts/surrogate/domain/metrics/state.py": [
+    "StateMetrics",
+    "WellTrajectory",
+    "excluded_deck_steps",
+    "f1_score",
+    "first_interval_end_deck_step",
+    "money_absolute_error_rub",
+    "state_metrics"
+  ],
+  "backend/contexts/surrogate/domain/metrics/watercut.py": [
+    "WatercutMetrics",
+    "watercut_metrics"
+  ],
+  "backend/contexts/surrogate/domain/model_types.py": [
+    "EpochMetrics",
+    "ModelConfig",
+    "Standardizer",
+    "TrainingExample",
+    "TrainingResult",
+    "fit",
+    "inverse",
+    "transform"
+  ],
+  "backend/contexts/surrogate/domain/network.py": [
+    "forward"
+  ],
+  "backend/contexts/surrogate/domain/npv_block_head/fitting.py": [
+    "fit_block_head"
+  ],
+  "backend/contexts/surrogate/domain/npv_block_head/head.py": [
     "BlockKernelNpvHead",
-    "BlockNpvHeadError",
-    "block_implementation_hash",
-    "direct_npv_feature_set",
-    "fit_block_head",
     "load",
-    "load_direct_npv_head",
     "predict",
     "predict_vector",
     "predict_vectors",
     "predict_vectors_raw",
-    "save",
+    "save"
+  ],
+  "backend/contexts/surrogate/domain/npv_block_head/kernel.py": [
+    "block_implementation_hash"
+  ],
+  "backend/contexts/surrogate/domain/npv_block_head/loading.py": [
+    "direct_npv_feature_set",
+    "load_direct_npv_head",
     "validate_direct_npv_head_context"
   ],
-  "backend/ml/surrogate/npv_calibration.py": [
+  "backend/contexts/surrogate/domain/npv_calibration.py": [
     "NpvCalibration",
-    "NpvCalibrationError",
     "apply",
     "bias",
     "calibration_metrics",
@@ -1995,14 +2547,12 @@
     "mae",
     "save"
   ],
-  "backend/ml/surrogate/npv_economic_features.py": [
-    "ScenarioNpvHeadError",
+  "backend/contexts/surrogate/domain/npv_economic_features.py": [
     "feature_implementation_hash",
     "scenario_feature_vector"
   ],
-  "backend/ml/surrogate/npv_head.py": [
+  "backend/contexts/surrogate/domain/npv_head.py": [
     "ScenarioNpvHead",
-    "ScenarioNpvHeadError",
     "domain_distance_vectors",
     "domain_radius_rms",
     "domain_score_vectors",
@@ -2012,33 +2562,24 @@
     "predict_with_domain",
     "scenario_feature_vector"
   ],
-  "backend/ml/surrogate/npv_target.py": [
+  "backend/contexts/surrogate/domain/npv_target.py": [
     "validate_target_provenance"
   ],
-  "backend/ml/surrogate/ood.py": [
-    "Exceedance",
-    "FeatureRange",
-    "OodError",
-    "OodScore",
-    "ScoredPrediction",
-    "TrainingDomain",
-    "categories_of",
-    "degenerate",
-    "domain_of_inputs",
-    "exceedance",
-    "fit_domain",
-    "inside",
-    "predict_with_score",
-    "range_of",
-    "score",
-    "width",
-    "worst",
-    "worst_offenders"
+  "backend/contexts/surrogate/domain/physics_checks/combined.py": [
+    "check_physics"
   ],
-  "backend/ml/surrogate/physics_checks.py": [
+  "backend/contexts/surrogate/domain/physics_checks/pairwise.py": [
+    "check_pair",
+    "events",
+    "injection_only_pair",
+    "lambda_column_sums"
+  ],
+  "backend/contexts/surrogate/domain/physics_checks/single.py": [
+    "check_prediction"
+  ],
+  "backend/contexts/surrogate/domain/physics_checks/types.py": [
     "BhpLimits",
     "Invariant",
-    "PhysicsCheckError",
     "PhysicsFlag",
     "PhysicsReport",
     "Severity",
@@ -2047,98 +2588,45 @@
     "as_dict",
     "blocking_count",
     "ceiling_for",
-    "check_pair",
-    "check_physics",
-    "check_prediction",
     "complete",
     "counts",
-    "events",
     "examples",
     "floor_for",
     "from_schedule",
-    "injection_only_pair",
-    "lambda_column_sums",
     "n_flags",
     "severity_of",
     "usable",
     "warning_count"
   ],
-  "backend/ml/surrogate/raw_model_output.py": [
+  "backend/contexts/surrogate/domain/predictor.py": [
+    "TrajectoryPredictor",
+    "predict"
+  ],
+  "backend/contexts/surrogate/domain/raw_model_output.py": [
     "RawModelOutput",
     "RawWellStepPrediction"
   ],
-  "backend/ml/surrogate/scenario_ood.py": [
-    "ScenarioDensityDomain",
-    "ScenarioDensityError",
-    "embed",
-    "is_inside",
-    "load",
-    "n_components",
-    "save",
-    "score",
-    "scores"
-  ],
-  "backend/ml/surrogate/schedule_roles.py": [
+  "backend/contexts/surrogate/domain/schedule_roles.py": [
     "RoleTimeline",
     "build_role_timelines",
     "role"
   ],
-  "backend/ml/surrogate/train.py": [
-    "Split",
-    "TrainingCommandError",
-    "evaluate",
-    "main",
-    "money_rub_per_unit",
-    "split_samples"
+  "backend/contexts/surrogate/domain/vectorize.py": [
+    "build_features"
   ],
-  "backend/presentation/api/jarvis_server.py": [
-    "Handler",
-    "build_handler",
-    "do_DELETE",
-    "do_GET",
-    "do_OPTIONS",
-    "do_POST",
-    "log_message",
-    "serve"
+  "backend/contexts/surrogate/infrastructure/model_z_context.py": [
+    "ModelZFeatureArtifact",
+    "build_model_z_context",
+    "estimate_training_lambda",
+    "load",
+    "save",
+    "to_payload"
   ],
-  "backend/presentation/api/proxy.py": [
-    "forward",
-    "is_jarvis_path",
-    "upstream_base"
-  ],
-  "backend/presentation/api/service.py": [
-    "JarvisService",
-    "available",
-    "briefing",
-    "capabilities",
-    "console_context",
-    "disk",
-    "first",
-    "health",
-    "orchestrator",
-    "query_context",
-    "remove_session",
-    "session_events",
-    "session_rows",
-    "sessions",
-    "stt",
-    "tts"
-  ],
-  "backend/presentation/api/sse.py": [
-    "KeepAliveWriter",
-    "chunk",
-    "encode_event",
-    "error_event",
-    "final_chunk",
-    "start",
-    "stop",
-    "write"
-  ],
-  "backend/presentation/cli/emit.py": [
+  "backend/interfaces/cli/emit.py": [
     "build_parser",
     "main"
   ],
-  "backend/presentation/cli/final_campaign.py": [
+  "backend/interfaces/cli/final_campaign.py": [
     "expressible",
     "local_candidates",
     "main",
@@ -2146,23 +2634,27 @@
     "record",
     "verify"
   ],
-  "backend/presentation/cli/jarvis.py": [
+  "backend/interfaces/cli/jarvis.py": [
     "build_parser",
     "main",
     "record"
   ],
-  "backend/presentation/cli/loader.py": [
+  "backend/interfaces/cli/loader.py": [
     "ExampleInput",
     "load_example_input",
     "n_intervals",
     "n_wells",
     "start_year"
   ],
-  "backend/presentation/cli/npv.py": [
+  "backend/interfaces/cli/main.py": [
+    "main",
+    "resolve"
+  ],
+  "backend/interfaces/cli/npv.py": [
     "build_parser",
     "main"
   ],
-  "backend/presentation/cli/paths.py": [
+  "backend/interfaces/cli/paths.py": [
     "chdd_python_dir",
     "default_seed",
     "docs_root",
@@ -2171,7 +2663,7 @@
     "normatives_xlsx",
     "require"
   ],
-  "backend/presentation/cli/run.py": [
+  "backend/interfaces/cli/run.py": [
     "build_parser",
     "build_provenance",
     "compare",
@@ -2188,14 +2680,19 @@
     "resolve_normatives_sha256",
     "submit"
   ],
-  "backend/presentation/cli/selfcheck.py": [
+  "backend/interfaces/cli/runner.py": [
+    "exit_code_for",
+    "main_guard",
+    "run"
+  ],
+  "backend/interfaces/cli/selfcheck.py": [
     "CheckLine",
     "SubmissionCheckError",
     "build_parser",
     "check_submission",
     "main"
   ],
-  "backend/presentation/cli/surrogate_adapt.py": [
+  "backend/interfaces/cli/surrogate/adapt.py": [
     "combine",
     "ensure_disjoint_splits",
     "errors",
@@ -2204,27 +2701,27 @@
     "sample_scenarios",
     "scaled"
   ],
-  "backend/presentation/cli/surrogate_adapt_audit.py": [
+  "backend/interfaces/cli/surrogate/adapt_audit.py": [
     "main"
   ],
-  "backend/presentation/cli/surrogate_audit.py": [
+  "backend/interfaces/cli/surrogate/audit.py": [
     "main",
     "ranking_metrics"
   ],
-  "backend/presentation/cli/surrogate_check.py": [
+  "backend/interfaces/cli/surrogate/check.py": [
     "check",
     "exit_code_for",
     "forecast",
     "main"
   ],
-  "backend/presentation/cli/surrogate_release.py": [
+  "backend/interfaces/cli/surrogate/release.py": [
     "build_parser",
     "main",
     "package",
     "render_verdict",
     "verify"
   ],
-  "backend/presentation/cli/surrogate_screen.py": [
+  "backend/interfaces/cli/surrogate/screen.py": [
     "add_hybrid_scores",
     "choose_hybrid_comparison",
     "choose_model_comparison",
@@ -2234,39 +2731,46 @@
     "transfer_fraction",
     "water_margins"
   ],
-  "backend/presentation/cli/surrogate_screen_verify.py": [
+  "backend/interfaces/cli/surrogate/screen_verify.py": [
     "main",
     "measure"
   ],
-  "backend/presentation/cli/surrogate_tools/surrogate_metrics_report.py": [
-    "FrozenHoldout",
-    "FrozenHoldoutError",
-    "MetricsReportError",
-    "as_provenance",
-    "assert_holdout_excluded",
-    "load_frozen_holdout",
+  "backend/interfaces/cli/surrogate/tools/surrogate_metrics_cli.py": [
     "main"
   ],
-  "backend/presentation/cli/surrogate_tools/surrogate_ranking_ablation.py": [
+  "backend/interfaces/cli/surrogate/tools/surrogate_metrics_errors.py": [
+    "FrozenHoldoutError",
+    "MetricsReportError"
+  ],
+  "backend/interfaces/cli/surrogate/tools/surrogate_metrics_holdout.py": [
+    "FrozenHoldout",
+    "as_provenance",
+    "assert_holdout_excluded",
+    "load_frozen_holdout"
+  ],
+  "backend/interfaces/cli/surrogate/tools/surrogate_metrics_report.py": [
+    "MetricsReportError"
+  ],
+  "backend/interfaces/cli/surrogate/tools/surrogate_ranking_ablation.py": [
     "IndependentControl",
     "main"
   ],
-  "backend/presentation/cli/surrogate_tools/surrogate_register_scenario_ood.py": [
+  "backend/interfaces/cli/surrogate/tools/surrogate_register_scenario_ood.py": [
     "main",
     "register"
   ],
-  "backend/presentation/cli/surrogate_tools/surrogate_train_tensors.py": [
+  "backend/interfaces/cli/surrogate/tools/surrogate_train_tensors.py": [
     "main",
     "on_epoch"
   ],
-  "backend/presentation/cli/surrogate_weight_soup.py": [
+  "backend/interfaces/cli/surrogate/weight_soup.py": [
     "interpolate",
     "main"
   ],
-  "backend/presentation/cli/verify_reference.py": [
+  "backend/interfaces/cli/verify_reference.py": [
     "main"
   ],
-  "backend/presentation/cli/web.py": [
+  "backend/interfaces/cli/web.py": [
     "SpaRequestHandler",
     "build_parser",
     "do_DELETE",
@@ -2275,144 +2779,121 @@
     "main",
     "send_head"
   ],
-  "backend/presentation/cli/web_run_worker.py": [
+  "backend/interfaces/cli/web_run_worker.py": [
     "main",
     "verify_and_record"
   ],
-  "backend/presentation/cli/web_runs.py": [
-    "WebRuns",
-    "comparison",
-    "list",
-    "recover_interrupted",
-    "start"
+  "backend/interfaces/http/assistant/server.py": [
+    "Handler",
+    "build_handler",
+    "do_DELETE",
+    "do_GET",
+    "do_OPTIONS",
+    "do_POST",
+    "log_message",
+    "serve"
   ],
-  "backend/presentation/ui_export/ablation_view.py": [
-    "ablation_meta",
-    "build_ablation",
-    "export_ablation_json"
+  "backend/interfaces/http/console/proxy.py": [
+    "forward",
+    "is_jarvis_path",
+    "upstream_base"
   ],
-  "backend/presentation/ui_export/artifact_io.py": [
-    "dump_bundle",
-    "load_bundle"
+  "backend/interfaces/http/kit/errors.py": [
+    "body_for",
+    "internal_body",
+    "status_for",
+    "to_response"
   ],
-  "backend/presentation/ui_export/base_artifact.py": [
-    "BaseArtifactResult",
-    "build_base_artifact",
-    "real_meta"
+  "backend/interfaces/http/kit/sse.py": [
+    "KeepAliveWriter",
+    "chunk",
+    "encode_event",
+    "error_event",
+    "final_chunk",
+    "start",
+    "stop",
+    "write"
   ],
-  "backend/presentation/ui_export/champion_export.py": [
-    "main"
-  ],
-  "backend/presentation/ui_export/compensation_view.py": [
-    "compensation_norm",
-    "reservoir_compensation"
-  ],
-  "backend/presentation/ui_export/deck.py": [
-    "load_completions",
-    "load_oil_density_by_well",
-    "load_wellheads"
-  ],
-  "backend/presentation/ui_export/demo.py": [
-    "build_demo",
-    "build_demo_script",
-    "confirmed_base_robustness",
-    "deck_scale",
-    "demo_meta",
-    "export_demo_script_json",
-    "export_scenario",
-    "field_events",
-    "hierarchy_meta",
-    "main"
-  ],
-  "backend/presentation/ui_export/demo_artifact.py": [
-    "build_demo_artifact"
-  ],
-  "backend/presentation/ui_export/demo_response.py": [
-    "interval_rows",
-    "state_rows"
-  ],
-  "backend/presentation/ui_export/demo_rng.py": [
-    "Rng",
-    "between",
-    "control_events",
-    "demo_hash",
-    "initial_state",
-    "roles_of",
-    "unit"
-  ],
-  "backend/presentation/ui_export/fixtures.py": [
-    "commissioned",
-    "make_synthetic_artifact",
-    "role_of"
-  ],
-  "backend/presentation/ui_export/graph_view.py": [
-    "build_lambda_graph",
-    "export_graph_json",
-    "file_sha256",
-    "lambda_provenance"
-  ],
-  "backend/presentation/ui_export/hierarchy_view.py": [
-    "build_hierarchy",
-    "export_hierarchy_json",
-    "export_hierarchy_steps",
-    "run_hierarchy_steps",
-    "split_hierarchy"
-  ],
-  "backend/presentation/ui_export/maps_view.py": [
-    "DeckGrid",
-    "bounds",
-    "build_index",
-    "categorical_codes",
-    "cell_centres",
-    "cells",
-    "cube",
-    "default_grid_path",
-    "default_regs_path",
-    "export_maps",
-    "layer",
-    "layer_tops",
-    "load_wells",
+  "backend/interfaces/http/surrogate_dashboard/server.py": [
+    "Handler",
+    "collect_status",
+    "dashboard_html",
+    "do_GET",
+    "do_HEAD",
+    "do_POST",
+    "log_message",
     "main",
-    "quantise",
-    "read_values"
+    "status"
   ],
-  "backend/presentation/ui_export/npv_view.py": [
-    "build_npv_by_well",
-    "discounted_tax_for_well",
-    "export_npv_json"
+  "backend/interfaces/logging_setup.py": [
+    "configure",
+    "reset"
   ],
-  "backend/presentation/ui_export/physics_view.py": [
-    "ScenarioPhysics",
-    "admissible",
-    "complete",
-    "from_dict",
-    "from_report",
-    "physics_json"
+  "backend/shared/clock.py": [
+    "Clock",
+    "FrozenClock",
+    "SystemClock",
+    "advance",
+    "now"
   ],
-  "backend/presentation/ui_export/plan_export.py": [
-    "main"
+  "backend/shared/errors.py": [
+    "AiosError",
+    "ConfigurationError",
+    "ConflictError",
+    "DomainError",
+    "ExternalServiceError",
+    "InfrastructureError",
+    "NotFoundError",
+    "UnavailableError",
+    "ValidationError",
+    "as_dict"
   ],
-  "backend/presentation/ui_export/run_summary.py": [
-    "export_run_summary"
+  "backend/shared/hashing.py": [
+    "CanonicalizationError",
+    "canonical_bytes",
+    "canonical_hash",
+    "canonical_schedule_hash",
+    "content_hash",
+    "ecmascript_number",
+    "hash_schedule",
+    "utf16_code_units"
   ],
-  "backend/presentation/ui_export/scenarios.py": [
-    "ScenarioRobustness",
-    "WorstRegret",
-    "build_scenario_index",
-    "export_scenarios_json"
+  "backend/shared/i18n/catalog.py": [
+    "Messages",
+    "get",
+    "has",
+    "keys",
+    "languages",
+    "translate"
   ],
-  "backend/presentation/ui_export/timeline.py": [
-    "build_timeline",
-    "build_trace",
-    "export_timeline_json",
-    "export_trace_json"
+  "backend/shared/json_io.py": [
+    "dumps_json",
+    "read_json",
+    "read_optional_json",
+    "write_json"
   ],
-  "backend/presentation/ui_export/webdata.py": [
-    "build_wells_data",
-    "default_deck_path",
-    "export_wells_json",
-    "main",
-    "occupied_k_values",
-    "split_layers"
+  "backend/shared/numeric.py": [
+    "relative_error"
+  ],
+  "backend/shared/paths.py": [
+    "data_root",
+    "docs_root_candidates",
+    "out_root",
+    "project_root",
+    "repository_root"
+  ],
+  "backend/shared/resources.py": [
+    "chdd_python_dir",
+    "docs_root",
+    "find_docs_root",
+    "model_z_dir",
+    "normatives_xlsx"
+  ],
+  "backend/shared/settings.py": [
+    "Settings",
+    "from_env"
+  ],
+  "backend/shared/types.py": [
+    "is_lang"
   ]
 }

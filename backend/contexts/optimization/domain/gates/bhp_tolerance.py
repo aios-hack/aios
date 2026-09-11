@@ -12,9 +12,7 @@ from dataclasses import (
 from pathlib import Path
 from typing import Mapping, Sequence
 from backend.contexts.constraints.domain.constraints import Constraints, bhp_limits
-from backend.domain.schedule import (
-    ViolationKind,
-)
+from backend.contexts.schedule.domain.validate import ViolationKind
 from backend.contexts.schedule.domain.validate import Violation
 
 
@@ -81,13 +79,13 @@ def _bhp_tolerance_decision(
             value = float(override)
         except ValueError as error:
             raise BhpToleranceError(
-                f"AIOS_BHP_GATE_DELTA_BAR={override!r} — допуск канала BHP "
-                "задаётся числом в барах"
+                f"AIOS_BHP_GATE_DELTA_BAR={override!r} — the BHP channel tolerance "
+                "is given as a number in bar"
             ) from error
         if not math.isfinite(value) or value < 0.0:
             raise BhpToleranceError(
-                f"AIOS_BHP_GATE_DELTA_BAR={override!r} — допуск обязан быть "
-                "конечным и неотрицательным"
+                f"AIOS_BHP_GATE_DELTA_BAR={override!r} — the tolerance must be "
+                "finite and non-negative"
             )
         return BhpTolerance(
             delta_bar=value,
@@ -95,14 +93,14 @@ def _bhp_tolerance_decision(
             source=str(metrics_path) if metrics_path.is_file() else "none",
             n_states=0,
             detail=(
-                f"AIOS_BHP_GATE_DELTA_BAR={override!r} перекрывает отчёт метрик; "
-                "происхождение допуска — явное переопределение оператором"
+                f"AIOS_BHP_GATE_DELTA_BAR={override!r} overrides the metrics report; "
+                "the tolerance originates from an explicit operator override"
             ),
         )
     if configured and not metrics_path.is_file():
         raise BhpToleranceError(
-            f"AIOS_SURROGATE_METRICS_PATH={configured} указывает на отсутствующий "
-            "отчёт метрик суррогата"
+            f"AIOS_SURROGATE_METRICS_PATH={configured} points at a missing "
+            "surrogate metrics report"
         )
     if not metrics_path.is_file():
         return BhpTolerance(
@@ -111,28 +109,29 @@ def _bhp_tolerance_decision(
             source="none",
             n_states=0,
             detail=(
-                f"отчёт метрик {metrics_path} не считался: P95 ошибки канала BHP "
-                "не измерена, придумывать её нельзя. Прежнее поведение сохранено — "
-                "поиск пропускает нарушения BHP, сдача их блокирует; различие "
-                "гейтов задокументировано этой пометкой"
+                f"metrics report {metrics_path} was not read: the P95 error of the BHP "
+                "channel is unmeasured and must not be invented. The previous "
+                "behaviour is preserved — search lets BHP violations through, "
+                "submission blocks them; the gate difference is documented by "
+                "this note"
             ),
         )
     try:
         payload = json.loads(metrics_path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as error:
         raise BhpToleranceError(
-            f"отчёт метрик суррогата {metrics_path} не читается: {error}"
+            f"surrogate metrics report {metrics_path} is not readable: {error}"
         ) from error
     if not isinstance(payload, dict) or payload.get("format") != SURROGATE_METRICS_FORMAT:
         raise BhpToleranceError(
-            f"неподдерживаемый отчёт метрик суррогата: {metrics_path}"
+            f"unsupported surrogate metrics report: {metrics_path}"
         )
     manifold = payload.get("optimizer_manifold")
     channel = manifold.get("bhp_channel") if isinstance(manifold, dict) else None
     if not isinstance(channel, dict):
         raise BhpToleranceError(
-            f"{metrics_path}: в отчёте нет optimizer_manifold.bhp_channel — "
-            "допуск канала BHP выводить не из чего"
+            f"{metrics_path}: the report has no optimizer_manifold.bhp_channel — "
+            "there is nothing to derive the BHP channel tolerance from"
         )
     if "unavailable" in channel:
         return BhpTolerance(
@@ -141,26 +140,26 @@ def _bhp_tolerance_decision(
             source=str(metrics_path),
             n_states=0,
             detail=(
-                f"{metrics_path}: {channel['unavailable']}. Прежнее поведение "
-                "сохранено — поиск пропускает нарушения BHP, сдача их блокирует; "
-                "различие гейтов задокументировано этой пометкой"
+                f"{metrics_path}: {channel['unavailable']}. The previous behaviour is "
+                "preserved — search lets BHP violations through, submission "
+                "blocks them; the gate difference is documented by this note"
             ),
         )
     raw = channel.get("bhp_error_bar_p95")
     if isinstance(raw, bool) or not isinstance(raw, (int, float)):
         raise BhpToleranceError(
-            f"{metrics_path}: bhp_error_bar_p95 не число — допуск не выводится"
+            f"{metrics_path}: bhp_error_bar_p95 is not a number — the tolerance is not derived"
         )
     value = float(raw)
     if not math.isfinite(value) or value < 0.0:
         raise BhpToleranceError(
-            f"{metrics_path}: bhp_error_bar_p95={value} не конечен или отрицателен"
+            f"{metrics_path}: bhp_error_bar_p95={value} is not finite or is negative"
         )
     states = channel.get("n_states")
     if isinstance(states, bool) or not isinstance(states, int) or states < 1:
         raise BhpToleranceError(
-            f"{metrics_path}: канал BHP без единого измеренного состояния "
-            "не задаёт допуск"
+            f"{metrics_path}: a BHP channel without a single measured state "
+            "does not define a tolerance"
         )
     return BhpTolerance(
         delta_bar=value,
@@ -168,9 +167,9 @@ def _bhp_tolerance_decision(
         source=str(metrics_path),
         n_states=states,
         detail=(
-            f"δ={value} бар — P95 ошибки канала BHP по {states} состояниям из "
-            f"{metrics_path}; кандидат отклоняется, когда предсказанное BHP "
-            "выходит за предел больше чем на δ"
+            f"δ={value} bar — P95 error of the BHP channel over {states} states from "
+            f"{metrics_path}; a candidate is rejected when the predicted BHP "
+            "exceeds the limit by more than δ"
         ),
     )
 
@@ -179,8 +178,8 @@ def bhp_exceedance_bar(violation: Violation, constraints: Constraints) -> float:
     value = violation.value
     if value is None or not math.isfinite(float(value)):
         raise BhpToleranceError(
-            f"нарушение {violation.kind.value} без измеренного забойного давления: "
-            "выход за предел посчитать не по чему"
+            f"violation {violation.kind.value} without a measured bottomhole pressure: "
+            "there is nothing to compute the limit exceedance from"
         )
     limits = bhp_limits(constraints)
     if violation.kind is ViolationKind.BHP_BELOW_PRODUCER_LIMIT:
@@ -188,7 +187,7 @@ def bhp_exceedance_bar(violation: Violation, constraints: Constraints) -> float:
     if violation.kind is ViolationKind.BHP_ABOVE_INJECTOR_LIMIT:
         return max(0.0, float(value) - float(limits.injector_max_bar))
     raise BhpToleranceError(
-        f"{violation.kind.value} — не нарушение канала BHP, допуск неприменим"
+        f"{violation.kind.value} is not a BHP channel violation, the tolerance does not apply"
     )
 
 

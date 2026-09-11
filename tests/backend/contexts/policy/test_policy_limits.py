@@ -4,7 +4,9 @@ from dataclasses import replace
 
 import pytest
 
-from backend.core.contracts import Constraints, EventKind, Rule
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.schedule.domain.schedule import EventKind
+from backend.contexts.policy.domain.policy import Rule
 
 from backend.contexts.policy.domain.flags import (
     DEFAULT_FEATURE_FLAGS,

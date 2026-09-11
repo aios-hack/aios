@@ -141,26 +141,30 @@ from calendar import monthrange
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
-from backend.core.contracts import (
-    MATERIAL_BALANCE_RELATIVE_TOLERANCE,
+from backend.contexts.runs.domain.run_result import MATERIAL_BALANCE_RELATIVE_TOLERANCE
+from backend.contexts.reservoir.domain.response import (
     ActiveControlMode,
+    IntervalResponse,
+    StateAtDate,
+    is_excluded_by_negative_rule,
+)
+from backend.contexts.schedule.domain.schedule import (
     Availability,
-    CompensationPolicy,
-    Constraints,
     ControlEvent,
     EventKind,
-    Groups,
-    IntervalResponse,
     N_INTERVALS,
     OperatingStatus,
     Role,
     Schedule,
-    StateAtDate,
     WellState,
+)
+from backend.contexts.constraints.domain.constraints import (
+    CompensationPolicy,
+    Constraints,
     compensation_policy,
-    is_excluded_by_negative_rule,
     water_supply_policy,
 )
+from backend.contexts.connectivity.domain.connectivity import Groups
 from backend.contexts.constraints.domain.constraints import (
     BHP_INJECTOR_MAX_BAR,
     BHP_PRODUCER_MIN_BAR,

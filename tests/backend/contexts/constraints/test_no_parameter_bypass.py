@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import ArtifactHashes, Budgets, NormativeSet
+from backend.contexts.constraints.domain.config import ArtifactHashes, Budgets, NormativeSet
 from backend.contexts.constraints.domain.config import DEFAULT_NORMATIVES_2007
 
-from backend.domain.configuration import COMPONENT_SEEDS, GLOBAL_SEED_KEY
+from backend.contexts.constraints.domain.schema import COMPONENT_SEEDS, GLOBAL_SEED_KEY
 from backend.contexts.constraints.domain.schema import DEFAULT_BUDGETS, default_seeds
 from tests.support.backend.paths import REPO_ROOT
 
@@ -84,13 +84,6 @@ def numeric_literals(path: Path) -> list[tuple[int, float]]:
 
 
 def allowed_technical_tolerance_lines(path: Path) -> set[int]:
-    """Return only the two named non-economic uses of the 0.10 literal.
-
-    The names are part of this exception: a new bare ``0.10`` must fail the
-    guard instead of silently becoming another exemption. Both live in the
-    configuration schema, where they are declared parameters; domain code
-    receives them and never spells the number itself.
-    """
 
     names = TECHNICAL_TOLERANCE_LITERALS.get(path.relative_to(ROOT).as_posix())
     if names is None:
@@ -167,7 +160,7 @@ def test_no_normative_value_is_hardcoded_outside_the_config() -> None:
             if value in NORMATIVE_VALUES:
                 offenders.append(f"{path.relative_to(ROOT)}:{line} → {value}")
     assert offenders == [], (
-        "нормативы читаются мимо конфига: " + "; ".join(offenders)
+        "normatives are read bypassing the config: " + "; ".join(offenders)
     )
 
 
@@ -182,7 +175,7 @@ def test_no_deck_scale_literal_is_hardcoded() -> None:
             if value in DECK_SCALE_VALUES:
                 offenders.append(f"{path.relative_to(ROOT)}:{line} → {value}")
     assert offenders == [], (
-        "литералы шкал и фонда выводятся из данных, а не пишутся числом: "
+        "scale and well stock literals are derived from data, not written as numbers: "
         + "; ".join(offenders)
     )
 
@@ -190,8 +183,8 @@ def test_no_deck_scale_literal_is_hardcoded() -> None:
 def test_every_normative_field_is_reachable_from_the_config() -> None:
     from tests.backend.contexts.constraints.conftest import a_hash
 
-    from backend.domain.configuration import default_config
-    from backend.core.contracts import DEFAULT_NORMATIVES_2007
+    from backend.contexts.constraints.domain.schema import default_config
+    from backend.contexts.constraints.domain.config import DEFAULT_NORMATIVES_2007
 
     config = default_config(
         normatives=NormativeSet(esp_catalog=(), **DEFAULT_NORMATIVES_2007),

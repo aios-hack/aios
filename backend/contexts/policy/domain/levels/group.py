@@ -29,14 +29,9 @@ from backend.contexts.policy.domain.trace_types import (
     LeveledTraceEntry,
 )
 from dataclasses import dataclass, replace
-from backend.core.contracts import (
-    ControlEvent,
-    EventKind,
-    Groups,
-    Rule,
-    Theta,
-    TraceEntry,
-)
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind
+from backend.contexts.connectivity.domain.connectivity import Groups
+from backend.contexts.policy.domain.policy import Rule, Theta, TraceEntry
 from backend.contexts.policy.domain.flags import (
     IMPLEMENTED_RULES,
     WATERCUT_CAP_FEATURE,
@@ -66,24 +61,24 @@ class GroupDecision:
             > self.limit.injection_m3_per_day + WELL_LIMIT_TOLERANCE_M3_PER_DAY
         ):
             raise ValueError(
-                f"участок {self.group_id} запросил "
-                f"{self.requested_injection_m3_per_day} при лимите "
+                f"group {self.group_id} requested "
+                f"{self.requested_injection_m3_per_day} against a limit of "
                 f"{self.limit.injection_m3_per_day}"
             )
         if self.requested_liquid_m3_per_day is None:
             return
         if self.limit.liquid_m3_per_day is None:
             raise ValueError(
-                f"участок {self.group_id} отчитался об отборе жидкости "
-                f"{self.requested_liquid_m3_per_day} м³/сут, не получив квоты"
+                f"group {self.group_id} reported a liquid offtake of "
+                f"{self.requested_liquid_m3_per_day} m3/day without having received a quota"
             )
         if (
             self.requested_liquid_m3_per_day
             > self.limit.liquid_m3_per_day + WELL_LIMIT_TOLERANCE_M3_PER_DAY
         ):
             raise ValueError(
-                f"участок {self.group_id} запросил жидкости "
-                f"{self.requested_liquid_m3_per_day} при квоте "
+                f"group {self.group_id} requested liquid "
+                f"{self.requested_liquid_m3_per_day} against a quota of "
                 f"{self.limit.liquid_m3_per_day}"
             )
 
@@ -105,7 +100,7 @@ def decide_group(
     limit: GroupLimit,
 ) -> GroupDecision:
     if context.groups is None:
-        raise ValueError("агент участка требует Groups")
+        raise ValueError("the group agent requires Groups")
     wells = tuple(sorted(context.groups.groups[limit.group_id]))
     inside = restrict(state, wells)
     scoped = replace(
@@ -128,8 +123,8 @@ def decide_group(
     if requested > limit.injection_m3_per_day + WELL_LIMIT_TOLERANCE_M3_PER_DAY:
         if requested <= 0.0:
             raise ValueError(
-                f"участок {limit.group_id}: запрос {requested} превышает лимит "
-                f"{limit.injection_m3_per_day} при неположительной сумме"
+                f"group {limit.group_id}: request {requested} exceeds the limit "
+                f"{limit.injection_m3_per_day} while the sum is non-positive"
             )
         factor = limit.injection_m3_per_day / requested
         for well in _untouched_injectors(tuple(decisions), inside, wells):
@@ -173,9 +168,9 @@ def decide_group(
         if liquid_requested > liquid_quota + WELL_LIMIT_TOLERANCE_M3_PER_DAY:
             if liquid_requested <= 0.0:
                 raise ValueError(
-                    f"участок {limit.group_id}: запрос жидкости "
-                    f"{liquid_requested} превышает квоту {liquid_quota} "
-                    f"при неположительной сумме"
+                    f"group {limit.group_id}: a liquid request of "
+                    f"{liquid_requested} exceeds the quota {liquid_quota} "
+                    f"while the sum is non-positive"
                 )
             liquid_factor = liquid_quota / liquid_requested
             for well in _untouched_producers(tuple(decisions), inside, wells):
@@ -327,7 +322,7 @@ def _quantized(value: float, step_m3_per_day: float | None) -> float:
     if step_m3_per_day is None:
         return value
     if step_m3_per_day <= 0.0:
-        raise ValueError(f"шаг квантования {step_m3_per_day} не положителен")
+        raise ValueError(f"the quantisation step {step_m3_per_day} is not positive")
     return round(value / step_m3_per_day) * step_m3_per_day
 
 

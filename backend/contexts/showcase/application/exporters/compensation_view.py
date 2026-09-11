@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from backend.core.contracts import CompensationPolicy
+from backend.contexts.constraints.domain.constraints import CompensationPolicy
 
 __all__ = [
     "COMPENSATION_NORM_MIN",

@@ -1,173 +1,57 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
 from typing import Any
 
-WATER_SUPPLY_UNLIMITED = "water_supply_unlimited"
-WATER_REINJECTION_FRACTION = "water_reinjection_fraction"
-WATER_REINJECTION_LAG_STEPS = "water_reinjection_lag_steps"
-EXTERNAL_WATER_M3_PER_DAY = "external_water_m3_per_day"
-WATER_SAFETY_FACTOR = "water_safety_factor"
-COMPENSATION_MIN = "compensation_min"
-COMPENSATION_MAX = "compensation_max"
-COMPENSATION_ENFORCEMENT = "compensation_enforcement"
-COMPENSATION_SCOPE = "compensation_scope"
-BHP_PRODUCER_MIN_BAR = "bhp_producer_min_bar"
-BHP_INJECTOR_MAX_BAR = "bhp_injector_max_bar"
-PRESSURE_FLOOR_BAR = "pressure_floor_bar"
-PRESSURE_CEILING_BAR = "pressure_ceiling_bar"
-REGION_PRESSURE_FLOOR_BAR = "region_pressure_floor_bar"
-REGION_PRESSURE_CEILING_BAR = "region_pressure_ceiling_bar"
-
-SOURCE_SUFFIX = "_source"
-
-SOURCE_ORGANIZER = "organizer"
-SOURCE_DIAGNOSTIC = "diagnostic"
-SOURCE_ASSUMPTION = "assumption"
-
-CONSTRAINT_SOURCES: frozenset[str] = frozenset(
-    {SOURCE_ORGANIZER, SOURCE_DIAGNOSTIC, SOURCE_ASSUMPTION}
-)
-
-SOURCE_LABELS: dict[str, str] = {
-    SOURCE_ORGANIZER: "условие организаторов",
-    SOURCE_DIAGNOSTIC: "диагностический ориентир",
-    SOURCE_ASSUMPTION: "допущение нашей стороны",
-}
-
-DEFAULT_WATER_SAFETY_FACTOR = 1.0
-DEFAULT_BHP_PRODUCER_MIN_BAR = 50.0
-DEFAULT_BHP_INJECTOR_MAX_BAR = 300.0
-
-BLOCKING_INFRASTRUCTURE_KEYS: tuple[str, ...] = (
-    WATER_SUPPLY_UNLIMITED,
+from backend.contexts.constraints.domain.constraint_types import (
+    BHP_INJECTOR_MAX_BAR,
+    BHP_PRODUCER_MIN_BAR,
+    BLOCKING_INFRASTRUCTURE_KEYS,
+    BhpLimits,
+    COMPENSATION_ENFORCEMENT,
+    COMPENSATION_ENFORCEMENTS,
+    COMPENSATION_MAX,
+    COMPENSATION_MIN,
+    COMPENSATION_SCOPE,
+    COMPENSATION_SCOPES,
+    CONSTRAINT_SOURCES,
+    CompensationPolicy,
+    Constraints,
+    DEFAULT_BHP_INJECTOR_MAX_BAR,
+    DEFAULT_BHP_PRODUCER_MIN_BAR,
+    DEFAULT_SOURCES,
+    DEFAULT_WATER_SAFETY_FACTOR,
+    DIAGNOSTIC_INFRASTRUCTURE_KEYS,
+    EXTERNAL_WATER_M3_PER_DAY,
+    FieldPressureLimits,
+    PRESSURE_CEILING_BAR,
+    PRESSURE_FLOOR_BAR,
+    REGION_PRESSURE_CEILING_BAR,
+    REGION_PRESSURE_FLOOR_BAR,
+    RegionPressureLimits,
+    SOURCE_ASSUMPTION,
+    SOURCE_DIAGNOSTIC,
+    SOURCE_LABELS,
+    SOURCE_ORGANIZER,
+    SOURCE_SUFFIX,
+    SOURCED_INFRASTRUCTURE_KEYS,
     WATER_REINJECTION_FRACTION,
     WATER_REINJECTION_LAG_STEPS,
-    EXTERNAL_WATER_M3_PER_DAY,
-    BHP_PRODUCER_MIN_BAR,
-    BHP_INJECTOR_MAX_BAR,
-    PRESSURE_FLOOR_BAR,
-    PRESSURE_CEILING_BAR,
-    REGION_PRESSURE_FLOOR_BAR,
-    REGION_PRESSURE_CEILING_BAR,
-)
-
-DIAGNOSTIC_INFRASTRUCTURE_KEYS: tuple[str, ...] = (
     WATER_SAFETY_FACTOR,
-    COMPENSATION_MIN,
-    COMPENSATION_MAX,
-    COMPENSATION_ENFORCEMENT,
-    COMPENSATION_SCOPE,
+    WATER_SUPPLY_UNLIMITED,
+    WaterSupplyPolicy,
+    WellOutage,
+    source_key,
 )
-
-SOURCED_INFRASTRUCTURE_KEYS: tuple[str, ...] = (
-    BLOCKING_INFRASTRUCTURE_KEYS + DIAGNOSTIC_INFRASTRUCTURE_KEYS
-)
-
-DEFAULT_SOURCES: dict[str, str] = {
-    BHP_PRODUCER_MIN_BAR: SOURCE_ORGANIZER,
-    BHP_INJECTOR_MAX_BAR: SOURCE_ORGANIZER,
-}
-
-COMPENSATION_ENFORCEMENTS = frozenset({"diagnostic", "hard"})
-COMPENSATION_SCOPES = frozenset({"field", "groups", "field_and_groups"})
-
-
-def source_key(key: str) -> str:
-    return f"{key}{SOURCE_SUFFIX}"
-
-
-@dataclass(frozen=True, slots=True)
-class WellOutage:
-    well: str
-    control_step_from: int
-    control_step_to: int
-
-
-@dataclass(frozen=True, slots=True)
-class Constraints:
-    injection_limits: dict[int, float] = field(default_factory=dict)
-    liquid_limits: dict[int, float] = field(default_factory=dict)
-    production_floors: dict[int, float] = field(default_factory=dict)
-    oil_limits: dict[int, float] = field(default_factory=dict)
-    watercut_limits: dict[int, float] = field(default_factory=dict)
-    well_outages: tuple[WellOutage, ...] = field(default_factory=tuple)
-    infrastructure: dict[str, object] = field(default_factory=dict)
-    case_path: str | None = field(default=None, compare=False)
-
-
-@dataclass(frozen=True, slots=True)
-class WaterSupplyPolicy:
-    reinjection_fraction: float | None
-    lag_steps: int
-    external_water_m3_per_day: float
-    fraction_defaulted: bool = False
-    unlimited: bool = False
-
-    @property
-    def enabled(self) -> bool:
-        return self.reinjection_fraction is not None
-
-    def limit(self, produced_water_m3_per_day: float) -> float | None:
-        if self.reinjection_fraction is None:
-            return None
-        return self.external_water_m3_per_day + self.reinjection_fraction * max(
-            0.0, produced_water_m3_per_day
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class CompensationPolicy:
-    minimum: float | None
-    maximum: float | None
-    enforcement: str
-    scope: str
-
-    @property
-    def enabled(self) -> bool:
-        return self.minimum is not None
-
-    @property
-    def hard(self) -> bool:
-        return self.enforcement == "hard"
-
-
-@dataclass(frozen=True, slots=True)
-class FieldPressureLimits:
-    floor_bar: float | None
-    ceiling_bar: float | None
-
-    @property
-    def enabled(self) -> bool:
-        return self.floor_bar is not None or self.ceiling_bar is not None
-
-
-@dataclass(frozen=True, slots=True)
-class RegionPressureLimits:
-    floor_bar: float | None
-    ceiling_bar: float | None
-
-    @property
-    def enabled(self) -> bool:
-        return self.floor_bar is not None or self.ceiling_bar is not None
-
-
-@dataclass(frozen=True, slots=True)
-class BhpLimits:
-    producer_min_bar: float
-    injector_max_bar: float
-    producer_min_defaulted: bool
-    injector_max_defaulted: bool
 
 
 def _finite_number(source: dict[str, object], key: str, default: float) -> float:
     raw: Any = source.get(key, default)
     if isinstance(raw, bool) or not isinstance(raw, (int, float)):
-        raise ValueError(f"infrastructure.{key}: ожидается число")
+        raise ValueError(f"infrastructure.{key}: a number is expected")
     value = float(raw)
     if not math.isfinite(value):
-        raise ValueError(f"infrastructure.{key}: ожидается конечное число")
+        raise ValueError(f"infrastructure.{key}: a finite number is expected")
     return value
 
 
@@ -175,7 +59,7 @@ def _unlimited_flag(source: dict[str, object]) -> bool:
     raw = source.get(WATER_SUPPLY_UNLIMITED, False)
     if not isinstance(raw, bool):
         raise ValueError(
-            f"infrastructure.{WATER_SUPPLY_UNLIMITED}: ожидается true или false"
+            f"infrastructure.{WATER_SUPPLY_UNLIMITED}: true or false is expected"
         )
     return raw
 
@@ -183,7 +67,7 @@ def _unlimited_flag(source: dict[str, object]) -> bool:
 def constraint_source(constraints: Constraints, key: str) -> str | None:
     if key not in SOURCED_INFRASTRUCTURE_KEYS:
         raise ValueError(
-            f"infrastructure.{key}: источник объявляется только для параметров "
+            f"infrastructure.{key}: a source is declared only for the parameters "
             f"{', '.join(SOURCED_INFRASTRUCTURE_KEYS)}"
         )
     raw = constraints.infrastructure.get(source_key(key))
@@ -193,24 +77,24 @@ def constraint_source(constraints: Constraints, key: str) -> str | None:
         return DEFAULT_SOURCES.get(key)
     if not isinstance(raw, str) or raw not in CONSTRAINT_SOURCES:
         raise ValueError(
-            f"infrastructure.{source_key(key)}: ожидается одно из "
-            f"{sorted(CONSTRAINT_SOURCES)}, получено {raw!r}"
+            f"infrastructure.{source_key(key)}: one of "
+            f"{sorted(CONSTRAINT_SOURCES)} is expected, got {raw!r}"
         )
     return raw
 
 
 def source_label(source: str | None) -> str:
     if source is None:
-        return "источник не объявлен"
+        return "source not declared"
     return SOURCE_LABELS.get(source, source)
 
 
 def limit_origin(constraints: Constraints, key: str) -> str:
     source = constraint_source(constraints, key)
-    where = constraints.case_path if constraints.case_path else "кейс не из файла"
+    where = constraints.case_path if constraints.case_path else "case not from a file"
     if source is None:
-        return f"источник не объявлен, кейс {where}"
-    return f"источник {source} ({source_label(source)}), кейс {where}"
+        return f"source not declared, case {where}"
+    return f"source {source} ({source_label(source)}), case {where}"
 
 
 def water_supply_policy(constraints: Constraints) -> WaterSupplyPolicy:
@@ -221,9 +105,9 @@ def water_supply_policy(constraints: Constraints) -> WaterSupplyPolicy:
     has_external = EXTERNAL_WATER_M3_PER_DAY in source
     if unlimited and (has_fraction or has_lag or has_external):
         raise ValueError(
-            f"infrastructure.{WATER_SUPPLY_UNLIMITED}: источник воды объявлен "
-            "неограниченным, поэтому вместе с ним нельзя задавать "
-            f"{WATER_REINJECTION_FRACTION}, {WATER_REINJECTION_LAG_STEPS} или "
+            f"infrastructure.{WATER_SUPPLY_UNLIMITED}: the water source is declared "
+            "unlimited, so it cannot be given together with "
+            f"{WATER_REINJECTION_FRACTION}, {WATER_REINJECTION_LAG_STEPS} or "
             f"{EXTERNAL_WATER_M3_PER_DAY}"
         )
     if unlimited:
@@ -234,19 +118,19 @@ def water_supply_policy(constraints: Constraints) -> WaterSupplyPolicy:
     fraction = _finite_number(source, WATER_REINJECTION_FRACTION, 1.0)
     if not 0.0 <= fraction <= 1.0:
         raise ValueError(
-            f"infrastructure.{WATER_REINJECTION_FRACTION}: доля должна быть "
-            f"в диапазоне 0..1, получено {fraction}"
+            f"infrastructure.{WATER_REINJECTION_FRACTION}: the fraction must lie "
+            f"in the range 0..1, got {fraction}"
         )
     raw_lag = source.get(WATER_REINJECTION_LAG_STEPS, 0)
     if isinstance(raw_lag, bool) or not isinstance(raw_lag, int) or raw_lag < 0:
         raise ValueError(
-            f"infrastructure.{WATER_REINJECTION_LAG_STEPS}: ожидается целое >= 0"
+            f"infrastructure.{WATER_REINJECTION_LAG_STEPS}: an integer >= 0 is expected"
         )
     external = _finite_number(source, EXTERNAL_WATER_M3_PER_DAY, 0.0)
     if external < 0.0:
         raise ValueError(
-            f"infrastructure.{EXTERNAL_WATER_M3_PER_DAY}: внешний приток "
-            "не может быть отрицательным"
+            f"infrastructure.{EXTERNAL_WATER_M3_PER_DAY}: the external inflow "
+            "cannot be negative"
         )
     return WaterSupplyPolicy(
         fraction, raw_lag, external, fraction_defaulted, False
@@ -260,8 +144,8 @@ def water_safety_factor(constraints: Constraints) -> float:
     value = _finite_number(source, WATER_SAFETY_FACTOR, DEFAULT_WATER_SAFETY_FACTOR)
     if not 0.0 < value <= 1.0:
         raise ValueError(
-            f"infrastructure.{WATER_SAFETY_FACTOR}: запас должен лежать в "
-            f"диапазоне (0, 1], получено {value}"
+            f"infrastructure.{WATER_SAFETY_FACTOR}: the safety factor must lie in "
+            f"the range (0, 1], got {value}"
         )
     return value
 
@@ -278,20 +162,20 @@ def bhp_limits(constraints: Constraints) -> BhpLimits:
     )
     if producer_min <= 0.0:
         raise ValueError(
-            f"infrastructure.{BHP_PRODUCER_MIN_BAR}: нижний предел забойного "
-            f"давления добывающей должен быть положительным, получено {producer_min}"
+            f"infrastructure.{BHP_PRODUCER_MIN_BAR}: the lower bottomhole pressure "
+            f"limit of a producer must be positive, got {producer_min}"
         )
     if injector_max <= 0.0:
         raise ValueError(
-            f"infrastructure.{BHP_INJECTOR_MAX_BAR}: верхний предел забойного "
-            "давления нагнетательной должен быть положительным, получено "
+            f"infrastructure.{BHP_INJECTOR_MAX_BAR}: the upper bottomhole pressure "
+            "limit of an injector must be positive, got "
             f"{injector_max}"
         )
     if injector_max <= producer_min:
         raise ValueError(
-            f"infrastructure.{BHP_INJECTOR_MAX_BAR}: верхний предел "
-            f"{injector_max} бар не выше нижнего {producer_min} бар: "
-            "коридор забойного давления пуст"
+            f"infrastructure.{BHP_INJECTOR_MAX_BAR}: the upper limit "
+            f"{injector_max} bar is not above the lower {producer_min} bar: "
+            "the bottomhole pressure corridor is empty"
         )
     return BhpLimits(
         producer_min_bar=producer_min,
@@ -308,8 +192,8 @@ def compensation_policy(constraints: Constraints) -> CompensationPolicy:
     if has_min != has_max:
         missing = COMPENSATION_MAX if has_min else COMPENSATION_MIN
         raise ValueError(
-            f"infrastructure.{missing} обязателен: коридор компенсации "
-            "задаётся двумя границами"
+            f"infrastructure.{missing} is mandatory: the compensation corridor "
+            "is given by two bounds"
         )
     if not has_min:
         return CompensationPolicy(None, None, "diagnostic", "field_and_groups")
@@ -317,21 +201,21 @@ def compensation_policy(constraints: Constraints) -> CompensationPolicy:
     minimum = _finite_number(source, COMPENSATION_MIN, 0.0)
     maximum = _finite_number(source, COMPENSATION_MAX, 0.0)
     if minimum < 0.0:
-        raise ValueError(f"infrastructure.{COMPENSATION_MIN}: значение < 0")
+        raise ValueError(f"infrastructure.{COMPENSATION_MIN}: the value is < 0")
     if maximum < minimum:
-        raise ValueError(f"коридор компенсации пуст: {minimum}..{maximum}")
+        raise ValueError(f"the compensation corridor is empty: {minimum}..{maximum}")
 
     enforcement = source.get(COMPENSATION_ENFORCEMENT, "diagnostic")
     if enforcement not in COMPENSATION_ENFORCEMENTS:
         raise ValueError(
-            f"infrastructure.{COMPENSATION_ENFORCEMENT}: ожидается одно из "
-            f"{sorted(COMPENSATION_ENFORCEMENTS)}, получено {enforcement!r}"
+            f"infrastructure.{COMPENSATION_ENFORCEMENT}: one of "
+            f"{sorted(COMPENSATION_ENFORCEMENTS)} is expected, got {enforcement!r}"
         )
     scope = source.get(COMPENSATION_SCOPE, "field_and_groups")
     if scope not in COMPENSATION_SCOPES:
         raise ValueError(
-            f"infrastructure.{COMPENSATION_SCOPE}: ожидается одно из "
-            f"{sorted(COMPENSATION_SCOPES)}, получено {scope!r}"
+            f"infrastructure.{COMPENSATION_SCOPE}: one of "
+            f"{sorted(COMPENSATION_SCOPES)} is expected, got {scope!r}"
         )
     return CompensationPolicy(minimum, maximum, str(enforcement), str(scope))
 
@@ -350,18 +234,18 @@ def field_pressure_limits(constraints: Constraints) -> FieldPressureLimits:
     )
     if floor is not None and floor <= 0.0:
         raise ValueError(
-            f"infrastructure.{PRESSURE_FLOOR_BAR}: пол пластового давления "
-            f"должен быть положительным, получено {floor}"
+            f"infrastructure.{PRESSURE_FLOOR_BAR}: the reservoir pressure floor "
+            f"must be positive, got {floor}"
         )
     if ceiling is not None and ceiling <= 0.0:
         raise ValueError(
-            f"infrastructure.{PRESSURE_CEILING_BAR}: потолок пластового "
-            f"давления должен быть положительным, получено {ceiling}"
+            f"infrastructure.{PRESSURE_CEILING_BAR}: the reservoir pressure "
+            f"ceiling must be positive, got {ceiling}"
         )
     if floor is not None and ceiling is not None and ceiling <= floor:
         raise ValueError(
-            f"infrastructure.{PRESSURE_CEILING_BAR}: потолок {ceiling} бар "
-            f"не выше пола {floor} бар: коридор пластового давления пуст"
+            f"infrastructure.{PRESSURE_CEILING_BAR}: the ceiling {ceiling} bar is "
+            f"not above the floor {floor} bar: the reservoir pressure corridor is empty"
         )
     return FieldPressureLimits(floor, ceiling)
 
@@ -384,19 +268,19 @@ def region_pressure_limits(constraints: Constraints) -> RegionPressureLimits:
     )
     if floor is not None and floor <= 0.0:
         raise ValueError(
-            f"infrastructure.{REGION_PRESSURE_FLOOR_BAR}: пол регионального "
-            f"пластового давления должен быть положительным, получено {floor}"
+            f"infrastructure.{REGION_PRESSURE_FLOOR_BAR}: the regional reservoir "
+            f"pressure floor must be positive, got {floor}"
         )
     if ceiling is not None and ceiling <= 0.0:
         raise ValueError(
-            f"infrastructure.{REGION_PRESSURE_CEILING_BAR}: потолок "
-            "регионального пластового давления должен быть положительным, "
-            f"получено {ceiling}"
+            f"infrastructure.{REGION_PRESSURE_CEILING_BAR}: the regional reservoir "
+            "pressure ceiling must be positive, "
+            f"got {ceiling}"
         )
     if floor is not None and ceiling is not None and ceiling <= floor:
         raise ValueError(
-            f"infrastructure.{REGION_PRESSURE_CEILING_BAR}: потолок {ceiling} "
-            f"бар не выше пола {floor} бар: коридор регионального пластового "
-            "давления пуст"
+            f"infrastructure.{REGION_PRESSURE_CEILING_BAR}: the ceiling {ceiling} "
+            f"bar is not above the floor {floor} bar: the regional reservoir "
+            "pressure corridor is empty"
         )
     return RegionPressureLimits(floor, ceiling)

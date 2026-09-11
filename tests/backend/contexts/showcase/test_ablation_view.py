@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from backend.core.contracts import Rule
+from backend.contexts.policy.domain.policy import Rule
 
 from backend.contexts.showcase.application.exporters.ablation_view import (
     ABLATION_NOT_RUN,

@@ -8,7 +8,7 @@ from backend.contexts.optimization.domain.errors import (
     ScheduleSearchError,
 )
 from backend.contexts.surrogate.domain.npv_economic_features import scenario_feature_vector
-from backend.contexts.surrogate.application.model import _features
+from backend.contexts.surrogate.domain.vectorize import build_features
 from backend.contexts.robustness.domain.ood import Exceedance, OodScore, worst_offenders
 from backend.contexts.robustness.domain.scenario_ood import ScenarioDensityDomain
 import math
@@ -22,7 +22,7 @@ def _scenario_ood_excess(
 ) -> tuple[float, str] | None:
     if domain is None:
         return None
-    x, well_index = _features(model_input, model.wells, scenario_context=False)
+    x, well_index = build_features(model_input, model.wells, scenario_context=False)
     vector = scenario_feature_vector(
         x, well_index, n_wells=len(model.wells), feature_set="economic"
     )
@@ -30,8 +30,8 @@ def _scenario_ood_excess(
     if score <= domain.threshold:
         return None
     return score, (
-        f"совместная плотность расписания {score:.4g} выше порога "
-        f"{domain.threshold:.4g} (квантиль {domain.threshold_quantile} по валидации)"
+        f"the joint density of the schedule {score:.4g} is above the threshold "
+        f"{domain.threshold:.4g} (quantile {domain.threshold_quantile} on validation)"
     )
 
 
@@ -72,11 +72,11 @@ def _ood_threshold_excess(
         return None
     worst = ood.worst
     description = (
-        "неизвестное превышение"
+        "unknown exceedance"
         if worst is None
         else (
-            f"{worst.feature}, скважина {worst.well}, "
-            f"шаг {worst.control_step}, значение {worst.value:.6g}, "
+            f"{worst.feature}, well {worst.well}, "
+            f"step {worst.control_step}, value {worst.value:.6g}, "
             f"train [{worst.low:.6g}, {worst.high:.6g}]"
         )
     )
@@ -93,12 +93,12 @@ def _enforce_ood_threshold(ood: OodScore, threshold: float | None) -> None:
 def ood_penalty_factor(excess: float, penalty_per_unit: float) -> float:
     if not math.isfinite(excess) or excess < 0.0:
         raise ScheduleSearchError(
-            f"превышение области применимости {excess!r} не конечно или отрицательно: "
-            "мягкий штраф посчитать не по чему"
+            f"applicability domain exceedance {excess!r} is not finite or is negative: "
+            "there is nothing to compute the soft penalty from"
         )
     if not math.isfinite(penalty_per_unit) or penalty_per_unit < 0.0:
         raise ScheduleSearchError(
-            f"ставка мягкого штрафа {penalty_per_unit!r} не конечна или отрицательна"
+            f"the soft penalty rate {penalty_per_unit!r} is not finite or is negative"
         )
     return math.exp(-penalty_per_unit * excess)
 
@@ -106,14 +106,14 @@ def ood_penalty_factor(excess: float, penalty_per_unit: float) -> float:
 def apply_ood_penalty(npv: float, excess: float, penalty_per_unit: float) -> float:
     if not math.isfinite(npv):
         raise ScheduleSearchError(
-            f"ЧДД {npv!r} не конечен: мягкий штраф области применимости неприменим"
+            f"NPV {npv!r} is not finite: the applicability domain soft penalty does not apply"
         )
     factor = ood_penalty_factor(excess, penalty_per_unit)
     penalized = npv * factor if npv >= 0.0 else npv / factor
     if not math.isfinite(penalized):
         raise ScheduleSearchError(
-            f"мягкий штраф дал неконечный ЧДД: npv={npv!r}, excess={excess!r}, "
-            f"ставка={penalty_per_unit!r}"
+            f"the soft penalty produced a non-finite NPV: npv={npv!r}, excess={excess!r}, "
+            f"rate={penalty_per_unit!r}"
         )
     return penalized
 

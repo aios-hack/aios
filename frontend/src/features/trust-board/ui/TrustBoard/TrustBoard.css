@@ -18,13 +18,6 @@
   font-weight: var(--font-weight-bold);
 }
 
-.trust-board-lead {
-  margin: var(--space-1) 0 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
-  text-wrap: balance;
-}
-
 .trust-group + .trust-group {
   border-top: var(--border-hairline) solid var(--color-border);
 }

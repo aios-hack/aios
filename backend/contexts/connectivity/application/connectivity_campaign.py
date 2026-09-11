@@ -19,7 +19,7 @@ def main() -> int:
     try:
         model_z = model_z_dir()
     except FileNotFoundError:
-        print("дек Model_Z не найден", flush=True)
+        print("Model_Z deck not found", flush=True)
         return 2
     settings = Settings.from_env()
     root = settings.lambda_root
@@ -31,5 +31,5 @@ def main() -> int:
     plan = campaign_plan(prepared, seed=DEFAULT_BATCH_SEEDS[0])
     started = time.monotonic()
     report = generator.build(plan, limit=limit)
-    print(f"готово за {(time.monotonic() - started) / 60:.1f} мин: посчитано {report.n_simulated}")
+    print(f"done in {(time.monotonic() - started) / 60:.1f} min: {report.n_simulated} simulated")
     return 0

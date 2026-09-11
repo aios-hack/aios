@@ -1,21 +1,19 @@
 from __future__ import annotations
 
-from backend.core.contracts import (
-    MAX_LRAT_M3_PER_DAY,
+from backend.contexts.schedule.domain.schedule import (
     ControlEvent,
     EventKind,
+    MAX_LRAT_M3_PER_DAY,
     Role,
-    Rule,
-    Theta,
-    TraceEntry,
 )
+from backend.contexts.policy.domain.policy import Rule, Theta, TraceEntry
 
 from backend.contexts.policy.domain.rules.base import RuleOutcome
 from backend.contexts.policy.domain.state import PolicyState, RuleContext
 from backend.contexts.policy.domain.theta import read
 
 RULE = Rule.R2
-ADMISSION_CRITERION = "Разгоняем чистые скважины, душим обводнённые."
+ADMISSION_CRITERION = "Ramp up the clean wells and choke back the watered-out ones."
 THETA_NAMES: tuple[str, ...] = ("r2_watercut_pivot", "r2_gain")
 
 
@@ -33,7 +31,7 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
     density = context.oil_density_t_per_m3
     budget = context.liquid_budget_m3_per_day
     if budget is not None and budget < 0.0:
-        raise ValueError(f"отрицательная квота жидкости участка: {budget}")
+        raise ValueError(f"negative group liquid quota: {budget}")
     decisions: list[ControlEvent] = []
     trace: list[TraceEntry] = []
     for well in sorted(state.wells):

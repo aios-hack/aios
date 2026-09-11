@@ -3,8 +3,12 @@ from datetime import date, timedelta
 
 import pytest
 
-from backend.core.contracts import ControlEvent, FixedDeckEvent, T0
-from backend.domain.schedule import LosslessEmitter, ScheduleParseError, parse_schedule
+from backend.contexts.schedule.domain.schedule import ControlEvent, FixedDeckEvent, T0
+from backend.contexts.schedule.domain.lossless import (
+    emit_lossless,
+    ScheduleParseError,
+    parse_schedule,
+)
 
 from tests.support.backend.environment import missing_reason, model_z_schedule
 
@@ -13,7 +17,7 @@ MODEL_Z_SCHEDULE = model_z_schedule()
 
 pytestmark = pytest.mark.skipif(
     MODEL_Z_SCHEDULE is None,
-    reason=missing_reason("дек Model_Z"),
+    reason=missing_reason("Model_Z deck"),
 )
 
 
@@ -22,7 +26,7 @@ def test_model_z_round_trip_and_fixed_layer() -> None:
 
     parsed = parse_schedule(source)
 
-    assert LosslessEmitter.emit(parsed) == source
+    assert emit_lossless(parsed) == source
     assert len(parsed.dates) == 371
     assert parsed.dates[parsed.t0_deck_date_index] == T0
     assert parsed.t0_deck_date_index == 146
@@ -81,7 +85,7 @@ def test_model_z_round_trip_and_fixed_layer() -> None:
 
 
 def test_unclosed_known_block_is_rejected() -> None:
-    with pytest.raises(ScheduleParseError, match="блок не закрыт"):
+    with pytest.raises(ScheduleParseError, match="the block is not closed"):
         parse_schedule(b"DATES\n 01 JAN 2007 /\n")
 
 
@@ -109,4 +113,4 @@ def test_terminal_wcon_is_lossless_but_not_a_control_event() -> None:
     assert terminal.keyword == "WCONPROD"
     assert terminal.control_events == ()
     assert parsed.control_events == ()
-    assert LosslessEmitter.emit(parsed) == source
+    assert emit_lossless(parsed) == source

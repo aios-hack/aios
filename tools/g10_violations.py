@@ -1,12 +1,3 @@
-"""Детализация нарушений динамики у выбранных кандидатов G10.
-
-Прогон берётся из кеша `data/g10-verification/work-XX`, симулятор не
-запускается. Нужно ровно одно: увидеть, на каких скважинах и шагах сидят
-нарушения, потому что от этого зависит, чья это проблема — дека или наша.
-
-Запуск: `PYTHONPATH=. python tools/g10_violations.py <индекс> [<индекс> …]`.
-"""
-
 from __future__ import annotations
 
 import json
@@ -18,12 +9,15 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from backend.shared.resources import model_z_dir, normatives_xlsx
-from backend.infrastructure.opm import submit_schedule
+from backend.contexts.simulation.application.submission import submit_schedule
 from backend.contexts.reservoir.infrastructure.opm_deck import OpmDeckEmitter
 from backend.contexts.simulation.infrastructure.runner import deck_hashes, summary_spec_hash
 from backend.contexts.constraints.domain.schema import default_config
-from backend.core.contracts import ArtifactHashes, Constraints, Theta
-from backend.domain.economics import load_normatives, load_response_artifact
+from backend.contexts.constraints.domain.config import ArtifactHashes
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.policy.domain.policy import Theta
+from backend.contexts.economics.infrastructure.normatives_io import load_normatives
+from backend.contexts.economics.application.base_case import load_response_artifact
 from backend.contexts.optimization.application.environment import (
     load_environment,
     make_evaluator,
@@ -91,7 +85,7 @@ def main() -> int:
             strict=False,
         )
         report = submission.dynamic_report
-        print(f"\n=== кандидат {index}: нарушений {len(report.violations) if report else 0} ===")
+        print(f"\n=== candidate {index}: violations {len(report.violations) if report else 0} ===")
         if report is None:
             continue
         by_kind_well: dict[str, Counter] = {}
@@ -100,7 +94,7 @@ def main() -> int:
             by_kind_well.setdefault(kind, Counter())[violation.well] += 1
         for kind, wells in sorted(by_kind_well.items(), key=lambda item: -sum(item[1].values())):
             total = sum(wells.values())
-            listed = ", ".join(f"скв {well}×{n}" for well, n in wells.most_common(8))
+            listed = ", ".join(f"well {well}x{n}" for well, n in wells.most_common(8))
             print(f"  {kind:<32} {total:3d}: {listed}")
     return 0
 

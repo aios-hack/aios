@@ -4,9 +4,10 @@ from pathlib import Path
 import pytest
 
 from backend.contexts.constraints.application.cases import CaseError, load_case
-from backend.application.runs import RunProvenance, RunRequest, RunWorkflow
+from backend.contexts.runs.application.workflow import RunProvenance, RunRequest, RunWorkflow
 from backend.contexts.runs.application.workflow import SUBMISSION_BUNDLE_FIELDS
-from backend.core.contracts import SubmissionBundle, water_supply_policy
+from backend.contexts.runs.domain.run_result import SubmissionBundle
+from backend.contexts.constraints.domain.constraints import water_supply_policy
 from backend.contexts.runs.infrastructure.provenance import DEFAULT_OPM_IMAGE
 from backend.contexts.constraints.infrastructure.constraints_io import (
     constraints_hash,
@@ -108,7 +109,7 @@ def test_new_wells_is_refused_with_a_stated_reason(tmp_path) -> None:
 
     message = str(error.value)
     assert "new_wells" in message
-    assert "не поддерживается" in message
+    assert "is not supported" in message
     assert "Model_Z" in message
 
 
@@ -125,7 +126,7 @@ def test_case_cli_refuses_new_wells_before_running_the_search(tmp_path) -> None:
 def test_missing_case_file_is_refused_with_its_path(tmp_path) -> None:
     missing = tmp_path / "absent.json"
 
-    with pytest.raises(CaseError, match="не найден"):
+    with pytest.raises(CaseError, match="case file not found"):
         load_case(missing)
 
 
@@ -133,7 +134,7 @@ def test_malformed_json_is_refused_with_position(tmp_path) -> None:
     broken = tmp_path / "case.json"
     broken.write_text('{"injection_limits": }', encoding="utf-8")
 
-    with pytest.raises(CaseError, match="не разбирается как JSON"):
+    with pytest.raises(CaseError, match="does not parse as JSON"):
         load_case(broken)
 
 
@@ -383,7 +384,7 @@ def test_the_cli_reports_the_reason_a_package_was_not_built(tmp_path) -> None:
         main(["submit", "--run-id", "unsound", "--runs-root", str(tmp_path / "runs"),
               "--model-dir", str(model_dir)])
 
-    assert "пакет сдачи не собран" in str(error.value)
+    assert "submission bundle was not assembled" in str(error.value)
     assert "sound" in str(error.value)
 
 
@@ -449,7 +450,7 @@ def test_compare_refuses_a_case_that_differs_from_the_case_of_the_run(
         resolve_comparison_case(runs_root, "compared", other)
 
     message = str(error.value)
-    assert "расходится с кейсом прогона" in message
+    assert "diverges from the case of run" in message
     assert constraints_hash(saved) in message
 
 
@@ -487,4 +488,4 @@ def test_compare_without_any_case_at_all_is_refused(tmp_path) -> None:
     with pytest.raises(SystemExit) as error:
         resolve_comparison_case(runs_root, "bare", tmp_path / "absent.json")
 
-    assert "кейс не найден" in str(error.value)
+    assert "case not found" in str(error.value)

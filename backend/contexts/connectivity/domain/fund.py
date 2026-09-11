@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from backend.core.contracts import Availability, OperatingStatus, Role, WellState
+from backend.contexts.schedule.domain.schedule import Availability, OperatingStatus, Role, WellState
 
-from backend.contexts.connectivity.infrastructure.deck import DeckSchedule
+from backend.contexts.connectivity.domain.deck_schedule import DeckSchedule
 
 
 @dataclass(frozen=True, slots=True)
@@ -15,7 +15,7 @@ class Window:
 
     def __post_init__(self) -> None:
         if self.end <= self.start:
-            raise ValueError(f"пустое окно {self.start}…{self.end}")
+            raise ValueError(f"empty window {self.start}…{self.end}")
 
     def contains(self, when: date) -> bool:
         return self.start <= when < self.end
@@ -32,10 +32,10 @@ class ActiveFund:
     def __post_init__(self) -> None:
         overlap = set(self.injectors) & set(self.producers)
         if overlap:
-            raise ValueError(f"скважина в двух ролях сразу: {sorted(overlap)}")
+            raise ValueError(f"a well holds two roles at once: {sorted(overlap)}")
         outside = (set(self.injectors) | set(self.producers)) - set(self.commissioned)
         if outside:
-            raise ValueError(f"роль у невведённой скважины: {sorted(outside)}")
+            raise ValueError(f"a role assigned to a well that is not in service: {sorted(outside)}")
 
     @property
     def plan_width(self) -> int:
@@ -49,12 +49,12 @@ class FundHistory:
 
     def __post_init__(self) -> None:
         if len(self.dates) != len(self.states):
-            raise ValueError("длины осей dates и states разошлись")
+            raise ValueError("the dates and states axes have different lengths")
 
     def state_at(self, deck_date_index: int) -> dict[str, WellState]:
         if not (0 <= deck_date_index < len(self.states)):
             raise ValueError(
-                f"deck_date_index={deck_date_index} вне 0…{len(self.states) - 1}"
+                f"deck_date_index={deck_date_index} outside 0…{len(self.states) - 1}"
             )
         return self.states[deck_date_index]
 
@@ -168,9 +168,9 @@ def slice_windows(
     history: FundHistory | None = None,
 ) -> tuple[tuple[Window, ActiveFund], ...]:
     if len(boundaries) < 2:
-        raise ValueError("для нарезки окон нужны минимум две границы")
+        raise ValueError("slicing into windows needs at least two boundaries")
     if sorted(boundaries) != list(boundaries) or len(set(boundaries)) != len(boundaries):
-        raise ValueError("границы окон обязаны строго возрастать")
+        raise ValueError("window boundaries must strictly increase")
     resolved = history if history is not None else build_fund_history(deck)
     sliced: list[tuple[Window, ActiveFund]] = []
     for start, end in zip(boundaries, boundaries[1:]):

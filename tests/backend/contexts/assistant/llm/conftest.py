@@ -5,27 +5,26 @@ from typing import Sequence
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.reservoir.domain.response import (
     ActiveControlMode,
+    IntervalResponse,
+    StateAtDate,
+)
+from backend.contexts.schedule.domain.schedule import (
     Availability,
-    Constraints,
     ControlEvent,
     EventKind,
-    Groups,
-    IntervalResponse,
-    Lambda,
-    LineItems,
-    NpvTable,
     OperatingStatus,
     Role,
-    Rule,
-    RunArtifact,
     Schedule,
     ScheduleMeta,
-    StateAtDate,
-    TraceEntry,
     WellState,
 )
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.connectivity.domain.connectivity import Groups, Lambda
+from backend.contexts.economics.domain.economics import LineItems, NpvTable
+from backend.contexts.policy.domain.policy import Rule, TraceEntry
+from backend.contexts.runs.domain.run_artifact import RunArtifact
 
 PLACEHOLDER_HASH = "f" * 64
 

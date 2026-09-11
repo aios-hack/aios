@@ -8,11 +8,8 @@ from backend.contexts.schedule.domain.validation.interpreter import (
 from collections.abc import (
     Sequence,
 )
-from backend.core.contracts import (
-    Role,
-    Schedule,
-    StateAtDate,
-)
+from backend.contexts.schedule.domain.schedule import Role, Schedule
+from backend.contexts.reservoir.domain.response import StateAtDate
 from backend.contexts.schedule.domain.validate import (
     Violation,
     ViolationKind,
@@ -44,8 +41,8 @@ def check_role_consistency(
                     well=well,
                     value=state.liquid_rate,
                     detail=(
-                        f"скважина в роли INJ даёт добычу жидкости "
-                        f"{state.liquid_rate} м³/сут"
+                        f"a well in the INJ role gives liquid production "
+                        f"{state.liquid_rate} m3/day"
                     ),
                 )
             )
@@ -57,8 +54,8 @@ def check_role_consistency(
                     well=well,
                     value=state.injection_rate,
                     detail=(
-                        f"скважина в роли PROD даёт закачку "
-                        f"{state.injection_rate} м³/сут"
+                        f"a well in the PROD role gives injection "
+                        f"{state.injection_rate} m3/day"
                     ),
                 )
             )

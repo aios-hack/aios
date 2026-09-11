@@ -75,8 +75,8 @@ def check_voice(voice: str) -> str:
     text = str(voice or "").strip()
     if not VOICE_PATTERN.match(text):
         raise TtsError(
-            f"имя голоса {voice!r} не годится: ожидается короткое имя вида "
-            "ru-RU-SvetlanaNeural"
+            f"voice name {voice!r} will not do: a short name of the form "
+            "ru-RU-SvetlanaNeural is expected"
         )
     return text
 
@@ -102,7 +102,7 @@ def check_text(text: str) -> str:
     body = str(text or "").strip()
     if not body:
         raise TtsError(
-            "текста для озвучки нет: поле text пустое, синтезировать нечего"
+            "there is no text to voice: the text field is empty, nothing to synthesise"
         )
     return body[:TEXT_LIMIT]
 
@@ -117,8 +117,8 @@ def _module() -> Any:
         import edge_tts
     except ImportError as error:
         raise TtsUnavailable(
-            "пакет edge-tts не установлен: синтез речи на сервере недоступен, "
-            "поставьте зависимость группы jarvis (pip install -e .[jarvis])"
+            "the edge-tts package is not installed: speech synthesis on the server is "
+            "unavailable, install the jarvis dependency group (pip install -e .[jarvis])"
         ) from error
     return edge_tts
 
@@ -184,14 +184,14 @@ class TtsEngine:
             audio = asyncio.run(_collect(module, spoken, chosen))
         except Exception as error:
             raise TtsUnavailable(
-                f"синтез речи голосом {chosen} не удался: {error}. Служба "
-                "нейроголосов Microsoft требует сети, при её отсутствии "
-                "озвучка остаётся браузерной"
+                f"speech synthesis with voice {chosen} failed: {error}. The Microsoft "
+                "neural voice service needs the network; without it voicing "
+                "stays in the browser"
             ) from error
         if not audio:
             raise TtsUnavailable(
-                f"служба нейроголосов вернула пустой поток для голоса {chosen}: "
-                "озвучить нечего"
+                f"the neural voice service returned an empty stream for voice {chosen}: "
+                "there is nothing to voice"
             )
         self._store(path, audio)
         return audio
@@ -209,8 +209,8 @@ class TtsEngine:
             listed = asyncio.run(_voices(module))
         except Exception as error:
             raise TtsUnavailable(
-                f"список нейроголосов не получен: {error}. Служба Microsoft "
-                "требует сети"
+                f"the list of neural voices was not obtained: {error}. The Microsoft "
+                "service needs the network"
             ) from error
         wanted = str(lang or "").lower()
         collected: list[Voice] = []

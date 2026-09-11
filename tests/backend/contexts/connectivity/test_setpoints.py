@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from backend.core.contracts import Role, T0
+from backend.contexts.schedule.domain.schedule import Role, T0
 
-from backend.domain.connectivity import DeckSchedule, setpoint_changes
+from backend.contexts.connectivity.infrastructure.deck import DeckSchedule
+from backend.contexts.connectivity.domain.setpoints import setpoint_changes
 
 COVERAGE = 0.95
 
@@ -138,7 +139,7 @@ def test_first_appearance_is_not_a_change(deck: DeckSchedule) -> None:
 
 
 def test_relative_step_from_zero_level_is_rejected(injection) -> None:
-    from backend.domain.connectivity import SetpointChange
+    from backend.contexts.connectivity.domain.setpoints import SetpointChange
 
     change = SetpointChange(
         deck_date_index=injection.changes[0].deck_date_index,
@@ -148,22 +149,22 @@ def test_relative_step_from_zero_level_is_rejected(injection) -> None:
         previous_m3_per_day=0.0,
         current_m3_per_day=30.0,
     )
-    with pytest.raises(ValueError, match="не определён от нулевого уровня"):
+    with pytest.raises(ValueError, match="undefined from a zero level"):
         change.relative_step
 
 
 def test_role_without_setpoints_is_rejected(deck: DeckSchedule) -> None:
-    with pytest.raises(ValueError, match="не несёт уставок"):
+    with pytest.raises(ValueError, match="carries no setpoints"):
         setpoint_changes(deck, Role.NONE, 0)
 
 
 def test_index_outside_deck_is_rejected(deck: DeckSchedule) -> None:
-    with pytest.raises(ValueError, match="вне 0…"):
+    with pytest.raises(ValueError, match="outside 0…"):
         setpoint_changes(deck, Role.INJ, len(deck.dates))
 
 
 def test_coverage_outside_unit_interval_is_rejected(injection) -> None:
-    with pytest.raises(ValueError, match="вне 0…1"):
+    with pytest.raises(ValueError, match="outside 0…1"):
         injection.dominant_step_range(1.5)
-    with pytest.raises(ValueError, match="вне 0…1"):
+    with pytest.raises(ValueError, match="outside 0…1"):
         injection.dominant_step_range(0.0)

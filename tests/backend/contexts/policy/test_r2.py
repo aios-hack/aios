@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from backend.core.contracts import MAX_LRAT_M3_PER_DAY, EventKind, Rule
+from backend.contexts.schedule.domain.schedule import EventKind, MAX_LRAT_M3_PER_DAY
+from backend.contexts.policy.domain.policy import Rule
 
-from backend.domain.policy import RuleContext, RuleFlags, apply_rule, make_theta
+from backend.contexts.policy.domain.state import RuleContext
+from backend.contexts.policy.domain.flags import RuleFlags
+from backend.contexts.policy.domain.rules import apply_rule
+from backend.contexts.policy.domain.theta import make_theta
 from backend.contexts.policy.domain.rules import r2
 from tests.backend.contexts.policy.conftest import producer, state_of
 

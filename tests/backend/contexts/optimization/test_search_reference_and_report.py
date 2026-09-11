@@ -12,22 +12,21 @@ from typing import Mapping, Sequence
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
-    canonical_bytes,
     ControlEvent,
     EventKind,
     FixedDeckEvent,
-    hash_schedule,
-    Lambda,
     N_INTERVALS,
     OperatingStatus,
     Role,
     Schedule,
     ScheduleMeta,
-    Theta,
     WellState,
 )
+from backend.shared.hashing import canonical_bytes, hash_schedule
+from backend.contexts.connectivity.domain.connectivity import Lambda
+from backend.contexts.policy.domain.policy import Theta
 from backend.contexts.optimization.application import environment as _environment
 from backend.contexts.optimization.domain import errors as optimization_errors
 from backend.contexts.optimization.domain import physics_gate
@@ -67,14 +66,14 @@ def _class_def(module: ast.Module, name: str) -> ast.ClassDef:
     for node in module.body:
         if isinstance(node, ast.ClassDef) and node.name == name:
             return node
-    raise AssertionError(f"класс {name} не найден")
+    raise AssertionError(f"class {name} not found")
 
 
 def _function_def(module: ast.Module, name: str) -> ast.FunctionDef:
     for node in module.body:
         if isinstance(node, ast.FunctionDef) and node.name == name:
             return node
-    raise AssertionError(f"функция {name} не найдена")
+    raise AssertionError(f"function {name} not found")
 
 
 def _annotations(node: ast.ClassDef) -> dict[str, str]:
@@ -115,11 +114,11 @@ def test_search_environment_declares_the_anchor_with_check_pair_types() -> None:
 def test_check_pair_accepts_exactly_those_types() -> None:
     physics = pytest.importorskip(
         "backend.contexts.surrogate.domain.physics_checks",
-        reason="физические проверки суррогата требуют torch (extras ml)",
+        reason="surrogate physics checks require torch (extras ml)",
     )
     search = pytest.importorskip(
         "backend.contexts.optimization.application.environment",
-        reason="сквозной поиск требует torch (extras ml)",
+        reason="end-to-end search requires torch (extras ml)",
     )
     hints = typing.get_type_hints(physics.check_pair)
 
@@ -134,12 +133,12 @@ def test_check_pair_accepts_exactly_those_types() -> None:
 def test_missing_anchor_is_none_and_marked_in_provenance() -> None:
     search = pytest.importorskip(
         "backend.contexts.optimization.application.environment",
-        reason="сквозной поиск требует torch (extras ml)",
+        reason="end-to-end search requires torch (extras ml)",
     )
 
     class BrokenModel:
         def predict(self, model_input):
-            raise ValueError("чекпойнт не совпадает с расписанием")
+            raise ValueError("the checkpoint does not match the schedule")
 
     class BrokenContext:
         context = object()
@@ -282,7 +281,7 @@ _PHYSICS_LATE_OPEN_STEP = 50
 def _search_namespace() -> dict[str, object]:
     pytest.importorskip(
         "backend.contexts.surrogate.domain.physics_checks",
-        reason="физические проверки суррогата требуют torch (extras ml)",
+        reason="surrogate physics checks require torch (extras ml)",
     )
     namespace: dict[str, object] = dict(vars(physics_gate))
     namespace.update(vars(optimization_errors))
@@ -442,7 +441,7 @@ def test_incomplete_report_is_not_admitted_even_without_blocking_flags() -> None
         counts={},
         examples=(),
         evaluated=single_only,
-        skipped={name: "опоры нет" for name in differential},
+        skipped={name: "no reference" for name in differential},
         n_nodes=1,
         n_wells=1,
     )
@@ -501,13 +500,13 @@ def test_absent_anchor_rejects_the_candidate_with_a_named_reason() -> None:
         None,
         None,
         _physics_lambda(),
-        {"reference": "absent: прогноз суррогата на опоре не построен: чекпойнт"},
+        {"reference": "absent: the surrogate forecast on the reference was not built: checkpoint"},
     )
 
     with pytest.raises(namespace["MissingReferenceError"]) as error:
         namespace["full_physics_report"](env, schedule, _physics_raw(schedule))
 
-    assert "опора недоступна" in error.value.description
+    assert "the reference is unavailable" in error.value.description
     assert "absent:" in error.value.description
     assert error.value.missing_invariants == _differential_names(physics)
 
@@ -557,4 +556,4 @@ def test_unusable_pair_is_rejected_and_never_crashes_the_search() -> None:
     with pytest.raises(namespace["MissingReferenceError"]) as error:
         namespace["full_physics_report"](env, schedule, _physics_raw(schedule))
 
-    assert "непригодна" in error.value.description
+    assert "unsuitable for checking" in error.value.description

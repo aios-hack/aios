@@ -8,17 +8,17 @@ from backend.contexts.optimization.domain.errors import (
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from backend.contexts.optimization.application.verification import CandidateCheck, RoundReport
+from backend.contexts.optimization.domain.verification_types import CandidateCheck, RoundReport
 from backend.contexts.surrogate.domain.crm import spearman
 
 
 def absolute_deviation_criterion(tolerance: float):
     if tolerance < 0.0:
-        raise ConvergenceError(f"допуск {tolerance} отрицателен")
+        raise ConvergenceError(f"tolerance {tolerance} is negative")
 
     def criterion(checks: Sequence[CandidateCheck]) -> bool:
         if not checks:
-            raise ConvergenceError("критерий на пустом раунде не определён")
+            raise ConvergenceError("the criterion is undefined on an empty round")
         return all(abs(check.relative_deviation) <= tolerance for check in checks)
 
     return criterion
@@ -26,14 +26,14 @@ def absolute_deviation_criterion(tolerance: float):
 
 def rank_agreement_criterion(minimum: float):
     if not -1.0 <= minimum <= 1.0:
-        raise ConvergenceError(f"порог корреляции {minimum} вне [-1, 1]")
+        raise ConvergenceError(f"correlation threshold {minimum} is outside [-1, 1]")
 
     def criterion(checks: Sequence[CandidateCheck]) -> bool:
         if not checks:
-            raise ConvergenceError("критерий на пустом раунде не определён")
+            raise ConvergenceError("the criterion is undefined on an empty round")
         if len(checks) < 2:
             raise ConvergenceError(
-                "ранговая согласованность требует минимум двух кандидатов в раунде"
+                "rank agreement requires at least two candidates in a round"
             )
         predicted = [check.predicted_npv for check in checks]
         actual = [check.actual_npv for check in checks]
@@ -54,14 +54,14 @@ def both_criterion(tolerance: float, minimum: float):
 
 def trust_was_justified(checks: Sequence[CandidateCheck], *, regret_tolerance: float) -> bool:
     if not checks:
-        raise ConvergenceError("истина на пустом раунде не определена")
+        raise ConvergenceError("the ground truth is undefined on an empty round")
     if regret_tolerance < 0.0:
-        raise ConvergenceError(f"допуск просадки {regret_tolerance} отрицателен")
+        raise ConvergenceError(f"regret tolerance {regret_tolerance} is negative")
 
     predicted_best = max(checks, key=lambda check: check.predicted_npv)
     actual_best = max(check.actual_npv for check in checks)
     if actual_best == 0.0:
-        raise ConvergenceError("лучший фактический ЧДД равен нулю: просадка не определена")
+        raise ConvergenceError("the best actual NPV is zero: the regret is undefined")
 
     shortfall = (actual_best - predicted_best.actual_npv) / abs(actual_best)
     return shortfall <= regret_tolerance
@@ -97,7 +97,7 @@ class CriterionSweep:
 
     def __post_init__(self) -> None:
         if not self.measurements:
-            raise ConvergenceError(f"{self.name}: пустая сетка порогов")
+            raise ConvergenceError(f"{self.name}: empty threshold grid")
 
     @property
     def best(self) -> CriterionMeasurement:
@@ -129,7 +129,7 @@ class CalibrationReport:
         for sweep in self.sweeps:
             if sweep.name == name:
                 return sweep
-        raise ConvergenceError(f"кандидата {name!r} нет в отчёте")
+        raise ConvergenceError(f"candidate {name!r} is not in the report")
 
     @property
     def winner(self) -> CriterionMeasurement | None:
@@ -143,21 +143,21 @@ class CalibrationReport:
     def verdict(self) -> str:
         if self.synthetic_inputs:
             return (
-                "таблица помечена синтетической: критерий, откалиброванный на "
-                "выдуманных данных, — это выбор, замаскированный под замер "
-                "(правило 4), вердикт не выносится"
+                "the table is marked synthetic: a criterion calibrated on invented data "
+                "is a choice disguised as a measurement (rule 4), no verdict is "
+                "issued"
             )
         if self.n_rounds < 2:
             return (
-                f"раундов {self.n_rounds}: на одном раунде критерий не "
-                f"различается, замер не состоялся"
+                f"rounds {self.n_rounds}: on a single round the criterion does not "
+                f"discriminate, the measurement did not take place"
             )
         best = self.winner
         assert best is not None
         return (
-            f"{best.name} с порогом {best.threshold:g}: ложных расширений "
-            f"{best.false_expansions}, верных {best.correct_expansions} "
-            f"из {self.n_rounds} раундов"
+            f"{best.name} with threshold {best.threshold:g}: false expansions "
+            f"{best.false_expansions}, correct {best.correct_expansions} "
+            f"out of {self.n_rounds} rounds"
         )
 
 
@@ -170,9 +170,9 @@ def measure_criteria(
     synthetic_inputs: bool = False,
 ) -> CalibrationReport:
     if not rounds:
-        raise ConvergenceError("замер на пустой истории цикла невозможен")
+        raise ConvergenceError("a measurement on an empty loop history is impossible")
     if not deviation_thresholds or not rank_thresholds:
-        raise ConvergenceError("пустая сетка порогов ничего не меряет")
+        raise ConvergenceError("an empty threshold grid measures nothing")
 
     truth = [
         trust_was_justified(report.checks, regret_tolerance=regret_tolerance)

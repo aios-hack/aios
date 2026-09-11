@@ -5,10 +5,16 @@ from datetime import date
 
 import pytest
 
-from backend.core.contracts import N_CONTROL_DATES, T0, Availability, OperatingStatus, Role
+from backend.contexts.schedule.domain.schedule import (
+    Availability,
+    N_CONTROL_DATES,
+    OperatingStatus,
+    Role,
+    T0,
+)
 
-from backend.domain.connectivity import (
-    DeckSchedule,
+from backend.contexts.connectivity.infrastructure.deck import DeckSchedule
+from backend.contexts.connectivity.domain.fund import (
     FundHistory,
     Window,
     active_fund_at,
@@ -106,7 +112,7 @@ def test_every_shut_in_deck_is_the_producing_side_of_a_conversion(
             for r in deck.records_at(record.deck_date_index)
             if r.well == record.well and r.role is Role.INJ
         ]
-        assert same_date, f"{record.well}: SHUT без перевода под закачку"
+        assert same_date, f"{record.well}: SHUT without a switch to injection"
     persisted = sum(
         1
         for state in history.states
@@ -172,19 +178,19 @@ def test_plan_width_is_never_the_end_of_horizon_fund(
 
 
 def test_date_before_deck_start_is_rejected(deck: DeckSchedule) -> None:
-    with pytest.raises(ValueError, match="раньше первой даты дека"):
+    with pytest.raises(ValueError, match="precedes the first deck date"):
         active_fund_at(deck, date(1990, 1, 1))
 
 
 def test_window_boundaries_must_increase(deck: DeckSchedule, history: FundHistory) -> None:
-    with pytest.raises(ValueError, match="строго возрастать"):
+    with pytest.raises(ValueError, match="strictly increase"):
         slice_windows(deck, (date(2012, 1, 1), T0), history)
-    with pytest.raises(ValueError, match="минимум две границы"):
+    with pytest.raises(ValueError, match="at least two boundaries"):
         slice_windows(deck, (T0,), history)
 
 
 def test_empty_window_is_rejected() -> None:
-    with pytest.raises(ValueError, match="пустое окно"):
+    with pytest.raises(ValueError, match="empty window"):
         Window(start=T0, end=T0)
 
 

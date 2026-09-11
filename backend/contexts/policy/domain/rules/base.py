@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol, Sequence
 
-from backend.core.contracts import ControlEvent, Rule, Theta, TraceEntry
+from backend.contexts.schedule.domain.schedule import ControlEvent
+from backend.contexts.policy.domain.policy import Rule, Theta, TraceEntry
 
 from backend.contexts.policy.domain.state import PolicyState, RuleContext
 
@@ -17,7 +18,7 @@ class RuleOutcome:
         for entry in self.trace:
             if not entry.inputs:
                 raise ValueError(
-                    f"{entry.rule.value}/{entry.well}: запись Trace без чисел входа"
+                    f"{entry.rule.value}/{entry.well}: a Trace entry without input numbers"
                 )
 
 

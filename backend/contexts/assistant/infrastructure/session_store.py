@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Iterator, Mapping, Sequence
 from backend.shared.settings import Settings
 from backend.shared.paths import repository_root
+from backend.contexts.assistant.domain.session_events import restore_exchanges
 
 SESSIONS_ENV_VAR = "AIOS_JARVIS_SESSIONS"
 OUT_ENV_VAR = "AIOS_OUT_DIR"
@@ -47,9 +48,9 @@ def check_id(session_id: str) -> str:
     text = str(session_id or "").strip()
     if not ID_PATTERN.match(text):
         raise SessionDiskError(
-            f"идентификатор сессии {session_id!r} не годится для имени каталога: "
-            "допустимы латинские буквы, цифры, точка, дефис и подчёркивание, "
-            "не длиннее 80 символов"
+            f"session identifier {session_id!r} will not do as a directory name: "
+            "Latin letters, digits, dot, hyphen and underscore are allowed, "
+            "no longer than 80 characters"
         )
     return text
 
@@ -170,7 +171,7 @@ class SessionDisk:
             )
         except OSError as error:
             raise SessionDiskError(
-                f"метаданные сессии {meta.session_id} не записываются в "
+                f"the metadata of session {meta.session_id} cannot be written to "
                 f"{directory}: {error}"
             ) from error
 
@@ -204,8 +205,8 @@ class SessionDisk:
         path = directory / EVENTS_FILE
         if not path.is_file():
             raise SessionDiskError(
-                f"сессии {session_id} нет на диске: файла {path} не "
-                "существует, историю показать не из чего"
+                f"session {session_id} is not on disk: the file {path} does not "
+                "exist, there is nothing to show the history from"
             )
         collected: list[dict[str, Any]] = []
         try:
@@ -224,7 +225,7 @@ class SessionDisk:
                         break
         except OSError as error:
             raise SessionDiskError(
-                f"события сессии {session_id} не читаются из {path}: {error}"
+                f"the events of session {session_id} cannot be read from {path}: {error}"
             ) from error
         return collected
 
@@ -253,35 +254,6 @@ class SessionDisk:
         except SessionDiskError:
             return iter(())
         return iter(events)
-
-
-def restore_exchanges(events: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    collected: list[dict[str, Any]] = []
-    current: dict[str, Any] | None = None
-    for event in events:
-        kind = event.get("type")
-        if kind == "ask":
-            if current is not None:
-                collected.append(current)
-            current = {
-                "question": str(event.get("question") or ""),
-                "card_types": [],
-                "caption": "",
-                "answer": "",
-            }
-        elif current is None:
-            continue
-        elif kind == "card":
-            card = event.get("card") or {}
-            if isinstance(card, Mapping):
-                current["card_types"].append(str(card.get("type") or ""))
-        elif kind == "caption":
-            current["caption"] = str(event.get("text") or "")
-        elif kind == "answer":
-            current["answer"] = str(event.get("text") or "")
-    if current is not None:
-        collected.append(current)
-    return collected
 
 
 __all__ = [

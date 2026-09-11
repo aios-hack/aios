@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from backend.core.contracts import ActiveControlMode, IntervalResponse, Role, StateAtDate
+from backend.contexts.reservoir.domain.response import (
+    ActiveControlMode,
+    IntervalResponse,
+    StateAtDate,
+)
+from backend.contexts.schedule.domain.schedule import Role
 
 from backend.contexts.showcase.infrastructure.synthetic_rng import Rng
 

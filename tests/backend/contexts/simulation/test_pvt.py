@@ -9,7 +9,7 @@ from backend.contexts.reservoir.infrastructure.pvt import PvtError, PvtTables, l
 from tests.support.backend.environment import model_z_dir
 
 _SYNTHETIC = """
--- заголовок из тНавигатора
+-- header from tNavigator
 PVTO
 -- gor      pressure  fvf     viscosity
    0.005    100       1.0100  34.0
@@ -39,7 +39,7 @@ DENSITY
 def deck_pvt() -> PvtTables:
     model_dir = model_z_dir()
     if model_dir is None:
-        pytest.skip("дек Model_Z недоступен")
+        pytest.skip("Model_Z deck is unavailable")
     return load_pvt(model_dir)
 
 
@@ -72,14 +72,14 @@ def test_deck_regions_differ(deck_pvt: PvtTables) -> None:
 
 def test_deck_pressure_outside_table_raises(deck_pvt: PvtTables) -> None:
     region = deck_pvt.region(1)
-    with pytest.raises(PvtError, match="вне таблицы"):
+    with pytest.raises(PvtError, match="outside the table"):
         region.oil_formation_volume_factor(0.5)
-    with pytest.raises(PvtError, match="вне таблицы"):
+    with pytest.raises(PvtError, match="outside the table"):
         region.oil_formation_volume_factor(1000.0)
 
 
 def test_deck_missing_region_raises(deck_pvt: PvtTables) -> None:
-    with pytest.raises(PvtError, match="PVT-регион 5 отсутствует"):
+    with pytest.raises(PvtError, match="PVT region 5 is missing"):
         deck_pvt.region(5)
 
 
@@ -111,13 +111,13 @@ def test_synthetic_repeat_counts_expand() -> None:
 
 def test_repeat_count_zero_rejected() -> None:
     text = _SYNTHETIC.replace("2*1.5", "0*1.5")
-    with pytest.raises(PvtError, match="больше нуля"):
+    with pytest.raises(PvtError, match="greater than zero"):
         parse_pvt(text, "synthetic")
 
 
 def test_repeat_without_value_rejected() -> None:
     text = _SYNTHETIC.replace("2*1.5", "2* 1.5 1.5")
-    with pytest.raises(PvtError, match="не указано повторяемое значение"):
+    with pytest.raises(PvtError, match="no repeated value given"):
         parse_pvt(text, "synthetic")
 
 
@@ -176,42 +176,42 @@ PVTW
     ],
 )
 def test_missing_keyword_raises(keyword: str, text: str) -> None:
-    with pytest.raises(PvtError, match=f"{keyword} отсутствует"):
+    with pytest.raises(PvtError, match=f"{keyword} is missing"):
         parse_pvt(text, "synthetic")
 
 
 def test_empty_keyword_block_raises() -> None:
     text = "PVTO\nPVTW\n 100 1 0.0 1.6 /\nDENSITY\n 900 1000 1.0 /\n"
-    with pytest.raises(PvtError, match="не содержит записей"):
+    with pytest.raises(PvtError, match="contains no records"):
         parse_pvt(text, "synthetic")
 
 
 def test_region_count_mismatch_raises() -> None:
     text = _SYNTHETIC.replace("   100  2*1.5               1.6       /\n", "")
-    with pytest.raises(PvtError, match="расходится между ключевыми словами"):
+    with pytest.raises(PvtError, match="differs between keywords"):
         parse_pvt(text, "synthetic")
 
 
 def test_unclosed_block_raises() -> None:
     text = _SYNTHETIC.replace("   910 1010 1.1 /", "   910 1010 1.1")
-    with pytest.raises(PvtError, match="не закрыт"):
+    with pytest.raises(PvtError, match="is not closed"):
         parse_pvt(text, "synthetic")
 
 
 def test_non_numeric_token_raises() -> None:
     text = _SYNTHETIC.replace("   900 1000 1.0 /", "   900 abc 1.0 /")
-    with pytest.raises(PvtError, match="не является числом"):
+    with pytest.raises(PvtError, match="is not a number"):
         parse_pvt(text, "synthetic")
 
 
 def test_density_wrong_field_count_raises() -> None:
     text = _SYNTHETIC.replace("   900 1000 1.0 /", "   900 1000 /")
-    with pytest.raises(PvtError, match="DENSITY: запись должна содержать три числа"):
+    with pytest.raises(PvtError, match="DENSITY: record must contain three numbers"):
         parse_pvt(text, "synthetic")
 
 
 def test_load_pvt_missing_file_raises(tmp_path: Path) -> None:
-    with pytest.raises(FileNotFoundError, match="файл свойств дека не найден"):
+    with pytest.raises(FileNotFoundError, match="deck properties file not found"):
         load_pvt(tmp_path)
 
 

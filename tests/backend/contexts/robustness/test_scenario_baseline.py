@@ -1,25 +1,3 @@
-"""Приёмка задачи 42 (docs/v1/assignments/ivan.md, docs/context/08_contracts.md §13.1, §13.3).
-
-Карточка: «база сравнения — свой ЧДД для каждого сценария, а не
-номинальный: тяжёлый сценарий проседает у любого плана. **Требует запуска
-оптимизатора Андрея (задача 38) на каждый сценарий**, не только суррогата.
-Форма ограничения, а не штрафа».
-
-Отсюда четыре части приёмки:
-
-1. бейзлайн получается перезапуском оптимизатора под `Constraints`
-   сценария — и это проверяется тем, что θ бейзлайна отличается от нашей,
-   а цель вызывается с изменёнными `Constraints`;
-2. тяжёлый сценарий, просаживающий всех одинаково, даёт нулевой regret —
-   ровно то, чего сравнение с номиналом не умеет;
-3. разбивка по сценариям есть и она поимённая;
-4. ограничение не свёрнуто в штраф: наружу идут `feasible` и
-   `violations_by_scenario`, сложения по батарее нет.
-
-Целевые функции здесь — настоящие вычисляемые функции от θ и
-`Constraints`, а не заглушки: оптимизатор действительно ищет по ним
-максимум, и тест знает, где этот максимум лежит.
-"""
 
 from __future__ import annotations
 
@@ -28,10 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import Constraints, OptimizerResult, Theta
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.policy.domain.policy import OptimizerResult, Theta
 
-from backend.domain.robustness import FragilityBattery, Split, holdout_view, optimization_view
-from backend.contexts.robustness.application.battery import Scenario
+from backend.contexts.robustness.domain.battery import FragilityBattery, Split
+from backend.contexts.robustness.domain.regret import holdout_view, optimization_view
+from backend.contexts.robustness.domain.battery import Scenario
 from backend.contexts.optimization.application.scenario_baseline import (
     BaselineSearch,
     RegretComputation,
@@ -55,13 +35,6 @@ def _theta(value: float = 5.0) -> Theta:
 
 
 class _CappedObjective:
-    """ЧДД растёт с агрессивностью, но сценарий кладёт на неё потолок.
-
-    Настоящая функция, а не заглушка: оптимизатор ищет по ней максимум и
-    находит его на потолке. Потолок берётся из `Constraints` сценария —
-    поэтому у разных сценариев разный собственный оптимум, и именно это
-    делает сценарный бейзлайн отличным от номинального.
-    """
 
     def __init__(self, cap: float) -> None:
         self.cap = cap
@@ -81,7 +54,6 @@ class _CappedObjective:
 
 
 class _Factory:
-    """Строит цель под `Constraints` сценария и помнит, что ей передали."""
 
     def __init__(self, cap_by_scenario: dict[str, float], default_cap: float = 50.0) -> None:
         self.cap_by_scenario = cap_by_scenario
@@ -98,14 +70,11 @@ class _Factory:
         return objective
 
 
-# --- 1. Бейзлайн — перезапуск оптимизатора под сценарий --------------------
 
 
 def test_baseline_is_produced_by_re_optimizing_theta_under_the_scenario(
     battery: FragilityBattery,
 ) -> None:
-    """Главное отличие задачи 42 от 41: `npv_scenario_baseline` не приходит
-    готовым, а считается поиском по θ внутри сценария."""
 
     scenario = battery.dev()[0]
     factory = _Factory({scenario.scenario_id: 40.0})
@@ -119,8 +88,7 @@ def test_baseline_is_produced_by_re_optimizing_theta_under_the_scenario(
     )
 
     assert isinstance(search, BaselineSearch)
-    assert search.evaluations > 1, "бейзлайн обязан быть поиском, а не одной оценкой"
-    # Оптимум цели — на потолке 40; наш номинальный θ стоит на 5.
+    assert search.evaluations > 1, "the baseline must be a search, not a single evaluation"
     assert search.theta.values["aggressiveness"] > _theta().values["aggressiveness"]
     assert search.npv > ours
 
@@ -128,8 +96,6 @@ def test_baseline_is_produced_by_re_optimizing_theta_under_the_scenario(
 def test_factory_receives_the_perturbed_constraints_not_the_base(
     battery: FragilityBattery,
 ) -> None:
-    """Сценарий определяется своими `Constraints`; если бы фабрика получала
-    базовые, все бейзлайны совпали бы и regret измерял бы шум поиска."""
 
     scenario = battery.dev()[0]
     factory = _Factory({})
@@ -154,11 +120,9 @@ def test_factory_receives_the_perturbed_constraints_not_the_base(
 def test_our_npv_is_also_evaluated_inside_the_scenario(
     battery: FragilityBattery,
 ) -> None:
-    """Оба слагаемых regret считаются внутри сценария. Если бы наш ЧДД брался
-    номинальным, разность мерила бы ещё и смену условий."""
 
     scenario = battery.dev()[0]
-    factory = _Factory({scenario.scenario_id: 3.0})  # потолок ниже нашей θ
+    factory = _Factory({scenario.scenario_id: 3.0})
 
     _, ours = scenario_baseline(
         scenario,
@@ -168,14 +132,10 @@ def test_our_npv_is_also_evaluated_inside_the_scenario(
         max_evaluations=BUDGET,
     )
 
-    # Потолок сценария 3.0 срезает нашу агрессивность 5.0 — значит наш ЧДД
-    # пересчитан под сценарий, а не взят с номинальных условий.
     assert ours == pytest.approx(3_000.0)
 
 
 def test_optimizer_is_run_once_per_scenario(battery: FragilityBattery) -> None:
-    """«Требует запуска оптимизатора на каждый сценарий» — проверяется
-    счётчиком построенных целей, а не намерением."""
 
     factory = _Factory({})
     computation = compute_regret(
@@ -191,17 +151,11 @@ def test_optimizer_is_run_once_per_scenario(battery: FragilityBattery) -> None:
     assert computation.total_evaluations >= len(battery.scenarios)
 
 
-# --- 2. Тяжёлый сценарий не наказывает план --------------------------------
 
 
 def test_a_scenario_that_hurts_everyone_equally_gives_zero_regret(
     battery: FragilityBattery,
 ) -> None:
-    """§13.1: «Сценарий "половина фонда в ремонте" просядет у любого плана,
-    и величина просадки скажет о тяжести сценария, а не о качестве
-    политики». Потолок ниже нашей θ режет и нас, и бейзлайн одинаково —
-    regret обязан быть нулевым, хотя абсолютный ЧДД просел вдесятеро.
-    """
 
     scenario = battery.dev()[0]
     factory = _Factory({scenario.scenario_id: 2.0})
@@ -214,8 +168,8 @@ def test_a_scenario_that_hurts_everyone_equally_gives_zero_regret(
         max_evaluations=BUDGET,
     )
 
-    assert ours == pytest.approx(2_000.0)  # просадка есть
-    assert search.npv - ours == pytest.approx(0.0)  # regret'а нет
+    assert ours == pytest.approx(2_000.0)
+    assert search.npv - ours == pytest.approx(0.0)
 
 
 def test_a_scenario_where_a_better_plan_exists_gives_positive_regret(
@@ -235,11 +189,9 @@ def test_a_scenario_where_a_better_plan_exists_gives_positive_regret(
     assert search.npv - ours > 0.0
 
 
-# --- 3. Разбивка по сценариям ----------------------------------------------
 
 
 def test_report_covers_every_scenario_by_name(battery: FragilityBattery) -> None:
-    """Разбивка обязательна (§13.1): её предъявляют интерфейс и защита."""
 
     computation = compute_regret(
         battery,
@@ -278,8 +230,6 @@ def test_worst_scenarios_are_ordered_by_relative_regret(
 
 
 def test_dev_and_holdout_stay_separate(battery: FragilityBattery) -> None:
-    """§13.4: батарея делится, и отчёт обязан уметь смотреть на части
-    раздельно — иначе holdout перестаёт быть отложенным."""
 
     computation = compute_regret(
         battery,
@@ -299,12 +249,9 @@ def test_dev_and_holdout_stay_separate(battery: FragilityBattery) -> None:
     assert dev_ids.isdisjoint(holdout_ids)
 
 
-# --- 4. Ограничение, а не штраф --------------------------------------------
 
 
 def test_result_is_a_constraint_pair_not_a_scalar(battery: FragilityBattery) -> None:
-    """§13.3 и §6.1: наружу идут `feasible` и `violations_by_scenario`.
-    Скаляр вынудил бы свернуть ограничение в штраф."""
 
     dev = battery.dev()
     computation = compute_regret(
@@ -321,7 +268,7 @@ def test_result_is_a_constraint_pair_not_a_scalar(battery: FragilityBattery) -> 
     assert violations
     assert dev[0].scenario_id in {violation.scenario_id for violation in violations}
     for violation in violations:
-        assert violation.what  # что именно нарушено, а не только сколько
+        assert violation.what
 
 
 def test_holdout_view_is_available_separately(battery: FragilityBattery) -> None:
@@ -340,8 +287,6 @@ def test_holdout_view_is_available_separately(battery: FragilityBattery) -> None
 
 
 def test_module_never_sums_over_the_battery() -> None:
-    """Статическая проверка запрета §13.3: regret по сценариям не
-    складывается ни в целевую функцию, ни во внутреннюю величину."""
 
     path = ROOT / "scenario_baseline.py"
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -352,25 +297,19 @@ def test_module_never_sums_over_the_battery() -> None:
         if node.func.id != "sum":
             continue
         dumped = ast.dump(node)
-        assert "regret" not in dumped, "regret свёрнут сложением"
-        assert "npv" not in dumped, "ЧДД сценариев свёрнут сложением"
+        assert "regret" not in dumped, "regret was folded by summation"
+        assert "npv" not in dumped, "scenario NPVs were folded by summation"
 
 
-# --- Бейзлайн слабее нашего плана — диагностика, не ноль -------------------
 
 
 def test_underpowered_baseline_is_flagged_not_clamped(
     battery: FragilityBattery,
 ) -> None:
-    """Отрицательный regret означает не «мы идеальны», а «бейзлайн
-    недосчитан». Обнулять его — прятать дефект замера, поэтому сценарий
-    помечается, а не подчищается."""
 
     scenario = battery.dev()[0]
     factory = _Factory({scenario.scenario_id: 100.0})
 
-    # Бюджета хватает ровно на одно поколение из четырёх оценок: поиск почти
-    # наверняка не дотянет до потолка 100 со старта 99.
     search, ours = scenario_baseline(
         scenario,
         factory,
@@ -401,12 +340,9 @@ def test_computation_collects_underpowered_scenarios(
     }
 
 
-# --- Seed и воспроизводимость ----------------------------------------------
 
 
 def test_scenario_seed_is_derived_from_the_identifier_not_the_index() -> None:
-    """Индекс меняется при вставке сценария в середину каталога, и вся
-    батарея молча пересчитывается с другими траекториями поиска."""
 
     assert scenario_seed(11, "inj_cap_2015") == scenario_seed(11, "inj_cap_2015")
     assert scenario_seed(11, "inj_cap_2015") != scenario_seed(11, "inj_cap_2016")
@@ -437,7 +373,6 @@ def test_report_is_bound_to_the_battery_it_was_measured_on(
     assert computation.report.battery_hash == battery.battery_hash()
 
 
-# --- Отказы вместо правдоподобных чисел ------------------------------------
 
 
 def test_zero_budget_is_rejected(battery: FragilityBattery) -> None:
@@ -452,8 +387,6 @@ def test_zero_budget_is_rejected(battery: FragilityBattery) -> None:
 
 
 def test_evaluation_budget_is_computed_up_front(battery: FragilityBattery) -> None:
-    """Цена замера известна заранее: каждая оценка — прогон или обращение к
-    суррогату, и батарея умножает её на число сценариев."""
 
     assert evaluation_budget(battery, 200) == len(battery.scenarios) * 200
     with pytest.raises(ScenarioBaselineError):
@@ -466,7 +399,7 @@ def test_unknown_scenario_lookup_is_rejected(battery: FragilityBattery) -> None:
     )
 
     with pytest.raises(ScenarioBaselineError):
-        computation.search_of("нет такого сценария")
+        computation.search_of("no such scenario")
 
 
 def test_zero_limit_for_worst_scenarios_is_rejected(battery: FragilityBattery) -> None:
@@ -481,8 +414,6 @@ def test_zero_limit_for_worst_scenarios_is_rejected(battery: FragilityBattery) -
 def test_computation_keeps_the_nominal_theta_it_was_measured_for(
     battery: FragilityBattery,
 ) -> None:
-    """Regret считается для конкретной θ; отчёт без неё нельзя сопоставить
-    с кандидатом оптимизатора."""
 
     theta = _theta(value=7.0)
     computation = compute_regret(

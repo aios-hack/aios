@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Sequence
 
-from backend.contexts.robustness.application.battery import FragilityBattery, Scenario, Split
+from backend.contexts.robustness.domain.battery import FragilityBattery, Scenario, Split
 from backend.contexts.robustness.domain.perturbation import (
     InfrastructureLimit,
     InjectionCap,
@@ -37,18 +37,18 @@ class BatteryBasis:
 
     def __post_init__(self) -> None:
         if not self.injectors:
-            raise ValueError("основа батареи без нагнетательных")
+            raise ValueError("battery basis without injectors")
         if not self.producers:
-            raise ValueError("основа батареи без добывающих")
+            raise ValueError("battery basis without producers")
         if self.injection_level_m3_per_day <= 0.0:
-            raise ValueError("уровень закачки не положителен")
+            raise ValueError("the injection level is not positive")
         if self.liquid_level_m3_per_day <= 0.0:
-            raise ValueError("уровень жидкости не положителен")
+            raise ValueError("the liquid level is not positive")
         if self.oil_level_t_per_day <= 0.0:
-            raise ValueError("уровень нефти не положителен")
+            raise ValueError("the oil level is not positive")
         if self.last_year <= self.first_year:
             raise ValueError(
-                f"пустой диапазон лет {self.first_year}…{self.last_year}"
+                f"empty year range {self.first_year}…{self.last_year}"
             )
 
     def mid_year(self) -> int:
@@ -57,7 +57,7 @@ class BatteryBasis:
     def years(self, since: int, until: int) -> tuple[int, ...]:
         if since < self.first_year or until > self.last_year:
             raise ValueError(
-                f"годы {since}…{until} выходят за горизонт "
+                f"years {since}…{until} fall outside the horizon "
                 f"{self.first_year}…{self.last_year}"
             )
         return tuple(range(since, until + 1))
@@ -80,8 +80,8 @@ def default_scenarios(basis: BatteryBasis) -> tuple[Scenario, ...]:
             scenario_id="prs-producers-early",
             split=Split.DEV,
             description=(
-                "часть добывающих выпадает на ПРС в ранние годы, "
-                "когда дисконт весит больше всего"
+                "a share of the producers goes out for workover in the early years, "
+                "when the discount weighs the most"
             ),
             perturbations=(
                 WellsOut(
@@ -94,7 +94,7 @@ def default_scenarios(basis: BatteryBasis) -> tuple[Scenario, ...]:
         Scenario(
             scenario_id="krs-injectors-mid",
             split=Split.DEV,
-            description="авария на кусте нагнетательных в середине горизонта",
+            description="failure at an injector pad in the middle of the horizon",
             perturbations=(
                 WellsOut(
                     wells=_sample(basis.injectors, REPAIR_SHARE, 1),
@@ -106,7 +106,7 @@ def default_scenarios(basis: BatteryBasis) -> tuple[Scenario, ...]:
         Scenario(
             scenario_id="injection-cap-single-year",
             split=Split.DEV,
-            description="воды на кустовой насосной не хватает один конкретный год",
+            description="the pad pump station runs short of water in one particular year",
             perturbations=(
                 InjectionCap(
                     limits_by_year={
@@ -118,7 +118,7 @@ def default_scenarios(basis: BatteryBasis) -> tuple[Scenario, ...]:
         Scenario(
             scenario_id="liquid-cap-late",
             split=Split.DEV,
-            description="товарный парк не принимает жидкость поздних лет",
+            description="the tank farm cannot take the liquid of the late years",
             perturbations=(
                 LiquidCap(
                     limits_by_year={
@@ -131,7 +131,7 @@ def default_scenarios(basis: BatteryBasis) -> tuple[Scenario, ...]:
         Scenario(
             scenario_id="watercut-cap-field",
             split=Split.DEV,
-            description="приёмка ограничена обводнённостью потока",
+            description="intake is limited by the watercut of the stream",
             perturbations=(
                 WatercutCap(
                     limits_by_year={
@@ -143,7 +143,7 @@ def default_scenarios(basis: BatteryBasis) -> tuple[Scenario, ...]:
         Scenario(
             scenario_id="production-floor-contract",
             split=Split.DEV,
-            description="контрактная нижняя граница добычи нефти",
+            description="contractual floor on oil production",
             perturbations=(
                 ProductionFloor(
                     floors_by_year={
@@ -156,7 +156,7 @@ def default_scenarios(basis: BatteryBasis) -> tuple[Scenario, ...]:
         Scenario(
             scenario_id="pipeline-capacity",
             split=Split.DEV,
-            description="инфраструктурный лимит: пропускная способность трубопровода",
+            description="infrastructure limit: pipeline throughput",
             perturbations=(
                 InfrastructureLimit(
                     entries={
@@ -171,8 +171,8 @@ def default_scenarios(basis: BatteryBasis) -> tuple[Scenario, ...]:
             scenario_id="holdout-outage-and-injection-cap",
             split=Split.HOLDOUT,
             description=(
-                "выпадение фонда накладывается на дефицит воды того же года — "
-                "комбинация, на которую θ не подгонялись"
+                "a well stock outage overlaps the water shortage of the same year — "
+                "a combination θ were never fitted on"
             ),
             perturbations=(
                 WellsOut(
@@ -191,7 +191,7 @@ def default_scenarios(basis: BatteryBasis) -> tuple[Scenario, ...]:
         Scenario(
             scenario_id="holdout-liquid-and-watercut",
             split=Split.HOLDOUT,
-            description="жёсткий лимит жидкости при жёстком пределе обводнённости",
+            description="a hard liquid limit under a hard watercut limit",
             perturbations=(
                 LiquidCap(
                     limits_by_year={
@@ -210,7 +210,7 @@ def default_scenarios(basis: BatteryBasis) -> tuple[Scenario, ...]:
             scenario_id="holdout-floor-and-infrastructure",
             split=Split.HOLDOUT,
             description=(
-                "нижняя граница добычи при инфраструктурном лимите на закачку"
+                "a production floor under an infrastructure limit on injection"
             ),
             perturbations=(
                 ProductionFloor(

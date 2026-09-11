@@ -10,16 +10,16 @@ from collections.abc import (
     Sequence,
 )
 from dataclasses import dataclass
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     ControlEvent,
     EventKind,
     OperatingStatus,
     Role,
     Schedule,
-    StateAtDate,
     WellState,
 )
+from backend.contexts.reservoir.domain.response import StateAtDate
 
 
 def level_deck_date_index(control_step: int) -> int:
@@ -36,10 +36,11 @@ def control_step_pressures(
     required = level_deck_date_index(n_intervals - 1) + 1
     if len(field_pressure_bar) < required:
         raise ValueError(
-            f"серия FPR короче горизонта: {len(field_pressure_bar)} значений "
-            f"при необходимых {required} = {FIRST_CONTROL_LEVEL_DECK_DATE_INDEX}"
-            f" + {n_intervals}; уровень давления шага управления "
-            f"{n_intervals - 1} читается по индексу дека "
+            f"the FPR series is shorter than the horizon: "
+            f"{len(field_pressure_bar)} values against the required "
+            f"{required} = {FIRST_CONTROL_LEVEL_DECK_DATE_INDEX}"
+            f" + {n_intervals}; the pressure level of control step "
+            f"{n_intervals - 1} is read at deck date index "
             f"{level_deck_date_index(n_intervals - 1)}"
         )
     return tuple(

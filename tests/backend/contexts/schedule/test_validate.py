@@ -1,9 +1,8 @@
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
-    Constraints,
     ControlEvent,
     EventKind,
     FixedDeckEvent,
@@ -13,10 +12,10 @@ from backend.core.contracts import (
     Role,
     Schedule,
     ScheduleMeta,
-    WellOutage,
     WellState,
 )
-from backend.domain.schedule import load_schedule
+from backend.contexts.constraints.domain.constraints import Constraints, WellOutage
+from backend.contexts.schedule.domain.build import load_schedule
 from backend.contexts.schedule.domain.validate import (
     CandidateEvent,
     StaticValidationError,
@@ -33,7 +32,7 @@ MODEL_Z_SCHEDULE = model_z_schedule()
 
 pytestmark = pytest.mark.skipif(
     MODEL_Z_SCHEDULE is None,
-    reason=missing_reason("дек Model_Z"),
+    reason=missing_reason("Model_Z deck"),
 )
 
 
@@ -370,4 +369,4 @@ def test_report_is_a_structure_not_a_boolean() -> None:
     report = validate_static(schedule)
     assert isinstance(report, ValidationReport)
     assert report.ok
-    assert "нарушений нет" in report.format()
+    assert "no violations" in report.format()

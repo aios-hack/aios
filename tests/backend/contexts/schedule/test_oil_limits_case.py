@@ -13,7 +13,7 @@ from backend.contexts.constraints.application.cases import (
     constraints_from_json,
     load_case,
 )
-from backend.core.contracts import Constraints
+from backend.contexts.constraints.domain.constraints import Constraints
 from backend.contexts.constraints.infrastructure.constraints_io import (
     constraints_from_json as io_constraints_from_json,
     constraints_hash,
@@ -61,7 +61,7 @@ def test_negative_oil_limit_is_refused() -> None:
 
 def test_non_numeric_oil_limit_is_refused() -> None:
     with pytest.raises(CaseError, match="oil_limits"):
-        constraints_from_json({"oil_limits": {"2010": "много"}})
+        constraints_from_json({"oil_limits": {"2010": "many"}})
 
 
 def test_nan_oil_limit_is_refused() -> None:

@@ -1,324 +1,29 @@
 from __future__ import annotations
 
-from backend.contexts.optimization.domain.errors import (
-    RuntimeArtifactError,
-)
-
-import json
 import hashlib
-import math
+import json
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from backend.contexts.optimization.domain.errors import RuntimeArtifactError
+from backend.contexts.optimization.infrastructure.lambda_selection import (
+    DEFAULT_LAMBDA_SELECTION,
+    LAMBDA_PATH_ENV,
+    LAMBDA_SELECTION_ENV,
+    LAMBDA_SELECTION_FORMAT,
+    LambdaSelection,
+    resolve_lambda_selection,
+)
+from backend.contexts.optimization.infrastructure.ood_calibration import (
+    CONSERVATIVE_OOD_THRESHOLD,
+    DEFAULT_OOD_CALIBRATION,
+    OOD_CALIBRATION_FORMAT,
+    OodThresholdDecision,
+    resolve_ood_threshold,
+)
 from backend.shared.paths import project_root
-
-
-CONSERVATIVE_OOD_THRESHOLD = 0.0
-OOD_CALIBRATION_FORMAT = "aios.ood-calibration.v1"
-DEFAULT_OOD_CALIBRATION = "out/ood-calibration.json"
-
-
-@dataclass(frozen=True, slots=True)
-class OodThresholdDecision:
-    value: float
-    origin: str
-    calibrated: bool
-    calibration_path: Path | None
-    point_count: int
-    detail: str
-
-    def as_provenance(self) -> dict[str, str]:
-        return {
-            "ood_threshold": repr(self.value),
-            "ood_threshold_origin": self.origin,
-            "ood_threshold_calibrated": "true" if self.calibrated else "false",
-            "ood_threshold_source": (
-                "none" if self.calibration_path is None else str(self.calibration_path)
-            ),
-            "ood_threshold_point_count": str(self.point_count),
-            "ood_threshold_detail": self.detail,
-        }
-
-
-def _parse_threshold_override(raw: str) -> float:
-    try:
-        value = float(raw)
-    except ValueError as error:
-        raise RuntimeArtifactError(
-            f"AIOS_OOD_THRESHOLD={raw!r} — порог области применимости задаётся числом"
-        ) from error
-    if not math.isfinite(value) or value < 0.0:
-        raise RuntimeArtifactError(
-            f"AIOS_OOD_THRESHOLD={raw!r} — порог обязан быть конечным и неотрицательным"
-        )
-    return value
-
-
-def _read_calibration(path: Path) -> tuple[float, int, bool]:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        raise RuntimeArtifactError(
-            f"артефакт калибровки OOD {path} не читается: {error}"
-        ) from error
-    if not isinstance(payload, dict) or payload.get("format") != OOD_CALIBRATION_FORMAT:
-        raise RuntimeArtifactError(f"неподдерживаемый артефакт калибровки OOD: {path}")
-    threshold = payload.get("threshold")
-    if not isinstance(threshold, (int, float)) or isinstance(threshold, bool):
-        raise RuntimeArtifactError(f"{path}: порог калибровки не число")
-    value = float(threshold)
-    if not math.isfinite(value) or value < 0.0:
-        raise RuntimeArtifactError(
-            f"{path}: порог калибровки {value} не конечен или отрицателен"
-        )
-    count = payload.get("point_count")
-    if not isinstance(count, int) or isinstance(count, bool) or count < 1:
-        raise RuntimeArtifactError(
-            f"{path}: калибровка без единой измеренной точки не задаёт порог"
-        )
-    return value, count, bool(payload.get("curve_is_reliable", False))
-
-
-def resolve_ood_threshold(
-    environ: Mapping[str, str] | None = None,
-) -> OodThresholdDecision:
-    env = os.environ if environ is None else environ
-    override = env.get("AIOS_OOD_THRESHOLD")
-    configured = env.get("AIOS_OOD_CALIBRATION_PATH")
-    root_override = env.get("AIOS_PROJECT_ROOT")
-    root = Path(root_override).expanduser().resolve() if root_override else project_root()
-    calibration_path = (
-        Path(configured) if configured else root / DEFAULT_OOD_CALIBRATION
-    )
-    if override is not None:
-        value = _parse_threshold_override(override)
-        return OodThresholdDecision(
-            value=value,
-            origin="environment-override",
-            calibrated=False,
-            calibration_path=calibration_path if calibration_path.is_file() else None,
-            point_count=0,
-            detail=(
-                f"AIOS_OOD_THRESHOLD={override!r} перекрывает артефакт калибровки; "
-                "происхождение порога — явное переопределение оператором"
-            ),
-        )
-    if configured and not calibration_path.is_file():
-        raise RuntimeArtifactError(
-            f"AIOS_OOD_CALIBRATION_PATH={configured} указывает на отсутствующий "
-            "артефакт калибровки"
-        )
-    if not calibration_path.is_file():
-        return OodThresholdDecision(
-            value=CONSERVATIVE_OOD_THRESHOLD,
-            origin="uncalibrated-conservative-default",
-            calibrated=False,
-            calibration_path=None,
-            point_count=0,
-            detail=(
-                f"артефакт калибровки {calibration_path} отсутствует: порог "
-                f"{CONSERVATIVE_OOD_THRESHOLD} взят как консервативный, "
-                "НЕ ОТКАЛИБРОВАН — отвергается любой кандидат хоть с одним "
-                "узлом вне обучающего диапазона"
-            ),
-        )
-    value, count, reliable = _read_calibration(calibration_path)
-    return OodThresholdDecision(
-        value=value,
-        origin=(
-            "calibration-artifact"
-            if reliable
-            else "calibration-artifact/insufficient-points"
-        ),
-        calibrated=True,
-        calibration_path=calibration_path,
-        point_count=count,
-        detail=(
-            f"порог {value} взят из {calibration_path} по {count} измеренным "
-            f"точкам «ошибка против OOD»"
-            + ("" if reliable else "; точек мало, кривая ненадёжна")
-        ),
-    )
-
-
-LAMBDA_SELECTION_FORMAT = "aios.lambda-selection.v1"
-DEFAULT_LAMBDA_SELECTION = "config/lambda-selection.json"
-LAMBDA_PATH_ENV = "AIOS_LAMBDA_PATH"
-LAMBDA_SELECTION_ENV = "AIOS_LAMBDA_SELECTION_PATH"
-
-
-@dataclass(frozen=True, slots=True)
-class LambdaSelection:
-    path: Path
-    name: str
-    origin: str
-    selection_path: Path | None
-    rationale: str
-    expected_feature_context_sha256: str | None
-    feature_context_match: str
-
-    def as_provenance(self) -> dict[str, str]:
-        return {
-            "lambda_path": str(self.path),
-            "lambda_selection": self.name,
-            "lambda_selection_origin": self.origin,
-            "lambda_selection_source": (
-                "none" if self.selection_path is None else str(self.selection_path)
-            ),
-            "lambda_selection_rationale": self.rationale,
-            "lambda_expected_feature_context_sha256": (
-                self.expected_feature_context_sha256 or "unrecorded"
-            ),
-            "lambda_feature_context_match": self.feature_context_match,
-        }
-
-
-def _read_lambda_selection_document(path: Path) -> dict[str, object]:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        raise RuntimeArtifactError(
-            f"конфигурация выбора λ {path} не читается: {error}"
-        ) from error
-    if not isinstance(payload, dict):
-        raise RuntimeArtifactError(
-            f"{path}: конфигурация выбора λ не является объектом"
-        )
-    if payload.get("format") != LAMBDA_SELECTION_FORMAT:
-        raise RuntimeArtifactError(
-            f"неподдерживаемый формат конфигурации выбора λ {path}: "
-            f"{payload.get('format')!r}"
-        )
-    return payload
-
-
-def _lambda_candidate(
-    path: Path, payload: Mapping[str, object]
-) -> tuple[str, Mapping[str, object]]:
-    selected = payload.get("selected")
-    if not isinstance(selected, str) or not selected:
-        raise RuntimeArtifactError(
-            f"{path}: поле selected не называет ни одного кандидата λ — выбор "
-            "обязан быть записан явно, а не подставлен умолчанием"
-        )
-    candidates = payload.get("candidates")
-    if not isinstance(candidates, dict) or not candidates:
-        raise RuntimeArtifactError(
-            f"{path}: раздел candidates пуст, выбирать не из чего"
-        )
-    candidate = candidates.get(selected)
-    if not isinstance(candidate, dict):
-        raise RuntimeArtifactError(
-            f"{path}: выбран кандидат λ {selected!r}, которого нет в candidates"
-        )
-    return selected, candidate
-
-
-def _lambda_rationale(path: Path, name: str, candidate: Mapping[str, object]) -> str:
-    rationale = candidate.get("rationale")
-    if not isinstance(rationale, str) or not rationale.strip():
-        raise RuntimeArtifactError(
-            f"{path}: кандидат λ {name!r} записан без обоснования — выбор без "
-            "причины неотличим от умолчания, а провенанс обязан её нести"
-        )
-    return rationale.strip()
-
-
-def _lambda_feature_context_match(
-    expected: str | None, feature_context: Path | None
-) -> str:
-    if expected is None:
-        return "unrecorded"
-    if feature_context is None:
-        return "not-checked"
-    if not feature_context.is_file():
-        raise RuntimeArtifactError(
-            f"контекст признаков {feature_context} не читается: сверить λ с "
-            "признаками модели нечем"
-        )
-    actual = hashlib.sha256(feature_context.read_bytes()).hexdigest()
-    if actual != expected:
-        raise RuntimeArtifactError(
-            f"λ выбрана как выгрузка из контекста признаков с "
-            f"feature_context_sha256={expected}, а производственный контекст "
-            f"{feature_context} имеет {actual}: связность поиска и признаки "
-            "модели разошлись, и результат поиска относился бы к другой матрице"
-        )
-    return "identical"
-
-
-def resolve_lambda_selection(
-    environ: Mapping[str, str] | None = None,
-    feature_context: Path | None = None,
-) -> LambdaSelection:
-    env = os.environ if environ is None else environ
-    root_override = env.get("AIOS_PROJECT_ROOT")
-    root = Path(root_override).expanduser().resolve() if root_override else project_root()
-    configured = env.get(LAMBDA_SELECTION_ENV)
-    selection_path = Path(configured) if configured else root / DEFAULT_LAMBDA_SELECTION
-    override = env.get(LAMBDA_PATH_ENV)
-    if override:
-        return LambdaSelection(
-            path=Path(override),
-            name="environment-override",
-            origin="environment-override",
-            selection_path=selection_path if selection_path.is_file() else None,
-            rationale=(
-                f"{LAMBDA_PATH_ENV}={override!r} перекрывает конфигурацию выбора "
-                "λ: происхождение матрицы — явное решение оператора, а не запись "
-                "в конфигурации, и сверка с контекстом признаков не выполнялась"
-            ),
-            expected_feature_context_sha256=None,
-            feature_context_match="not-checked",
-        )
-    if configured and not selection_path.is_file():
-        raise RuntimeArtifactError(
-            f"{LAMBDA_SELECTION_ENV}={configured} указывает на отсутствующую "
-            "конфигурацию выбора λ"
-        )
-    if not selection_path.is_file():
-        raise RuntimeArtifactError(
-            f"конфигурации выбора λ нет по пути {selection_path}: путь к матрице "
-            "связности задаётся конфигурацией, и подставлять его константой "
-            "модуля запрещено — поиск оптимизировал бы по неизвестно какой λ"
-        )
-    payload = _read_lambda_selection_document(selection_path)
-    name, candidate = _lambda_candidate(selection_path, payload)
-    raw_path = candidate.get("path")
-    if not isinstance(raw_path, str) or not raw_path:
-        raise RuntimeArtifactError(
-            f"{selection_path}: кандидат λ {name!r} записан без пути к артефакту"
-        )
-    lambda_path = Path(raw_path)
-    if not lambda_path.is_absolute():
-        lambda_path = root / lambda_path
-    if not lambda_path.is_file():
-        raise RuntimeArtifactError(
-            f"{selection_path}: выбранная λ {name!r} отсутствует по пути "
-            f"{lambda_path}"
-        )
-    rationale = _lambda_rationale(selection_path, name, candidate)
-    raw_expected = candidate.get("expected_feature_context_sha256")
-    expected: str | None = None
-    if raw_expected is not None:
-        if not isinstance(raw_expected, str) or len(raw_expected) != 64:
-            raise RuntimeArtifactError(
-                f"{selection_path}: кандидат λ {name!r} объявил "
-                "expected_feature_context_sha256, не являющийся SHA-256"
-            )
-        expected = raw_expected.lower()
-    match = _lambda_feature_context_match(expected, feature_context)
-    return LambdaSelection(
-        path=lambda_path,
-        name=name,
-        origin="selection-config",
-        selection_path=selection_path,
-        rationale=rationale,
-        expected_feature_context_sha256=expected,
-        feature_context_match=match,
-    )
 
 
 RELEASE_FORMAT = "aios.surrogate-release.v1"
@@ -386,27 +91,28 @@ def _read_expected_checksums(reference: Path) -> tuple[dict[str, str], str]:
         payload = json.loads(reference.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise RuntimeArtifactError(
-            f"опись пакета {reference} не читается: {error}"
+            f"bundle inventory {reference} is not readable: {error}"
         ) from error
     if not isinstance(payload, dict):
-        raise RuntimeArtifactError(f"опись пакета {reference} не является объектом")
+        raise RuntimeArtifactError(f"bundle inventory {reference} is not an object")
     declared = payload.get("format")
     if declared not in {RELEASE_FORMAT, INSTALL_MANIFEST_FORMAT}:
         raise RuntimeArtifactError(
-            f"неподдерживаемый формат описи пакета {reference}: {declared!r}"
+            f"unsupported bundle inventory format {reference}: {declared!r}"
         )
     checksums = payload.get("files_sha256")
     if not isinstance(checksums, dict) or not checksums:
         raise RuntimeArtifactError(
-            f"{reference}: опись без files_sha256 не задаёт ни одной контрольной "
-            "суммы — сверять нечего, а молчаливый успех означал бы непроверенный пакет"
+            f"{reference}: an inventory without files_sha256 defines no checksum — "
+            "there is nothing to verify, and a silent success would mean an "
+            "unverified bundle"
         )
     expected: dict[str, str] = {}
     for name, digest in checksums.items():
         if not isinstance(name, str) or not isinstance(digest, str) or len(digest) != 64:
             raise RuntimeArtifactError(
-                f"{reference}: запись описи {name!r} не является парой "
-                "«путь — SHA-256»"
+                f"{reference}: inventory entry {name!r} is not a "
+                "\"path — SHA-256\" pair"
             )
         expected[name] = digest.lower()
     return expected, str(declared)
@@ -417,27 +123,27 @@ def _bundle_reference(root: Path) -> Path:
     if release.is_file():
         return release
     raise RuntimeArtifactError(
-        f"в пакете {root} нет {RELEASE_FILENAME}: без описи с контрольными "
-        "суммами вердикт о целостности вынести нельзя"
+        f"bundle {root} has no {RELEASE_FILENAME}: without an inventory with "
+        "checksums no integrity verdict can be issued"
     )
 
 
 def verify_bundle(root: Path | str, reference: Path | str | None = None) -> BundleVerdict:
     bundle_root = Path(root).resolve()
     if not bundle_root.is_dir():
-        raise RuntimeArtifactError(f"пакет {bundle_root} не является каталогом")
+        raise RuntimeArtifactError(f"bundle {bundle_root} is not a directory")
     reference_path = (
         _bundle_reference(bundle_root) if reference is None else Path(reference).resolve()
     )
     if not reference_path.is_file():
-        raise RuntimeArtifactError(f"описи пакета нет по пути {reference_path}")
+        raise RuntimeArtifactError(f"there is no bundle inventory at {reference_path}")
     expected, reference_format = _read_expected_checksums(reference_path)
     verdicts: list[FileVerdict] = []
     for name in sorted(expected):
         relative = Path(name)
         if relative.is_absolute() or ".." in relative.parts:
             raise RuntimeArtifactError(
-                f"{reference_path}: запись описи {name!r} выводит за пределы пакета"
+                f"{reference_path}: inventory entry {name!r} escapes the bundle"
             )
         target = bundle_root / relative
         if not target.is_file():
@@ -480,12 +186,13 @@ def validate_npv_scoring_is_unambiguous(artifacts: RuntimeArtifacts) -> None:
     if artifacts.npv_calibration is None or artifacts.npv_head is None:
         return
     raise RuntimeArtifactError(
-        "одновременно заданы аффинная калибровка ЧДД "
-        f"({artifacts.npv_calibration}) и голова прямого прогноза "
-        f"({artifacts.npv_head}): калибровка подобрана на сыром физическом "
-        "ЧДД и к бленду головы неприменима, поэтому итоговое число было бы "
-        "посчитано не тем, чем заявлено; оставьте один механизм — уберите "
-        "AIOS_NPV_CALIBRATION_PATH или AIOS_NPV_HEAD_PATH"
+        "an affine NPV calibration "
+        f"({artifacts.npv_calibration}) and a direct forecast head "
+        f"({artifacts.npv_head}) are set at the same time: the calibration was "
+        "fitted on the raw physical NPV and does not apply to the head blend, so "
+        "the final number would be computed by something other than what is "
+        "declared; keep one mechanism — remove either "
+        "AIOS_NPV_CALIBRATION_PATH or AIOS_NPV_HEAD_PATH"
     )
 
 

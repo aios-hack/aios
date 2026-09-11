@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.application.runs import (
+from backend.contexts.runs.application.workflow import (
     MANIFEST_FIELDS,
     MANIFEST_PROVENANCE_FIELDS,
     RunManifest,
@@ -15,29 +15,29 @@ from backend.application.runs import (
     WorkflowStatus,
 )
 from backend.contexts.runs.application.workflow import SubmissionError
-from backend.core.contracts import (
+from backend.contexts.reservoir.domain.response import (
     ActiveControlMode,
-    Availability,
-    Constraints,
     IntervalResponse,
+    StateAtDate,
+)
+from backend.contexts.schedule.domain.schedule import (
+    Availability,
     OperatingStatus,
     Role,
     Schedule,
     ScheduleMeta,
-    StateAtDate,
-    SubmissionBundle,
     T0,
-    WellOutage,
     WellState,
-    content_hash,
-    hash_schedule,
 )
+from backend.contexts.constraints.domain.constraints import Constraints, WellOutage
+from backend.contexts.runs.domain.run_result import SubmissionBundle
+from backend.shared.hashing import content_hash, hash_schedule
 from backend.contexts.constraints.infrastructure.constraints_io import (
     constraints_from_json,
     constraints_hash,
     constraints_to_json,
 )
-from backend.domain.schedule import parse_schedule
+from backend.contexts.schedule.domain.lossless import parse_schedule
 from backend.contexts.schedule.domain.build import build_schedule
 from backend.contexts.schedule.application.emit import (
     ScheduleEmitError,
@@ -649,7 +649,6 @@ def test_the_number_of_control_blocks_matches_the_managed_period(tmp_path) -> No
         and block.control_step is not None
         and block.control_events
     ]
-    # Event roles are interpreted in the organizer's historical context.
     parsed = parse_schedule((report.directory / "validation/history.inc").read_bytes() + report.schedule_path.read_bytes())
     managed = [b for b in parsed.blocks if b.keyword in ("WCONPROD", "WCONINJE") and b.control_events]
     assert len(managed) == 2 * SYNTHETIC_STEPS
@@ -735,7 +734,7 @@ class ReportedVerification:
 
 def constraints_report_of(run_dir: Path) -> dict[str, object]:
     path = run_dir / "validation" / "constraints_report.json"
-    assert path.is_file(), f"отчёт о применённых ограничениях не записан: {path}"
+    assert path.is_file(), f"the applied-constraints report was not written: {path}"
     return json.loads(path.read_text(encoding="utf-8"))
 
 

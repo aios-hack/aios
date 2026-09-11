@@ -7,21 +7,17 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from backend.core.contracts import (
+from backend.contexts.reservoir.domain.response import (
     ActiveControlMode,
-    Constraints,
-    FinalNpvArtifact,
-    Groups,
     IntervalResponse,
-    Lambda,
-    LineItems,
-    NpvTable,
-    Rule,
-    RunArtifact,
     StateAtDate,
-    TraceEntry,
-    WellOutage,
 )
+from backend.contexts.constraints.domain.constraints import Constraints, WellOutage
+from backend.contexts.runs.domain.run_result import FinalNpvArtifact
+from backend.contexts.connectivity.domain.connectivity import Groups, Lambda
+from backend.contexts.economics.domain.economics import LineItems, NpvTable
+from backend.contexts.policy.domain.policy import Rule, TraceEntry
+from backend.contexts.runs.domain.run_artifact import RunArtifact
 
 __all__ = [
     "dump_bundle",

@@ -13,12 +13,12 @@ from backend.contexts.schedule.domain.validation.report import (
 from collections.abc import (
     Sequence,
 )
-from backend.core.contracts import (
-    Constraints,
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.reservoir.domain.response import (
     IntervalResponse,
-    Schedule,
     is_excluded_by_negative_rule,
 )
+from backend.contexts.schedule.domain.schedule import Schedule
 from backend.contexts.schedule.domain.validate import (
     CONSTRAINT_WATERCUT_LIMITS,
     ConstraintCheck,
@@ -37,13 +37,14 @@ def _check_watercut_limits(
         return (), (
             _not_set(
                 CONSTRAINT_WATERCUT_LIMITS,
-                "watercut_limits в кейсе не заданы: обводнённость не проверялась",
+                "watercut_limits are not set in the case: watercut was not "
+                "checked",
             ),
         )
     if oil_density_t_per_m3 is None:
         raise ValueError(
-            "watercut_limits заданы, но плотность нефти не передана: "
-            "обводнённость производна и без ρ не определена"
+            "watercut_limits are set, but oil density was not supplied: "
+            "watercut is derived and undefined without rho"
         )
     totals: dict[int, tuple[float, float]] = {}
     for item in interval_responses:
@@ -72,8 +73,8 @@ def _check_watercut_limits(
                     well=None,
                     value=value,
                     detail=(
-                        f"обводнённость {value:.4f} выше предела {limit} "
-                        f"на {year} год"
+                        f"watercut {value:.4f} is above the limit {limit} "
+                        f"for year {year}"
                     ),
                 )
             )
@@ -83,9 +84,9 @@ def _check_watercut_limits(
             CONSTRAINT_WATERCUT_LIMITS,
             found,
             (
-                f"предел обводнённости задан на годы {years} и сверен "
-                f"на {len(totals)} шагах при плотности нефти "
-                f"{oil_density_t_per_m3} т/м³"
+                f"the watercut limit is set for years {years} and checked "
+                f"on {len(totals)} steps at oil density "
+                f"{oil_density_t_per_m3} t/m3"
             ),
             blocking_kinds=BLOCKING_DYNAMIC_VIOLATION_KINDS,
         ),

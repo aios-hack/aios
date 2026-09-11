@@ -25,9 +25,7 @@ from backend.contexts.schedule.domain.validation.report import (
 from collections.abc import (
     Sequence,
 )
-from backend.core.contracts import (
-    Constraints,
-)
+from backend.contexts.constraints.domain.constraints import Constraints
 from backend.contexts.constraints.domain.constraints import (
     BHP_INJECTOR_MAX_BAR,
     BHP_PRODUCER_MIN_BAR,
@@ -82,18 +80,17 @@ def verified_constraint_checks(
     present = {item.constraint for item in checks}
     if len(present) != len(checks):
         raise ValueError(
-            "отчёт о применённых ограничениях содержит повторяющиеся записи: "
-            "одно ограничение обязано давать ровно один статус"
+            "the report of applied constraints contains duplicate entries: "
+            "one constraint must yield exactly one status"
         )
     missing_physics = [
         name for name in PHYSICS_CONSTRAINT_NAMES if name not in present
     ]
     if missing_physics:
         raise ValueError(
-            "отчёт о применённых ограничениях не содержит записей о "
-            f"физических проверках: {', '.join(sorted(missing_physics))}; "
-            "проверка, не зависящая от кейса, всё равно обязана назвать "
-            "свой статус"
+            "the report of applied constraints contains no entries for the "
+            f"physics checks: {', '.join(sorted(missing_physics))}; a check "
+            "that does not depend on the case must still state its status"
         )
     uncovered: list[str] = []
     for field_name in constraint_fields_to_cover():
@@ -105,10 +102,10 @@ def verified_constraint_checks(
             uncovered.append(field_name)
     if uncovered:
         raise ValueError(
-            "отчёт о применённых ограничениях неполон, без записи остались "
-            f"поля кейса: {', '.join(sorted(uncovered))}; поле, объявленное "
-            "в Constraints, обязано получить статус проверки, иначе "
-            "sound=true скрывает непроверенное ограничение"
+            "the report of applied constraints is incomplete, case fields "
+            f"left without an entry: {', '.join(sorted(uncovered))}; a field "
+            "declared in Constraints must receive a check status, otherwise "
+            "sound=true hides an unchecked constraint"
         )
     return tuple(sorted(checks, key=lambda item: item.constraint))
 
@@ -116,7 +113,9 @@ def verified_constraint_checks(
 def _absent_constraint_checks(
     field_series: FieldSeries | None = None,
 ) -> tuple[ConstraintCheck, ...]:
-    detail = "ограничения кейса не переданы: динамические проверки не запускались"
+    detail = (
+        "the case constraints were not supplied: dynamic checks were not run"
+    )
     names = tuple(
         name for name in DYNAMIC_CONSTRAINT_NAMES
         if name != CONSTRAINT_MATERIAL_BALANCE

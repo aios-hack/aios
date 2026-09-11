@@ -4,7 +4,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 
-from backend.core.contracts import ChargeInitialEsp, EspCatalogEntry, NormativeSet, StateAtDate
+from backend.contexts.constraints.domain.config import (
+    ChargeInitialEsp,
+    EspCatalogEntry,
+    NormativeSet,
+)
+from backend.contexts.reservoir.domain.response import StateAtDate
 
 DOWNSIZE_THRESHOLD_M3_PER_DAY: float = 100.0
 
@@ -107,7 +112,7 @@ class EspStateMachine:
         self, normatives: NormativeSet, charge_initial_esp: ChargeInitialEsp
     ) -> None:
         if not normatives.esp_catalog:
-            raise ValueError("esp_catalog пуст")
+            raise ValueError("esp_catalog is empty")
         self._catalog: tuple[EspCatalogEntry, ...] = tuple(
             sorted(normatives.esp_catalog, key=lambda entry: entry.nominal)
         )
@@ -125,28 +130,28 @@ class EspStateMachine:
     ) -> WellEspTrack:
         n_deck_dates = len(states_by_deck_step)
         if n_intervals <= 0:
-            raise ValueError(f"скважина {well}: n_intervals={n_intervals}")
+            raise ValueError(f"well {well}: n_intervals={n_intervals}")
         if n_deck_dates <= n_intervals:
             raise ValueError(
-                f"скважина {well}: дат дека {n_deck_dates} — не больше числа "
-                f"интервалов {n_intervals}, истории нет"
+                f"well {well}: deck dates {n_deck_dates} are not more than the "
+                f"interval count {n_intervals}, there is no history"
             )
         for deck_step, state in enumerate(states_by_deck_step):
             if state.well != well:
                 raise ValueError(
-                    f"скважина {well}: StateAtDate на позиции {deck_step} "
-                    f"принадлежит {state.well}"
+                    f"well {well}: the StateAtDate at position {deck_step} "
+                    f"belongs to {state.well}"
                 )
             if state.deck_date_index != deck_step:
                 raise ValueError(
-                    f"скважина {well}: deck_date_index={state.deck_date_index} "
-                    f"на позиции {deck_step}, ряд не плотный — автомат ЭЦН "
-                    f"требует полную траекторию"
+                    f"well {well}: deck_date_index={state.deck_date_index} "
+                    f"at position {deck_step}, the series is not dense - the ESP state machine "
+                    f"requires a complete trajectory"
                 )
         for deck_step in excluded_deck_steps:
             if not (0 <= deck_step < n_deck_dates):
                 raise ValueError(
-                    f"скважина {well}: исключённый шаг {deck_step} вне дека"
+                    f"well {well}: excluded step {deck_step} is outside the deck"
                 )
 
         charge_from_deck_step = n_deck_dates - n_intervals

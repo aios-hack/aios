@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import OperatingStatus, Role
+from backend.contexts.schedule.domain.schedule import OperatingStatus, Role
 
-from backend.domain.connectivity import DeckSchedule, parse_deck_schedule
+from backend.contexts.connectivity.infrastructure.deck import DeckSchedule, parse_deck_schedule
 
 from tests.backend.contexts.connectivity.conftest import deck_path
 
@@ -59,7 +59,7 @@ def test_comment_rows_do_not_become_records(deck: DeckSchedule) -> None:
 def test_deck_without_dates_is_rejected(tmp_path: Path) -> None:
     broken = tmp_path / "no_dates.inc"
     broken.write_text("WELSPECS\n '1' 'GROUP' 1 1 1* 'OIL' /\n/\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="нет ни одной DATES"):
+    with pytest.raises(ValueError, match="no DATES at all"):
         parse_deck_schedule(broken)
 
 
@@ -70,7 +70,7 @@ def test_records_before_first_dates_are_rejected(tmp_path: Path) -> None:
         "WCONPROD\n '1' 'OPEN' 'LRAT' 1* 1* 1* 20.0 1* 50 1* 1* /\n/\n",
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="до первой DATES"):
+    with pytest.raises(ValueError, match="precedes the first DATES"):
         parse_deck_schedule(broken)
 
 
@@ -82,5 +82,5 @@ def test_unknown_well_is_rejected(tmp_path: Path) -> None:
         "WCONPROD\n '9' 'OPEN' 'LRAT' 1* 1* 1* 20.0 1* 50 1* 1* /\n/\n",
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="вне WELSPECS"):
+    with pytest.raises(ValueError, match="outside WELSPECS"):
         parse_deck_schedule(broken)

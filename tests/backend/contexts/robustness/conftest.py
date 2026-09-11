@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from backend.domain.robustness import BatteryBasis, FragilityBattery, default_battery
+from backend.contexts.robustness.domain.catalog import BatteryBasis, default_battery
+from backend.contexts.robustness.domain.battery import FragilityBattery
 
 FIRST_YEAR = 2007
 LAST_YEAR = 2025

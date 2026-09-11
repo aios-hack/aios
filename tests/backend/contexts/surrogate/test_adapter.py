@@ -5,27 +5,27 @@ from datetime import date
 
 import pytest
 
-from backend.core.contracts import (
-    ActiveControlMode,
+from backend.contexts.reservoir.domain.response import ActiveControlMode, StateAtDate
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     ControlEvent,
     EventKind,
     N_CONTROL_DATES,
     N_INTERVALS,
     OperatingStatus,
-    ResponseArtifact,
     Role,
     Schedule,
     ScheduleMeta,
-    StateAtDate,
     WellState,
-    hash_schedule,
 )
-from backend.ml.surrogate import AdapterError, RawModelOutput, RawWellStepPrediction, ResponseAdapter
+from backend.contexts.runs.domain.run_result import ResponseArtifact
+from backend.shared.hashing import hash_schedule
+from backend.contexts.surrogate.application.adapter import AdapterError, ResponseAdapter
+from backend.contexts.surrogate.domain.raw_model_output import RawModelOutput, RawWellStepPrediction
 
-_WELLS = ("L", "P")  # лексикографический порядок
-_LATE_OPEN_STEP = 50  # control_step, на котором "L" впервые получает OPEN
-_HISTORY_HORIZON = 147  # deck_date_index 0…146
+_WELLS = ("L", "P")
+_LATE_OPEN_STEP = 50
+_HISTORY_HORIZON = 147
 
 
 def _wells() -> tuple[str, ...]:
@@ -33,7 +33,6 @@ def _wells() -> tuple[str, ...]:
 
 
 def _control_dates() -> tuple[date, ...]:
-    """225 календарных начал месяца — интервалы неравные (28…31 день)."""
 
     dates = []
     year, month = 2007, 1
@@ -55,10 +54,8 @@ def _schedule() -> Schedule:
         },
         fixed_deck_events=(),
         control_events=(
-            # "L" впервые открывается на _LATE_OPEN_STEP — до этого NOT_COMMISSIONED.
             ControlEvent(_LATE_OPEN_STEP, "L", EventKind.SET_LRAT, value=5.0),
             ControlEvent(_LATE_OPEN_STEP, "L", EventKind.OPEN),
-            # На control_step=10 у "P" занижается уставка — точка для BHP_LIMITED.
             ControlEvent(10, "P", EventKind.SET_LRAT, value=100.0),
         ),
     )
@@ -66,8 +63,6 @@ def _schedule() -> Schedule:
 
 def _historical_state(deck_date_index: int, well: str, *, poison: bool = False) -> StateAtDate:
     if poison:
-        # Заведомо отличимые от прогноза значения — доказывают, что адаптер
-        # их не читает для прогнозной части (147…370).
         return StateAtDate(
             deck_date_index=deck_date_index,
             well=well,
@@ -231,7 +226,7 @@ def test_interval_response_is_passthrough_not_recomputed() -> None:
 def test_oil_rate_is_derived_not_a_model_field() -> None:
     control_dates = _control_dates()
     _, state_at_date, _ = _adapt()
-    for step in (0, 1, 112):  # разные длины интервала (28…31 день)
+    for step in (0, 1, 112):
         days = (control_dates[step + 1] - control_dates[step]).days
         node = _raw_node("P", step)
         state = _state(state_at_date, _HISTORY_HORIZON + step, "P")
@@ -257,8 +252,6 @@ def test_active_control_mode_uses_fallback_rule_bhp_limited() -> None:
         _control_dates(),
     )
     state = _state(state_at_date, _HISTORY_HORIZON + 10, "P")
-    # setpoint=100.0 (SET_LRAT на control_step=10), liquid_rate=50.0 -> ratio=0.5<0.999,
-    # bhp=48.0 в пределах 5 бар от предела продюсера 50.0 -> BHP_LIMITED.
     assert state.active_control_mode is ActiveControlMode.BHP_LIMITED
 
 
@@ -272,7 +265,7 @@ def test_not_yet_commissioned_well_during_predicted_horizon() -> None:
 
 def test_rejects_schedule_hash_mismatch() -> None:
     schedule = _schedule()
-    with pytest.raises(AdapterError, match="не под этот Schedule"):
+    with pytest.raises(AdapterError, match="not predicted for this Schedule"):
         ResponseAdapter().adapt(
             _raw(schedule_hash="wrong-hash"), schedule, _historical(), _control_dates()
         )
@@ -292,7 +285,7 @@ def test_rejects_incomplete_historical_coverage() -> None:
         historical,
         state_at_date=tuple(s for s in historical.state_at_date if not (s.deck_date_index == 0 and s.well == "P")),
     )
-    with pytest.raises(AdapterError, match="историческая часть неполна"):
+    with pytest.raises(AdapterError, match="historical part is incomplete"):
         ResponseAdapter().adapt(
             _raw(schedule_hash=hash_schedule(schedule)), schedule, incomplete, _control_dates()
         )
@@ -301,10 +294,10 @@ def test_rejects_incomplete_historical_coverage() -> None:
 def test_rejects_bad_control_dates() -> None:
     schedule = _schedule()
     raw = _raw(schedule_hash=hash_schedule(schedule))
-    with pytest.raises(AdapterError, match="225 дат"):
+    with pytest.raises(AdapterError, match="225 dates"):
         ResponseAdapter().adapt(raw, schedule, _historical(), _control_dates()[:-1])
 
     non_monotonic = list(_control_dates())
     non_monotonic[1] = non_monotonic[0]
-    with pytest.raises(AdapterError, match="строго возрастать"):
+    with pytest.raises(AdapterError, match="strictly increasing"):
         ResponseAdapter().adapt(raw, schedule, _historical(), tuple(non_monotonic))

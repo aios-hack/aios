@@ -8,11 +8,8 @@ from backend.contexts.schedule.domain.validation.interpreter import (
 from collections.abc import (
     Sequence,
 )
-from backend.core.contracts import (
-    OperatingStatus,
-    Schedule,
-    StateAtDate,
-)
+from backend.contexts.schedule.domain.schedule import OperatingStatus, Schedule
+from backend.contexts.reservoir.domain.response import StateAtDate
 from backend.contexts.schedule.domain.validate import (
     Violation,
     ViolationKind,
@@ -50,9 +47,10 @@ def check_intent_versus_fact(
                     well=well,
                     value=target.setpoint,
                     detail=(
-                        f"расписание держит скважину открытой с уставкой "
-                        f"{target.setpoint} м³/сут, отклик даёт нулевой дебит; "
-                        f"режим контроля {state.active_control_mode.value}"
+                        f"the schedule keeps the well open with setpoint "
+                        f"{target.setpoint} m3/day, the response gives a zero "
+                        f"rate; control mode "
+                        f"{state.active_control_mode.value}"
                     ),
                 )
             )
@@ -64,8 +62,8 @@ def check_intent_versus_fact(
                     well=well,
                     value=max(state.liquid_rate, state.injection_rate),
                     detail=(
-                        "расписание держит скважину остановленной, отклик даёт "
-                        "ненулевой дебит"
+                        "the schedule keeps the well shut, the response "
+                        "gives a non-zero rate"
                     ),
                 )
             )

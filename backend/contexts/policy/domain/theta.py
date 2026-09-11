@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, Mapping
 
-from backend.core.contracts import Rule, Theta
+from backend.contexts.policy.domain.policy import Rule, Theta
 from backend.contexts.policy.domain.policy import MAX_THETA_PARAMS
 
 THETA_CAP = MAX_THETA_PARAMS
@@ -19,9 +19,9 @@ class ThetaSpec:
 
     def __post_init__(self) -> None:
         if self.low >= self.high:
-            raise ValueError(f"{self.name}: пустые границы [{self.low}, {self.high}]")
+            raise ValueError(f"{self.name}: empty bounds [{self.low}, {self.high}]")
         if not (self.low <= self.default <= self.high):
-            raise ValueError(f"{self.name}: умолчание {self.default} вне границ")
+            raise ValueError(f"{self.name}: default {self.default} is outside the bounds")
 
 
 R0_SPECS: tuple[ThetaSpec, ...] = ()
@@ -90,27 +90,27 @@ def default_theta() -> Theta:
 def make_theta(values: Mapping[str, float]) -> Theta:
     unknown = set(values) - set(SPEC_BY_NAME)
     if unknown:
-        raise ValueError(f"незаявленные параметры θ: {sorted(unknown)}")
+        raise ValueError(f"undeclared θ parameters: {sorted(unknown)}")
     merged = {spec.name: spec.default for spec in SPECS}
     merged.update(values)
     for name, value in merged.items():
         spec = SPEC_BY_NAME[name]
         if not (spec.low <= value <= spec.high):
             raise ValueError(
-                f"{name}={value} вне объявленных границ [{spec.low}, {spec.high}]"
+                f"{name}={value} is outside the declared bounds [{spec.low}, {spec.high}]"
             )
     return Theta(values=merged, bounds=declared_bounds())
 
 
 def read(theta: Theta, name: str) -> float:
     if name not in SPEC_BY_NAME:
-        raise ValueError(f"{name} не объявлен в реестре θ")
+        raise ValueError(f"{name} is not declared in the θ registry")
     if name not in theta.values:
-        raise ValueError(f"{name} отсутствует в поданном θ")
+        raise ValueError(f"{name} is absent from the supplied θ")
     low, high = SPEC_BY_NAME[name].low, SPEC_BY_NAME[name].high
     value = theta.values[name]
     if not (low <= value <= high):
-        raise ValueError(f"{name}={value} вне границ [{low}, {high}]")
+        raise ValueError(f"{name}={value} is outside the bounds [{low}, {high}]")
     return value
 
 
@@ -138,19 +138,19 @@ class ThetaRegistry:
     def __post_init__(self) -> None:
         if self.cap <= 0:
             raise ValueError(
-                f"потолок θ равен {self.cap}: искать нечего, размерность "
-                f"пространства поиска не положительна"
+                f"the θ cap equals {self.cap}: there is nothing to search, the dimension "
+                f"of the search space is not positive"
             )
         names = [spec.name for spec in self.specs]
         duplicated = sorted({name for name in names if names.count(name) > 1})
         if duplicated:
-            raise ValueError(f"параметр θ объявлен дважды: {duplicated}")
+            raise ValueError(f"a θ parameter is declared twice: {duplicated}")
         if len(self.specs) > self.cap:
             raise ValueError(
-                f"θ: {len(self.specs)} параметров > {self.cap} — CMA-ES "
-                f"строит ковариацию размера {len(self.specs)}², и цена оценки "
-                f"растёт быстрее, чем бюджет прогонов; выбор, что выкинуть, "
-                f"принимается явно, а не молча"
+                f"θ: {len(self.specs)} parameters > {self.cap}: CMA-ES "
+                f"builds a covariance of size {len(self.specs)}², and the cost of an evaluation "
+                f"grows faster than the run budget; the choice of what to drop "
+                f"is made explicitly, not silently"
             )
 
     def by_name(self) -> Mapping[str, ThetaSpec]:
@@ -180,7 +180,7 @@ class ThetaRegistry:
     def without(self, *names: str) -> "ThetaRegistry":
         unknown = sorted(set(names) - set(self.names()))
         if unknown:
-            raise ValueError(f"незаявленные параметры θ: {unknown}")
+            raise ValueError(f"undeclared θ parameters: {unknown}")
         dropped = set(names)
         return ThetaRegistry(
             specs=tuple(

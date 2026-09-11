@@ -2,21 +2,25 @@ from __future__ import annotations
 
 import pytest
 
-from backend.core.contracts import Constraints
+from backend.contexts.constraints.domain.constraints import Constraints
 
-from backend.domain.robustness import (
+from backend.contexts.robustness.domain.catalog import (
     BatteryBasis,
+    battery_of,
+    default_battery,
+    default_scenarios,
+)
+from backend.contexts.robustness.domain.battery import (
     FragilityBattery,
+    Scenario,
+    Split,
+    coverage_report,
+    split_by_declaration,
+)
+from backend.contexts.robustness.domain.perturbation import (
     InjectionCap,
     ORGANIZER_KINDS,
     PerturbationKind,
-    Scenario,
-    Split,
-    battery_of,
-    coverage_report,
-    default_battery,
-    default_scenarios,
-    split_by_declaration,
 )
 
 
@@ -73,17 +77,17 @@ def test_battery_missing_an_organizer_type_is_rejected(
         Scenario(
             scenario_id="dev-one",
             split=Split.DEV,
-            description="дефицит воды",
+            description="water shortage",
             perturbations=(InjectionCap(limits_by_year={2010: 10.0}),),
         ),
         Scenario(
             scenario_id="holdout-one",
             split=Split.HOLDOUT,
-            description="дефицит воды сильнее",
+            description="a deeper water shortage",
             perturbations=(InjectionCap(limits_by_year={2011: 5.0}),),
         ),
     )
-    with pytest.raises(ValueError, match="типы возмущений"):
+    with pytest.raises(ValueError, match="perturbation kinds"):
         battery_of(only_injection, seed=1, version="narrow")
 
 
@@ -125,16 +129,16 @@ def test_battery_hash_changes_with_seed_and_version(basis: BatteryBasis) -> None
 
 def test_duplicate_scenario_ids_are_rejected(battery: FragilityBattery) -> None:
     duplicated = battery.scenarios + (battery.scenarios[0],)
-    with pytest.raises(ValueError, match="повторяющиеся"):
+    with pytest.raises(ValueError, match="duplicate"):
         battery_of(duplicated, seed=1, version="dup")
 
 
 def test_scenario_without_perturbations_is_rejected() -> None:
-    with pytest.raises(ValueError, match="номинальным"):
+    with pytest.raises(ValueError, match="the nominal one"):
         Scenario(
             scenario_id="empty",
             split=Split.DEV,
-            description="ничего не меняем",
+            description="we change nothing",
             perturbations=(),
         )
 
@@ -151,7 +155,7 @@ def test_split_by_declaration_moves_named_scenarios_to_holdout(
 def test_split_by_declaration_rejects_unknown_scenario(
     basis: BatteryBasis,
 ) -> None:
-    with pytest.raises(ValueError, match="отсутствующие"):
+    with pytest.raises(ValueError, match="do not exist"):
         split_by_declaration(default_scenarios(basis), ("no-such-scenario",))
 
 

@@ -2,29 +2,27 @@ from __future__ import annotations
 
 from datetime import date
 
-from backend.core.contracts import (
+from backend.contexts.reservoir.domain.response import (
     ActiveControlMode,
+    IntervalResponse,
+    StateAtDate,
+)
+from backend.contexts.schedule.domain.schedule import (
     Availability,
-    Constraints,
     ControlEvent,
     EventKind,
     FixedDeckEvent,
-    Groups,
-    IntervalResponse,
-    Lambda,
-    LineItems,
-    NpvTable,
     OperatingStatus,
     Role,
-    Rule,
-    RunArtifact,
     Schedule,
     ScheduleMeta,
-    StateAtDate,
-    TraceEntry,
-    WellOutage,
     WellState,
 )
+from backend.contexts.constraints.domain.constraints import Constraints, WellOutage
+from backend.contexts.connectivity.domain.connectivity import Groups, Lambda
+from backend.contexts.economics.domain.economics import LineItems, NpvTable
+from backend.contexts.policy.domain.policy import Rule, TraceEntry
+from backend.contexts.runs.domain.run_artifact import RunArtifact
 
 SYNTHETIC_PROVENANCE = "synthetic-fixture"
 _PLACEHOLDER_HASH = "0" * 64
@@ -130,7 +128,7 @@ def make_synthetic_artifact(
     n_wells: int = 5, n_deck_dates: int = 12, n_control_dates: int = 7
 ) -> RunArtifact:
     if n_wells < 3:
-        raise ValueError("n_wells >= 3: нужны нагнетательная, добывающая и невведённая")
+        raise ValueError("n_wells >= 3: an injector, a producer and a not-yet-commissioned well are required")
     if n_control_dates < 3:
         raise ValueError("n_control_dates >= 3")
     if n_deck_dates < n_control_dates:

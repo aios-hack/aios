@@ -6,7 +6,8 @@ from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
-from backend.core.contracts import Groups, Lambda, RunArtifact
+from backend.contexts.connectivity.domain.connectivity import Groups, Lambda
+from backend.contexts.runs.domain.run_artifact import RunArtifact
 from tests.support.backend.showcase_fixtures import make_synthetic_artifact
 from backend.contexts.showcase.application.exporters.graph_view import (
     build_lambda_graph,

@@ -8,19 +8,14 @@ import math
 from dataclasses import (
     replace,
 )
-from backend.core.contracts import (
-    Schedule,
-    EventKind,
-    water_supply_policy,
-)
+from backend.contexts.schedule.domain.schedule import EventKind, Schedule
+from backend.contexts.constraints.domain.constraints import water_supply_policy
 from backend.contexts.optimization.domain.injection_budget import (
     SOURCE_WATER_BALANCE_REPAIR,
 )
-from backend.domain.schedule import (
-    ViolationKind,
-    canonicalize,
-    validate_dynamic,
-)
+from backend.contexts.schedule.domain.validate import ViolationKind
+from backend.contexts.schedule.domain.canonical import canonicalize
+from backend.contexts.schedule.domain.validate_dynamic import validate_dynamic
 
 
 def _repair_predicted_water_balance(

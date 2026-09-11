@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Callable
 
-from backend.core.contracts import Rule, Theta
+from backend.contexts.policy.domain.policy import Rule, Theta
 
 from backend.contexts.policy.domain.flags import IMPLEMENTED_RULES, RuleFlags
 from backend.contexts.policy.domain.rules import r0, r1, r2, r3, r4, r5, r6, r7
@@ -71,7 +71,7 @@ def apply_rule(
     flags: RuleFlags,
 ) -> RuleOutcome:
     if rule not in RULE_FUNCTIONS:
-        raise NotImplementedError(f"{rule.value} в этой задаче не реализовано")
+        raise NotImplementedError(f"{rule.value} is not implemented in this task")
     if not flags.is_on(rule):
         return EMPTY_OUTCOME
     return RULE_FUNCTIONS[rule](state, context, theta)

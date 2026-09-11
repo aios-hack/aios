@@ -4,15 +4,13 @@ import json
 from pathlib import Path
 from typing import Any, Iterator, Mapping, MutableMapping
 
+from backend.shared.i18n.catalog import translate
 from backend.shared.json_io import read_json
 
 JOB_FILE = "job.json"
 JOB_TEMPORARY_FILE = "job.tmp"
-INTERRUPTED_MESSAGE = (
-    "Сервер был перезапущен. "
-    "Расчёт не подтверждён; "
-    "запустите его снова."
-)
+INTERRUPTED_KEY = "runs.status.restarted"
+INTERRUPTED_MESSAGE = translate(INTERRUPTED_KEY)
 
 
 class JobStore:
@@ -38,7 +36,11 @@ class JobStore:
             data = dict(read_json(path))
             if data.get("status") != "running":
                 continue
-            data.update(status="failed", message=INTERRUPTED_MESSAGE)
+            data.update(
+                status="failed",
+                message=INTERRUPTED_MESSAGE,
+                message_key=INTERRUPTED_KEY,
+            )
             self.write(path.parent, data)
             recovered += 1
         return recovered
@@ -57,6 +59,7 @@ class JobStore:
 
 
 __all__ = [
+    "INTERRUPTED_KEY",
     "INTERRUPTED_MESSAGE",
     "JOB_FILE",
     "JOB_TEMPORARY_FILE",

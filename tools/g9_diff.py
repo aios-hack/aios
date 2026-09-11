@@ -1,16 +1,3 @@
-"""G9: куда делся миллиард — постатейное сравнение нашего плана с базовым.
-
-Нового расчётчика не пишется. `NpvTable` несёт три разложения, сумма
-поскважинных значений равна `npv_methodology` без остатка, поэтому разность
-двух таблиц — точная атрибуция разрыва, а сведение сходится по построению.
-
-Отклик нашего плана берётся из кеша `data/g7-submission` — прогон Flow уже
-сделан 20.08, повторять его незачем; при промахе кеша скрипт скажет об этом
-и остановится, а не уйдёт молча считать восемь минут в OPM.
-
-Запуск: `PYTHONPATH=. python tools/g9_diff.py`.
-"""
-
 from __future__ import annotations
 
 import json
@@ -23,14 +10,17 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from backend.shared.resources import model_z_dir, normatives_xlsx
-from backend.infrastructure.opm import submit_schedule
+from backend.contexts.simulation.application.submission import submit_schedule
 from backend.contexts.reservoir.infrastructure.opm_deck import OpmDeckEmitter
 from backend.contexts.simulation.infrastructure.runner import deck_hashes, summary_spec_hash
 from backend.contexts.constraints.domain.schema import default_config
-from backend.core.contracts import ArtifactHashes, Constraints, Theta
+from backend.contexts.constraints.domain.config import ArtifactHashes
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.policy.domain.policy import Theta
 from backend.contexts.economics.domain.economics import LineItems
-from backend.core.contracts.hashing import hash_schedule
-from backend.domain.economics import load_normatives, load_response_artifact
+from backend.shared.hashing import hash_schedule
+from backend.contexts.economics.infrastructure.normatives_io import load_normatives
+from backend.contexts.economics.application.base_case import load_response_artifact
 from backend.contexts.economics.application.base_case import analyze_base_case
 from backend.contexts.optimization.application.environment import (
     load_environment,
@@ -87,9 +77,9 @@ def main() -> int:
     best = max(final.visited, key=lambda item: item.npv)
     schedule = best.schedule
     digest = hash_schedule(schedule)
-    print(f"план θ* восстановлен за {time.monotonic() - started:.0f} с, {digest[:12]}…", flush=True)
+    print(f"the theta* plan was rebuilt in {time.monotonic() - started:.0f} s, {digest[:12]}...", flush=True)
     if digest != saved["canonical_schedule_hash"]:
-        print(f"ХЕШ РАЗОШЁЛСЯ с записанным {saved['canonical_schedule_hash']}", flush=True)
+        print(f"HASH DIVERGED from the recorded {saved['canonical_schedule_hash']}", flush=True)
         return 3
 
     normatives = load_normatives(normatives_path)
@@ -116,12 +106,12 @@ def main() -> int:
     )
     elapsed = time.monotonic() - started
     if submission.response is None:
-        print(f"отклик не получен: статус {submission.opm_run.status}", flush=True)
+        print(f"no response received: status {submission.opm_run.status}", flush=True)
         return 4
     if elapsed > 240.0:
-        print(f"ВНИМАНИЕ: тракт занял {elapsed / 60:.1f} мин — кеш не сработал", flush=True)
+        print(f"WARNING: the pipeline took {elapsed / 60:.1f} min - the cache did not work", flush=True)
     else:
-        print(f"отклик из кеша за {elapsed:.0f} с", flush=True)
+        print(f"response from cache in {elapsed:.0f} s", flush=True)
 
     ours = analyze_base_case(
         submission.response, env.deck_dates, env.t0_deck_date_index, normatives, env.policies
@@ -131,15 +121,14 @@ def main() -> int:
     )
     gap = ours.npv_methodology - base.npv_methodology
     print(
-        f"\nбазовый {base.npv_methodology / 1e9:.3f} млрд, наш "
-        f"{ours.npv_methodology / 1e9:.3f} млрд, разрыв {gap / 1e9:+.3f} млрд",
+        f"\nbase {base.npv_methodology / 1e9:.3f} bln, ours "
+        f"{ours.npv_methodology / 1e9:.3f} bln, gap {gap / 1e9:+.3f} bln",
         flush=True,
     )
 
-    # --- Статьи целиком -----------------------------------------------------
     ours_total = _sum_lines(ours.table.by_year.values())
     base_total = _sum_lines(base.table.by_year.values())
-    print("\n=== статья — базовый — наш — разница, млрд руб (недисконтированные) ===")
+    print("\n=== item - base - ours - difference, bln RUB (undiscounted) ===")
     rows = sorted(MONEY, key=lambda name: -abs(ours_total[name] - base_total[name]))
     for name in rows:
         delta = ours_total[name] - base_total[name]
@@ -150,10 +139,9 @@ def main() -> int:
             f"{delta / 1e9:+9.3f}"
         )
     check = ours_total["discounted_fcf"] - base_total["discounted_fcf"]
-    print(f"\nсведение: сумма discounted_fcf даёт {check / 1e9:+.3f} млрд против {gap / 1e9:+.3f}")
+    print(f"\nreconciliation: the sum of discounted_fcf gives {check / 1e9:+.3f} bln against {gap / 1e9:+.3f}")
 
-    # --- По годам -----------------------------------------------------------
-    print("\n=== по годам, дисконтированный FCF, млрд руб ===")
+    print("\n=== by year, discounted FCF, bln RUB ===")
     for year in sorted(set(ours.table.by_year) | set(base.table.by_year)):
         a = base.table.by_year.get(year)
         b = ours.table.by_year.get(year)
@@ -163,8 +151,7 @@ def main() -> int:
             continue
         print(f"  {year}  {av / 1e9:8.3f} {bv / 1e9:8.3f} {(bv - av) / 1e9:+8.3f}")
 
-    # --- По скважинам -------------------------------------------------------
-    print("\n=== двадцать скважин с наибольшим расхождением, млн руб ===")
+    print("\n=== twenty wells with the largest divergence, mln RUB ===")
     wells = set(ours.table.by_well) | set(base.table.by_well)
     diffs = []
     for well in wells:
@@ -175,27 +162,26 @@ def main() -> int:
         diffs.append((bv - av, well, av, bv))
     diffs.sort(key=lambda item: abs(item[0]), reverse=True)
     for delta, well, av, bv in diffs[:20]:
-        print(f"  скв {well:>4}  {av / 1e6:9.1f} {bv / 1e6:9.1f} {delta / 1e6:+9.1f}")
+        print(f"  well {well:>4}  {av / 1e6:9.1f} {bv / 1e6:9.1f} {delta / 1e6:+9.1f}")
     positive = sum(delta for delta, *_ in diffs if delta > 0)
     negative = sum(delta for delta, *_ in diffs if delta < 0)
     print(
-        f"\n  скважин в плюсе {sum(1 for d, *_ in diffs if d > 0)} на {positive / 1e9:+.3f} млрд, "
-        f"в минусе {sum(1 for d, *_ in diffs if d < 0)} на {negative / 1e9:+.3f} млрд"
+        f"\n  wells in the plus {sum(1 for d, *_ in diffs if d > 0)} for {positive / 1e9:+.3f} bln, "
+        f"in the minus {sum(1 for d, *_ in diffs if d < 0)} for {negative / 1e9:+.3f} bln"
     )
 
-    # --- Натура -------------------------------------------------------------
-    print("\n=== натура: база — наш — разница ===")
+    print("\n=== volumes: base - ours - difference ===")
     for name, unit, scale in (
-        ("oil_mass_t", "тыс. т", 1e3),
-        ("liquid_volume_m3", "тыс. м³", 1e3),
-        ("injection_volume_m3", "тыс. м³", 1e3),
-        ("active_well_months", "скв·мес", 1.0),
+        ("oil_mass_t", "thousand t", 1e3),
+        ("liquid_volume_m3", "thousand m3", 1e3),
+        ("injection_volume_m3", "thousand m3", 1e3),
+        ("active_well_months", "well-months", 1.0),
     ):
         av = float(getattr(base.volumes, name))
         bv = float(getattr(ours.volumes, name))
         print(f"  {name:<20} {av / scale:12.1f} {bv / scale:12.1f} {(bv - av) / scale:+12.1f}  {unit}")
 
-    print("\n=== события: база — наш — разница ===")
+    print("\n=== events: base - ours - difference ===")
     for name in (
         "conversion_count",
         "conversion_cost_rub",
@@ -209,13 +195,13 @@ def main() -> int:
         av = float(getattr(base.events, name))
         bv = float(getattr(ours.events, name))
         if name.endswith("_rub"):
-            print(f"  {name:<22} {av / 1e9:9.3f} {bv / 1e9:9.3f} {(bv - av) / 1e9:+9.3f} млрд")
+            print(f"  {name:<22} {av / 1e9:9.3f} {bv / 1e9:9.3f} {(bv - av) / 1e9:+9.3f} bln")
         else:
             print(f"  {name:<22} {av:9.0f} {bv:9.0f} {bv - av:+9.0f}")
 
     print(
-        f"\nисключённых строк отрицательным правилом: база {base.excluded_row_count}, "
-        f"наш {ours.excluded_row_count}"
+        f"\nrows excluded by the negative rule: base {base.excluded_row_count}, "
+        f"ours {ours.excluded_row_count}"
     )
 
     OUT.write_text(
@@ -278,7 +264,7 @@ def main() -> int:
         ),
         encoding="utf-8",
     )
-    print(f"\nзаписано: {OUT}", flush=True)
+    print(f"\nwritten: {OUT}", flush=True)
     return 0
 
 

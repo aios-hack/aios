@@ -10,7 +10,7 @@ from pathlib import Path
 import torch
 from backend.contexts.surrogate.application.model import _legacy_checkpoint_modules
 
-from backend.domain.economics import load_normatives
+from backend.contexts.economics.infrastructure.normatives_io import load_normatives
 from torch import Tensor
 
 from backend.contexts.surrogate.application.model import (
@@ -44,34 +44,34 @@ def _parser() -> argparse.ArgumentParser:
         "--scenario-fraction",
         type=float,
         default=1.0,
-        help="доля обучающих сценариев (не узлов): 0.5 берёт каждый второй. "
-             "Нужна там, где памяти не хватает на полный train; сравнивать "
-             "модели допустимо только при одинаковой доле",
+        help="fraction of training scenarios (not nodes): 0.5 takes every second one. "
+             "Needed where memory is insufficient for the full train; models may only "
+             "be compared at the same fraction",
     )
     parser.add_argument(
         "--target-parameterization",
         choices=("absolute", "watercut"),
         default=None,
-        help="по умолчанию берётся из тензоров: у контрактного набора целей "
-             "формат отличается, и молча учить absolute на watercut-целях "
-             "нельзя — каналы разные",
+        help="taken from the tensors by default: the contract target set has a "
+             "different format, and silently training absolute on watercut targets "
+             "is not allowed - the channels differ",
     )
     return parser
 
 
 def _exact_targets(blob: dict, labels: dict) -> dict[str, Tensor]:
     if labels.get("format") != "aios.surrogate-npv-labels.v1" or labels.get("dataset_hash") != blob["dataset_hash"]:
-        raise RuntimeError("метки ЧДД относятся к другому датасету")
+        raise RuntimeError("the NPV labels belong to a different dataset")
     validate_target_provenance(labels.get("target_provenance"))
     train_hashes = {row["canonical_schedule_hash"] for row in blob["identities"]["train"]}
     validation_hashes = {row["canonical_schedule_hash"] for row in blob["identities"]["validation"]}
     if train_hashes & validation_hashes:
-        raise RuntimeError("train и validation содержат одинаковые расписания")
+        raise RuntimeError("train and validation contain identical schedules")
     by_identity = {}
     for row in labels["rows"].values():
         key = (row["source_dataset"], row["scenario_id"], row["canonical_schedule_hash"])
         if key in by_identity:
-            raise RuntimeError(f"дублирующаяся метка ЧДД: {key}")
+            raise RuntimeError(f"duplicate NPV label: {key}")
         by_identity[key] = row
     result = {}
     for bucket in ("train", "validation"):
@@ -80,11 +80,11 @@ def _exact_targets(blob: dict, labels: dict) -> dict[str, Tensor]:
             key = (identity["source_dataset"], identity["scenario_id"], identity["canonical_schedule_hash"])
             row = by_identity.get(key)
             if row is None or row["bucket"] != bucket:
-                raise RuntimeError(f"нет метки ЧДД в правильном сплите: {key}")
+                raise RuntimeError(f"no NPV label in the correct split: {key}")
             values.append(row["npv_rub"])
         result[bucket] = torch.tensor(values, dtype=torch.float64)
         if not bool(torch.isfinite(result[bucket]).all()):
-            raise RuntimeError("нечисловая метка ЧДД")
+            raise RuntimeError("non-numeric NPV label")
     return result
 
 
@@ -126,12 +126,12 @@ def _config(args, rub_per_unit: tuple[float, ...]) -> ModelConfig:
 def main() -> int:
     args = _parser().parse_args()
     if args.threads < 1:
-        raise RuntimeError("--threads должен быть положительным")
+        raise RuntimeError("--threads must be positive")
     torch.set_num_threads(args.threads)
     if (args.output_dir / "model.pt").exists():
-        raise FileExistsError("output-dir уже содержит модель; выберите новый каталог")
+        raise FileExistsError("output-dir already contains a model; choose a new directory")
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    print(f"загрузка {args.tensors}", flush=True)
+    print(f"loading {args.tensors}", flush=True)
     with _legacy_checkpoint_modules():
         blob = torch.load(args.tensors, weights_only=False, mmap=True)
     tensor_format = blob.get("format")
@@ -139,15 +139,15 @@ def main() -> int:
         "aios.surrogate-tensors.v2",
         "aios.surrogate-tensors-watercut.v1",
     ):
-        raise RuntimeError(f"неподдержанный tensor artifact: {tensor_format!r}")
+        raise RuntimeError(f"unsupported tensor artifact: {tensor_format!r}")
     from_tensors = blob.get("target_parameterization", "absolute")
     parameterization = args.target_parameterization or from_tensors
     if parameterization != from_tensors:
         raise RuntimeError(
-            f"тензоры содержат цели {from_tensors!r}, запрошено {parameterization!r}"
+            f"the tensors contain {from_tensors!r} targets, {parameterization!r} was requested"
         )
     if blob.get("feature_context_training_scenarios", 0) < 400:
-        raise RuntimeError("production train запрещён на пилотном feature context")
+        raise RuntimeError("a production train is forbidden on a pilot feature context")
     tensors = blob["tensors"]
     counts = blob["counts"]
     tensors.pop("test", None)
@@ -159,13 +159,13 @@ def main() -> int:
         labels = json.loads(label_bytes)
         npv_targets = _exact_targets(blob, labels)
         if labels["target_provenance"]["normatives_sha256"] != hashlib.sha256(args.normatives.read_bytes()).hexdigest():
-            raise RuntimeError("нормативы меток ЧДД отличаются от нормативов обучения")
+            raise RuntimeError("the normatives of the NPV labels differ from the training normatives")
     rub = money_rub_per_unit(load_normatives(args.normatives))
     config = replace(_config(args, rub), target_parameterization=parameterization)
-    print(f"параметризация целей: {parameterization}", flush=True)
+    print(f"target parameterization: {parameterization}", flush=True)
 
     if not 0.0 < args.scenario_fraction <= 1.0:
-        raise RuntimeError("--scenario-fraction должна лежать в (0, 1]")
+        raise RuntimeError("--scenario-fraction must lie in (0, 1]")
 
     prepared = {}
     for bucket in ("train", "validation"):
@@ -185,16 +185,16 @@ def main() -> int:
             if bucket in npv_targets:
                 npv_targets[bucket] = npv_targets[bucket][picked]
             print(
-                f"train урезан до {len(picked)} сценариев из {n_scenarios} "
-                f"(доля {args.scenario_fraction})",
+                f"train trimmed to {len(picked)} scenarios out of {n_scenarios} "
+                f"(fraction {args.scenario_fraction})",
                 flush=True,
             )
         if args.mode == "physical":
             if x.shape[1] % 2:
-                raise RuntimeError("mean scenario context не делится на base/context")
+                raise RuntimeError("the mean scenario context does not split into base/context")
             x = x[:, : x.shape[1] // 2]
         prepared[bucket] = (x, well_index, y)
-        print(f"{bucket}: {x.shape[0]:,} узлов, {x.shape[1]} признаков", flush=True)
+        print(f"{bucket}: {x.shape[0]:,} nodes, {x.shape[1]} features", flush=True)
 
     torch.manual_seed(config.seed)
     model = TrajectorySurrogate(
@@ -278,7 +278,7 @@ def main() -> int:
         encoding="utf-8",
     )
     print(
-        f"готово: {checkpoint}; best_epoch={result.best_epoch}; "
+        f"done: {checkpoint}; best_epoch={result.best_epoch}; "
         f"version={result.model.version}",
         flush=True,
     )

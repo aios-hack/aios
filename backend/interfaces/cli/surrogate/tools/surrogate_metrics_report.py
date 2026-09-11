@@ -1,14 +1,9 @@
-
 from __future__ import annotations
 
-import argparse
 import hashlib
-import json
-import math
 import statistics
 import sys
 from collections.abc import Sequence
-from dataclasses import dataclass, replace
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -16,241 +11,49 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 import torch
 from backend.contexts.surrogate.application.model import _legacy_checkpoint_modules
 
-from backend.shared.resources import model_z_dir, normatives_xlsx
-from backend.core.contracts import (
-    ResponseArtifact,
-    StateAtDate,
-    canonical_bytes,
-    hash_schedule,
-)
-from backend.contexts.economics.application.base_case import (
-    analyze_base_case,
-    load_response_artifact,
-)
-from backend.contexts.optimization.infrastructure.artifacts import resolve_runtime_artifacts
-from backend.contexts.optimization.application.environment import (
-    load_environment,
-    predict_economics,
-)
-from backend.contexts.optimization.application.search_use_case import (
-    RESPONSE,
-)
-from backend.contexts.optimization.application.verification_run import (
-    LAMBDA,
-)
-from backend.contexts.surrogate.application.adapter import ResponseAdapter
-from backend.contexts.surrogate.domain.features import ScheduleFeatureizer
-from backend.contexts.surrogate.domain.metrics import ranking_metrics
+from backend.contexts.economics.application.base_case import load_response_artifact
+from backend.contexts.reservoir.domain.response import StateAtDate
+from backend.contexts.showcase.infrastructure.artifact_io import _load_schedule
 from backend.contexts.simulation.domain.perturbation_design import (
-    baseline_profile,
     build_plan,
     materialize,
 )
 from backend.contexts.surrogate.application.pipeline import PILOT_CONFIG, EXTRA_CONFIG
-from backend.contexts.showcase.infrastructure.artifact_io import _load_schedule
-from backend.interfaces.cli.runner import run as run_cli
+from backend.interfaces.cli.surrogate.tools.surrogate_metrics_errors import (
+    MetricsReportError as _MetricsReportError,
+)
+from backend.interfaces.cli.surrogate.tools.surrogate_metrics_holdout import (
+    DEFAULT_HOLDOUT,
+    HOLDOUT_FORMAT,
+    FrozenHoldout,
+    FrozenHoldoutError,
+    assert_holdout_excluded,
+    load_frozen_holdout,
+)
+from backend.interfaces.cli.surrogate.tools.surrogate_metrics_scoring import (
+    _component_metrics,
+    _predict_response,
+    _ranking,
+    _regression,
+    _score_schedule,
+)
+from backend.shared.hashing import hash_schedule
 from backend.shared.json_io import read_json
 
-NORMATIVES = normatives_xlsx()
-FORMAT = "aios.surrogate-metrics.v2"
-HOLDOUT_FORMAT = "aios.surrogate-frozen-holdout.v1"
-DEFAULT_HOLDOUT = Path("config/surrogate-holdout.json")
-DEFAULT_LABELS = Path("data/model-night-20260826-v2/npv_labels.json")
-DEFAULT_TENSORS = Path("data/lean700/tensors_context_490_canonical.pt")
-DEFAULT_MANIFOLD = Path("data")
-MANIFOLD_GLOB = "constrained-opm-*"
 EFFECT_THRESHOLD_RUB = 1_000_000.0
-DESCRIPTION = (
-    "Метрики карточки суррогата: абсолютная ошибка ЧДД, ошибка предсказания "
-    "разницы ЧДД между соседями по ранжированию и распределение ошибки канала bhp."
-)
 
 
 class MetricsReportError(RuntimeError):
     pass
 
 
-class FrozenHoldoutError(MetricsReportError):
-    pass
-
-
-@dataclass(frozen=True, slots=True)
-class FrozenHoldout:
-    path: Path
-    populated: bool
-    hashes: frozenset[str]
-    reason: str
-
-    def as_provenance(self) -> dict[str, object]:
-        return {
-            "frozen_holdout": str(self.path),
-            "frozen_holdout_populated": self.populated,
-            "frozen_holdout_size": len(self.hashes),
-            "frozen_holdout_note": self.reason,
-        }
-
-
-def load_frozen_holdout(path: Path = DEFAULT_HOLDOUT) -> FrozenHoldout:
-    if not path.is_file():
-        raise FrozenHoldoutError(
-            f"замороженного holdout нет по пути {path}: без него ни тренер, ни "
-            "отчёт метрик не могут доказать, что оценка получена не на "
-            "многократно использованной выборке"
-        )
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        raise FrozenHoldoutError(
-            f"замороженный holdout {path} не читается: {error}"
-        ) from error
-    if not isinstance(payload, dict) or payload.get("format") != HOLDOUT_FORMAT:
-        raise FrozenHoldoutError(
-            f"неподдерживаемый формат замороженного holdout {path}: "
-            f"{payload.get('format') if isinstance(payload, dict) else type(payload).__name__!r}"
-        )
-    raw = payload.get("canonical_schedule_hashes")
-    if not isinstance(raw, list):
-        raise FrozenHoldoutError(
-            f"{path}: canonical_schedule_hashes не список — исключать из "
-            "обучения нечего, а молчаливый пропуск означал бы утечку"
-        )
-    hashes: set[str] = set()
-    for item in raw:
-        if not isinstance(item, str) or len(item) != 64:
-            raise FrozenHoldoutError(
-                f"{path}: запись {item!r} не является canonical_schedule_hash"
-            )
-        hashes.add(item.lower())
-    if len(hashes) != len(raw):
-        raise FrozenHoldoutError(
-            f"{path}: canonical_schedule_hash повторяется, размер набора "
-            "посчитать по этому списку нельзя"
-        )
-    populated = bool(payload.get("populated", False))
-    if populated != bool(hashes):
-        raise FrozenHoldoutError(
-            f"{path}: поле populated={populated} расходится с {len(hashes)} "
-            "записями — набор обязан честно объявлять, наполнен он или нет"
-        )
-    if populated:
-        reason = f"набор заморожен, {len(hashes)} расписаний исключены из обучения"
-    else:
-        raw_reason = payload.get("unpopulated_reason")
-        if not isinstance(raw_reason, str) or not raw_reason.strip():
-            raise FrozenHoldoutError(
-                f"{path}: ненаполненный набор обязан объяснить, почему в нём нет "
-                "ни одного расписания; пустой список без причины неотличим от "
-                "потерянного файла"
-            )
-        reason = raw_reason.strip()
-    return FrozenHoldout(
-        path=path, populated=populated, hashes=frozenset(hashes), reason=reason
-    )
-
-
-def assert_holdout_excluded(
-    holdout: FrozenHoldout, hashes: Sequence[str], population: str
-) -> None:
-    leaked = sorted({value.lower() for value in hashes} & holdout.hashes)
-    if leaked:
-        raise FrozenHoldoutError(
-            f"{population}: {len(leaked)} расписаний замороженного holdout "
-            f"{holdout.path} попали в выборку — {', '.join(leaked[:3])}"
-            f"{'...' if len(leaked) > 3 else ''}. Обучение или замер на "
-            "замороженном наборе уничтожает единственную независимую оценку, "
-            "поэтому это ошибка, а не предупреждение"
-        )
-
-
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    parser.add_argument("--labels", type=Path, default=DEFAULT_LABELS)
-    parser.add_argument("--tensors", type=Path, default=DEFAULT_TENSORS)
-    parser.add_argument("--split", default="test", choices=("train", "validation", "test"))
-    parser.add_argument("--manifold-root", type=Path, default=DEFAULT_MANIFOLD)
-    parser.add_argument("--manifold-glob", default=MANIFOLD_GLOB)
-    parser.add_argument("--holdout", type=Path, default=DEFAULT_HOLDOUT)
-    parser.add_argument("--output", type=Path, required=True)
-    return parser
-
-
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def _require(path: Path, what: str) -> Path:
-    if not path.exists():
-        raise MetricsReportError(
-            f"{what} не найден: {path}. Воспроизвести метрики без него нельзя; "
-            "пустая таблица вместо числа запрещена."
-        )
-    return path
-
-
-def _regression(actual: list[float], predicted: list[float]) -> dict[str, float]:
-    if len(actual) < 2:
-        raise MetricsReportError("регрессионные метрики требуют минимум двух сценариев")
-    mean = statistics.fmean(actual)
-    ss_total = sum((value - mean) ** 2 for value in actual)
-    ss_residual = sum((a - p) ** 2 for a, p in zip(actual, predicted, strict=True))
-    errors = [abs(a - p) for a, p in zip(actual, predicted, strict=True)]
-    relative = [
-        abs(a - p) / abs(a) * 100.0
-        for a, p in zip(actual, predicted, strict=True)
-        if abs(a) > 0.0
-    ]
-    relative.sort()
-    return {
-        "n_scenarios": len(actual),
-        "r2": 1.0 - ss_residual / ss_total if ss_total > 0.0 else float("nan"),
-        "mae_rub": statistics.fmean(errors),
-        "mae_mln_rub": statistics.fmean(errors) / 1e6,
-        "npv_error_pct_median": statistics.median(relative) if relative else float("nan"),
-        "npv_error_pct_p95": (
-            relative[min(len(relative) - 1, int(0.95 * len(relative)))]
-            if relative
-            else float("nan")
-        ),
-        "npv_error_pct_max": max(relative) if relative else float("nan"),
-    }
-
-
-def _ranking(actual: list[float], predicted: list[float]) -> dict[str, object]:
-    metrics = ranking_metrics(actual, predicted)
-    order = sorted(range(len(predicted)), key=lambda i: predicted[i], reverse=True)
-    true_best = max(range(len(actual)), key=lambda i: actual[i])
-    return {
-        "n_candidates": metrics.n_candidates,
-        "spearman": metrics.spearman_rank_correlation,
-        "precision_at_k": {str(k): v for k, v in metrics.precision_at_k.items()},
-        "regret_at_k_mln_rub": {
-            str(k): v / 1e6 for k, v in metrics.regret_at_k_rub.items()
-        },
-        "true_best_rank": order.index(true_best) + 1,
-    }
-
-
-def _predict_response(env, schedule) -> tuple[dict[str, float], ResponseArtifact]:
-    model_input = replace(ScheduleFeatureizer().transform(schedule, env.feature_context.context), lambda_edges=())
-    scored = env.model.predict(model_input)
-    states, intervals = ResponseAdapter().adapt(scored.output, schedule, env.real_history, env.control_dates)
-    response = ResponseArtifact(
-        source_run_id=f"surrogate-metrics:{env.model.version[:12]}",
-        response_hash=hashlib.sha256(canonical_bytes({"schedule": hash_schedule(schedule)})).hexdigest(),
-        state_at_date=states, interval_response=intervals,
-    )
-    return predict_economics(env, model_input, response), response
-
-
-def _score_schedule(env, schedule) -> dict[str, float]:
-    components, _ = _predict_response(env, schedule)
-    return components
+MetricsReportError = _MetricsReportError
 
 
 def _quantile(ordered: list[float], share: float) -> float:
     if not ordered:
         raise MetricsReportError(
-            "квантиль пустой выборки не определён; ноль вместо числа запрещён"
+            "the quantile of an empty sample is undefined; a zero in place of a number is forbidden"
         )
     return ordered[min(len(ordered) - 1, int(share * len(ordered)))]
 
@@ -258,8 +61,8 @@ def _quantile(ordered: list[float], share: float) -> float:
 def _distribution(values: list[float], what: str) -> dict[str, float]:
     if not values:
         raise MetricsReportError(
-            f"{what}: выборка пуста, распределение не считается; "
-            "ноль вместо числа запрещён"
+            f"{what}: the sample is empty, the distribution is not computed; "
+            "a zero in place of a number is forbidden"
         )
     ordered = sorted(values)
     return {
@@ -280,8 +83,8 @@ def _scaled_distribution(values: list[float], what: str, scale: float) -> dict[s
 def _adjacent_pairs(actual: list[float]) -> list[tuple[int, int]]:
     if len(actual) < 2:
         raise MetricsReportError(
-            "ошибка эффекта требует минимум двух сценариев: разницы между "
-            "одним сценарием не существует"
+            "the effect error requires at least two scenarios: there is no "
+            "difference within a single scenario"
         )
     order = sorted(range(len(actual)), key=lambda i: actual[i], reverse=True)
     return list(zip(order, order[1:]))
@@ -295,11 +98,11 @@ def _effect_error(
 ) -> dict[str, object]:
     if len(actual) != len(predicted):
         raise MetricsReportError(
-            f"сценариев {len(actual)} по факту и {len(predicted)} по прогнозу"
+            f"{len(actual)} scenarios in fact and {len(predicted)} in the prediction"
         )
     if threshold_rub <= 0.0:
         raise MetricsReportError(
-            "порог значимости разницы ЧДД должен быть положительным"
+            "the significance threshold of the NPV difference must be positive"
         )
     pairs = _adjacent_pairs(actual)
     relative: list[float] = []
@@ -333,28 +136,28 @@ def _effect_error(
     payload: dict[str, object] = {
         "pairing": "adjacent pairs in the true-NPV ranking",
         "pairing_rationale": (
-            "оптимизатор выбирает между соседями по ранжированию, поэтому "
-            "мерится ошибка ровно той разницы, по которой принимается решение; "
-            "все пары выборки завышают качество за счёт далёких пар, а близость "
-            "по расписанию из артефакта не восстанавливается"
+            "the optimizer chooses between neighbours in the ranking, so the "
+            "error measured is exactly that of the difference the decision is made on; "
+            "taking all pairs of the sample overstates quality thanks to distant pairs, "
+            "and schedule proximity cannot be recovered from the artifact"
         ),
         "n_pairs": len(pairs),
         "significance_threshold_rub": threshold_rub,
         "n_significant_pairs": len(relative),
         "n_degenerate_pairs": len(degenerate),
         "degenerate_policy": (
-            "пара с |истинной разницей| ниже порога в относительную ошибку не "
-            "входит и считается отдельно по абсолютной: деление на почти ноль "
-            "меряет не модель, а деление"
+            "a pair whose |true difference| is below the threshold does not enter "
+            "the relative error and is counted separately by the absolute one: "
+            "dividing by nearly zero measures the division, not the model"
         ),
         "absolute_error_mln_rub": _scaled_distribution(
-            absolute, "абсолютная ошибка эффекта", 1e6
+            absolute, "absolute effect error", 1e6
         ),
         "sign_agreement": sum(1 for row in rows if row["sign_agrees"]) / len(rows),
         "rows": rows,
     }
     if relative:
-        distribution = _distribution(relative, "относительная ошибка эффекта")
+        distribution = _distribution(relative, "relative effect error")
         payload["effect_error_pct_median"] = distribution["median"]
         payload["effect_error_pct_p95"] = distribution["p95"]
         payload["effect_error_pct_max"] = distribution["max"]
@@ -363,13 +166,13 @@ def _effect_error(
         payload["effect_error_pct_p95"] = None
         payload["effect_error_pct_max"] = None
         payload["relative_error_unavailable"] = (
-            f"ни одна из {len(pairs)} пар не имеет истинной разницы ЧДД выше "
-            f"{threshold_rub:.0f} ₽: относительная ошибка эффекта на этой "
-            "выборке не определена, читать абсолютную"
+            f"none of the {len(pairs)} pairs has a true NPV difference above "
+            f"{threshold_rub:.0f} RUB: the relative effect error is undefined on "
+            "this sample, read the absolute one"
         )
     if degenerate:
         payload["degenerate_absolute_error_mln_rub"] = _scaled_distribution(
-            degenerate, "абсолютная ошибка вырожденных пар", 1e6
+            degenerate, "absolute error of degenerate pairs", 1e6
         )
     return payload
 
@@ -380,20 +183,20 @@ def _bhp_absolute_errors(
     by_key = {(state.well, state.deck_date_index): state for state in actual_states}
     if len(by_key) != len(actual_states):
         raise MetricsReportError(
-            "в фактических состояниях пара (скважина, дата дека) встречается дважды"
+            "the pair (well, deck date) occurs twice in the actual states"
         )
     errors: list[float] = []
     for state in predicted_states:
         fact = by_key.get((state.well, state.deck_date_index))
         if fact is None:
             raise MetricsReportError(
-                f"нет фактического состояния для {state.well} на шаге дека "
-                f"{state.deck_date_index}: канал bhp сравнить не с чем"
+                f"no actual state for {state.well} at deck step "
+                f"{state.deck_date_index}: there is nothing to compare the bhp channel against"
             )
         errors.append(abs(state.bhp - fact.bhp))
     if not errors:
         raise MetricsReportError(
-            "канал bhp: ни одного предсказанного состояния, распределение не считается"
+            "bhp channel: not a single predicted state, the distribution is not computed"
         )
     return errors
 
@@ -401,18 +204,18 @@ def _bhp_absolute_errors(
 def _bhp_channel(per_scenario: list[tuple[str, list[float]]]) -> dict[str, object]:
     if not per_scenario:
         raise MetricsReportError(
-            "канал bhp: ни одного сценария с откликом OPM; δ для SRCH-14 без "
-            "факта не выводится"
+            "bhp channel: not a single scenario with an OPM response; delta for "
+            "SRCH-14 is not produced without ground truth"
         )
     pooled: list[float] = []
     for _, errors in per_scenario:
         pooled.extend(errors)
-    distribution = _distribution(pooled, "ошибка канала bhp")
+    distribution = _distribution(pooled, "bhp channel error")
     return {
         "channel": "bhp",
         "unit": "bar",
-        "source": "StateAtDate.bhp: прогноз суррогата против отклика OPM",
-        "consumer": "SRCH-14: δ для согласования гейтов по BHP между поиском и сдачей",
+        "source": "StateAtDate.bhp: surrogate prediction against the OPM response",
+        "consumer": "SRCH-14: delta for aligning the BHP gates between search and submission",
         "n_states": int(distribution["n"]),
         "n_scenarios": len(per_scenario),
         "bhp_error_bar_median": distribution["median"],
@@ -421,21 +224,12 @@ def _bhp_channel(per_scenario: list[tuple[str, list[float]]]) -> dict[str, objec
         "per_scenario": [
             {
                 "run": name,
-                "n_states": int(_distribution(errors, "ошибка канала bhp")["n"]),
-                "bhp_error_bar_median": _distribution(errors, "ошибка канала bhp")["median"],
-                "bhp_error_bar_p95": _distribution(errors, "ошибка канала bhp")["p95"],
+                "n_states": int(_distribution(errors, "bhp channel error")["n"]),
+                "bhp_error_bar_median": _distribution(errors, "bhp channel error")["median"],
+                "bhp_error_bar_p95": _distribution(errors, "bhp channel error")["p95"],
             }
             for name, errors in per_scenario
         ],
-    }
-
-
-def _component_metrics(rows):
-    actual = [row["npv_opm_rub"] for row in rows]
-    return {
-        name: {"regression": _regression(actual, [row[name] for row in rows]),
-               "ranking": _ranking(actual, [row[name] for row in rows])}
-        for name in ("direct", "physical", "blended") if name in rows[0]
     }
 
 
@@ -444,7 +238,7 @@ def _held_out(args, env, labels: dict, holdout: FrozenHoldout) -> dict[str, obje
         bundle = torch.load(args.tensors, map_location="cpu", weights_only=False, mmap=True)
     identities = bundle["identities"].get(args.split)
     if not identities:
-        raise MetricsReportError(f"в тензорах нет сплита {args.split!r}")
+        raise MetricsReportError(f"the tensors contain no split {args.split!r}")
     by_identity = {(r["source_dataset"], r["scenario_id"], r["canonical_schedule_hash"]): r
                    for r in labels["rows"].values()}
     plans = {
@@ -458,14 +252,14 @@ def _held_out(args, env, labels: dict, holdout: FrozenHoldout) -> dict[str, obje
         key = (identity["source_dataset"], identity["scenario_id"], identity["canonical_schedule_hash"])
         label = by_identity.get(key)
         if label is None or label["bucket"] != args.split:
-            raise MetricsReportError(f"нет точной метки ЧДД в нужном сплите: {key}")
+            raise MetricsReportError(f"no exact NPV label in the required split: {key}")
         if key[2] in seen:
             continue
         seen.add(key[2])
         spec = plans[key[0]][key[1]]
         schedule = materialize(env.base_schedule, spec).schedule
         if hash_schedule(schedule) != key[2]:
-            raise MetricsReportError(f"восстановленное расписание разошлось с меткой: {key}")
+            raise MetricsReportError(f"the reconstructed schedule diverged from the label: {key}")
         rows.append({**identity, "family": spec.family.value, "npv_opm_rub": float(label["npv_rub"]),
                      **_score_schedule(env, schedule)})
         if (index + 1) % 10 == 0:
@@ -473,7 +267,7 @@ def _held_out(args, env, labels: dict, holdout: FrozenHoldout) -> dict[str, obje
     assert_holdout_excluded(
         holdout,
         [row["canonical_schedule_hash"] for row in rows],
-        f"сплит {args.split!r} тензорного кеша",
+        f"split {args.split!r} of the tensor cache",
     )
     components = _component_metrics(rows)
     actual = [row["npv_opm_rub"] for row in rows]
@@ -483,8 +277,8 @@ def _held_out(args, env, labels: dict, holdout: FrozenHoldout) -> dict[str, obje
         **components["blended"],
         "effect": _effect_error(actual, [row["blended"] for row in rows]),
         "bhp_channel_unavailable": (
-            "метки сплита содержат только ЧДД OPM, отклика StateAtDate в них нет: "
-            "ошибка канала bhp считается там, где на диске лежит response.json OPM"
+            "the split labels contain only the OPM NPV, there is no StateAtDate response in them: "
+            "the bhp channel error is computed where an OPM response.json is present on disk"
         ),
         "components": components, "rows": rows,
         "by_family": {family: _component_metrics([r for r in rows if r["family"] == family])
@@ -501,8 +295,8 @@ def _manifold(args, env, holdout: FrozenHoldout) -> dict[str, object]:
     )
     if len(directories) < 2:
         raise MetricsReportError(
-            f"{args.manifold_root}/{args.manifold_glob}: нужно минимум два прогона "
-            "с настоящим ЧДД OPM, чтобы ранжирование имело смысл"
+            f"{args.manifold_root}/{args.manifold_glob}: at least two runs with a real "
+            "OPM NPV are required for the ranking to be meaningful"
         )
     physical_weight = float(getattr(env.npv_head, "physical_npv_weight", 0.0))
     actual, predicted, rows = [], [], []
@@ -542,8 +336,8 @@ def _manifold(args, env, holdout: FrozenHoldout) -> dict[str, object]:
             "channel": "bhp",
             "unit": "bar",
             "unavailable": (
-                "ни в одном прогоне нет response.json с откликом OPM: ошибку "
-                "канала bhp не с чем сравнивать, число не выводится"
+                "no run contains a response.json with an OPM response: there is nothing "
+                "to compare the bhp channel error against, no number is produced"
             ),
             "scenarios_without_opm_response": missing_response,
         }
@@ -551,17 +345,17 @@ def _manifold(args, env, holdout: FrozenHoldout) -> dict[str, object]:
     assert_holdout_excluded(
         holdout,
         [result["canonical_schedule_hash"] for result in opm_results],
-        "многообразие оптимизатора",
+        "optimizer manifold",
     )
     return {
         "effect": _effect_error(actual, predicted),
         "bhp_channel": bhp,
-        "population": "кандидаты контура с настоящим ЧДД OPM",
+        "population": "loop candidates with a real OPM NPV",
         "physical_npv_weight": physical_weight,
         "caveat": (
-            "восемь прогонов — не замена запечатанной optimizer-shaped выборке; "
-            "пул G10 из 40 кандидатов на диске отсутствует, и до нового пакета "
-            "OPM эта таблица остаётся индикативной"
+            "eight runs are no substitute for a sealed optimizer-shaped sample; "
+            "the G10 pool of 40 candidates is absent from disk, and until a new OPM "
+            "batch arrives this table remains indicative"
         ),
         "regression": _regression(actual, predicted),
         "ranking": _ranking(actual, predicted),
@@ -570,103 +364,8 @@ def _manifold(args, env, holdout: FrozenHoldout) -> dict[str, object]:
     }
 
 
-def _print_effect(effect: dict[str, object]) -> None:
-    print(f"  пар соседей по рангу {effect['n_pairs']}"
-          f" (значимых {effect['n_significant_pairs']},"
-          f" вырожденных {effect['n_degenerate_pairs']})")
-    median, p95 = effect["effect_error_pct_median"], effect["effect_error_pct_p95"]
-    if median is None or p95 is None:
-        print(f"  ошибка эффекта      {effect['relative_error_unavailable']}")
-    else:
-        print(f"  ошибка эффекта, медиана {median:.3f}%")
-        print(f"  ошибка эффекта, P95     {p95:.3f}%")
-    absolute = effect["absolute_error_mln_rub"]
-    print(f"  ошибка эффекта, абс. медиана {absolute['median']:.3f} млн ₽,"
-          f" P95 {absolute['p95']:.3f} млн ₽")
-
-
-def _print_bhp(bhp: dict[str, object]) -> None:
-    if "unavailable" in bhp:
-        print(f"  канал bhp           {bhp['unavailable']}")
-        return
-    print(f"  ошибка bhp, медиана {bhp['bhp_error_bar_median']:.3f} бар"
-          f" по {bhp['n_states']} состояниям")
-    print(f"  ошибка bhp, P95     {bhp['bhp_error_bar_p95']:.3f} бар")
-
-
-def main() -> int:
-    args = _parser().parse_args()
-    torch.set_num_threads(2)
-    _require(args.labels, "файл меток ЧДД")
-    _require(args.tensors, "тензорный кеш")
-    labels = read_json(args.labels)
-    if labels.get("format") != "aios.surrogate-npv-labels.v1":
-        raise MetricsReportError(f"неподдерживаемый формат меток: {args.labels}")
-
-    holdout = load_frozen_holdout(args.holdout)
-    artifacts = resolve_runtime_artifacts()
-    env = load_environment(
-        model_dir=model_z_dir(),
-        normatives_path=NORMATIVES,
-        response_path=RESPONSE,
-        checkpoint_path=artifacts.checkpoint,
-        feature_context_path=artifacts.feature_context,
-        npv_head_path=artifacts.npv_head,
-        lambda_path=LAMBDA,
-    )
-
-    payload = {
-        "format": FORMAT,
-        "provenance": {
-            "checkpoint": str(artifacts.checkpoint),
-            "npv_head": str(artifacts.npv_head),
-            "feature_context": str(artifacts.feature_context),
-            "source": artifacts.source,
-            "model_version": env.model.version,
-            "economic_model_version": env.npv_head.version,
-            "source_sha256": {name: _sha256(Path(name)) for name in (
-                "backend/ml/surrogate/model.py", "backend/ml/surrogate/adapter.py", "backend/infrastructure/opm/response_loader.py",
-                "backend/application/optimization/schedule_search.py", "backend/presentation/cli/surrogate_tools/surrogate_metrics_report.py")},
-            "labels": str(args.labels),
-            "labels_sha256": _sha256(args.labels),
-            "labels_dataset_hash": labels.get("dataset_hash"),
-            "tensors": str(args.tensors),
-            "split": args.split,
-            **holdout.as_provenance(),
-        },
-        "held_out": _held_out(args, env, labels, holdout),
-        "optimizer_manifold": _manifold(args, env, holdout),
-    }
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=1, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-
-    for name in ("held_out", "optimizer_manifold"):
-        table = payload[name]
-        regression, ranking = table["regression"], table["ranking"]
-        print(f"\n— {name}: {table['population']} —")
-        print(f"  сценариев           {regression['n_scenarios']}")
-        print(f"  Spearman            {ranking['spearman']:+.4f}")
-        print(f"  место истинного 1-го {ranking['true_best_rank']} из {ranking['n_candidates']}")
-        print(f"  R²                  {regression['r2']:+.4f}")
-        print(f"  MAE                 {regression['mae_mln_rub']:.1f} млн ₽")
-        print(f"  ошибка ЧДД, медиана {regression['npv_error_pct_median']:.3f}%")
-        print(f"  ошибка ЧДД, P95     {regression['npv_error_pct_p95']:.3f}%")
-        _print_effect(table["effect"])
-        if name == "optimizer_manifold":
-            _print_bhp(table["bhp_channel"])
-    if holdout.populated:
-        print(
-            f"\nзамороженный holdout: {len(holdout.hashes)} расписаний "
-            f"исключены ({holdout.path})"
-        )
-    else:
-        print(f"\nзамороженный holdout НЕ НАПОЛНЕН: {holdout.reason}")
-    print(f"\nотчёт: {args.output}")
-    return 0
-
-
 if __name__ == "__main__":
+    from backend.interfaces.cli.runner import run as run_cli
+    from backend.interfaces.cli.surrogate.tools.surrogate_metrics_cli import main
+
     raise SystemExit(run_cli(main))

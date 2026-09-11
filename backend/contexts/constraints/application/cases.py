@@ -14,9 +14,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
-    Constraints,
     ControlEvent,
     EventKind,
     FixedDeckEvent,
@@ -25,8 +24,11 @@ from backend.core.contracts import (
     Role,
     Schedule,
     ScheduleMeta,
-    WellOutage,
     WellState,
+)
+from backend.contexts.constraints.domain.constraints import (
+    Constraints,
+    WellOutage,
     compensation_policy,
     water_supply_policy,
 )
@@ -94,13 +96,13 @@ INFRASTRUCTURE_KEYS: tuple[str, ...] = (
 
 REFUSED_SECTIONS: dict[str, str] = {
     "new_wells": (
-        "бурение новых скважин, которых нет в деке, не поддерживается: "
-        "фонд Model_Z фиксирован, и оптимизатор управляет только режимами "
-        "существующих скважин. Остановку скважины задавайте через well_outages"
+        "drilling new wells that are absent from the deck is not supported: "
+        "the Model_Z well stock is fixed and the optimizer controls only the "
+        "regimes of existing wells. Use well_outages to shut a well in"
     ),
     "commissioning_shifts": (
-        "перенос плановых сроков ввода скважин пока не реализован: "
-        "валидатор трактует такой сдвиг как изменение зафиксированной истории"
+        "moving the planned commissioning dates of wells is not implemented yet: "
+        "the validator reads such a shift as a change to fixed history"
     ),
 }
 
@@ -110,13 +112,13 @@ def _require_mapping(document: Any, section: str) -> dict[str, Any]:
         return {}
     value = document[section]
     if not isinstance(value, dict):
-        raise CaseError(f"{section}: ожидается объект год -> значение, получено {type(value).__name__}")
+        raise CaseError(f"{section}: expected an object of year -> value, got {type(value).__name__}")
     return value
 
 
 def _parse_year(section: str, raw: Any) -> int:
     if isinstance(raw, bool):
-        raise CaseError(f"{section}: год должен быть целым числом, получено {raw!r}")
+        raise CaseError(f"{section}: the year must be an integer, got {raw!r}")
     if isinstance(raw, int):
         return raw
     if isinstance(raw, str):
@@ -124,22 +126,22 @@ def _parse_year(section: str, raw: Any) -> int:
         try:
             return int(text)
         except ValueError as error:
-            raise CaseError(f"{section}: год должен быть целым числом, получено {raw!r}") from error
-    raise CaseError(f"{section}: год должен быть целым числом, получено {raw!r}")
+            raise CaseError(f"{section}: the year must be an integer, got {raw!r}") from error
+    raise CaseError(f"{section}: the year must be an integer, got {raw!r}")
 
 
 def _parse_amount(section: str, year: int, raw: Any) -> float:
     if isinstance(raw, bool) or not isinstance(raw, (int, float)):
-        raise CaseError(f"{section}[{year}]: значение должно быть числом, получено {raw!r}")
+        raise CaseError(f"{section}[{year}]: the value must be a number, got {raw!r}")
     value = float(raw)
     if value != value:
-        raise CaseError(f"{section}[{year}]: NaN не допускается")
+        raise CaseError(f"{section}[{year}]: NaN is not allowed")
     if value < 0.0:
-        raise CaseError(f"{section}[{year}]: лимит не может быть отрицательным, получено {value}")
+        raise CaseError(f"{section}[{year}]: the limit cannot be negative, got {value}")
     if section == "watercut_limits" and value > 1.0:
         raise CaseError(
-            f"watercut_limits[{year}]: обводнённость задаётся долей 0..1, "
-            f"получено {value} — похоже на проценты"
+            f"watercut_limits[{year}]: water cut is given as a fraction 0..1, "
+            f"got {value} — this looks like percent"
         )
     return value
 
@@ -149,17 +151,17 @@ def _parse_year_map(document: dict[str, Any], section: str) -> dict[int, float]:
     for raw_year, raw_value in _require_mapping(document, section).items():
         year = _parse_year(section, raw_year)
         if year in result:
-            raise CaseError(f"{section}: год {year} встречается дважды")
+            raise CaseError(f"{section}: year {year} occurs twice")
         result[year] = _parse_amount(section, year, raw_value)
     return result
 
 
 def _parse_step(field: str, index: int, raw: Any, n_intervals: int) -> int:
     if isinstance(raw, bool) or not isinstance(raw, int):
-        raise CaseError(f"well_outages[{index}].{field}: шаг должен быть целым числом, получено {raw!r}")
+        raise CaseError(f"well_outages[{index}].{field}: the step must be an integer, got {raw!r}")
     if raw < 0 or raw >= n_intervals:
         raise CaseError(
-            f"well_outages[{index}].{field}: шаг {raw} вне горизонта 0..{n_intervals - 1}"
+            f"well_outages[{index}].{field}: step {raw} outside the horizon 0..{n_intervals - 1}"
         )
     return raw
 
@@ -167,19 +169,19 @@ def _parse_step(field: str, index: int, raw: Any, n_intervals: int) -> int:
 def _parse_outages(document: dict[str, Any], n_intervals: int) -> tuple[WellOutage, ...]:
     raw_outages = document.get("well_outages", [])
     if not isinstance(raw_outages, list):
-        raise CaseError(f"well_outages: ожидается массив, получено {type(raw_outages).__name__}")
+        raise CaseError(f"well_outages: expected an array, got {type(raw_outages).__name__}")
     outages: list[WellOutage] = []
     for index, raw in enumerate(raw_outages):
         if not isinstance(raw, dict):
-            raise CaseError(f"well_outages[{index}]: ожидается объект, получено {type(raw).__name__}")
+            raise CaseError(f"well_outages[{index}]: expected an object, got {type(raw).__name__}")
         well = raw.get("well")
         if not isinstance(well, str) or not well:
-            raise CaseError(f"well_outages[{index}].well: идентификатор скважины — непустая строка")
+            raise CaseError(f"well_outages[{index}].well: the well identifier must be a non-empty string")
         step_from = _parse_step("control_step_from", index, raw.get("control_step_from"), n_intervals)
         step_to = _parse_step("control_step_to", index, raw.get("control_step_to"), n_intervals)
         if step_from > step_to:
             raise CaseError(
-                f"well_outages[{index}]: control_step_from={step_from} больше control_step_to={step_to}"
+                f"well_outages[{index}]: control_step_from={step_from} exceeds control_step_to={step_to}"
             )
         outages.append(
             WellOutage(well=well, control_step_from=step_from, control_step_to=step_to)
@@ -190,14 +192,14 @@ def _parse_outages(document: dict[str, Any], n_intervals: int) -> tuple[WellOuta
 def _check_infrastructure(infrastructure: dict[str, Any]) -> None:
     if not isinstance(infrastructure, dict):
         raise CaseError(
-            f"infrastructure: ожидается объект ключ-значение, получено {type(infrastructure).__name__}"
+            f"infrastructure: expected a key-value object, got {type(infrastructure).__name__}"
         )
     for key in infrastructure:
         if not isinstance(key, str):
-            raise CaseError(f"infrastructure: имя параметра — строка, получено {key!r}")
+            raise CaseError(f"infrastructure: the parameter name must be a string, got {key!r}")
         if key not in INFRASTRUCTURE_KEYS:
             raise CaseError(
-                f"infrastructure.{key}: неизвестный параметр; допустимы "
+                f"infrastructure.{key}: unknown parameter; allowed are "
                 f"{', '.join(INFRASTRUCTURE_KEYS)}"
             )
     for key in INFRASTRUCTURE_SOURCE_KEYS:
@@ -206,8 +208,8 @@ def _check_infrastructure(infrastructure: dict[str, Any]) -> None:
         value = infrastructure[key]
         if not isinstance(value, str) or value not in CONSTRAINT_SOURCES:
             raise CaseError(
-                f"infrastructure.{key}: источник ограничения — одно из "
-                f"{', '.join(sorted(CONSTRAINT_SOURCES))}, получено {value!r}"
+                f"infrastructure.{key}: the constraint source must be one of "
+                f"{', '.join(sorted(CONSTRAINT_SOURCES))}, got {value!r}"
             )
     for key in BLOCKING_INFRASTRUCTURE_KEYS:
         if key not in infrastructure:
@@ -215,32 +217,32 @@ def _check_infrastructure(infrastructure: dict[str, Any]) -> None:
         if source_key(key) in infrastructure:
             continue
         raise CaseError(
-            f"infrastructure.{source_key(key)}: ограничение "
-            f"infrastructure.{key} блокирует расписание, поэтому его источник "
-            f"обязателен; укажите одно из "
+            f"infrastructure.{source_key(key)}: the constraint "
+            f"infrastructure.{key} blocks the schedule, so its source is "
+            f"mandatory; give one of "
             f"{', '.join(sorted(CONSTRAINT_SOURCES))}"
         )
     for key in INFRASTRUCTURE_SOURCE_KEYS:
         if key in infrastructure and key[: -len(SOURCE_SUFFIX)] not in infrastructure:
             raise CaseError(
-                f"infrastructure.{key}: источник объявлен без самого "
-                f"ограничения infrastructure.{key[: -len(SOURCE_SUFFIX)]}"
+                f"infrastructure.{key}: a source is declared without the constraint "
+                f"infrastructure.{key[: -len(SOURCE_SUFFIX)]} itself"
             )
 
 
 def constraints_from_json(d: dict[str, Any], n_intervals: int = N_INTERVALS) -> Constraints:
     if not isinstance(d, dict):
-        raise CaseError(f"документ Constraints: ожидается объект, получено {type(d).__name__}")
+        raise CaseError(f"Constraints document: expected an object, got {type(d).__name__}")
     if n_intervals <= 0:
-        raise CaseError(f"n_intervals должно быть положительным, получено {n_intervals}")
+        raise CaseError(f"n_intervals must be positive, got {n_intervals}")
     for section, reason in REFUSED_SECTIONS.items():
         if section in d:
             raise CaseError(f"{section}: {reason}")
     unknown = set(d) - set(TOP_LEVEL_SECTIONS)
     if unknown:
         raise CaseError(
-            f"неизвестные разделы документа: {', '.join(sorted(unknown))}; "
-            f"допустимы {', '.join(TOP_LEVEL_SECTIONS)}"
+            f"unknown document sections: {', '.join(sorted(unknown))}; "
+            f"allowed are {', '.join(TOP_LEVEL_SECTIONS)}"
         )
     infrastructure = d.get("infrastructure", {})
     _check_infrastructure(infrastructure)
@@ -281,17 +283,17 @@ def _load_well_state(data: dict[str, Any]) -> WellState:
 def load_case(path: str | Path, n_intervals: int = N_INTERVALS) -> Constraints:
     case_path = Path(path)
     if not case_path.is_file():
-        raise CaseError(f"файл кейса не найден: {case_path}")
+        raise CaseError(f"case file not found: {case_path}")
     try:
         text = case_path.read_text(encoding="utf-8")
     except OSError as error:
-        raise CaseError(f"файл кейса {case_path} не читается: {error}") from error
+        raise CaseError(f"case file {case_path} is unreadable: {error}") from error
     try:
         document = json.loads(text)
     except json.JSONDecodeError as error:
         raise CaseError(
-            f"{case_path}: не разбирается как JSON — {error.msg} "
-            f"(строка {error.lineno}, столбец {error.colno})"
+            f"{case_path}: does not parse as JSON — {error.msg} "
+            f"(line {error.lineno}, column {error.colno})"
         ) from error
     try:
         constraints = constraints_from_json(document, n_intervals=n_intervals)

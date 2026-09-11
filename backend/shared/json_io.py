@@ -15,14 +15,14 @@ def read_json(path: str | Path) -> Any:
         text = target.read_text(encoding="utf-8")
     except OSError as error:
         raise ValidationError(
-            f"{target}: не читается — {error}", code="json.unreadable", path=str(target)
+            f"{target}: unreadable — {error}", code="json.unreadable", path=str(target)
         ) from error
     try:
         return json.loads(text)
     except json.JSONDecodeError as error:
         raise ValidationError(
-            f"{target}: не разбирается как JSON — {error.msg} "
-            f"(строка {error.lineno}, столбец {error.colno})",
+            f"{target}: does not parse as JSON — {error.msg} "
+            f"(line {error.lineno}, column {error.colno})",
             code="json.malformed",
             path=str(target),
         ) from error

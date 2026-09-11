@@ -4,9 +4,14 @@ from dataclasses import replace
 
 import pytest
 
-from backend.core.contracts import EventKind, NormativeSet, Rule
+from backend.contexts.schedule.domain.schedule import EventKind
+from backend.contexts.constraints.domain.config import NormativeSet
+from backend.contexts.policy.domain.policy import Rule
 
-from backend.domain.policy import RuleContext, RuleFlags, apply_rule, default_theta
+from backend.contexts.policy.domain.state import RuleContext
+from backend.contexts.policy.domain.flags import RuleFlags
+from backend.contexts.policy.domain.rules import apply_rule
+from backend.contexts.policy.domain.theta import default_theta
 from backend.contexts.policy.domain.rules import r1
 from tests.backend.contexts.policy.conftest import (
     OIL_DENSITY_T_PER_M3,
@@ -155,15 +160,6 @@ def test_missing_budget_raises(context: RuleContext) -> None:
 def test_injector_outside_lambda_holds_its_baseline_rate(
     context: RuleContext, normatives: NormativeSet
 ) -> None:
-    """Нагнетательная вне окна замера держит базовую уставку, а не ноль.
-
-    Кампания Плакетта—Бермана покрыла 22 нагнетательных из 41, а невошедшие
-    несут 46% закачки месторождения. Пока R1 их не адресовал, плотный слой
-    оставлял их на нуле, и отсутствие замера превращалось в решение
-    заглушить: на прогоне G7 это 662 м³/сут из 835 всей недокачки. Ценность
-    их закачки по-прежнему не считается — она неизвестна, а не равна нулю, —
-    поэтому в дележе бюджета они не участвуют.
-    """
 
     ctx = replace(
         two_producer_context(context),
@@ -186,9 +182,6 @@ def test_injector_outside_lambda_holds_its_baseline_rate(
     assert entry.decision == "HOLD_BASELINE_OUTSIDE_LAMBDA"
     assert entry.inputs["outside_lambda_window"] == 1.0
 
-    # Фонд воды у месторождения один: удержанный базовый уровень вычитается
-    # из бюджета, а не прибавляется сверх него. Иначе сумма выходит за лимит
-    # участка и агент участка срезает множителем всех, включая измеренных.
     measured = sum(by_well[well].value or 0.0 for well in ("101", "102"))
     budget = ctx.injection_budget_m3_per_day
     assert measured == pytest.approx(budget - 70.0)
@@ -198,12 +191,6 @@ def test_injector_outside_lambda_holds_its_baseline_rate(
 def test_injector_outside_lambda_without_baseline_is_shut_explicitly(
     context: RuleContext,
 ) -> None:
-    """Без базовой уставки скважина получает явный ноль, а не молчание.
-
-    Разница существенна: молчание правила плотный слой трактует сам, и
-    поведение зависит от того, что осталось в состоянии. Явный ноль — это
-    решение, и оно видно в трассе.
-    """
 
     ctx = two_producer_context(context)
     state = state_of(
@@ -221,20 +208,10 @@ def test_injector_outside_lambda_without_baseline_is_shut_explicitly(
 def test_budget_fills_wells_by_value_up_to_their_capacity(
     context: RuleContext,
 ) -> None:
-    """Вода идёт по убыванию ценности до потолка, остаток — следующей.
-
-    Пропорциональный дележ давал скважине воду по величине предельной
-    ценности, то есть по рублям на кубометр, а не по ёмкости. Скважина, чья
-    приёмистость 30 м³/сут, получала сотни, срез потолком дальше по тракту
-    эту воду никому не отдавал, и бюджет расходовался частично: на прогоне
-    G7 восемнадцать измеренных скважин из двадцати двух стояли на потолке все
-    224 шага при 683 м³/сут неиспользованной ёмкости у остальных.
-    """
 
     influence = influence_of(
         producers=("42",),
         injectors=("101", "102", "103"),
-        # 101 ценнее 102, 102 ценнее 103
         matrix=((0.9, 0.6, 0.3),),
     )
     ctx = replace(
@@ -252,20 +229,15 @@ def test_budget_fills_wells_by_value_up_to_their_capacity(
     outcome = apply_rule(Rule.R1, state, ctx, default_theta(), RuleFlags())
     targets = {event.well: event.value for event in outcome.decisions}
 
-    assert targets["101"] == pytest.approx(100.0)  # упёрлась в свой потолок
-    assert targets["102"] == pytest.approx(150.0)  # тоже, остаток пошёл дальше
-    assert targets["103"] == pytest.approx(50.0)   # добирает то, что осталось
+    assert targets["101"] == pytest.approx(100.0)
+    assert targets["102"] == pytest.approx(150.0)
+    assert targets["103"] == pytest.approx(50.0)
     assert sum(targets.values()) == pytest.approx(300.0)
 
 
 def test_capacity_shortfall_leaves_budget_unspent_and_says_so(
     context: RuleContext,
 ) -> None:
-    """Если ёмкости меньше бюджета, лишнее остаётся неразданным и видно в трассе.
-
-    Правило не имеет права придумывать скважине приёмистость сверх её
-    исторической: непринятая вода — это факт про фонд, а не про бюджет.
-    """
 
     influence = influence_of(
         producers=("42",), injectors=("101", "102"), matrix=((0.9, 0.6),)
@@ -291,7 +263,6 @@ def test_capacity_shortfall_leaves_budget_unspent_and_says_so(
 def test_unprofitable_injector_gets_nothing_even_with_capacity(
     context: RuleContext,
 ) -> None:
-    """Отрицательная предельная ценность не спасается свободной ёмкостью."""
 
     ctx = replace(
         two_producer_context(context, budget=400.0),

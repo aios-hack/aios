@@ -2,39 +2,41 @@ from __future__ import annotations
 
 import json
 import time
-from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any, Callable, Iterator, Mapping, Sequence
 
 from backend.contexts.assistant.application.answer import marker_position, split_answer
-from backend.contexts.assistant.infrastructure.artifacts import ArtifactStore, RunError, RunStore
-from backend.contexts.assistant.application.caption import (
-    code_sources,
-    doc_numbers,
-    guard_answer_text,
-    guard_with_retry,
-)
+from backend.contexts.assistant.infrastructure.artifacts import ArtifactStore, RunStore
 from backend.contexts.assistant.infrastructure.docs_index import DocsIndex
 from backend.contexts.assistant.infrastructure.knowledge import Knowledge
 from backend.contexts.assistant.infrastructure.prompt import build_system_prompt
 from backend.contexts.assistant.domain.session import (
-    Exchange,
     Session,
     SessionStore,
     check_question,
-    summary_request,
 )
 from backend.contexts.assistant.infrastructure.session_store import SessionDisk
-from backend.contexts.assistant.application.suggestions import build_suggestions
 from backend.contexts.assistant.infrastructure.system_map import SystemMap
-from backend.contexts.assistant.application.tools import error_card, run_tool, tool_specs
+from backend.contexts.assistant.application.orchestrator_compose import (
+    call_tool,
+    compose,
+    live_status,
+)
+from backend.contexts.assistant.application.orchestrator_events import (
+    BRIEFING_QUESTION_EN,
+    BRIEFING_QUESTION_RU,
+    BRIEFING_TOOLS,
+    DEFAULT_TIMEOUT,
+    MAX_TOOL_ROUNDS,
+    Cancelled,
+    Event,
+    stamp,
+)
+from backend.contexts.assistant.application.tools import tool_specs
 from backend.contexts.assistant.application.tools.context import (
     Card,
     ConsoleContext,
     ToolContext,
-    ToolFailure,
 )
-from backend.contexts.assistant.application.tools.registry import ToolInputError
 from backend.contexts.assistant.infrastructure.llm.chat import ChatClient
 from backend.contexts.assistant.infrastructure.llm.chat_events import (
     ChatMessage,
@@ -42,44 +44,6 @@ from backend.contexts.assistant.infrastructure.llm.chat_events import (
     TextDelta,
     ToolCall,
 )
-
-MAX_TOOL_ROUNDS = 5
-DEFAULT_TIMEOUT = 60.0
-BRIEFING_TOOLS: tuple[tuple[str, Mapping[str, Any]], ...] = (
-    ("system_status", {}),
-    ("find_patterns", {"limit": 2}),
-)
-BRIEFING_QUESTION_RU = (
-    "Опиши одной-двумя фразами состояние системы: чемпион, последний прогон, "
-    "текущий шаг и тревоги диагностики. Только по данным карточек."
-)
-BRIEFING_QUESTION_EN = (
-    "Describe the state of the system in one or two sentences: the champion, "
-    "the latest run, the current step and the diagnostic alerts. Only from the "
-    "card data."
-)
-
-
-class Cancelled(RuntimeError):
-    pass
-
-
-def stamp() -> str:
-    return (
-        datetime.now(tz=timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
-
-
-@dataclass(frozen=True, slots=True)
-class Event:
-    type: str
-    body: dict[str, Any]
-
-    def as_dict(self) -> dict[str, Any]:
-        return {"type": self.type, **self.body}
 
 
 class Orchestrator:
@@ -239,11 +203,7 @@ class Orchestrator:
         )
 
     def _live(self, context: ToolContext) -> dict[str, Any] | None:
-        try:
-            card = run_tool("system_status", context, {})
-        except Exception:
-            return None
-        return dict(card.payload)
+        return live_status(context)
 
     def _run(
         self,
@@ -287,7 +247,7 @@ class Orchestrator:
             self._checkpoint(session, started)
             yield Event("status", {"state": "tool", "tool": name})
             order += 1
-            card, result = self._call(context, ToolCall(id=f"p{order}", name=name, args=arguments))
+            card, result = call_tool(context, ToolCall(id=f"p{order}", name=name, args=arguments))
             cards.append(card)
             yield Event(
                 "card",
@@ -352,7 +312,7 @@ class Orchestrator:
                 self._checkpoint(session, started)
                 yield Event("status", {"state": "tool", "tool": call.name})
                 order += 1
-                card, result = self._call(context, call)
+                card, result = call_tool(context, call)
                 cards.append(card)
                 yield Event(
                     "card",
@@ -372,109 +332,19 @@ class Orchestrator:
                         tool_call_id=call.id,
                     )
                 )
-        yield Event("status", {"state": "composing"})
-        payloads = [dict(card.payload) for card in cards]
-        evidence = (*self._evidence(context), *doc_numbers(payloads))
-        split = split_answer("".join(deltas))
-        guarded = guard_with_retry(
-            self._client, messages, system, split.caption, payloads, evidence
+        yield from compose(
+            self._client,
+            self._store,
+            self._disk,
+            context,
+            console,
+            session,
+            scene_id,
+            question,
+            messages,
+            system,
+            cards,
+            deltas,
+            rounds,
+            int((self._clock() - started) * 1000),
         )
-        if guarded.warning is not None:
-            yield Event("warning", guarded.warning)
-        yield Event(
-            "caption",
-            {"scene_id": scene_id, "text": guarded.result.text, "guarded": True},
-        )
-        answer_text = ""
-        if split.answer:
-            checked = guard_answer_text(
-                split.answer, payloads, evidence, code_sources(payloads)
-            )
-            for warning in checked.warnings:
-                yield Event("warning", warning)
-            answer_text = checked.text
-            if answer_text:
-                yield Event(
-                    "answer",
-                    {
-                        "scene_id": scene_id,
-                        "text": answer_text,
-                        "guarded": True,
-                    },
-                )
-        session.remember(
-            Exchange(
-                question=question,
-                card_types=tuple(card.type for card in cards),
-                caption=guarded.result.text,
-                answer=answer_text,
-            )
-        )
-        self._compress(session, system)
-        yield Event(
-            "suggestions",
-            {
-                "items": build_suggestions(
-                    console,
-                    self._store,
-                    card_types=tuple(card.type for card in cards),
-                    history=session.questions(),
-                )
-            },
-        )
-        yield Event(
-            "done",
-            {
-                "scene_id": scene_id,
-                "tool_rounds": rounds,
-                "elapsed_ms": int((self._clock() - started) * 1000),
-            },
-        )
-
-    def _compress(self, session: Session, system: str) -> None:
-        pending = session.pending_summary()
-        if not pending:
-            return
-        request = summary_request(pending)
-        if session.summary_text:
-            request = (
-                f"Прежняя справка: {session.summary_text}\n\n{request}"
-            )
-        collected: list[str] = []
-        try:
-            for event in self._client.stream(
-                [ChatMessage(role="user", content=request)], (), system
-            ):
-                if isinstance(event, TextDelta):
-                    collected.append(event.text)
-                elif isinstance(event, Done):
-                    break
-        except Exception:
-            session.absorb_summary(session.summary_text)
-            return
-        session.absorb_summary("".join(collected).strip())
-        if self._disk is not None and session.summary_text:
-            try:
-                self._disk.set_summary(session.session_id, session.summary_text)
-            except Exception:
-                return
-
-    def _evidence(self, context: ToolContext) -> tuple[Any, ...]:
-        try:
-            record = context.run_store().read()
-        except (ToolFailure, RunError):
-            return ()
-        return record.documents()
-
-    def _call(self, context: ToolContext, call: ToolCall) -> tuple[Card, Any]:
-        try:
-            card = run_tool(call.name, context, call.args)
-        except (ToolFailure, ToolInputError) as error:
-            return error_card(call.name, str(error), context.lang), {
-                "error": str(error)
-            }
-        except Exception as error:
-            return error_card(call.name, str(error), context.lang), {
-                "error": str(error)
-            }
-        return card, dict(card.payload)

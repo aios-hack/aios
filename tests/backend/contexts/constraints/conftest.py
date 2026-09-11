@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import pytest
 
-from backend.core.contracts import (
-    DEFAULT_NORMATIVES_2007,
+from backend.contexts.constraints.domain.config import (
     ArtifactHashes,
     Config,
+    DEFAULT_NORMATIVES_2007,
     NormativeSet,
 )
 
-from backend.domain.configuration import default_config
+from backend.contexts.constraints.domain.schema import default_config
 
 GLOBAL_SEED = 20260815
 

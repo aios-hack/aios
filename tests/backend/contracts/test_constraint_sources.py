@@ -111,7 +111,7 @@ def test_unknown_source_value_is_refused_by_the_case_loader(tmp_path: Path) -> N
         tmp_path,
         {
             BHP_PRODUCER_MIN_BAR: 70.0,
-            source_key(BHP_PRODUCER_MIN_BAR): "куратор",
+            source_key(BHP_PRODUCER_MIN_BAR): "curator",
         },
     )
     with pytest.raises(CaseError, match=source_key(BHP_PRODUCER_MIN_BAR)):

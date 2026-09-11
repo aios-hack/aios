@@ -6,7 +6,7 @@ from backend.contexts.policy.domain.agents.base import Proposal
 from backend.contexts.policy.domain.levels import GroupDecision, GroupLimit, Level, decide_group
 from backend.contexts.policy.domain.flags import RuleFlags
 from backend.contexts.policy.domain.state import PolicyState, RuleContext
-from backend.core.contracts import Theta
+from backend.contexts.policy.domain.policy import Theta
 
 GROUP_ALLOCATOR = "GroupAllocator"
 
@@ -16,9 +16,9 @@ class GroupAllocator:
     name: str = GROUP_ALLOCATOR
     level: Level = Level.GROUP
     responsibilities: tuple[str, ...] = (
-        "видит только скважины своего участка и его квоту",
-        "делегирует выбор уставок правилам R0…R7, своей арифметики не имеет",
-        "масштабирует запрос участка вниз, если правила запросили больше квоты",
+        "sees only the wells of its own area and that area quota",
+        "delegates the choice of setpoints to rules R0...R7 and has no arithmetic of its own",
+        "scales the area request down when the rules asked for more than the quota",
     )
 
     def trace_agent_for(self, limit: GroupLimit) -> str:
@@ -44,7 +44,7 @@ class GroupAllocator:
     ) -> Proposal:
         if theta is None or flags is None or limit is None:
             raise ValueError(
-                f"{self.name}: без θ, флагов и квоты участка предлагать нечего"
+                f"{self.name}: without theta, flags and the area quota there is nothing to propose"
             )
         decision = self.decide(state, context, theta, flags, limit)
         return Proposal(

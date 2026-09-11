@@ -55,6 +55,52 @@ def candidate_card(
     }
 
 
+def _write_diagnostics_head(
+    *,
+    seed: int,
+    budget: int,
+    search_cap: int,
+    final_cap: int,
+    env: object,
+    threshold_decision: object,
+    soft_penalty: bool,
+    penalty_rate: float,
+    bhp_tolerance: object,
+    history: Sequence[object],
+    cards: Sequence[Mapping[str, object]],
+    registry: "IncumbentRegistry",
+    path: Path | None = None,
+) -> None:
+    journal = SEARCH_DIAGNOSTICS if path is None else path
+    journal.parent.mkdir(parents=True, exist_ok=True)
+    journal.write_text(
+        json.dumps(
+            {
+                "seed": seed,
+                "budget": budget,
+                "search_cap": search_cap,
+                "final_cap": final_cap,
+                "model_version": env.model.version,
+                "npv_head_version": env.npv_head.version if env.npv_head else None,
+                "ood_threshold": env.ood_threshold,
+                "ood_threshold_origin": threshold_decision.origin,
+                "ood_threshold_calibrated": threshold_decision.calibrated,
+                "ood_soft_penalty": soft_penalty,
+                "ood_penalty_per_unit": penalty_rate,
+                "bhp_gate_delta_bar": bhp_tolerance.delta_bar,
+                "bhp_gate_delta_origin": bhp_tolerance.origin,
+                "bhp_gate_delta_detail": bhp_tolerance.detail,
+                "evaluations": _evaluation_cards(history, cards),
+                "incumbents": registry.as_list(),
+            },
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+
 def _write_diagnostics_tail(
     finalist_cards: Sequence[Mapping[str, object]],
     registry: "IncumbentRegistry",
@@ -63,8 +109,8 @@ def _write_diagnostics_tail(
     journal = SEARCH_DIAGNOSTICS if path is None else path
     if not journal.is_file():
         raise SearchRunError(
-            f"диагностика поиска {journal} не записана: "
-            "дописывать финалистов и реестр incumbent некуда"
+            f"search diagnostics {journal} were not written: there is nowhere to "
+            "append the finalists and the incumbent registry"
         )
     diagnostics = read_json(journal)
     diagnostics["finalists"] = [dict(card) for card in finalist_cards]
@@ -80,8 +126,8 @@ def _evaluation_cards(
 ) -> list[dict[str, object]]:
     if len(cards) != len(history):
         raise SearchRunError(
-            f"диагностика кандидатов рассинхронизирована с историей поиска: "
-            f"карточек {len(cards)}, оценок {len(history)} — сводить нечего"
+            f"candidate diagnostics are out of sync with the search history: "
+            f"{len(cards)} cards, {len(history)} evaluations — there is nothing to reconcile"
         )
     merged: list[dict[str, object]] = []
     for item, card in zip(history, cards):

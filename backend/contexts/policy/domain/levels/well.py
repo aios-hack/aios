@@ -11,13 +11,8 @@ from backend.contexts.policy.domain.trace_types import (
 from dataclasses import (
     replace,
 )
-from backend.core.contracts import (
-    MAX_LRAT_M3_PER_DAY,
-    ControlEvent,
-    EventKind,
-    Rule,
-    TraceEntry,
-)
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind, MAX_LRAT_M3_PER_DAY
+from backend.contexts.policy.domain.policy import Rule, TraceEntry
 from backend.contexts.policy.domain.state import (
     PolicyState,
     RuleContext,
@@ -35,8 +30,8 @@ def execute_well(
     observation = state.wells.get(event.well)
     if observation is None:
         raise ValueError(
-            f"{event.well}: исполнитель не видит состояния скважины, "
-            f"валидировать физику нечем"
+            f"{event.well}: the executor does not see the well state, so "
+            f"there is nothing to validate the physics with"
         )
     inputs: dict[str, float] = {
         "control_step": float(event.control_step),

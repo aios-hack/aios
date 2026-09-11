@@ -3,15 +3,15 @@ from __future__ import annotations
 from datetime import date
 from typing import Sequence
 
-from backend.core.contracts import (
-    Constraints,
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.schedule.domain.schedule import (
     ControlEvent,
     EventKind,
     N_INTERVALS,
     OperatingStatus,
-    ResponseArtifact,
     Schedule,
 )
+from backend.contexts.runs.domain.run_result import ResponseArtifact
 
 
 def liquid_limit_for_step(
@@ -21,8 +21,8 @@ def liquid_limit_for_step(
 ) -> float | None:
     if not (0 <= control_step <= N_INTERVALS - 1):
         raise ValueError(
-            f"control_step={control_step} вне 0…{N_INTERVALS - 1}: "
-            f"суточной ставки отбора на этом шаге не существует"
+            f"control_step={control_step} is outside 0…{N_INTERVALS - 1}: "
+            f"no daily offtake rate exists at this step"
         )
     limit = constraints.liquid_limits.get(year)
     if limit is None:
@@ -30,7 +30,7 @@ def liquid_limit_for_step(
     value = float(limit)
     if value < 0.0:
         raise ValueError(
-            f"лимит жидкости на {year} год отрицателен: {value} м³/сут"
+            f"the liquid limit for the year {year} is negative: {value} m3/day"
         )
     return value
 
@@ -42,8 +42,8 @@ def production_floor_for_step(
 ) -> float | None:
     if not (0 <= control_step <= N_INTERVALS - 1):
         raise ValueError(
-            f"control_step={control_step} вне 0…{N_INTERVALS - 1}: "
-            f"суточной ставки добычи на этом шаге не существует"
+            f"control_step={control_step} is outside 0…{N_INTERVALS - 1}: "
+            f"no daily production rate exists at this step"
         )
     floor = constraints.production_floors.get(year)
     if floor is None:
@@ -51,8 +51,8 @@ def production_floor_for_step(
     value = float(floor)
     if value < 0.0:
         raise ValueError(
-            f"нижняя граница добычи нефти на {year} год отрицательна: "
-            f"{value} т/сут"
+            f"the lower bound on oil production for the year {year} is negative: "
+            f"{value} t/day"
         )
     return value
 
@@ -66,14 +66,14 @@ def injection_ceiling_for_well(
         value = float(well_cap_m3_per_day)
         if value < 0.0:
             raise ValueError(
-                f"потолок закачки скважины отрицателен: {value} м³/сут"
+                f"the well injection ceiling is negative: {value} m3/day"
             )
         candidates.append(value)
     if field_budget_m3_per_day is not None:
         value = float(field_budget_m3_per_day)
         if value < 0.0:
             raise ValueError(
-                f"водный бюджет поля отрицателен: {value} м³/сут"
+                f"the field water budget is negative: {value} m3/day"
             )
         candidates.append(value)
     if not candidates:
@@ -88,22 +88,22 @@ def interval_produced_water_rate_m3_per_day(
     oil_density_t_per_m3: float,
 ) -> float:
     if oil_density_t_per_m3 <= 0.0:
-        raise ValueError("плотность нефти должна быть положительной")
+        raise ValueError("oil density must be positive")
     if not (0 <= control_step <= N_INTERVALS - 1):
         raise ValueError(
-            f"control_step={control_step} вне 0…{N_INTERVALS - 1}: "
-            f"суточной ставки попутной воды на этом шаге не существует"
+            f"control_step={control_step} is outside 0…{N_INTERVALS - 1}: "
+            f"no daily produced-water rate exists at this step"
         )
     if control_step + 1 >= len(control_dates):
         raise ValueError(
-            f"control_step={control_step}: в оси управляющих дат "
-            f"{len(control_dates)} значений, правая граница интервала "
-            f"не читается — длину интервала вывести не из чего"
+            f"control_step={control_step}: the control date axis holds "
+            f"{len(control_dates)} values, so the right end of the interval "
+            f"cannot be read: there is nothing to derive the interval length from"
         )
     days = (control_dates[control_step + 1] - control_dates[control_step]).days
     if days <= 0:
         raise ValueError(
-            f"control_step={control_step}: неположительная длина интервала"
+            f"control_step={control_step}: non-positive interval length"
         )
     water_volume = 0.0
     for item in response.interval_response:

@@ -7,7 +7,7 @@ from backend.contexts.schedule.domain.errors import (
 from dataclasses import dataclass, field
 from datetime import date
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     OperatingStatus,
     Role,
@@ -77,7 +77,7 @@ def _status(token: str, keyword: str, well: str) -> OperatingStatus:
         return OperatingStatus[token]
     except KeyError as error:
         raise ReplayError(
-            f"{keyword} {well!r}: неизвестный статус скважины {token!r}"
+            f"{keyword} {well!r}: unknown well status {token!r}"
         ) from error
 
 
@@ -86,14 +86,16 @@ def _float(token: str, keyword: str, well: str) -> float:
         return float(token)
     except ValueError as error:
         raise ReplayError(
-            f"{keyword} {well!r}: уставка не является числом: {token!r}"
+            f"{keyword} {well!r}: the setpoint is not a number: {token!r}"
         ) from error
 
 
 def _prod_fields(record: tuple[str, ...]) -> tuple[OperatingStatus, float]:
     well = record[0]
     if len(record) < 7 or record[2] != "LRAT":
-        raise ReplayError(f"WCONPROD {well!r}: ожидается режим LRAT, получено {record!r}")
+        raise ReplayError(
+            f"WCONPROD {well!r}: LRAT mode expected, got {record!r}"
+        )
     return _status(record[1], "WCONPROD", well), _float(record[6], "WCONPROD", well)
 
 
@@ -101,7 +103,8 @@ def _inj_fields(record: tuple[str, ...]) -> tuple[OperatingStatus, float]:
     well = record[0]
     if len(record) < 5 or record[1] != "WATER" or record[3] != "RATE":
         raise ReplayError(
-            f"WCONINJE {well!r}: ожидаются фаза WATER и режим RATE, получено {record!r}"
+            f"WCONINJE {well!r}: WATER phase and RATE mode expected, got "
+            f"{record!r}"
         )
     return _status(record[2], "WCONINJE", well), _float(record[4], "WCONINJE", well)
 
@@ -153,13 +156,17 @@ def replay(
     for block in blocks:
         for record in _records(block):
             if block.event_date is None:
-                raise ReplayError(f"{block.keyword}: блок истории без даты")
+                raise ReplayError(
+                    f"{block.keyword}: history block without a date"
+                )
             _apply_record(fund, block.keyword, record, block.event_date)
 
     axis = set(wells)
     unknown = sorted(set(fund.wells) - axis)
     if unknown:
-        raise ReplayError(f"история содержит скважины вне оси WELSPECS: {unknown}")
+        raise ReplayError(
+            f"the history contains wells outside the WELSPECS axis: {unknown}"
+        )
 
     state: dict[str, WellState] = {}
     commissioned: list[str] = []

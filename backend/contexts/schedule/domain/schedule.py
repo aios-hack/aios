@@ -53,11 +53,13 @@ class WellState:
     def __post_init__(self) -> None:
         if self.availability is Availability.NOT_COMMISSIONED:
             if self.role is not Role.NONE:
-                raise ValueError("NOT_COMMISSIONED требует role=NONE")
+                raise ValueError("NOT_COMMISSIONED requires role=NONE")
             if self.operating_status is not OperatingStatus.SHUT:
-                raise ValueError("NOT_COMMISSIONED требует operating_status=SHUT")
+                raise ValueError(
+                    "NOT_COMMISSIONED requires operating_status=SHUT"
+                )
             if self.setpoint != 0.0:
-                raise ValueError("NOT_COMMISSIONED требует setpoint=0.0")
+                raise ValueError("NOT_COMMISSIONED requires setpoint=0.0")
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,23 +82,25 @@ class ControlEvent:
     def __post_init__(self) -> None:
         if not (0 <= self.control_step <= N_INTERVALS - 1):
             raise ValueError(
-                f"control_step={self.control_step} вне 0…{N_INTERVALS - 1}: "
-                f"control_step={N_INTERVALS} — terminal_state, управляющих "
-                f"событий не несёт (README.md §1.2, §2)"
+                f"control_step={self.control_step} is outside "
+                f"0...{N_INTERVALS - 1}: control_step={N_INTERVALS} is "
+                f"terminal_state and carries no control events "
+                f"(README.md 1.2, 2)"
             )
         needs_value = self.kind in _VALUE_REQUIRED
         if needs_value and self.value is None:
-            raise ValueError(f"{self.kind} требует value")
+            raise ValueError(f"{self.kind} requires value")
         if not needs_value and self.value is not None:
-            raise ValueError(f"{self.kind} не принимает value")
+            raise ValueError(f"{self.kind} does not accept value")
         if self.value is not None and self.value < 0:
-            raise ValueError(f"{self.kind}: отрицательная уставка {self.value}")
+            raise ValueError(f"{self.kind}: negative setpoint {self.value}")
         if self.kind is EventKind.SET_LRAT and self.value is not None:
             if self.value > MAX_LRAT_M3_PER_DAY:
                 raise ValueError(
-                    f"SET_LRAT={self.value} превышает потолок Методики "
-                    f"{MAX_LRAT_M3_PER_DAY} м³/сут: эталонный расчётчик ЧДД на "
-                    f"таком входе падает с ошибкой, а попытка на сдаче одна"
+                    f"SET_LRAT={self.value} exceeds the Methodology ceiling "
+                    f"{MAX_LRAT_M3_PER_DAY} m3/day: the reference NPV "
+                    f"calculator fails with an error on such input, and there "
+                    f"is only one submission attempt"
                 )
 
 

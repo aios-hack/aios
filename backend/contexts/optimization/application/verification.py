@@ -5,128 +5,25 @@ from backend.contexts.optimization.domain.errors import (
     VerificationError,
 )
 
-from dataclasses import dataclass
-from typing import Protocol, Sequence
-
-from backend.core.contracts import OptimizerResult, ScenarioViolation, Theta
+from backend.contexts.policy.domain.policy import OptimizerResult, ScenarioViolation, Theta
 
 from backend.contexts.optimization.domain.optimizer import optimize
-
-
-@dataclass(frozen=True, slots=True)
-class SurrogateVerdict:
-    predicted_npv: float
-    ood_score: float
-
-    def __post_init__(self) -> None:
-        if self.ood_score < 0.0:
-            raise VerificationError(f"ood_score={self.ood_score} отрицателен")
-
-
-class SurrogateVersion(Protocol):
-    version: int
-
-    def __call__(self, theta: Theta) -> SurrogateVerdict: ...
-
-
-@dataclass(frozen=True, slots=True)
-class TruthVerdict:
-    npv: float
-    run_id: str
-    canonical_schedule_hash: str
-
-    def __post_init__(self) -> None:
-        if not self.run_id:
-            raise VerificationError("истинный ЧДД без run_id: строка ни с чем не связана")
-
-
-class TruthOracle(Protocol):
-    def __call__(self, theta: Theta) -> TruthVerdict: ...
-
-
-class Retrainer(Protocol):
-    def __call__(self, observations: tuple["CandidateCheck", ...]) -> SurrogateVersion: ...
-
-
-class ConvergenceCriterion(Protocol):
-    def __call__(self, checks: Sequence["CandidateCheck"]) -> bool: ...
-
-
-@dataclass(frozen=True, slots=True)
-class CandidateCheck:
-    round_index: int
-    theta: Theta
-    predicted_npv: float
-    actual_npv: float
-    ood_score: float
-    tau: float
-    surrogate_version: int
-    run_id: str
-    canonical_schedule_hash: str
-
-    @property
-    def deviation(self) -> float:
-        return self.predicted_npv - self.actual_npv
-
-    @property
-    def relative_deviation(self) -> float:
-        if self.actual_npv == 0.0:
-            raise VerificationError(
-                f"{self.run_id}: фактический ЧДД равен нулю, "
-                f"относительное отклонение не определено"
-            )
-        return self.deviation / abs(self.actual_npv)
-
-
-@dataclass(frozen=True, slots=True)
-class RoundReport:
-    index: int
-    tau: float
-    next_tau: float
-    checks: tuple[CandidateCheck, ...]
-    converged: bool
-    retrained: bool
-    surrogate_version: int
-    optimizer_evaluations: int
-    feasible_candidates: int
-
-    def __post_init__(self) -> None:
-        if not self.checks:
-            raise VerificationError(
-                f"раунд {self.index}: ни одного проверенного кандидата"
-            )
-
-
-@dataclass(frozen=True, slots=True)
-class VerificationReport:
-    rounds: tuple[RoundReport, ...]
-    best: CandidateCheck
-    self_consistent: bool
-    final_tau: float
-    final_surrogate_version: int
-    reevaluation: SurrogateVerdict
-    stop_reason: str
-
-    def __post_init__(self) -> None:
-        if not self.rounds:
-            raise VerificationError("цикл без единого раунда")
-
-    @property
-    def table(self) -> tuple[CandidateCheck, ...]:
-        return tuple(check for report in self.rounds for check in report.checks)
-
-    @property
-    def total_runs(self) -> int:
-        return len(self.table)
-
-    @property
-    def converged_rounds(self) -> int:
-        return sum(1 for report in self.rounds if report.converged)
+from backend.contexts.optimization.domain.verification_types import (
+    CandidateCheck,
+    ConvergenceCriterion,
+    Retrainer,
+    RoundReport,
+    SurrogateVerdict,
+    SurrogateVersion,
+    TruthOracle,
+    TruthVerdict,
+    VerificationReport,
+)
 
 
 def trust_region_objective(surrogate: SurrogateVersion, tau: float):
     if tau < 0.0:
-        raise VerificationError(f"порог области доверия τ={tau} отрицателен")
+        raise VerificationError(f"trust region threshold τ={tau} is negative")
 
     def objective(theta: Theta) -> OptimizerResult:
         verdict = surrogate(theta)
@@ -171,24 +68,24 @@ def run_verification_loop(
     tau_contraction: float = 0.5,
 ) -> VerificationReport:
     if runs_per_round < 1:
-        raise VerificationError(f"прогонов на раунд {runs_per_round} < 1")
+        raise VerificationError(f"runs per round {runs_per_round} < 1")
     if max_rounds < 1:
-        raise VerificationError(f"раундов {max_rounds} < 1")
+        raise VerificationError(f"rounds {max_rounds} < 1")
     if optimizer_evaluations_per_round < 1:
         raise VerificationError(
-            f"бюджет оптимизатора {optimizer_evaluations_per_round} < 1"
+            f"optimizer budget {optimizer_evaluations_per_round} < 1"
         )
     if initial_tau < 0.0:
-        raise VerificationError(f"начальный τ={initial_tau} отрицателен")
+        raise VerificationError(f"initial τ={initial_tau} is negative")
     if not tau_expansion > 1.0:
-        raise VerificationError(f"расширение области {tau_expansion} не больше 1")
+        raise VerificationError(f"region expansion {tau_expansion} is not greater than 1")
     if not 0.0 < tau_contraction < 1.0:
-        raise VerificationError(f"сужение области {tau_contraction} вне (0, 1)")
+        raise VerificationError(f"region contraction {tau_contraction} is outside (0, 1)")
 
     tau = float(initial_tau)
     current = surrogate
     rounds: list[RoundReport] = []
-    stop_reason = f"пройдены все {max_rounds} раундов"
+    stop_reason = f"all {max_rounds} rounds completed"
 
     for index in range(max_rounds):
         objective = trust_region_objective(current, tau)
@@ -202,8 +99,8 @@ def run_verification_loop(
         feasible = [item for item in search.history if item.result.feasible]
         if not feasible:
             stop_reason = (
-                f"раунд {index}: внутри области доверия τ={tau:.6f} не нашлось "
-                f"ни одного кандидата из {search.evaluations} оценённых"
+                f"round {index}: inside the trust region τ={tau:.6f} not a single "
+                f"candidate was found out of {search.evaluations} evaluated"
             )
             break
 
@@ -251,7 +148,7 @@ def run_verification_loop(
 
     if not rounds:
         raise VerificationError(
-            f"цикл не сделал ни одного раунда: {stop_reason}"
+            f"the loop made no rounds at all: {stop_reason}"
         )
 
     table = tuple(check for report in rounds for check in report.checks)
@@ -284,3 +181,18 @@ def run_verification_loop(
         reevaluation=reevaluation,
         stop_reason=stop_reason,
     )
+
+
+__all__ = [
+    "CandidateCheck",
+    "ConvergenceCriterion",
+    "Retrainer",
+    "RoundReport",
+    "SurrogateVerdict",
+    "SurrogateVersion",
+    "TruthOracle",
+    "TruthVerdict",
+    "VerificationReport",
+    "run_verification_loop",
+    "trust_region_objective",
+]

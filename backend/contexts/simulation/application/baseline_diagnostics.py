@@ -7,18 +7,14 @@ from datetime import date
 from pathlib import Path
 from typing import Sequence
 
-from backend.core.contracts import (
+from backend.contexts.runs.domain.run_result import (
     MATERIAL_BALANCE_RELATIVE_TOLERANCE,
-    ActiveControlMode,
-    N_INTERVALS,
     RunResult,
     RunStatus,
-    Schedule,
-    ScheduleMeta,
-    StateAtDate,
-    T0,
 )
-from backend.domain.schedule import parse_schedule
+from backend.contexts.reservoir.domain.response import ActiveControlMode, StateAtDate
+from backend.contexts.schedule.domain.schedule import N_INTERVALS, Schedule, ScheduleMeta, T0
+from backend.contexts.schedule.domain.lossless import parse_schedule
 from backend.contexts.schedule.domain.lossless import ParsedSchedule, _records
 from backend.contexts.schedule.domain.validate_dynamic import control_step_pressures
 
@@ -337,7 +333,7 @@ def run_base_case(
         runner = base_runner
     result = runner.run(deck, schedule)
     if result.status is not RunStatus.OK:
-        raise RuntimeError(f"базовый прогон не OK: {result.status} — {result.message}")
+        raise RuntimeError(f"the base run is not OK: {result.status} - {result.message}")
 
     smspec_path = next(Path(p) for p in result.artifacts if p.upper().endswith("SMSPEC"))
     unsmry_path = next(Path(p) for p in result.artifacts if p.upper().endswith("UNSMRY"))

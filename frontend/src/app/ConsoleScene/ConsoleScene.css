@@ -70,8 +70,7 @@
   min-height: 0;
 }
 
-.console-scene-body .segmented,
-.console-scene-body .slider-label {
+.console-scene-body .segmented {
   font-size: var(--font-size-sm);
 }
 

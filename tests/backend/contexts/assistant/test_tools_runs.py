@@ -25,15 +25,15 @@ from backend.contexts.runs.application.workflow import (
     RunWorkflow,
     SUBMISSION_BUNDLE_FIELDS,
 )
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     OperatingStatus,
     Role,
     Schedule,
     ScheduleMeta,
-    SubmissionBundle,
     WellState,
 )
+from backend.contexts.runs.domain.run_result import SubmissionBundle
 from backend.contexts.assistant.infrastructure.llm.chat_events import ToolCall
 from backend.contexts.assistant.infrastructure.llm.fake_chat import FakeChatClient
 
@@ -205,7 +205,7 @@ def test_run_status_refuses_a_run_that_does_not_exist(
 
     message = str(error.value)
     assert "no-such-run" in message
-    assert "не найден" in message
+    assert "was not found" in message
     assert RUN_ID in message
 
 
@@ -217,7 +217,7 @@ def test_run_status_refuses_when_no_run_was_ever_made(
     with pytest.raises(ToolFailure) as error:
         run_tool("run_status", make(store, runs_root), {})
 
-    assert "ни одного прогона" in str(error.value)
+    assert "no run with a manifest" in str(error.value)
 
 
 def test_unrecorded_manifest_field_is_reported_as_not_recorded(
@@ -271,7 +271,7 @@ def test_submission_summary_says_plainly_that_no_package_exists(
     assert card.payload["code"] == NO_SUBMISSION
     assert card.payload["claimed_npv_rub"] is None
     assert card.payload["hashes"] is None
-    assert "не собран" in card.payload["reason"]
+    assert "is not assembled" in card.payload["reason"]
 
 
 def test_submission_summary_reports_the_numbers_of_the_package(

@@ -4,17 +4,15 @@ from dataclasses import replace
 
 import pytest
 
-from backend.core.contracts import EventKind, NormativeSet, Rule
+from backend.contexts.schedule.domain.schedule import EventKind
+from backend.contexts.constraints.domain.config import NormativeSet
+from backend.contexts.policy.domain.policy import Rule
 
-from backend.domain.policy import (
-    SPECS,
-    RuleContext,
-    RuleFlags,
-    apply_rule,
-    breakeven_watercut,
-    default_theta,
-    make_theta,
-)
+from backend.contexts.policy.domain.theta import SPECS, default_theta, make_theta
+from backend.contexts.policy.domain.state import RuleContext
+from backend.contexts.policy.domain.flags import RuleFlags
+from backend.contexts.policy.domain.rules import apply_rule
+from backend.contexts.policy.domain.economics import breakeven_watercut
 from backend.contexts.policy.domain.rules import r0
 from tests.backend.contexts.policy.conftest import (
     OIL_DENSITY_SECOND_REGION_T_PER_M3,

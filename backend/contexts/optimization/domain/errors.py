@@ -88,7 +88,7 @@ class OutOfDomainScheduleError(ScheduleSearchError):
         self.description = description
         self.exceedances = tuple(dict(item) for item in exceedances)
         super().__init__(
-            f"кандидат вне области обучения: ood_score={score:.6g}; {description}"
+            f"candidate is outside the training domain: ood_score={score:.6g}; {description}"
         )
 
 
@@ -104,21 +104,22 @@ class PhysicallyImpossibleScheduleError(ScheduleSearchError):
         self.counts = dict(counts)
         self.description = description
         self.missing_invariants = tuple(missing_invariants)
-        super().__init__(f"кандидат физически невозможен: {description}")
+        super().__init__(f"candidate is physically impossible: {description}")
 
 
 class MissingReferenceError(PhysicallyImpossibleScheduleError):
     default_code = "optimization.missing_reference"
 
     SELF_REFERENCE = (
-        "опора и кандидат — одно расписание: differential-инварианты сравнивают "
-        "кандидата с опорой, при совпадении все разности тождественно нулевые и "
-        "инвариант ничего не утверждает; он не нарушен, он не определён"
+        "the reference and the candidate are the same schedule: differential "
+        "invariants compare the candidate against the reference, and when they "
+        "coincide every difference is identically zero, so the invariant asserts "
+        "nothing; it is not violated, it is undefined"
     )
 
     def __init__(self, reason: str) -> None:
         description = (
-            "опора недоступна, дифференциальные инварианты не проверены: "
+            "the reference is unavailable, differential invariants were not checked: "
             f"{', '.join(_DIFFERENTIAL_INVARIANT_NAMES)}; {reason}"
         )
         super().__init__({}, description, _DIFFERENTIAL_INVARIANT_NAMES)

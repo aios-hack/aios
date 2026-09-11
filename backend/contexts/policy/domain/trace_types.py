@@ -4,10 +4,7 @@ from dataclasses import (
     dataclass,
 )
 from enum import Enum
-from backend.core.contracts import (
-    Rule,
-    TraceEntry,
-)
+from backend.contexts.policy.domain.policy import Rule, TraceEntry
 from backend.contexts.policy.domain.flags import (
     RuleFlags,
 )
@@ -28,10 +25,10 @@ class LeveledTraceEntry:
 
     def __post_init__(self) -> None:
         if not self.agent:
-            raise ValueError("запись Trace без имени агента: уровень не восстановим")
+            raise ValueError("a Trace entry without an agent name: the level cannot be recovered")
         if not self.entry.inputs:
             raise ValueError(
-                f"{self.level.value}/{self.agent}: запись Trace без чисел входа"
+                f"{self.level.value}/{self.agent}: a Trace entry without input numbers"
             )
 
 
@@ -44,8 +41,8 @@ class HierarchyTrace:
         for leveled in self.entries:
             if not self.flags.is_on(leveled.entry.rule):
                 raise ValueError(
-                    f"{leveled.entry.rule.value} выключено флагом, но оставило "
-                    f"запись уровня {leveled.level.value} у агента "
+                    f"{leveled.entry.rule.value} is disabled by a flag yet left "
+                    f"an entry of level {leveled.level.value} for agent "
                     f"{leveled.agent}"
                 )
 

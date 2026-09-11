@@ -1,0 +1,18 @@
+{
+  "economic_version": "2eea7cac24b3b6140107fffd9ff5cd8fab54e3dc824b8f3628533c0fa4d74d30",
+  "files_sha256": {
+    "model-night-20260826-v2/feature_context.json": "164efe9c442a81eebb4663e6fef37efab5a49bb34b6741a8f8576cea5f695190",
+    "model-night-20260826-v2/physical-residual-seed-20260819/model.pt": "3cac84ce86fb4da5c7b316e5369d1a791ecc3f4e25242d10f72520f0dc412821",
+    "model-night-20260826-v2/physical-seed-20260817/model.pt": "69a0e7a62a8ef5c4f2d41a485c214a80e912df6149ec3f2d8965d14059479408",
+    "model-night-20260826-v2/physical-seed-20260818/model.pt": "326ba774af6efa5077578777358cf6344c6e298b5995ecaba4d4e541480dac0c",
+    "model-night-20260826-v2/physical/trajectory_ensemble.json": "5a057922acae0ae62344eb55f6dd0ae3699ae92283728bd7b045db5e042d2962",
+    "npv-v3/scenario_density_domain.pt": "61ca8e94c5346a1553f4864bd2aeab17738cba7d266f3f974170dee21bfac963",
+    "npv-v6/physical-blend-locked/npv_head.pt": "de5155cc88abf4a0c58c6803e50f916f765c4c6489ee4f571fd1be0d31da6748",
+    "surrogate-production.json": "b113db6a9b79cc94b73f4f33114c59c6e247c5738d0b3526b4604685ed2d9a85"
+  },
+  "format": "aios.surrogate-release.v1",
+  "manifest": "surrogate-production.json",
+  "scenario_ood_version": "be71b6447054c7157004048754ab65665de6bd28c1011f988c57932dca0d6a4d",
+  "trajectory_version": "7ac268e6c20f6bd9fa31edf4693827d7881a236ef50f65ae7cae3286ae0478f4",
+  "weights_changed": false
+}

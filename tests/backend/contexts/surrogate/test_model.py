@@ -9,23 +9,25 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from backend.core.contracts import (  # noqa: E402
+from backend.contexts.reservoir.domain.response import (
     ActiveControlMode,
-    Availability,
     IntervalResponse,
-    N_INTERVALS,
-    OperatingStatus,
-    ResponseArtifact,
-    Role,
     StateAtDate,
 )
+from backend.contexts.schedule.domain.schedule import (
+    Availability,
+    N_INTERVALS,
+    OperatingStatus,
+    Role,
+)
+from backend.contexts.runs.domain.run_result import ResponseArtifact
 from backend.contexts.surrogate.domain.features import SurrogateInput, WellStepFeatures  # noqa: E402
 from backend.contexts.surrogate.application.model import (
     TARGET_NAMES,
     _WATERCUT_CEILING,
     _ScenarioBatches,
     _pairwise_ranking_loss,
-    _features,
+    build_features,
     Standardizer,
     _NodeNetwork,
     _elementwise_loss,
@@ -212,12 +214,6 @@ def test_targets_reject_material_negative_values_with_field_name() -> None:
 
 
 def test_targets_count_oil_backflow_as_zero_production() -> None:
-    """Переток нефти обратно в пласт — не добыча и не ошибка разбора.
-
-    Замер на прогоне 20260817T104426-70e8e055e519: у скважины 44 отрицательный
-    COPR у 10 из 14 подключений, накопление падает на 3.53 т. Цель обнуляется,
-    но интервал пересчитывается, чтобы доля перетоков была видна в отчёте.
-    """
 
     response = _response()
     backflow = replace(response.interval_response[0], oil_mass_delta=-3.53)
@@ -291,9 +287,6 @@ def test_money_weights_are_flat_when_alpha_is_zero() -> None:
 
 
 def test_money_weights_grow_with_physical_size_of_the_target() -> None:
-    """Крупная скважина обязана весить больше мелкой: рубль линеен по объёму,
-    а цель обучается в log1p, поэтому одинаковая относительная ошибка стоит
-    разных денег."""
     y = torch.tensor([[0.0], [3.0]])
     weights = _money_weights(
         y,
@@ -328,13 +321,6 @@ def test_spearman_matches_known_orderings() -> None:
 
 
 def test_scenario_money_sums_signed_line_items_per_scenario() -> None:
-    """Прокси обязан складывать статьи со знаком внутри каждого сценария.
-
-    Жидкости в узле заведомо хватает на предсказанную нефть: прокси в режиме
-    `absolute` держит тождество «нефть не больше жидкости в объёме», и
-    физически невозможная строка проверяла бы уже не сложение статей, а
-    потолок — для него есть свой тест ниже.
-    """
     shifted = torch.tensor([[1.0, 2.0], [0.0, 0.0], [1.0, 2.0]])
     totals = _scenario_money(
         shifted,
@@ -359,15 +345,7 @@ def test_scenario_money_sums_signed_line_items_per_scenario() -> None:
 
 
 def test_absolute_proxy_does_not_pay_for_oil_the_liquid_cannot_hold() -> None:
-    """Нефть сверх жидкости не приносит рублей — иначе ранговый лосс её найдёт.
-
-    В `absolute` нефть предсказывается независимым каналом, поэтому прокси без
-    потолка платит за отрицательную обводнённость. Это та же дыра, что 8d6415f
-    закрыл со стороны обводнённости, только с другой; предел должен быть один
-    и тот же во всех путях.
-    """
     density = 0.9131
-    # Нефти 10 «единиц» при жидкости 1: физически помещается лишь 0.9131.
     physical = torch.log1p(torch.tensor([[10.0, 1.0]]))
     totals = _scenario_money(
         physical,
@@ -382,11 +360,6 @@ def test_absolute_proxy_does_not_pay_for_oil_the_liquid_cannot_hold() -> None:
 
 
 def test_watercut_parameterization_round_trips_oil_exactly() -> None:
-    """Нефть, выведенная из жидкости и обводнённости, обязана совпасть с фактом.
-
-    Это и есть смысл контрактного требования §5.1: жидкость и нефть перестают
-    быть двумя независимыми предсказаниями, которые могут разойтись.
-    """
     density = 0.9131
     raw = {
         "oil_mass_delta": 50.0,
@@ -422,7 +395,6 @@ def test_watercut_is_zero_when_no_liquid_flows() -> None:
 
 
 def test_watercut_targets_survive_the_full_encode_decode_path() -> None:
-    """Полный путь: отклик → цели → log1p → скейлер → expm1 → нефть."""
     density = 0.9131
     example = _example()
     encoded = _targets(
@@ -443,14 +415,6 @@ def test_watercut_targets_survive_the_full_encode_decode_path() -> None:
 
 
 def test_new_config_fields_do_not_invalidate_an_existing_checkpoint(tmp_path) -> None:
-    """Отпечаток сверяется с конфигом из файла, а не с текущим `ModelConfig`.
-
-    Иначе любое поле, добавленное в `ModelConfig` с умолчанием, меняет
-    `_fingerprint` и объявляет повреждённой каждую ранее обученную модель —
-    включая `model-task34-700`, на котором держатся G5 и G7. Тест
-    воспроизводит ровно это: checkpoint, записанный до появления полей
-    денежного лосса, обязан грузиться после их появления.
-    """
 
     model = _model()
     saved = model.save(tmp_path / "backend.ml.surrogate.pt")
@@ -481,9 +445,6 @@ def test_new_config_fields_do_not_invalidate_an_existing_checkpoint(tmp_path) ->
 
 
 def test_fit_applies_scalers_before_training() -> None:
-    """Пропуск приведения не ловился ни одним тестом: обучение сходилось и на
-    сырых величинах, просто хуже. Проверяем ровно тот контракт, который
-    `fit_tensors` объявляет в докстроке — тензоры приходят приведёнными."""
     seen: dict[str, torch.Tensor] = {}
     original = TrajectorySurrogate.fit_tensors.__func__
 
@@ -501,15 +462,11 @@ def test_fit_applies_scalers_before_training() -> None:
         )
     finally:
         TrajectorySurrogate.fit_tensors = classmethod(original)
-    # Приведённые цели центрированы: среднее близко к нулю, а сырые log1p —
-    # заведомо положительны, потому что все величины неотрицательны.
     assert abs(float(seen["train_y"].mean())) < 0.5
     assert abs(float(seen["train_x"].mean())) < 0.5
 
 
 def test_residual_network_matches_output_shape_and_differs_from_plain() -> None:
-    """Остаточная сеть — другая функция, а не переименование: при одинаковом
-    сиде она обязана давать другой выход при той же форме."""
     numeric = torch.randn(8, 5)
     wells = torch.zeros(8, dtype=torch.long)
     plain_config = replace(ModelConfig(), hidden_width=16, hidden_layers=3,
@@ -533,8 +490,6 @@ def test_loss_choice_changes_the_elementwise_residual() -> None:
     squared = _elementwise_loss(prediction, target, replace(base, loss="mse"))
     huber = _elementwise_loss(prediction, target, replace(base, loss="huber",
                                                           huber_delta=0.1))
-    # На ошибке 3.0 квадратичная невязка равна 9, smooth_l1 линеен выше beta=1
-    # и даёт 2.5, huber с дельтой 0.1 — ещё меньше.
     assert float(squared[0, 1]) == pytest.approx(9.0)
     assert float(smooth[0, 1]) == pytest.approx(2.5)
     assert float(huber[0, 1]) < float(smooth[0, 1])
@@ -543,10 +498,9 @@ def test_loss_choice_changes_the_elementwise_residual() -> None:
 
 
 def test_scenario_context_doubles_features_and_shares_one_summary() -> None:
-    """Сводка считается по одному сценарию и одинакова у всех его узлов."""
     item = _input()
-    plain, _ = _features(item, item.wells)
-    enriched, _ = _features(item, item.wells, scenario_context=True)
+    plain, _ = build_features(item, item.wells)
+    enriched, _ = build_features(item, item.wells, scenario_context=True)
     assert enriched.shape == (plain.shape[0], plain.shape[1] * 2)
     assert torch.allclose(enriched[:, : plain.shape[1]], plain)
     summary = enriched[:, plain.shape[1] :]
@@ -555,8 +509,6 @@ def test_scenario_context_doubles_features_and_shares_one_summary() -> None:
 
 
 def test_scenario_context_survives_checkpoint_round_trip(tmp_path) -> None:
-    """Настройка обязана ехать в чекпоинте: иначе predict построит 21 признак
-    там, где сеть обучена на 42, и упадёт на несовпадении формы."""
     config = replace(_model().config, scenario_context=True, max_epochs=1,
                      patience=1, batch_size=64)
     examples = tuple(_example(f"schedule-{index}") for index in range(4))
@@ -570,13 +522,10 @@ def test_scenario_context_survives_checkpoint_round_trip(tmp_path) -> None:
 
 
 def test_rich_scenario_summary_splits_producers_from_injectors() -> None:
-    """Фонд разнороден: среднее по нему смешивает две несравнимые популяции,
-    поэтому богатая сводка считает добывающие и нагнетательные раздельно."""
     item = _input()
-    plain, _ = _features(item, item.wells)
-    rich, _ = _features(item, item.wells, scenario_context="rich")
+    plain, _ = build_features(item, item.wells)
+    rich, _ = build_features(item, item.wells, scenario_context="rich")
     width = plain.shape[1]
-    # средние, разброс, максимум, средние по PROD, средние по INJ
     assert rich.shape == (plain.shape[0], width * 6)
     summary = rich[0, width:]
     prod = summary[3 * width : 4 * width]
@@ -591,15 +540,11 @@ def test_scenario_context_rejects_unknown_mode() -> None:
 
 
 def test_pairwise_ranking_loss_rewards_correct_order() -> None:
-    """Верный порядок с запасом почти не штрафуется, перевёрнутый — линейно."""
     actual = torch.tensor([3.0, 2.0, 1.0])
     right = _pairwise_ranking_loss(torch.tensor([9.0, 5.0, 1.0]), actual)
     wrong = _pairwise_ranking_loss(torch.tensor([1.0, 5.0, 9.0]), actual)
     flat = _pairwise_ranking_loss(torch.tensor([2.0, 2.0, 2.0]), actual)
     assert float(right) < float(flat) < float(wrong)
-    # После нормировки оценок разности имеют порядок единицы, поэтому верный
-    # порядок даёт не ноль, а заметно меньше, чем softplus(0) = 0.693 у
-    # вырожденного предсказания.
     assert float(right) < 0.5 * float(flat)
 
 
@@ -611,8 +556,6 @@ def test_pairwise_ranking_loss_ignores_ties_in_truth() -> None:
 
 
 def test_scenario_batches_keep_scenarios_whole_and_labelled() -> None:
-    """Батч обязан содержать несколько сценариев сразу и помечать их: без
-    этого попарное сравнение не собрать."""
     x = torch.arange(60, dtype=torch.float32).reshape(30, 2)
     w = torch.zeros(30, dtype=torch.long)
     y = torch.zeros(30, 2)
@@ -626,15 +569,13 @@ def test_scenario_batches_keep_scenarios_whole_and_labelled() -> None:
     assert n_groups == 3
     assert bx.shape[0] == 12 and groups.shape[0] == 12
     assert sorted(groups.tolist()) == sorted([0] * 4 + [1] * 4 + [2] * 4)
-    # Узлы каждой группы обязаны прийти из одного сценария: их исходные строки
-    # лежат в одном блоке по десять.
     for group in range(3):
         block = bx[groups == group][:, 0] // 2
         assert len(set((int(v) // 10) for v in block.tolist())) == 1
 
 
 def test_scenario_batches_reject_counts_that_do_not_cover_rows() -> None:
-    with pytest.raises(SurrogateModelError, match="счётчики сценариев"):
+    with pytest.raises(SurrogateModelError, match="scenario counters"):
         _ScenarioBatches(
             (torch.zeros(30, 2), torch.zeros(30, dtype=torch.long), torch.zeros(30, 2)),
             [10, 10],
@@ -644,7 +585,6 @@ def test_scenario_batches_reject_counts_that_do_not_cover_rows() -> None:
 
 
 def test_shared_sampling_preserves_small_scenario_uplifts() -> None:
-    # Large well-to-well differences must cancel in paired scenario comparisons.
     x = torch.arange(30, dtype=torch.float32).reshape(-1, 1)
     w = torch.arange(10).repeat(3)
     y = torch.cat([torch.arange(10) * 1000.0 + uplift for uplift in (0., 1., 2.)]).reshape(-1, 1)
@@ -664,7 +604,7 @@ def test_shared_sampling_preserves_small_scenario_uplifts() -> None:
 
 
 def test_scenario_batches_reject_unaligned_lengths() -> None:
-    with pytest.raises(SurrogateModelError, match="одинаковые"):
+    with pytest.raises(SurrogateModelError, match="identical"):
         _ScenarioBatches(
             (torch.zeros(11, 1),), [5, 6], scenarios_per_batch=2,
             nodes_per_scenario=3, generator=torch.Generator(),
@@ -678,9 +618,6 @@ def test_spearman_constant_prediction_has_no_ranking_skill() -> None:
 
 
 def test_ranking_loss_is_invariant_to_the_scale_of_money() -> None:
-    """Прокси измеряется в рублях порядка 1e9. Без нормировки softplus от такой
-    разности возвращает саму разность, и член перекрывает поштатный лосс при
-    любом весе — три разных веса давали неотличимый результат."""
     actual = torch.tensor([3.0, 2.0, 1.0])
     small = _pairwise_ranking_loss(torch.tensor([3.0, 2.0, 1.0]), actual)
     huge = _pairwise_ranking_loss(torch.tensor([3e9, 2e9, 1e9]), actual)
@@ -689,9 +626,6 @@ def test_ranking_loss_is_invariant_to_the_scale_of_money() -> None:
 
 
 def test_decoded_watercut_never_yields_negative_oil() -> None:
-    """Перетоки допустимы в целях, но не в предсказании: контракт отвергает
-    отрицательную добычу, а ранговый лосс двигает выход свободнее и выводил
-    обводнённость далеко за единицу."""
     density = 0.9131
     for watercut in (1.4, 1.0, 0.3, -0.2):
         clamped = min(max(watercut, 0.0), 1.0)
@@ -699,10 +633,6 @@ def test_decoded_watercut_never_yields_negative_oil() -> None:
 
 
 def test_watercut_ceiling_is_the_same_everywhere() -> None:
-    """Денежный прокси допускал обводнённость до 1.5, то есть отрицательную
-    нефть, и ранговый лосс это использовал: поднять сценарий в порядке можно
-    было, загнав обводнённость за единицу. Обученная так модель дала Spearman
-    −0.512 при ранге +0.908 на валидации. Предел обязан быть один."""
     assert _WATERCUT_CEILING == 1.0
     standardized = torch.tensor([[0.0, 5.0, 0.0, 0.0, 0.0, 0.0]])
     scale = torch.ones(6)
@@ -712,15 +642,10 @@ def test_watercut_ceiling_is_the_same_everywhere() -> None:
         standardized, torch.tensor([0]), 1, scale=scale, mean=mean,
         rub_per_unit=rub, parameterization="watercut", oil_density_t_per_m3=0.9131,
     )
-    # Нефть не может быть отрицательной, значит вклад по нефти ровно ноль,
-    # а остаётся только opex по жидкости — величина неположительная.
     assert float(totals[0]) <= 0.0
 
 
 def test_measured_defaults_do_not_combine_ranking_loss_with_watercut() -> None:
-    """Связка даёт Spearman −0.278 на тесте при ранге +0.930 на валидации:
-    ранговый лосс оптимизирует денежный прокси через обводнённость, минуя
-    статьи ЧДД, которых в прокси нет. Дефолты не должны её собирать."""
     from backend.contexts.surrogate.application.train import _parser
     args = _parser().parse_args(
         ["--model-dir", ".", "--dataset-root", ".", "--normatives", "n.xlsx",
@@ -732,14 +657,12 @@ def test_measured_defaults_do_not_combine_ranking_loss_with_watercut() -> None:
 
 
 def test_top_weighted_ranking_cares_about_the_head_not_the_tail() -> None:
-    """Перепутать лидеров обязано стоить много дороже, чем перепутать хвост."""
     actual = torch.tensor([10.0, 9.0, 3.0, 2.0])
     head_swapped = torch.tensor([9.0, 10.0, 3.0, 2.0])
     tail_swapped = torch.tensor([10.0, 9.0, 2.0, 3.0])
     head = _pairwise_ranking_loss(head_swapped, actual, top_weighted=True)
     tail = _pairwise_ranking_loss(tail_swapped, actual, top_weighted=True)
     assert float(head) > float(tail)
-    # Без взвешивания обе перестановки стоят одинаково — в этом и разница.
     flat_head = _pairwise_ranking_loss(head_swapped, actual)
     flat_tail = _pairwise_ranking_loss(tail_swapped, actual)
     assert float(flat_head) == pytest.approx(float(flat_tail), rel=1e-6)

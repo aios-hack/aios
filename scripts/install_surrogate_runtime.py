@@ -1,4 +1,3 @@
-"""Install the checked-in weights and saved UI runs without replacing local changes."""
 from pathlib import Path
 import argparse
 import hashlib

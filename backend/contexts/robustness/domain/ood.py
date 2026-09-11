@@ -38,7 +38,7 @@ class FeatureRange:
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.low) or not math.isfinite(self.high):
-            raise OodError(f"{self.name}: границы не конечны ({self.low}, {self.high})")
+            raise OodError(f"{self.name}: bounds are not finite ({self.low}, {self.high})")
         if self.high < self.low:
             raise OodError(f"{self.name}: high {self.high} < low {self.low}")
 
@@ -71,19 +71,19 @@ class TrainingDomain:
 
     def __post_init__(self) -> None:
         if self.n_nodes < 1:
-            raise OodError("обучающая область не строится по пустой выборке")
+            raise OodError("the training domain cannot be built from an empty sample")
 
     def range_of(self, name: str) -> FeatureRange:
         for item in self.ranges:
             if item.name == name:
                 return item
-        raise OodError(f"признака {name!r} нет в обучающей области")
+        raise OodError(f"feature {name!r} is not in the training domain")
 
     def categories_of(self, name: str) -> frozenset[str]:
         for key, values in self.categories:
             if key == name:
                 return values
-        raise OodError(f"категориального признака {name!r} нет в обучающей области")
+        raise OodError(f"categorical feature {name!r} is not in the training domain")
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,7 +109,7 @@ class OodScore:
 
     def inside(self, tau: float) -> bool:
         if tau < 0.0:
-            raise OodError(f"порог области доверия τ={tau} отрицателен")
+            raise OodError(f"the trust-region threshold τ={tau} is negative")
         return self.score <= tau
 
 
@@ -132,15 +132,15 @@ def _static_names(inputs: Sequence[SurrogateInput]) -> tuple[str, ...]:
     for other in inputs[1:]:
         if other.static_feature_names != names:
             raise OodError(
-                "состав статических признаков разошёлся между расписаниями: "
-                f"{names} против {other.static_feature_names}"
+                "the set of static features diverged between schedules: "
+                f"{names} against {other.static_feature_names}"
             )
     return names
 
 
 def fit_domain(inputs: Sequence[SurrogateInput]) -> TrainingDomain:
     if not inputs:
-        raise OodError("обучающая область не строится по пустой выборке")
+        raise OodError("the training domain cannot be built from an empty sample")
 
     static_names = _static_names(inputs)
     lows: dict[str, float] = {}
@@ -153,27 +153,27 @@ def fit_domain(inputs: Sequence[SurrogateInput]) -> TrainingDomain:
             n_nodes += 1
             if len(node.static_values) != len(static_names):
                 raise OodError(
-                    f"скважина {node.well}: статических значений "
-                    f"{len(node.static_values)} против {len(static_names)} имён"
+                    f"well {node.well}: {len(node.static_values)} static values "
+                    f"against {len(static_names)} names"
                 )
             for name in NUMERIC_FEATURES:
                 value = _numeric(node, name)
                 if not math.isfinite(value):
-                    raise OodError(f"скважина {node.well}: {name}={value!r} не конечно")
+                    raise OodError(f"well {node.well}: {name}={value!r} is not finite")
                 lows[name] = value if name not in lows else min(lows[name], value)
                 highs[name] = value if name not in highs else max(highs[name], value)
             for index, name in enumerate(static_names):
                 key = f"static:{name}"
                 value = float(node.static_values[index])
                 if not math.isfinite(value):
-                    raise OodError(f"скважина {node.well}: {key}={value!r} не конечно")
+                    raise OodError(f"well {node.well}: {key}={value!r} is not finite")
                 lows[key] = value if key not in lows else min(lows[key], value)
                 highs[key] = value if key not in highs else max(highs[key], value)
             for name in CATEGORICAL_FEATURES:
                 seen[name].add(_categorical(node, name))
 
     if n_nodes == 0:
-        raise OodError("во входах датасета нет ни одного узла")
+        raise OodError("the dataset inputs contain no nodes")
 
     ranges = tuple(
         FeatureRange(name=name, low=lows[name], high=highs[name])
@@ -194,8 +194,8 @@ def fit_domain(inputs: Sequence[SurrogateInput]) -> TrainingDomain:
 def score(candidate: SurrogateInput, domain: TrainingDomain) -> OodScore:
     if candidate.static_feature_names != domain.static_feature_names:
         raise OodError(
-            "состав статических признаков кандидата не совпадает с обучающим: "
-            f"{candidate.static_feature_names} против {domain.static_feature_names}"
+            "the candidate static feature set does not match the training one: "
+            f"{candidate.static_feature_names} against {domain.static_feature_names}"
         )
 
     exceedances: list[Exceedance] = []
@@ -253,7 +253,7 @@ def score(candidate: SurrogateInput, domain: TrainingDomain) -> OodScore:
                 )
 
     if n_nodes == 0:
-        raise OodError("кандидат не содержит ни одного узла")
+        raise OodError("the candidate contains no nodes")
 
     exceedances.sort(key=lambda item: (-item.score, item.control_step, item.well))
     worst = exceedances[0].score if exceedances else 0.0

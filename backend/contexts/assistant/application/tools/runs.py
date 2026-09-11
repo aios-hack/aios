@@ -50,8 +50,8 @@ def _violations(record: RunRecord) -> dict[str, Any]:
             "failed_identities": None,
             "opm_status": None,
             "unavailable_reason": (
-                "проверка прогона не записана: файла validation/result.json нет, "
-                "поэтому число нарушений неизвестно"
+                "the run check is not recorded: there is no validation/result.json file, "
+                "so the number of violations is unknown"
             ),
         }
     dynamic = validation.get("dynamic_violations")
@@ -76,8 +76,8 @@ def _constraints(record: RunRecord) -> dict[str, Any]:
             "recorded": False,
             "checks": None,
             "unavailable_reason": (
-                "отчёта по ограничениям нет: файл "
-                "validation/constraints_report.json не записан"
+                "there is no constraints report: the file "
+                "validation/constraints_report.json is not recorded"
             ),
         }
     checks = report.get("checks")
@@ -100,8 +100,8 @@ def run_status(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
     status = record.manifest.get("status")
     if not isinstance(status, str):
         raise ToolFailure(
-            f"манифест прогона {record.run_id!r} не содержит статуса: "
-            f"{record.directory / 'manifest.json'}; состояние расчёта неизвестно"
+            f"the manifest of run {record.run_id!r} carries no status: "
+            f"{record.directory / 'manifest.json'}; the state of the calculation is unknown"
         )
     provenance_values = {
         name: _value(record, name) for name in MANIFEST_PROVENANCE_FIELDS
@@ -147,9 +147,9 @@ def submission_summary(context: ToolContext, arguments: Mapping[str, Any]) -> Ca
             "schedule_include_present": record.schedule_include,
             "checks": None,
             "reason": (
-                f"пакет сдачи прогона {record.run_id!r} не собран: файла "
-                f"{record.directory / 'submission' / 'claimed_npv.json'} нет, "
-                "заявлять нечего"
+                f"the submission package of run {record.run_id!r} is not assembled: there "
+                f"is no {record.directory / 'submission' / 'claimed_npv.json'} file, "
+                "so there is nothing to claim"
             ),
             "source": None,
         }
@@ -162,9 +162,9 @@ def submission_summary(context: ToolContext, arguments: Mapping[str, Any]) -> Ca
     claimed = bundle.get("claimed_npv_rub")
     if not isinstance(claimed, (int, float)) or isinstance(claimed, bool):
         raise ToolFailure(
-            f"в пакете сдачи прогона {record.run_id!r} нет числа "
-            f"claimed_npv_rub, получено {claimed!r}: заявленный ЧДД не "
-            "подставляется вместо записанного"
+            f"the submission package of run {record.run_id!r} carries no "
+            f"claimed_npv_rub number, got {claimed!r}: a claimed NPV is not "
+            "substituted for the recorded one"
         )
     hashes = {
         name: bundle.get(name)

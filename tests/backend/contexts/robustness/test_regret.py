@@ -5,11 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from backend.domain.robustness import (
-    FragilityBattery,
+from backend.contexts.robustness.domain.battery import FragilityBattery, Split
+from backend.contexts.robustness.domain.regret import (
     RegretReport,
     ScenarioOutcome,
-    Split,
     covers_battery,
     holdout_view,
     optimization_view,
@@ -129,12 +128,12 @@ def test_outcome_split_must_agree_with_the_battery(
         npv_ours=1.0,
         npv_scenario_baseline=1.0,
     )
-    with pytest.raises(ValueError, match="объявляет"):
+    with pytest.raises(ValueError, match="the battery declares"):
         scenario_of(battery, mislabelled)
 
 
 def test_negative_threshold_is_rejected(battery: FragilityBattery) -> None:
-    with pytest.raises(ValueError, match="отрицателен"):
+    with pytest.raises(ValueError, match="is negative"):
         RegretReport(
             outcomes=outcomes_for(battery, 1000.0),
             threshold=-0.1,
@@ -153,7 +152,7 @@ def test_robustness_never_folds_into_a_scalar_objective() -> None:
             if word in text:
                 offenders.append(f"{path.name}: {word}")
     assert offenders == [], (
-        "устойчивость выражается ограничением, а не штрафом: " + "; ".join(offenders)
+        "robustness is expressed as a constraint, not as a penalty: " + "; ".join(offenders)
     )
 
 

@@ -4,20 +4,21 @@ import importlib
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.reservoir.domain.response import (
     ActiveControlMode,
-    Availability,
-    Constraints,
-    Groups,
     IntervalResponse,
+    StateAtDate,
+)
+from backend.contexts.schedule.domain.schedule import (
+    Availability,
     OperatingStatus,
     Role,
     Schedule,
     ScheduleMeta,
-    StateAtDate,
-    WellOutage,
     WellState,
 )
+from backend.contexts.constraints.domain.constraints import Constraints, WellOutage
+from backend.contexts.connectivity.domain.connectivity import Groups
 from backend.contexts.constraints.domain.constraints import (
     COMPENSATION_ENFORCEMENT,
     COMPENSATION_MAX,
@@ -170,8 +171,8 @@ def test_every_constraints_field_gets_a_record_in_the_report() -> None:
             missing.append(field_name)
 
     assert not missing, (
-        "поля кейса без записи в отчёте о применённых ограничениях: "
-        f"{sorted(missing)}"
+        "case fields without an entry in the report of applied "
+        f"constraints: {sorted(missing)}"
     )
 
 
@@ -209,8 +210,8 @@ def test_the_field_list_follows_the_constraints_dataclass() -> None:
         if name in PROVENANCE_FIELDS:
             continue
         assert name in covered, (
-            f"поле {name} объявлено в Constraints, но не попало в список "
-            "полей, требующих записи в отчёте"
+            f"field {name} is declared in Constraints but did not make it "
+            "into the list of fields requiring an entry in the report"
         )
 
 
@@ -231,7 +232,7 @@ def test_repeated_records_for_one_constraint_are_rejected() -> None:
     report = report_for(Constraints())
     doubled = report.constraint_checks + (report.constraint_checks[0],)
 
-    with pytest.raises(ValueError, match="повторяющиеся"):
+    with pytest.raises(ValueError, match="duplicate entries"):
         verified_constraint_checks(doubled)
 
 
@@ -449,7 +450,7 @@ def test_checks_are_sorted_by_constraint_name() -> None:
 
 
 def test_checked_status_demands_a_number_of_violations() -> None:
-    with pytest.raises(ValueError, match="число нарушений"):
+    with pytest.raises(ValueError, match="the number of violations"):
         ConstraintCheck(
             constraint=CONSTRAINT_LIQUID_LIMITS,
             status=STATUS_CHECKED,
@@ -457,12 +458,12 @@ def test_checked_status_demands_a_number_of_violations() -> None:
             n_violations=None,
             blocking=True,
             enforcement=None,
-            detail="проверено",
+            detail="checked",
         )
 
 
 def test_unchecked_status_refuses_a_number_of_violations() -> None:
-    with pytest.raises(ValueError, match="не выполнялась"):
+    with pytest.raises(ValueError, match="was not performed"):
         ConstraintCheck(
             constraint=CONSTRAINT_LIQUID_LIMITS,
             status=STATUS_NOT_SET,
@@ -470,12 +471,12 @@ def test_unchecked_status_refuses_a_number_of_violations() -> None:
             n_violations=0,
             blocking=True,
             enforcement=None,
-            detail="не задано",
+            detail="not set",
         )
 
 
 def test_unknown_status_is_rejected() -> None:
-    with pytest.raises(ValueError, match="неизвестный статус"):
+    with pytest.raises(ValueError, match="unknown constraint check status"):
         ConstraintCheck(
             constraint=CONSTRAINT_LIQUID_LIMITS,
             status="probably_fine",

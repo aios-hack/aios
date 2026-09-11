@@ -8,7 +8,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from backend.core.contracts import Rule, RunArtifact
+from backend.contexts.policy.domain.policy import Rule
+from backend.contexts.runs.domain.run_artifact import RunArtifact
 
 from backend.contexts.showcase.application.exporters.timeline import _JSON_DIGITS
 
@@ -18,14 +19,6 @@ ABLATION_NOT_RUN = "ABLATION_NOT_RUN"
 DISABLED_RULES: dict[str, str] = {"R7": UPLIFT_NOT_MEASURED}
 
 ABLATION_PROVENANCE = "ablation-not-run"
-ABLATION_NOTICE_RU = (
-    "Абляция не запускалась: вклад правил в ЧДД не измерен. Показан только "
-    "факт включения правила, денежных величин в файле нет"
-)
-ABLATION_NOTICE_EN = (
-    "No ablation was run: the NPV contribution of each rule is not measured. "
-    "Only the enabled flag is reported, the file carries no money values"
-)
 
 
 def ablation_meta() -> dict[str, Any]:

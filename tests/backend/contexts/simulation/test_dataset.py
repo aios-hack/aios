@@ -27,7 +27,8 @@ from backend.contexts.simulation.domain.perturbation_design import (
 )
 from backend.contexts.reservoir.infrastructure.opm_deck import EmittedOpmDeck
 from backend.contexts.simulation.infrastructure.runner import deck_hashes
-from backend.core.contracts import RunResult, RunStatus, Schedule
+from backend.contexts.runs.domain.run_result import RunResult, RunStatus
+from backend.contexts.schedule.domain.schedule import Schedule
 
 import tests.support.backend.environment as conftest
 
@@ -46,13 +47,6 @@ SMALL = PlanConfig(
 
 
 class _RecordingRunner:
-    """Считает настоящие запуски и отдаёт готовый OK — без Docker и OPM.
-
-    Подменяет только сам запуск симулятора: эмит дека, ключ из трёх хешей,
-    кеш и манифест остаются настоящими. Это не мок отклика — отклик в этих
-    тестах не загружается (`load_responses=False`), проверяется механика
-    возобновления, а не физика.
-    """
 
     def __init__(self, cache) -> None:
         self.cache = cache
@@ -84,7 +78,7 @@ class _RecordingRunner:
             summary_hash=hashes.summary_hash,
             artifacts=(str(deck.data_file),),
             wallclock_seconds=0.0,
-            message="записанный прогон",
+            message="recorded run",
         )
         self.cache.store(result)
         return result
@@ -109,7 +103,6 @@ def _generator(tmp_path: Path, *, max_workers: int = 2) -> tuple[DatasetGenerato
 
 
 def test_plan_is_prepared_and_validated_before_any_run(tmp_path: Path) -> None:
-    """`validate_static` проходит до эмита: невалидное не доходит до симулятора."""
 
     generator, holder = _generator(tmp_path)
     plan = build_plan(generator.base_schedule(), seed=SEED, config=SMALL)
@@ -141,14 +134,6 @@ def test_small_batch_runs_every_scenario_once(tmp_path: Path) -> None:
 
 
 def test_resume_reuses_the_cache_instead_of_running_again(tmp_path: Path) -> None:
-    """Приёмка: возобновление реально переиспользует кеш, а не считает заново.
-
-    Манифест стирается, а генератор берётся новый: ни списка сделанного, ни
-    памяти о первой партии не остаётся. Единственный путь не запустить
-    симулятор здесь — попадание в кеш по тройке хешей (§4.5). Пары при этом
-    обязаны вернуться все: возобновлённая партия — это датасет, а не пустой
-    отчёт о том, что делать нечего.
-    """
 
     generator, holder = _generator(tmp_path)
     plan = build_plan(generator.base_schedule(), seed=SEED, config=SMALL)
@@ -167,7 +152,6 @@ def test_resume_reuses_the_cache_instead_of_running_again(tmp_path: Path) -> Non
 
 
 def test_resume_after_an_interruption_only_runs_what_is_missing(tmp_path: Path) -> None:
-    """Прерванная партия продолжается: посчитанное не пересчитывается."""
 
     generator, holder = _generator(tmp_path)
     plan = build_plan(generator.base_schedule(), seed=SEED, config=SMALL)
@@ -179,7 +163,6 @@ def test_resume_after_an_interruption_only_runs_what_is_missing(tmp_path: Path) 
     resumed_generator, resumed_holder = _generator(tmp_path)
     resumed = resumed_generator.build(plan)
 
-    # Досчитано ровно недостающее, а вернулась партия целиком.
     assert len(resumed_holder[0].launched) == len(plan) - 2
     assert len(resumed.samples) == len(plan)
     assert resumed.n_from_cache == 2
@@ -188,7 +171,6 @@ def test_resume_after_an_interruption_only_runs_what_is_missing(tmp_path: Path) 
 
 
 def test_dataset_hash_is_stable_and_independent_of_run_order(tmp_path: Path) -> None:
-    """Версия датасета — хеш плана и ключей прогонов, не порядка их появления."""
 
     generator, _ = _generator(tmp_path, max_workers=1)
     plan = build_plan(generator.base_schedule(), seed=SEED, config=SMALL)
@@ -205,14 +187,6 @@ def test_dataset_hash_is_stable_and_independent_of_run_order(tmp_path: Path) -> 
 
 
 def test_dataset_hash_survives_a_second_pass_over_the_same_plan(tmp_path: Path) -> None:
-    """Повтор партии не меняет версию датасета.
-
-    Манифест дописывается построчно, поэтому второй проход кладёт по второй
-    строке на тот же сценарий. Датасет от этого тот же — значит, и
-    `dataset_hash` обязан совпасть. Ловилось только на настоящем прогоне
-    (`test_dataset_opm.py`), пока хеш считался по списку, а не по множеству
-    ключей.
-    """
 
     generator, _ = _generator(tmp_path)
     plan = build_plan(generator.base_schedule(), seed=SEED, config=SMALL)
@@ -238,7 +212,6 @@ def test_dataset_hash_changes_with_the_plan(tmp_path: Path) -> None:
 
 
 def test_generation_is_deterministic_for_the_same_seed(tmp_path: Path) -> None:
-    """Тот же seed — те же расписания и тот же dataset_hash."""
 
     first_generator, _ = _generator(tmp_path / "first")
     second_generator, _ = _generator(tmp_path / "second")
@@ -256,7 +229,6 @@ def test_generation_is_deterministic_for_the_same_seed(tmp_path: Path) -> None:
 def test_metadata_carries_seed_status_unreachable_fraction_and_synthetic_flag(
     tmp_path: Path,
 ) -> None:
-    """Метаданные §9.2 целиком, и флаг синтетики ложен для настоящих прогонов."""
 
     generator, _ = _generator(tmp_path)
     plan = build_plan(generator.base_schedule(), seed=SEED, config=SMALL)
@@ -280,7 +252,6 @@ def test_metadata_carries_seed_status_unreachable_fraction_and_synthetic_flag(
 
 
 def test_synthetic_metadata_is_rejected_outright() -> None:
-    """§9.2, §1.1: синтетика в этом канале запрещена, а не помечается флагом."""
 
     with pytest.raises(DatasetError, match="synthetic"):
         RunMetadata(
@@ -301,7 +272,6 @@ def test_synthetic_metadata_is_rejected_outright() -> None:
 
 
 def test_manifest_is_append_only_and_survives_a_truncated_line(tmp_path: Path) -> None:
-    """JSONL: прерванная запись не делает манифест нечитаемым целиком."""
 
     manifest = DatasetManifest(tmp_path / MANIFEST_NAME)
     metadata = RunMetadata(
@@ -320,7 +290,7 @@ def test_manifest_is_append_only_and_survives_a_truncated_line(tmp_path: Path) -
     )
     manifest.append(metadata)
     with manifest.path.open("a", encoding="utf-8") as handle:
-        handle.write('{"scenario_id": "оборван')
+        handle.write('{"scenario_id": "truncated')
 
     assert manifest.read() == (metadata,)
     assert manifest.completed_scenarios() == frozenset({"levels-0000"})
@@ -339,7 +309,6 @@ def test_plan_file_is_written_next_to_the_manifest(tmp_path: Path) -> None:
 
 
 def test_every_scenario_gets_its_own_deck_directory(tmp_path: Path) -> None:
-    """Параллельные прогоны не делят изменяемых файлов: свой каталог на сценарий."""
 
     generator, _ = _generator(tmp_path, max_workers=4)
     plan = build_plan(generator.base_schedule(), seed=SEED, config=SMALL)
@@ -351,7 +320,6 @@ def test_every_scenario_gets_its_own_deck_directory(tmp_path: Path) -> None:
 
 
 def test_default_worker_count_leaves_threads_to_the_solver() -> None:
-    """Одновременных контейнеров меньше, чем ядер: Flow сам многопоточный."""
 
     cores = os.cpu_count() or 1
     workers = default_max_workers()

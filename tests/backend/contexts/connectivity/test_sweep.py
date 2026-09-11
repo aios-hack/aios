@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from backend.domain.connectivity import (
-    Amplitude,
-    Level,
-    ProbeSelection,
+from backend.contexts.connectivity.domain.doe import Amplitude, Level
+from backend.contexts.connectivity.domain.amplitude import ProbeSelection
+from backend.contexts.connectivity.domain.sweep import (
     WindowSteps,
     cumulative_liquid,
     injection_setpoints,
@@ -14,14 +13,16 @@ from backend.domain.connectivity import (
     responders_of,
     sweep_targets,
 )
-from backend.core.contracts import (
+from backend.contexts.reservoir.domain.response import (
     ActiveControlMode,
+    IntervalResponse,
+    StateAtDate,
+)
+from backend.contexts.schedule.domain.schedule import (
     ControlEvent,
     EventKind,
-    IntervalResponse,
     Schedule,
     ScheduleMeta,
-    StateAtDate,
 )
 
 INJECTORS = ("I1", "I2")
@@ -108,20 +109,13 @@ def test_perturbation_outside_the_window_is_left_alone() -> None:
 
 
 def test_perturbation_that_would_not_materialise_is_refused() -> None:
-    """Моков нет: если в окне нет уставки закачки, это ошибка, а не тихое ничего."""
 
     baseline = a_schedule()
-    with pytest.raises(ValueError, match="не материализовалось"):
+    with pytest.raises(ValueError, match="would not materialise"):
         perturbed_schedule(baseline, {"I9": 36.0}, STEPS, provenance="p")
 
 
 def test_setpoint_is_resolved_when_control_starts_after_the_window_edge() -> None:
-    """Реальный Model_Z: у части нагнетательных первая SET_RATE стоит на шаге 1,
-
-    а не 0 — уставка на t0 живёт в неизменяемой части дека. Замер обязан взять
-    ближайшую известную уставку, а не объявить скважину неуправляемой
-    (проверено 16.08 на скважинах 110 и 17).
-    """
 
     baseline = a_schedule()
     late = Schedule(
@@ -143,7 +137,7 @@ def test_setpoint_is_resolved_when_control_starts_after_the_window_edge() -> Non
 
 
 def test_a_well_absent_from_the_schedule_entirely_is_refused() -> None:
-    with pytest.raises(ValueError, match="ни одной уставки"):
+    with pytest.raises(ValueError, match="no injection setpoint"):
         injection_setpoints(a_schedule(), ("I9",), 0)
 
 
@@ -190,12 +184,11 @@ def test_actual_injectivity_is_read_from_the_response_not_the_plan() -> None:
 
 
 def test_missing_response_in_the_window_is_an_error() -> None:
-    with pytest.raises(ValueError, match="нет ни одной записи"):
+    with pytest.raises(ValueError, match="no response record"):
         mean_injection_rate([], "I1", T0_INDEX, STEPS)
 
 
 def test_response_is_cumulative_production_in_the_window() -> None:
-    """§8.2: отклик — накопленная добыча в окне, не мгновенный дебит."""
 
     intervals = [
         IntervalResponse(

@@ -3,11 +3,7 @@ from __future__ import annotations
 from typing import (
     Sequence,
 )
-from backend.core.contracts import (
-    ControlEvent,
-    EventKind,
-    Role,
-)
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind, Role
 from backend.contexts.policy.domain.state import (
     PolicyState,
     RuleContext,
@@ -94,8 +90,8 @@ def watercut_cap_shutins(
         current = 1.0 - oil_total / liquid_total
     if current > limit:
         raise ValueError(
-            f"потолок обводнённости {limit} недостижим глушением: "
-            f"на участке остаётся {current}"
+            f"the watercut ceiling {limit} is unreachable by shut-ins: "
+            f"the group is left at {current}"
         )
     return tuple(shut), before, current
 

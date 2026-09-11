@@ -9,7 +9,8 @@ from datetime import date
 import math
 from types import MappingProxyType
 from typing import Callable, Mapping, Protocol, Sequence
-from backend.core.contracts import Constraints, ControlEvent, EventKind, Schedule
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind, Schedule
 from backend.contexts.schedule.domain.canonical import canonicalize
 
 _EMPTY_YEARS: Mapping[int, float] = MappingProxyType({})
@@ -37,7 +38,9 @@ class YearlyProduction:
             return self.liquid_by_year
         if kind is EventKind.SET_RATE:
             return self.injection_by_year
-        raise CaseLimitsError(f"годовой отбор не определён для события {kind.name}")
+        raise CaseLimitsError(
+            f"annual withdrawal is not defined for event {kind.name}"
+        )
 
 
 class ProductionForecast(Protocol):
@@ -134,13 +137,15 @@ def _excess_factors(
         produced = actual.get(year)
         if produced is None:
             raise CaseLimitsForecastRequired(
-                f"прогноз годового отбора не содержит {year}: лимит проверить нечем"
+                f"the annual withdrawal forecast does not contain {year}: "
+                f"there is nothing to check the limit against"
             )
         if produced <= cap:
             continue
         if produced <= 0.0:
             raise CaseLimitsError(
-                f"{year}: превышение лимита при неположительном отборе {produced}"
+                f"{year}: limit exceeded with non-positive withdrawal "
+                f"{produced}"
             )
         factors[year] = min(_MIN_FACTOR_STEP, _SAFETY * cap / produced)
     return factors
@@ -174,15 +179,16 @@ def _trim_by_forecast(
             )
         if round_index == rounds:
             raise CaseLimitsNotConverged(
-                f"годовые лимиты не выполнены за {rounds} итераций: "
-                f"остались превышения {sorted((kind.name, year) for kind, year in factors)}"
+                f"annual limits were not satisfied in {rounds} iterations: "
+                f"excesses remain "
+                f"{sorted((kind.name, year) for kind, year in factors)}"
             )
         for kind, year in factors:
             trimmed.setdefault(kind, set()).add(year)
         current = canonicalize(
             replace(current, control_events=_scale_events(current.control_events, dates, factors))
         )
-    raise CaseLimitsNotConverged("недостижимо")
+    raise CaseLimitsNotConverged("unreachable")
 
 
 def _trim_by_setpoint_sum(
@@ -230,7 +236,9 @@ def apply_case_limits_report(
     rounds: int = DEFAULT_ROUNDS,
 ) -> CaseLimitsOutcome:
     if rounds < 0:
-        raise CaseLimitsError(f"rounds={rounds}: число итераций не может быть отрицательным")
+        raise CaseLimitsError(
+            f"rounds={rounds}: the number of iterations cannot be negative"
+        )
     has_caps = bool(constraints.injection_limits or constraints.liquid_limits)
     if not (constraints.well_outages or has_caps):
         return CaseLimitsOutcome(schedule=schedule, forecast_used=False, rounds=0)
@@ -242,9 +250,11 @@ def apply_case_limits_report(
     if forecast is None:
         if not allow_setpoint_sum_fallback:
             raise CaseLimitsForecastRequired(
-                "годовые лимиты заданы, но прогноз фактического отбора не передан: "
-                "резка по сумме целевых уставок урезает план, который лимит не нарушает. "
-                "Передайте forecast или явно включите allow_setpoint_sum_fallback=True"
+                "annual limits are set, but the forecast of actual "
+                "withdrawal was not supplied: trimming by the sum of target "
+                "setpoints cuts a plan that does not violate the limit. Pass "
+                "forecast or explicitly enable "
+                "allow_setpoint_sum_fallback=True"
             )
         return _trim_by_setpoint_sum(with_outages, constraints, dates)
     return _trim_by_forecast(with_outages, constraints, dates, forecast, rounds)

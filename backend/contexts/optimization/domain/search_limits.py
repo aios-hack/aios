@@ -17,7 +17,7 @@ BUDGET = 120
 
 
 MISSING_SIGMA = (
-    "β задана, но модель не даёт разброса: нужен ансамбль"
+    "β is set, but the model gives no spread: an ensemble is required"
 )
 
 

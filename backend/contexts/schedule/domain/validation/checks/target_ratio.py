@@ -12,12 +12,8 @@ from backend.contexts.schedule.domain.validation.report import (
 from collections.abc import (
     Sequence,
 )
-from backend.core.contracts import (
-    OperatingStatus,
-    Role,
-    Schedule,
-    StateAtDate,
-)
+from backend.contexts.schedule.domain.schedule import OperatingStatus, Role, Schedule
+from backend.contexts.reservoir.domain.response import StateAtDate
 from backend.contexts.schedule.domain.validate import (
     Violation,
     ViolationKind,
@@ -66,9 +62,10 @@ def check_target_ratio(
                     well=well,
                     value=ratio.ratio,
                     detail=(
-                        f"факт/цель {ratio.ratio:.4f} < {ACHIEVEMENT_THRESHOLD}: "
-                        f"факт {actual} м³/сут при цели {target.setpoint} м³/сут, "
-                        f"режим контроля {state.active_control_mode.value}"
+                        f"fact/target {ratio.ratio:.4f} < "
+                        f"{ACHIEVEMENT_THRESHOLD}: fact {actual} m3/day "
+                        f"against target {target.setpoint} m3/day, control "
+                        f"mode {state.active_control_mode.value}"
                     ),
                 )
             )

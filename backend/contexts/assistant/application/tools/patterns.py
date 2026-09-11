@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from backend.core.contracts import ActiveControlMode, StateAtDate
+from backend.contexts.reservoir.domain.response import ActiveControlMode, StateAtDate
 
 from backend.contexts.assistant.infrastructure.artifacts import ArtifactError, ScenarioIndex
 from backend.contexts.assistant.application.tools.context import Card, ToolContext, ToolFailure

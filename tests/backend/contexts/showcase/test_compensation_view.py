@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 
-from backend.core.contracts import CompensationPolicy, Constraints
+from backend.contexts.constraints.domain.constraints import CompensationPolicy, Constraints
 from backend.contexts.showcase.application.exporters.compensation_view import (
     COMPENSATION_BASIS_SURFACE,
     COMPENSATION_NORM_MAX,

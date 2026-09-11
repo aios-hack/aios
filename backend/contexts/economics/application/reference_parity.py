@@ -1,30 +1,37 @@
 from __future__ import annotations
 
-from backend.contexts.economics.domain.errors import (
-    ParityError,
-    ReferenceUnavailableError,
-)
-
 import importlib.util
 import sys
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-from backend.core.contracts import (
+from backend.contexts.constraints.domain.config import (
     ChargeInitialEsp,
-    IntervalResponse,
-    LineItems,
     NormativeSet,
-    NpvTable,
     Policies,
-    StateAtDate,
 )
-
+from backend.contexts.economics.application.parity_comparison import (
+    Discrepancy,
+    EVENT_COST_KEYS,
+    LINE_ITEM_FIELDS,
+    MACHINE_RELATIVE_TOLERANCE,
+    ParityReport,
+    REFERENCE_KEY_BY_FIELD,
+    _month_index,
+    compare_line_items,
+    compare_with_reference,
+    reference_line_items,
+)
+from backend.contexts.economics.domain.economics import LineItems, NpvTable
+from backend.contexts.economics.domain.errors import (
+    ParityError,
+    ReferenceUnavailableError,
+)
 from backend.contexts.economics.domain.npv import BalanceSheetInputs
+from backend.contexts.reservoir.domain.response import IntervalResponse, StateAtDate
 
 RUB_PER_MILLION: float = 1_000_000.0
 PERCENT: float = 100.0
@@ -32,95 +39,13 @@ PERCENT: float = 100.0
 REFERENCE_MODULE_NAME: str = "chdd_model"
 REFERENCE_FILE_NAME: str = "chdd_model.py"
 
-LINE_ITEM_FIELDS: tuple[str, ...] = (
-    "revenue",
-    "deductions",
-    "opex_oil",
-    "opex_liquid",
-    "opex_injection",
-    "opex_wellstock",
-    "property_tax",
-    "event_costs",
-    "capex_esp",
-    "ebitda",
-    "income_tax",
-    "fcf",
-    "df",
-    "discounted_fcf",
-)
-
-REFERENCE_KEY_BY_FIELD: dict[str, str] = {
-    "revenue": "revenueM",
-    "deductions": "deductionsM",
-    "opex_oil": "oilOpexM",
-    "opex_liquid": "liquidOpexM",
-    "opex_injection": "injectionOpexM",
-    "opex_wellstock": "fundOpexM",
-    "property_tax": "propertyTaxM",
-    "capex_esp": "capexM",
-    "ebitda": "ebitdaM",
-    "income_tax": "profitTaxM",
-    "fcf": "fcfM",
-    "discounted_fcf": "chddM",
-}
-
-EVENT_COST_KEYS: tuple[str, ...] = ("gtmM", "startStopCostM", "conversionOpexM")
-
-MACHINE_RELATIVE_TOLERANCE: float = 1e-12
-
-
-@dataclass(frozen=True, slots=True)
-class Discrepancy:
-    scope: str
-    key: int | str
-    field: str
-    ours: float
-    reference: float
-
-    @property
-    def absolute(self) -> float:
-        return abs(self.ours - self.reference)
-
-    def __str__(self) -> str:
-        return (
-            f"{self.scope}[{self.key}].{self.field}: наш {self.ours!r} "
-            f"против эталона {self.reference!r}, разница {self.absolute!r}"
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class ParityReport:
-    discrepancies: tuple[Discrepancy, ...]
-    npv_ours: float
-    npv_reference: float
-    years: tuple[int, ...]
-    months: tuple[int, ...]
-
-    @property
-    def matched(self) -> bool:
-        return not self.discrepancies
-
-    @property
-    def npv_absolute(self) -> float:
-        return abs(self.npv_ours - self.npv_reference)
-
-    def raise_if_mismatched(self) -> None:
-        if self.matched:
-            return
-        head = "\n".join(str(item) for item in self.discrepancies[:20])
-        raise ParityError(
-            f"расхождение с эталоном: {len(self.discrepancies)} статей, "
-            f"ЧДД наш {self.npv_ours!r} против {self.npv_reference!r} "
-            f"(разница {self.npv_absolute!r})\n{head}"
-        )
-
 
 def load_reference_module(chdd_python_dir: str | Path) -> ModuleType:
     root = Path(chdd_python_dir)
     module_path = root / REFERENCE_FILE_NAME
     if not module_path.is_file():
         raise ReferenceUnavailableError(
-            f"эталонный расчётчик не найден: {module_path}"
+            f"reference calculator not found: {module_path}"
         )
     cached = sys.modules.get(REFERENCE_MODULE_NAME)
     if cached is not None and getattr(cached, "__file__", None) == str(module_path):
@@ -128,7 +53,7 @@ def load_reference_module(chdd_python_dir: str | Path) -> ModuleType:
     spec = importlib.util.spec_from_file_location(REFERENCE_MODULE_NAME, module_path)
     if spec is None or spec.loader is None:
         raise ReferenceUnavailableError(
-            f"не удалось построить спецификацию модуля из {module_path}"
+            f"could not build a module spec from {module_path}"
         )
     module = importlib.util.module_from_spec(spec)
     sys.modules[REFERENCE_MODULE_NAME] = module
@@ -142,7 +67,7 @@ def deck_dates_from_interval_starts(
     n_intervals = len(interval_start_dates)
     if n_deck_dates <= n_intervals:
         raise ValueError(
-            f"дат дека {n_deck_dates} — не больше числа интервалов {n_intervals}"
+            f"deck dates {n_deck_dates} are not more than the interval count {n_intervals}"
         )
     n_history = n_deck_dates - n_intervals
     dates: list[date] = []
@@ -170,7 +95,7 @@ def build_reference_records(
 ) -> list[dict[str, Any]]:
     if set(states_by_well) != set(responses_by_well):
         raise ValueError(
-            f"оси скважин не совпадают: "
+            f"well axes do not match: "
             f"{sorted(set(states_by_well) ^ set(responses_by_well))}"
         )
     n_intervals = len(interval_start_dates)
@@ -180,8 +105,8 @@ def build_reference_records(
         responses = responses_by_well[well]
         if len(responses) != n_intervals:
             raise ValueError(
-                f"скважина {well}: {len(responses)} интервалов при "
-                f"{n_intervals} датах"
+                f"well {well}: {len(responses)} intervals against "
+                f"{n_intervals} dates"
             )
         n_deck_dates = len(states)
         deck_dates = deck_dates_from_interval_starts(
@@ -193,8 +118,8 @@ def build_reference_records(
         )
         if history and len(history) != first_interval_end_deck_step:
             raise ValueError(
-                f"скважина {well}: {len(history)} исторических приростов при "
-                f"{first_interval_end_deck_step} исторических интервалах"
+                f"well {well}: {len(history)} historical increments against "
+                f"{first_interval_end_deck_step} historical intervals"
             )
         cumulative_liquid = 0.0
         cumulative_oil = 0.0
@@ -306,130 +231,26 @@ def run_reference(
     )
 
 
-def reference_line_items(entry: Mapping[str, Any]) -> LineItems:
-    values = {
-        field: float(entry[key]) * RUB_PER_MILLION
-        for field, key in REFERENCE_KEY_BY_FIELD.items()
-    }
-    values["event_costs"] = (
-        sum(float(entry[key]) for key in EVENT_COST_KEYS) * RUB_PER_MILLION
-    )
-    return LineItems(df=float(entry["discountFactor"]), **values)
-
-
-def _month_index(month: str, interval_start_dates: Sequence[date]) -> int | None:
-    for control_step, moment in enumerate(interval_start_dates):
-        if f"{moment.year:04d}-{moment.month:02d}" == month:
-            return control_step
-    return None
-
-
-def compare_line_items(
-    scope: str,
-    key: int | str,
-    ours: LineItems,
-    reference: LineItems,
-    tolerance_rub: float,
-    relative_tolerance: float,
-) -> list[Discrepancy]:
-    found: list[Discrepancy] = []
-    for field in LINE_ITEM_FIELDS:
-        our_value = float(getattr(ours, field))
-        reference_value = float(getattr(reference, field))
-        if field == "df":
-            limit = 0.0
-        else:
-            scale = max(abs(our_value), abs(reference_value))
-            limit = max(tolerance_rub, relative_tolerance * scale)
-        if abs(our_value - reference_value) > limit:
-            found.append(
-                Discrepancy(
-                    scope=scope,
-                    key=key,
-                    field=field,
-                    ours=our_value,
-                    reference=reference_value,
-                )
-            )
-    return found
-
-
-def compare_with_reference(
-    table: NpvTable,
-    reference_result: Mapping[str, Any],
-    interval_start_dates: Sequence[date],
-    tolerance_rub: float = 0.0,
-    relative_tolerance: float = MACHINE_RELATIVE_TOLERANCE,
-) -> ParityReport:
-    discrepancies: list[Discrepancy] = []
-
-    reference_by_year = {
-        int(entry["year"]): reference_line_items(entry)
-        for entry in reference_result["annual"]
-    }
-    our_years = tuple(sorted(table.by_year))
-    reference_years = tuple(sorted(reference_by_year))
-    if our_years != reference_years:
-        raise ParityError(
-            f"оси лет не совпадают: наши {our_years}, эталон {reference_years}"
-        )
-    for year in our_years:
-        discrepancies.extend(
-            compare_line_items(
-                "год",
-                year,
-                table.by_year[year],
-                reference_by_year[year],
-                tolerance_rub,
-                relative_tolerance,
-            )
-        )
-
-    reference_by_step: dict[int, LineItems] = {}
-    for entry in reference_result["fieldMonthly"]:
-        control_step = _month_index(str(entry["month"]), interval_start_dates)
-        if control_step is None:
-            continue
-        reference_by_step[control_step] = reference_line_items(entry)
-    our_months = tuple(sorted(table.by_month))
-    reference_months = tuple(sorted(reference_by_step))
-    if our_months != reference_months:
-        raise ParityError(
-            f"оси месяцев не совпадают: наши {our_months}, "
-            f"эталон {reference_months}"
-        )
-    for control_step in our_months:
-        discrepancies.extend(
-            compare_line_items(
-                "месяц",
-                control_step,
-                table.by_month[control_step],
-                reference_by_step[control_step],
-                tolerance_rub,
-                relative_tolerance,
-            )
-        )
-
-    npv_reference = float(reference_result["summary"]["totalChddM"]) * RUB_PER_MILLION
-    npv_limit = max(
-        tolerance_rub,
-        relative_tolerance * max(abs(table.npv_methodology), abs(npv_reference)),
-    )
-    if abs(table.npv_methodology - npv_reference) > npv_limit:
-        discrepancies.append(
-            Discrepancy(
-                scope="итог",
-                key="npv_methodology",
-                field="npv_methodology",
-                ours=table.npv_methodology,
-                reference=npv_reference,
-            )
-        )
-
-    return ParityReport(
-        discrepancies=tuple(discrepancies),
-        npv_ours=table.npv_methodology,
-        npv_reference=npv_reference,
-        years=our_years,
-        months=our_months,
-    )
+__all__ = [
+    "Discrepancy",
+    "EVENT_COST_KEYS",
+    "LINE_ITEM_FIELDS",
+    "MACHINE_RELATIVE_TOLERANCE",
+    "PERCENT",
+    "ParityError",
+    "ParityReport",
+    "REFERENCE_FILE_NAME",
+    "REFERENCE_KEY_BY_FIELD",
+    "REFERENCE_MODULE_NAME",
+    "RUB_PER_MILLION",
+    "ReferenceUnavailableError",
+    "build_reference_records",
+    "compare_line_items",
+    "compare_with_reference",
+    "deck_dates_from_interval_starts",
+    "load_reference_module",
+    "reference_assumptions",
+    "reference_line_items",
+    "reference_pumps",
+    "run_reference",
+]

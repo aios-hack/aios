@@ -24,8 +24,8 @@ def _step_entry(index: ScenarioIndex, step: int) -> Mapping[str, Any]:
     steps = index.hierarchy.get("steps")
     if not isinstance(steps, Sequence) or not steps:
         raise ToolFailure(
-            f"{NO_STEP}: в иерархии сценария {index.scenario} нет ни одного "
-            "шага, поэтому решений совета не существует"
+            f"{NO_STEP}: the hierarchy of scenario {index.scenario} holds no step "
+            "at all, so no council decisions exist"
         )
     for entry in steps:
         if not isinstance(entry, Mapping):
@@ -35,8 +35,8 @@ def _step_entry(index: ScenarioIndex, step: int) -> Mapping[str, Any]:
     first = int(steps[0].get("control_step", 0))
     last = int(steps[-1].get("control_step", 0))
     raise ToolFailure(
-        f"{NO_STEP}: шага {step} нет в иерархии сценария {index.scenario}: "
-        f"журнал покрывает шаги с {first} по {last}"
+        f"{NO_STEP}: step {step} is not in the hierarchy of scenario {index.scenario}: "
+        f"the log covers steps {first} through {last}"
     )
 
 
@@ -166,10 +166,10 @@ def council_step(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
     if group is not None:
         names = {str(row.get("group")) for row in entry.get("groups") or ()}
         if group not in names:
-            listed = ", ".join(sorted(names)) or "ни одного"
+            listed = ", ".join(sorted(names)) or "none"
             raise ToolFailure(
-                f"участка {group!r} нет на шаге {step}: на этом шаге решения "
-                f"принимались по участкам {listed}"
+                f"area {group!r} is not present at step {step}: at this step decisions "
+                f"were taken for the areas {listed}"
             )
     levels: list[dict[str, Any]] = [_field_level(entry)]
     levels.extend(_group_levels(entry, group))

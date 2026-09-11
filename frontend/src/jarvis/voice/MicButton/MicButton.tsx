@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { useI18n } from '@/shared/i18n/I18nContext';
 import { isEditableTarget } from '@/shared/lib/keyboard/target';
+import { latinKeyOf } from '@/shared/lib/keyboard/layout';
 import { useJarvisSessionContext, useJarvisSphere, useJarvisVoice } from '@/jarvis/provider/contexts';
 import { useMicLevel } from '@/jarvis/voice/useMicLevel';
 import { useRecorder } from '@/jarvis/voice/useRecorder';
@@ -105,7 +106,7 @@ export const MicButton = ({ onTranscript, onCommit }: MicButtonProps) => {
         begin();
         return;
       }
-      if (event.key === 'm' || event.key === 'M' || event.key === 'ь' || event.key === 'Ь') {
+      if (latinKeyOf(event.key) === 'm') {
         event.preventDefault();
         if (micOpen) {
           end();

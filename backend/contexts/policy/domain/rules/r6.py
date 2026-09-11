@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from backend.core.contracts import ControlEvent, EventKind, Role, Rule, Theta, TraceEntry
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind, Role
+from backend.contexts.policy.domain.policy import Rule, Theta, TraceEntry
 
 from backend.contexts.policy.domain.economics import DAYS_PER_YEAR, annual_margin_rub
 from backend.contexts.policy.domain.rules.r1 import marginal_value_rub_per_m3
@@ -10,7 +11,7 @@ from backend.contexts.policy.domain.theta import read
 
 RULE = Rule.R6
 ADMISSION_CRITERION = (
-    "Переводим, когда как нагнетательная она дороже, чем как добывающая."
+    "Convert a well when it is worth more as an injector than as a producer."
 )
 THETA_NAMES: tuple[str, ...] = ("r6_payback_years",)
 
@@ -32,8 +33,8 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
     influence = context.influence
     if influence is None:
         raise ValueError(
-            "R6 требует измеренную λ: ценность скважины как нагнетательной "
-            "без матрицы влияния не определена"
+            "R6 requires a measured λ: the value of a well as an injector "
+            "is undefined without the influence matrix"
         )
     normatives = context.normatives
     density = context.oil_density_t_per_m3

@@ -5,7 +5,9 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Sequence
 
-from backend.core.contracts import Role, RunArtifact, Schedule, TraceEntry
+from backend.contexts.schedule.domain.schedule import Role, Schedule
+from backend.contexts.runs.domain.run_artifact import RunArtifact
+from backend.contexts.policy.domain.policy import TraceEntry
 
 from backend.contexts.assistant.infrastructure.llm.diagnostics import TextClient
 
@@ -33,8 +35,8 @@ def _find_entry(
         if entry.well == well and entry.control_step == control_step:
             return entry
     raise LookupError(
-        f"в Trace нет записи для скважины {well} на шаге {control_step}: "
-        "без записи объяснять нечего, реконструкция решения невозможна"
+        f"the Trace holds no entry for well {well} at step {control_step}: "
+        "with no entry there is nothing to explain, the decision cannot be reconstructed"
     )
 
 
@@ -64,7 +66,7 @@ def explain_decision(
     locale: str = "ru",
 ) -> DecisionExplanation:
     if locale != "ru":
-        raise ValueError(f"неподдерживаемая локаль: {locale}")
+        raise ValueError(f"unsupported locale: {locale}")
     entry = _find_entry(trace_entries, well, control_step)
     role_ru = _well_role_ru(schedule, well)
     return DecisionExplanation(
@@ -81,7 +83,7 @@ def build_explanation_prompt(
     explanation: DecisionExplanation, locale: str = "ru"
 ) -> str:
     if locale != "ru":
-        raise ValueError(f"неподдерживаемая локаль: {locale}")
+        raise ValueError(f"unsupported locale: {locale}")
     facts = ", ".join(
         f"{name}={value}" for name, value in explanation.inputs.items()
     )

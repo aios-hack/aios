@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from backend.contexts.assistant.domain.console_context import DEFAULT_LANG, ConsoleContext
 from backend.contexts.assistant.domain.errors import (
     ToolFailure,
 )
@@ -13,30 +14,6 @@ from backend.contexts.assistant.infrastructure.artifacts import (
     RunStore,
     ScenarioIndex,
 )
-
-DEFAULT_LANG = "ru"
-
-
-@dataclass(frozen=True, slots=True)
-class ConsoleContext:
-    scenario: str = "base"
-    step: int | None = None
-    date: str | None = None
-    selected_well: str | None = None
-    workspace: str | None = None
-    view: str | None = None
-    lang: str = DEFAULT_LANG
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "scenario": self.scenario,
-            "step": self.step,
-            "date": self.date,
-            "selected_well": self.selected_well,
-            "workspace": self.workspace,
-            "view": self.view,
-        }
-
 
 @dataclass(frozen=True, slots=True)
 class ToolContext:

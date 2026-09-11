@@ -4,20 +4,23 @@ from dataclasses import replace
 
 import pytest
 
-from backend.core.contracts import Rule, Theta
+from backend.contexts.policy.domain.policy import Rule, Theta
 from backend.contexts.policy.domain.policy import MAX_THETA_PARAMS
 
-from backend.domain.policy import (
+from backend.contexts.policy.domain.rules import (
     ADMISSION_CRITERIA,
-    DEFAULT_RULE_FLAGS,
-    IMPLEMENTED_RULES,
-    SPECS,
     THETA_NAMES_BY_RULE,
-    RuleContext,
-    RuleFlags,
-    all_off,
     apply_all,
     apply_rule,
+)
+from backend.contexts.policy.domain.flags import (
+    DEFAULT_RULE_FLAGS,
+    IMPLEMENTED_RULES,
+    RuleFlags,
+    all_off,
+)
+from backend.contexts.policy.domain.theta import (
+    SPECS,
     budget_by_rule,
     budget_free,
     budget_used,
@@ -26,6 +29,7 @@ from backend.domain.policy import (
     make_theta,
     specs_for,
 )
+from backend.contexts.policy.domain.state import RuleContext
 from backend.contexts.policy.domain.theta import RESERVED_FOR_R7, total_budget_ok
 from tests.backend.contexts.policy.conftest import DECIDING_WELLS, deciding_context, state_of
 

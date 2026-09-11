@@ -18,8 +18,9 @@ from backend.contexts.optimization.application.environment import (
     lambda_sync_provenance,
     npv_blend_provenance,
 )
-from backend.core.contracts import Lambda
-from backend.core.paths import data_root
+from backend.contexts.optimization.domain.errors import ScheduleSearchError
+from backend.contexts.connectivity.domain.connectivity import Lambda
+from backend.shared.paths import data_root
 from backend.contexts.connectivity.domain.measure import load_lambda
 from backend.contexts.surrogate.domain.features import FeatureContext, HistoryTargets
 from backend.contexts.surrogate.infrastructure.model_z_context import ModelZFeatureArtifact
@@ -176,7 +177,7 @@ def test_inventory_escaping_the_bundle_is_rejected(tmp_path: Path) -> None:
         )
     )
 
-    with pytest.raises(RuntimeArtifactError, match="за пределы"):
+    with pytest.raises(RuntimeArtifactError, match="escapes the bundle"):
         verify_bundle(root)
 
 
@@ -202,7 +203,7 @@ def test_head_without_blend_weight_raises_instead_of_defaulting() -> None:
     class _Anonymous:
         version = "z" * 64
 
-    with pytest.raises(ValueError, match="physical_npv_weight"):
+    with pytest.raises(ScheduleSearchError, match="physical_npv_weight"):
         npv_blend_provenance(_Anonymous())
 
 
@@ -210,7 +211,7 @@ def test_blend_weight_outside_unit_interval_is_rejected() -> None:
     head = _Head()
     head.physical_npv_weight = 1.5
 
-    with pytest.raises(ValueError, match="вне отрезка"):
+    with pytest.raises(ScheduleSearchError, match="outside \\[0, 1\\]"):
         npv_blend_provenance(head)
 
 
@@ -234,11 +235,11 @@ def test_desync_is_a_warning_in_provenance_not_a_crash(tmp_path: Path) -> None:
 
     assert record["lambda_sync"] == "desync"
     assert record["lambda_search_hash"] != record["lambda_context_hashes"]
-    assert "смещён систематически" in record["lambda_sync_detail"]
+    assert "systematically biased" in record["lambda_sync_detail"]
 
 
 def test_desync_in_strict_mode_is_an_error(tmp_path: Path) -> None:
-    with pytest.raises(LambdaDesyncError, match="не совпадает"):
+    with pytest.raises(LambdaDesyncError, match="matches none of the windows"):
         lambda_sync_provenance(
             _lambda(0.5), _context(_lambda(0.9)), tmp_path / "lambda.json", strict=True
         )
@@ -253,7 +254,7 @@ def test_context_without_lambda_windows_is_unknown_not_match(tmp_path: Path) -> 
 
 
 def test_context_without_lambda_windows_is_strict_error(tmp_path: Path) -> None:
-    with pytest.raises(LambdaDesyncError, match="ни одного окна"):
+    with pytest.raises(LambdaDesyncError, match="contains no . window"):
         lambda_sync_provenance(
             _lambda(0.5), _context(None), tmp_path / "lambda.json", strict=True
         )

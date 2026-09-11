@@ -8,24 +8,22 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from backend.core.contracts import (
-    Constraints,
-    Groups,
-    Lambda,
-    NormativeSet,
-    Policies,
-    Role,
-    RunArtifact,
-    canonical_bytes,
-)
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.connectivity.domain.connectivity import Groups, Lambda
+from backend.contexts.constraints.domain.config import NormativeSet, Policies
+from backend.contexts.schedule.domain.schedule import Role
+from backend.contexts.runs.domain.run_artifact import RunArtifact
+from backend.shared.hashing import canonical_bytes
 from backend.shared.paths import data_root
 from backend.contexts.connectivity.domain.groups import GroupingParams, group_hash, lambda_hash
-from backend.domain.economics import analyze_base_case, load_response_artifact
-from backend.domain.schedule import build_schedule, parse_schedule
+from backend.contexts.economics.application.base_case import (
+    analyze_base_case,
+    load_response_artifact,
+)
+from backend.contexts.schedule.domain.build import build_schedule
+from backend.contexts.schedule.domain.lossless import parse_schedule
 
 REAL_PROVENANCE = "model-z-base-run"
-REAL_NOTICE_RU = "Настоящий расчёт: базовый прогон OPM без перекладки, эталонная методика ЧДД"
-REAL_NOTICE_EN = "Real result: OPM baseline run with zero retiming, reference NPV methodology"
 
 _SCHEDULE_INCLUDE = "Model_Z_sch.inc"
 

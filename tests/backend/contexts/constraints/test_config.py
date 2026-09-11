@@ -5,25 +5,27 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.constraints.domain.config import (
     ArtifactHashes,
     ChargeInitialEsp,
     Config,
     NormativeSet,
     QuantizationPolicy,
-    Rule,
 )
+from backend.contexts.policy.domain.policy import Rule
 
-from backend.domain.configuration import (
+from backend.contexts.constraints.domain.schema import (
     COMPONENT_SEEDS,
     GLOBAL_SEED_KEY,
-    ConfigError,
     config_hash,
-    dump_config,
     economics_config_hash,
+    seed_for,
+)
+from backend.contexts.constraints.infrastructure.io import (
+    ConfigError,
+    dump_config,
     load_config,
     parse_config,
-    seed_for,
 )
 from backend.contexts.constraints.infrastructure.io import _as_jsonable
 from backend.contexts.constraints.domain.schema import validate
@@ -56,12 +58,12 @@ def test_component_without_own_seed_falls_back_to_global(config: Config) -> None
 
 
 def test_unregistered_component_cannot_invent_a_seed(config: Config) -> None:
-    with pytest.raises(ValueError, match="не заявлен в реестре компонентов"):
+    with pytest.raises(ValueError, match="not declared in the component registry"):
         seed_for(config, "my_new_thing")
 
 
 def test_config_without_global_seed_is_rejected(config: Config) -> None:
-    with pytest.raises(ValueError, match="зафиксированный seed"):
+    with pytest.raises(ValueError, match="fixed seed"):
         validate(replace(config, seeds={"optimizer": 1}))
 
 
@@ -73,13 +75,13 @@ def test_all_artifact_hashes_live_in_the_config(config: Config) -> None:
 
 def test_empty_artifact_hash_is_rejected(config: Config) -> None:
     broken = replace(config.hashes, groups_hash="")
-    with pytest.raises(ValueError, match="хеши всех артефактов"):
+    with pytest.raises(ValueError, match="hashes of every artifact"):
         validate(replace(config, hashes=broken))
 
 
 def test_short_artifact_hash_is_rejected(config: Config) -> None:
     broken = replace(config.hashes, deck_hash="abc")
-    with pytest.raises(ValueError, match="ожидается 64"):
+    with pytest.raises(ValueError, match="64 expected"):
         validate(replace(config, hashes=broken))
 
 
@@ -97,7 +99,7 @@ def test_two_policies_remain_and_defaults_mirror_the_reference(
 def test_removed_policies_are_not_accepted(config: Config) -> None:
     raw = _as_jsonable(config)
     raw["policies"]["tax_policy"] = "ALWAYS"
-    with pytest.raises(ConfigError, match="tax_policy и liquid_opex_policy закрыты"):
+    with pytest.raises(ConfigError, match="tax_policy and liquid_opex_policy were closed"):
         parse_config(raw)
 
 
@@ -107,7 +109,7 @@ def test_flags_are_declared_for_every_rule(config: Config) -> None:
 
 def test_missing_rule_flag_is_rejected(config: Config) -> None:
     partial = {rule: True for rule in Rule if rule is not Rule.R7}
-    with pytest.raises(ValueError, match="заданы не для всех"):
+    with pytest.raises(ValueError, match="not given for all rules"):
         validate(replace(config, rules=partial))
 
 
@@ -124,14 +126,14 @@ def test_normatives_are_one_scalar_set_without_a_year_axis(
 def test_rates_given_as_percent_are_rejected(config: Config) -> None:
     raw = _as_jsonable(config)
     raw["normatives"]["income_tax_rate"] = 25.0
-    with pytest.raises(ValueError, match="подан процентами"):
+    with pytest.raises(ValueError, match="is given in percent"):
         parse_config(raw)
 
 
 def test_partial_normatives_are_rejected(config: Config) -> None:
     raw = _as_jsonable(config)
     del raw["normatives"]["price_oil_rub_per_t"]
-    with pytest.raises(ValueError, match="умолчаний у нормативов нет"):
+    with pytest.raises(ValueError, match="normatives have no defaults"):
         parse_config(raw)
 
 
@@ -177,36 +179,36 @@ def test_rule_flag_change_does_not_invalidate_the_economics_hash(
 def test_unknown_section_is_rejected(config: Config) -> None:
     raw = _as_jsonable(config)
     raw["extra"] = {}
-    with pytest.raises(ConfigError, match="незаявленные разделы"):
+    with pytest.raises(ConfigError, match="undeclared config sections"):
         parse_config(raw)
 
 
 def test_missing_section_is_rejected(config: Config) -> None:
     raw = _as_jsonable(config)
     del raw["budgets"]
-    with pytest.raises(ConfigError, match="нет разделов"):
+    with pytest.raises(ConfigError, match="missing the sections"):
         parse_config(raw)
 
 
 def test_non_integer_seed_is_rejected(config: Config) -> None:
     raw = _as_jsonable(config)
     raw["seeds"][GLOBAL_SEED_KEY] = 1.5
-    with pytest.raises(ConfigError, match="не целый"):
+    with pytest.raises(ConfigError, match="is not an integer"):
         parse_config(raw)
 
 
 def test_budgets_must_be_positive(config: Config) -> None:
-    with pytest.raises(ValueError, match="не положителен"):
+    with pytest.raises(ValueError, match="is not positive"):
         validate(replace(config, budgets=replace(config.budgets, fixed_point_iteration_cap=0)))
 
 
 def test_missing_file_is_reported(tmp_path: Path) -> None:
-    with pytest.raises(ConfigError, match="конфиг не найден"):
+    with pytest.raises(ConfigError, match="config not found"):
         load_config(tmp_path / "absent.json")
 
 
 def test_broken_json_is_reported(tmp_path: Path) -> None:
     path = tmp_path / "broken.json"
     path.write_text("{not json", encoding="utf-8")
-    with pytest.raises(ConfigError, match="не разбирается как JSON"):
+    with pytest.raises(ConfigError, match="does not parse as JSON"):
         load_config(path)

@@ -15,9 +15,8 @@ from typing import Any, Iterator
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
-    Constraints,
     ControlEvent,
     EventKind,
     OperatingStatus,
@@ -25,8 +24,9 @@ from backend.core.contracts import (
     Schedule,
     ScheduleMeta,
     WellState,
-    hash_schedule,
 )
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.shared.hashing import hash_schedule
 from backend.contexts.constraints.infrastructure.constraints_io import constraints_hash
 from backend.contexts.schedule.domain.case_limits import CaseLimitsOutcome, YearlyProduction
 
@@ -118,7 +118,7 @@ def _load_module() -> Any:
             for name in [
                 module
                 for module in sys.modules
-                if module.startswith("backend.ml")
+                if module.startswith("backend.contexts.surrogate")
                 or module.startswith("backend.contexts.optimization.application.environment")
             ]:
                 sys.modules.pop(name, None)
@@ -226,13 +226,13 @@ def _guard(constraints_actual: str) -> Any:
         name="constraints_hash",
         expected=constraints_actual,
         actual=constraints_actual,
-        source="тест",
+        source="test",
     )
     schedule_check = verification_run.GuardCheck(
         name="canonical_schedule_hash",
         expected="s",
         actual="s",
-        source="тест",
+        source="test",
     )
     return verification_run.GuardReport(schedule=schedule_check, constraints=check)
 
@@ -355,8 +355,8 @@ def test_document_carries_both_npvs_violations_wallclock_and_run_count() -> None
     assert document["totals"]["opm_runs"] == 2
     assert document["baseline"]["opm_runs"] == 1
     metrics = {row["metric"] for row in document["table"]}
-    assert "ЧДД, млрд руб" in metrics
-    assert "Прогонов OPM" in metrics
+    assert "NPV, bln RUB" in metrics
+    assert "OPM runs" in metrics
 
 
 def test_divergent_case_hash_between_sides_refuses_the_comparison() -> None:
@@ -380,7 +380,7 @@ def test_divergent_case_hash_between_sides_refuses_the_comparison() -> None:
             run_id="run-1",
         )
     assert "constraints_hash" in str(error.value)
-    assert "не в одних условиях" in str(error.value)
+    assert "not made under the same conditions" in str(error.value)
 
 
 def test_divergent_deck_hash_between_sides_refuses_the_comparison() -> None:
@@ -420,8 +420,8 @@ def test_missing_npv_on_a_side_is_refused_not_replaced_by_zero() -> None:
         )
     message = str(error.value)
     assert "candidate" in message
-    assert "не дала ЧДД" in message
-    assert "ноль" in message
+    assert "produced no NPV" in message
+    assert "zero" in message
 
 
 def test_missing_baseline_npv_is_refused_too() -> None:
@@ -450,8 +450,8 @@ def test_projection_without_a_forecast_is_an_explicit_refusal() -> None:
     with pytest.raises(verification_run.ComparisonError) as error:
         verification_run.project_baseline(BASELINE, CASE, DATES, None)
     message = str(error.value)
-    assert "оценщик" in message
-    assert "сумме уставок" in message
+    assert "production forecast" in message
+    assert "sum of setpoints" in message
 
 
 def test_projection_with_a_forecast_uses_it_and_reports_the_trim() -> None:
@@ -467,7 +467,7 @@ def test_projection_failure_is_reported_with_its_reason() -> None:
 
     with pytest.raises(verification_run.ComparisonError) as error:
         verification_run.project_baseline(BASELINE, CASE, DATES, blind)
-    assert "не спроецировано" in str(error.value)
+    assert "was not projected onto the case" in str(error.value)
 
 
 def test_comparison_writes_the_json_under_the_run_directory(
@@ -577,10 +577,10 @@ def test_comparison_table_is_ready_for_the_screen_without_arithmetic(
         verifier=_verifier(stub_tract, {"baseline": 7.0e9, "candidate": 8.0e9}),
     )
     rows = {row["metric"]: row for row in document["table"]}
-    assert rows["ЧДД, млрд руб"]["baseline"] == "7.000"
-    assert rows["ЧДД, млрд руб"]["candidate"] == "8.000"
-    assert rows["ЧДД, млрд руб"]["delta"] == "+1.000"
-    assert rows["Прогонов OPM"]["delta"] == "2"
+    assert rows["NPV, bln RUB"]["baseline"] == "7.000"
+    assert rows["NPV, bln RUB"]["candidate"] == "8.000"
+    assert rows["NPV, bln RUB"]["delta"] == "+1.000"
+    assert rows["OPM runs"]["delta"] == "2"
     for row in document["table"]:
         assert set(row) == {"metric", "baseline", "candidate", "delta"}
         assert all(isinstance(value, str) for value in row.values())
@@ -737,7 +737,7 @@ def test_divergent_opm_image_between_sides_refuses_the_comparison() -> None:
         verification_run.refuse_unequal_conditions(checks)
     message = str(error.value)
     assert "opm_image" in message
-    assert "не в одних условиях" in message
+    assert "not made under the same conditions" in message
     assert actual not in message
 
 

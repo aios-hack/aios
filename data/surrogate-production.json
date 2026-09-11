@@ -1,0 +1,28 @@
+{
+  "active_economic_model_version": "2eea7cac24b3b6140107fffd9ff5cd8fab54e3dc824b8f3628533c0fa4d74d30",
+  "active_economic_target_provenance_hash": "c3dbe15fa9f9f38b5b5c11304cae10d408662afd966b467db51d9465d760c277",
+  "feature_context": "model-night-20260826-v2/feature_context.json",
+  "format": "aios.surrogate-production-pointer.v1",
+  "npv_head": "npv-v6/physical-blend-locked/npv_head.pt",
+  "promotion_basis": {
+    "blind_dataset_hash": "95735715d1d0ad124ca1f3ef562b003a931c547cd6971459ecb2c1b3b311797e",
+    "blind_plan_hash": "112de57be7b96435ed7d4af6c6b277838a284d9c307c1c3b65035e0d1e816574",
+    "comparison_sha256": "ced1bfb31fbac59d779a7621b342ca5e84a0d04f6c83bedc0dde0f656422b604",
+    "format": "aios.surrogate-blind-npv-comparison.v1",
+    "promotion_gates": {
+      "candidate_mae_lower": true,
+      "candidate_precision_at5_noninferior": true,
+      "candidate_true_best_in_top5": true,
+      "complete_clean_dataset": true,
+      "mae_improvement_ci95_low_positive": true,
+      "spearman_ci95_noninferior": true,
+      "spearman_point_noninferior": true
+    }
+  },
+  "scenario_ood": {
+    "feature_context_sha256": "164efe9c442a81eebb4663e6fef37efab5a49bb34b6741a8f8576cea5f695190",
+    "path": "npv-v3/scenario_density_domain.pt",
+    "sha256": "61ca8e94c5346a1553f4864bd2aeab17738cba7d266f3f974170dee21bfac963"
+  },
+  "trajectory_checkpoint": "model-night-20260826-v2/physical/trajectory_ensemble.json"
+}

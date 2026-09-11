@@ -31,11 +31,11 @@ def split_examples(
     seed: int = 20260816,
 ) -> tuple[tuple[TrainingExample, ...], tuple[TrainingExample, ...], tuple[TrainingExample, ...]]:
     if not (0.0 < validation_fraction < 1.0 and 0.0 < test_fraction < 1.0):
-        raise SurrogateModelError("validation_fraction/test_fraction должны лежать в (0, 1)")
+        raise SurrogateModelError("validation_fraction/test_fraction must lie in (0, 1)")
     if validation_fraction + test_fraction >= 1.0:
-        raise SurrogateModelError("на train не осталось сценариев")
+        raise SurrogateModelError("no scenarios are left for train")
     if len(examples) < 7:
-        raise SurrogateModelError("для train/validation/test нужно хотя бы 7 сценариев")
+        raise SurrogateModelError("train/validation/test require at least 7 scenarios")
     generator = torch.Generator().manual_seed(seed)
     order = torch.randperm(len(examples), generator=generator).tolist()
     n_test = max(1, round(len(examples) * test_fraction))
@@ -67,7 +67,7 @@ def target_mae(
         totals = [total + float(value) for total, value in zip(totals, error)]
         count += actual.shape[0]
     if count == 0:
-        raise SurrogateModelError("метрики не считаются на пустом наборе")
+        raise SurrogateModelError("metrics are not computed on an empty set")
     return {name: total / count for name, total in zip(TARGET_NAMES, totals)}
 
 

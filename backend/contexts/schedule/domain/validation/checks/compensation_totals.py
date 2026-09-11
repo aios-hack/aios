@@ -3,10 +3,8 @@ from __future__ import annotations
 from collections.abc import (
     Sequence,
 )
-from backend.core.contracts import (
-    Groups,
-    IntervalResponse,
-)
+from backend.contexts.connectivity.domain.connectivity import Groups
+from backend.contexts.reservoir.domain.response import IntervalResponse
 
 
 def _compensation_totals(
@@ -27,18 +25,19 @@ def _reservoir_factors_at(
 ) -> tuple[float, float]:
     if control_step < 0 or control_step >= len(reservoir_factors):
         raise ValueError(
-            f"пересчёт компенсации в пластовые условия запрошен на шаге "
-            f"{control_step}, но пара (B_o, B_w) для него не передана: "
-            f"получено {len(reservoir_factors)} пар. Считать компенсацию по "
-            "коэффициентам соседнего шага значит выдать за пластовое условие "
-            "число, которого никто не считал"
+            f"conversion of compensation to reservoir conditions was "
+            f"requested on step {control_step}, but the (B_o, B_w) pair for "
+            f"it was not supplied: got {len(reservoir_factors)} pairs. "
+            "Computing compensation from the factors of a neighbouring step "
+            "would mean passing off a number nobody computed as a reservoir "
+            "condition"
         )
     oil_factor, water_factor = reservoir_factors[control_step]
     if oil_factor <= 0.0 or water_factor <= 0.0:
         raise ValueError(
-            f"пара объёмных коэффициентов на шаге {control_step} неположительна: "
-            f"B_o = {oil_factor}, B_w = {water_factor}; объём в пластовых "
-            "условиях по ним не определён"
+            f"the pair of formation volume factors on step {control_step} "
+            f"is non-positive: B_o = {oil_factor}, B_w = {water_factor}; the "
+            "volume under reservoir conditions is undefined for them"
         )
     return oil_factor, water_factor
 
@@ -53,9 +52,9 @@ def reservoir_step_totals(
 ) -> tuple[float, float]:
     if oil_density_t_per_m3 <= 0.0:
         raise ValueError(
-            "пересчёт компенсации в пластовые условия требует положительной "
-            f"плотности нефти, получено {oil_density_t_per_m3} т/м³: объём "
-            "нефти в поверхностных условиях по массе не восстановить"
+            "conversion of compensation to reservoir conditions requires a "
+            f"positive oil density, got {oil_density_t_per_m3} t/m3: the oil "
+            "volume under surface conditions cannot be recovered from mass"
         )
     oil_volume = oil_mass_t / oil_density_t_per_m3
     water_volume = max(0.0, liquid_volume_m3 - oil_volume)
@@ -107,10 +106,11 @@ def _compensation_group_totals(
     )
     if uncovered:
         raise ValueError(
-            "групповая компенсация требует, чтобы каждая скважина отклика "
-            f"принадлежала участку, вне участков остались: {', '.join(uncovered)}; "
-            "считать C(k) по неполной нарезке значит объявить проверку "
-            "выполненной там, где часть отбора и закачки не учтена"
+            "per-group compensation requires every well of the response to "
+            f"belong to a group, left outside groups: "
+            f"{', '.join(uncovered)}; computing C(k) over an incomplete "
+            "split would mean declaring the check performed where part of "
+            "the withdrawal and injection is not accounted for"
         )
     surface: dict[tuple[int, str], tuple[float, float, float]] = {}
     for item in interval_responses:
@@ -129,8 +129,9 @@ def _compensation_group_totals(
         }
     if oil_density_t_per_m3 is None:
         raise ValueError(
-            "пересчёт групповой компенсации в пластовые условия запрошен "
-            "без плотности нефти: объём нефти в отборе не восстановить"
+            "conversion of per-group compensation to reservoir conditions "
+            "was requested without oil density: the oil volume in the "
+            "withdrawal cannot be recovered"
         )
     totals: dict[tuple[int, str], tuple[float, float]] = {}
     for key, (oil, liquid, injection) in surface.items():

@@ -51,8 +51,8 @@ def system_map(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
         if node is None:
             known = ", ".join(sorted(item.id for item in carte.nodes()))
             raise ToolFailure(
-                f"узла {requested!r} нет в карте системы: известные узлы — "
-                f"{known}; выдумывать компоненты платформы нельзя"
+                f"node {requested!r} is not in the system map: known nodes are "
+                f"{known}; platform components must not be invented"
             )
         focus_id = node.id
     depth = arguments.get("depth")
@@ -95,16 +95,15 @@ def _champion() -> dict[str, Any]:
         return {
             "recorded": False,
             "reason": (
-                f"файла чемпиона {path} нет: закреплённого лучшего прогона "
-                "OPM не записано"
+                f"there is no champion file {path}: no pinned best OPM run is recorded"
             ),
         }
     try:
         loaded = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as error:
-        return {"recorded": False, "reason": f"файл чемпиона {path} не читается: {error}"}
+        return {"recorded": False, "reason": f"champion file {path} cannot be read: {error}"}
     if not isinstance(loaded, dict):
-        return {"recorded": False, "reason": f"файл чемпиона {path} не объект JSON"}
+        return {"recorded": False, "reason": f"champion file {path} is not a JSON object"}
     water = loaded.get("water") or {}
     return {
         "recorded": True,

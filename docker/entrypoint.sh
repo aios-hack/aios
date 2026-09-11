@@ -45,7 +45,7 @@ cmd_npv() {
         exit 2
     fi
     mkdir -p "$OUT_DIR"
-    exec python -m backend.presentation.cli.npv --out "$OUT_DIR" "$@"
+    exec aios npv --out "$OUT_DIR" "$@"
 }
 
 cmd_emit() {
@@ -55,7 +55,7 @@ cmd_emit() {
         exit 2
     fi
     mkdir -p "$OUT_DIR"
-    exec python -m backend.presentation.cli.emit --out "$OUT_DIR" "$@"
+    exec aios emit --out "$OUT_DIR" "$@"
 }
 
 cmd_web() {
@@ -72,7 +72,7 @@ cmd_web() {
             exit 4
         fi
     done
-    exec python -m backend.presentation.cli.web --host "${AIOS_HOST:-0.0.0.0}" --port "${AIOS_PORT:-8000}" "$@"
+    exec aios web --host "${AIOS_HOST:-0.0.0.0}" --port "${AIOS_PORT:-8000}" "$@"
 }
 
 cmd_jarvis() {
@@ -92,7 +92,7 @@ cmd_jarvis() {
         echo "распознавание речи остаётся браузерным." >&2
     fi
     mkdir -p "$OUT_DIR/jarvis/tts" "${AIOS_JARVIS_SESSIONS:-$OUT_DIR/jarvis/sessions}"
-    exec python -m backend.presentation.cli.jarvis --host "${AIOS_JARVIS_HOST:-0.0.0.0}" --port "${AIOS_JARVIS_PORT:-8010}" "$@"
+    exec aios jarvis --host "${AIOS_JARVIS_HOST:-0.0.0.0}" --port "${AIOS_JARVIS_PORT:-8010}" "$@"
 }
 
 cmd_webdata() {
@@ -118,7 +118,7 @@ cmd_webdata() {
     if [ -f /app/data/lambda-window-2007/lambda.json ]; then
         export AIOS_LAMBDA_PATH=/app/data/lambda-window-2007/lambda.json
     fi
-    python -m backend.presentation.ui_export.demo
+    aios showcase
     for path in wells.json graph.json hierarchy-index.json npv.json timeline.json scenarios.json; do
         test -f "/app/frontend/public/data/$path"
     done
@@ -126,7 +126,7 @@ cmd_webdata() {
 }
 
 cmd_selfcheck() {
-    python -m backend.presentation.cli.selfcheck "$@"
+    aios selfcheck "$@"
 }
 
 cmd_repeat() {

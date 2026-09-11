@@ -12,13 +12,11 @@ from pathlib import Path
 from typing import (
     Mapping,
 )
-from backend.core.contracts import (
-    Lambda,
-)
+from backend.contexts.connectivity.domain.connectivity import Lambda
 from backend.contexts.connectivity.domain.groups import (
     lambda_hash,
 )
-from backend.contexts.surrogate.infrastructure.model_z_context import ModelZFeatureArtifact
+from backend.contexts.surrogate.domain.model_z_artifact import ModelZFeatureArtifact
 
 
 LAMBDA_STRICT_ENV = "AIOS_LAMBDA_STRICT"
@@ -34,7 +32,7 @@ def npv_blend_provenance(npv_head: object | None) -> dict[str, str]:
     if npv_head is None:
         return {
             "npv_head_version": "none",
-            "npv_blend_mode": "absent: голова прямого прогноза не загружена",
+            "npv_blend_mode": "absent: the direct forecast head is not loaded",
             "npv_physical_weight": "none",
             "npv_direct_weight": "none",
             "npv_physical_ensemble_version": "none",
@@ -43,15 +41,15 @@ def npv_blend_provenance(npv_head: object | None) -> dict[str, str]:
     weight = getattr(npv_head, "physical_npv_weight", None)
     if weight is None:
         raise ScheduleSearchError(
-            "голова ЧДД не сообщает physical_npv_weight: долю физической части "
-            "бленда нельзя записать в провенанс, а прогноз ЧДД без неё "
-            "невоспроизводим"
+            "the NPV head does not report physical_npv_weight: the share of the "
+            "physical part of the blend cannot be recorded in the provenance, "
+            "and an NPV forecast without it is not reproducible"
         )
     physical = float(weight)
     if not math.isfinite(physical) or not 0.0 <= physical <= 1.0:
         raise ScheduleSearchError(
-            f"доля физической части бленда {physical!r} вне отрезка [0, 1]: "
-            "провенанс ЧДД описывал бы несуществующую смесь"
+            f"the physical share of the blend {physical!r} is outside [0, 1]: "
+            "the NPV provenance would describe a mixture that does not exist"
         )
     return {
         "npv_head_version": str(getattr(npv_head, "version", "") or "unversioned"),
@@ -81,7 +79,7 @@ def lambda_sync_provenance(
     search_hash = lambda_hash(lambda_)
     context_hashes = _context_lambda_hashes(feature_context)
     record = {
-        "lambda_path": "none: связность не измерялась" if lambda_path is None else str(lambda_path),
+        "lambda_path": "none: connectivity was not measured" if lambda_path is None else str(lambda_path),
         "lambda_window": f"{lambda_.window_start}..{lambda_.window_end}",
         "lambda_search_hash": search_hash,
         "lambda_context_hashes": ",".join(context_hashes) if context_hashes else "none",
@@ -93,14 +91,14 @@ def lambda_sync_provenance(
     if lambda_path is None:
         record["lambda_sync"] = "not-applicable"
         record["lambda_sync_detail"] = (
-            "поиск идёт на нулевой связности, сверять с обучающей λ нечего"
+            "the search runs on zero connectivity, there is nothing to check against the training λ"
         )
         return record
     if not context_hashes:
         message = (
-            "контекст признаков не содержит ни одного окна λ: на какой матрице "
-            "связности обучались признаки — установить нельзя, поэтому "
-            "рассинхронизацию с λ поиска обнаружить невозможно"
+            "the feature context contains no λ window: which connectivity matrix "
+            "the features were trained on cannot be established, so a desync "
+            "with the search λ cannot be detected"
         )
         record["lambda_sync"] = "unknown"
         record["lambda_sync_detail"] = message
@@ -110,15 +108,16 @@ def lambda_sync_provenance(
     if search_hash in context_hashes:
         record["lambda_sync"] = "match"
         record["lambda_sync_detail"] = (
-            f"λ поиска {search_hash} совпала с окном, на котором обучался контекст"
+            f"the search λ {search_hash} matched the window the context was trained on"
         )
         return record
     message = (
-        f"λ поиска ({lambda_path}, окно {lambda_.window_start}..{lambda_.window_end}, "
-        f"хеш {search_hash}) не совпадает ни с одним окном, на котором обучался "
-        f"контекст признаков (хеши {', '.join(context_hashes)}): поиск считает на "
-        "одной матрице связности, а признаки обучены на другой, поэтому прогноз "
-        "смещён систематически и по самому прогнозу это не видно"
+        f"the search λ ({lambda_path}, window {lambda_.window_start}..{lambda_.window_end}, "
+        f"hash {search_hash}) matches none of the windows the feature context "
+        f"was trained on (hashes {', '.join(context_hashes)}): the search "
+        "computes on one connectivity matrix while the features were trained on "
+        "another, so the forecast is systematically biased and this is not "
+        "visible from the forecast itself"
     )
     record["lambda_sync"] = "desync"
     record["lambda_sync_detail"] = message
@@ -134,35 +133,35 @@ def _validate_npv_head_compatibility(
     if context_hash:
         actual = hashlib.sha256(Path(feature_context_path).read_bytes()).hexdigest()
         if context_hash != actual:
-            raise ScheduleSearchError("NPV head обучен на другом feature context")
+            raise ScheduleSearchError("the NPV head was trained on a different feature context")
     elif getattr(npv_head, "dataset_hash", None) != getattr(
         model, "dataset_hash", None
     ):
         raise ScheduleSearchError(
-            "NPV head и trajectory model обучены на разных данных"
+            "the NPV head and the trajectory model were trained on different data"
         )
     if getattr(npv_head, "wells", None) != getattr(model, "wells", None):
         raise ScheduleSearchError(
-            "NPV head и trajectory model имеют разный фонд скважин"
+            "the NPV head and the trajectory model have different well stocks"
         )
     if getattr(npv_head, "static_feature_names", None) != getattr(
         model, "static_feature_names", None
     ):
-        raise ScheduleSearchError("NPV head и trajectory model имеют разную статику")
+        raise ScheduleSearchError("the NPV head and the trajectory model have different statics")
     physical_weight = float(getattr(npv_head, "physical_npv_weight", 0.0))
     if physical_weight > 0.0 and getattr(
         npv_head, "physical_ensemble_version", ""
     ) != getattr(model, "version", None):
         raise ScheduleSearchError(
-            "NPV blend заморожен под другую trajectory ensemble"
+            "the NPV blend is frozen against a different trajectory ensemble"
         )
 
 
 _AMBIGUOUS_NPV_SCORING = (
-    "одновременно заданы аффинная калибровка ЧДД и голова прямого прогноза: "
-    "калибровка подобрана на сыром физическом ЧДД и к бленду головы "
-    "неприменима — итоговое число было бы посчитано не тем, чем заявлено; "
-    "оставьте один механизм"
+    "an affine NPV calibration and a direct forecast head are set at the same "
+    "time: the calibration was fitted on the raw physical NPV and does not "
+    "apply to the head blend — the final number would be computed by something "
+    "other than what is declared; keep one mechanism"
 )
 
 

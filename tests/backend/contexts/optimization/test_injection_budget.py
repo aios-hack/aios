@@ -10,9 +10,8 @@ from typing import Any, Sequence
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
-    Constraints,
     ControlEvent,
     EventKind,
     OperatingStatus,
@@ -21,6 +20,7 @@ from backend.core.contracts import (
     ScheduleMeta,
     WellState,
 )
+from backend.contexts.constraints.domain.constraints import Constraints
 from backend.contexts.constraints.domain.constraints import (
     DEFAULT_WATER_SAFETY_FACTOR,
     WATER_SAFETY_FACTOR,
@@ -90,7 +90,7 @@ def _function_def(module: ast.Module, name: str) -> ast.FunctionDef:
     for node in module.body:
         if isinstance(node, ast.FunctionDef) and node.name == name:
             return node
-    raise AssertionError(f"функция {name} не найдена")
+    raise AssertionError(f"function {name} not found")
 
 
 def _identity_projection(event: ControlEvent, hard: Any) -> ControlEvent:

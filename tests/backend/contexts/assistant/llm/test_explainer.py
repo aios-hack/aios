@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import Rule, TraceEntry
+from backend.contexts.policy.domain.policy import Rule, TraceEntry
 from backend.contexts.assistant.infrastructure.llm.explainer import (
     build_explanation_prompt,
     explain,

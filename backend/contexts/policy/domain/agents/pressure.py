@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from backend.core.contracts import EventKind, Role, Rule, TraceEntry
+from backend.contexts.schedule.domain.schedule import EventKind, Role
+from backend.contexts.policy.domain.policy import Rule, TraceEntry
 
 from backend.contexts.policy.domain.agents.base import Bound, BoundSense, Proposal
 from backend.contexts.policy.domain.levels import Level, LeveledTraceEntry
@@ -29,18 +30,18 @@ class PressureCorridor:
     def __post_init__(self) -> None:
         if self.value_bar <= 0.0:
             raise ValueError(
-                f"пластовое давление {self.value_bar} бар неположительно: "
-                f"расстояние до предела не вычислимо"
+                f"reservoir pressure {self.value_bar} bar is not positive: "
+                f"the distance to the limit cannot be computed"
             )
         if not 0.0 < self.approach_fraction <= 1.0:
             raise ValueError(
-                f"доля коридора для порога приближения должна лежать в "
-                f"(0, 1], получено {self.approach_fraction}"
+                f"the corridor fraction for the approach threshold must lie in "
+                f"(0, 1], got {self.approach_fraction}"
             )
         if self.floor_bar is None and self.ceiling_bar is None:
             raise ValueError(
-                "коридор пластового давления без единого предела: "
-                "приближаться не к чему"
+                "a reservoir pressure corridor without a single limit: "
+                "there is nothing to approach"
             )
         if (
             self.floor_bar is not None
@@ -48,8 +49,8 @@ class PressureCorridor:
             and self.ceiling_bar <= self.floor_bar
         ):
             raise ValueError(
-                f"потолок пластового давления {self.ceiling_bar} бар не выше "
-                f"пола {self.floor_bar} бар: коридор пуст"
+                f"the reservoir pressure ceiling {self.ceiling_bar} bar is not above "
+                f"the floor {self.floor_bar} bar: the corridor is empty"
             )
 
     def width_bar(self) -> float:
@@ -58,8 +59,8 @@ class PressureCorridor:
         known = self.floor_bar if self.ceiling_bar is None else self.ceiling_bar
         if known is None:
             raise ValueError(
-                "ширина коридора пластового давления не определена: "
-                "ни один предел не задан"
+                "the width of the reservoir pressure corridor is undefined: "
+                "not a single limit is set"
             )
         return known
 
@@ -88,8 +89,8 @@ class PressureCorridor:
         margin = self.margin_bar()
         if margin <= 0.0:
             raise ValueError(
-                "порог приближения к пределу давления нулевой: "
-                "во сколько раз снижать уставку — не определено"
+                "the threshold for approaching the pressure limit is zero: "
+                "by what factor to reduce the setpoint is undefined"
             )
         share = max(0.0, min(1.0, headroom_bar / margin))
         return RELIEF_FRACTION + (1.0 - RELIEF_FRACTION) * share
@@ -108,9 +109,9 @@ class PressureRestriction:
     def __post_init__(self) -> None:
         if self.value_m3_per_day < 0.0:
             raise ValueError(
-                f"{self.well}: потолок по пластовому давлению отрицателен "
-                f"({self.value_m3_per_day} м³/сут) — ограничение "
-                f"не интерпретируемо"
+                f"{self.well}: the reservoir pressure ceiling is negative "
+                f"({self.value_m3_per_day} m3/day): the bound is "
+                f"not interpretable"
             )
 
     def side(self) -> float:
@@ -179,9 +180,9 @@ def restriction_for(
         kind = EventKind.SET_LRAT
     if headroom is None or limit is None:
         raise ValueError(
-            f"{well}: предел пластового давления объявлен приближенным, "
-            f"но само значение предела не задано — во что упирается уставка, "
-            f"назвать нечем"
+            f"{well}: the reservoir pressure limit is declared as approached, "
+            f"but the limit value itself is not set: there is nothing to name "
+            f"what the setpoint runs into"
         )
     return PressureRestriction(
         well=well,
@@ -200,12 +201,12 @@ class PressureAgent:
     level: Level = Level.FIELD
     rank: int = PRESSURE_AGENT_RANK
     responsibilities: tuple[str, ...] = (
-        "снижает закачку при подходе среднего пластового давления к потолку "
-        "кейса и отбор при подходе к полу, выставляя потолки на уставки",
-        "ограничивает, а не назначает: пределы приходят из кейса через "
-        "RuleContext, агент их не выводит и не смягчает",
-        "молчит, когда давление или его пределы в контексте не объявлены, "
-        "и тогда шаг совпадает с прогоном без агента бит в бит",
+        "reduces injection as the average reservoir pressure approaches the case "
+        "ceiling, and production as it approaches the floor, by placing ceilings on setpoints",
+        "constrains rather than assigns: the limits come from the case through "
+        "RuleContext, and the agent neither derives nor relaxes them",
+        "stays silent when the pressure or its limits are not declared in the context, "
+        "and then the step matches a run without the agent bit for bit",
     )
 
     def restrictions(

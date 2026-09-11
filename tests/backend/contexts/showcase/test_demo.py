@@ -8,14 +8,14 @@ from typing import Any
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     ControlEvent,
     EventKind,
     FixedDeckEvent,
     N_CONTROL_DATES,
-    RunArtifact,
     T0,
 )
+from backend.contexts.runs.domain.run_artifact import RunArtifact
 from backend.contexts.reservoir.domain.response import N_DECK_DATES
 from backend.contexts.showcase.infrastructure.artifact_io import load_bundle
 from backend.contexts.showcase.application.base_artifact import (
@@ -63,11 +63,9 @@ REAL_VIEW_FILES = ("timeline.json", "graph.json", "npv.json", "trace.json")
 ROOT_FILES = ("scenarios.json", "wells.json", "demo-script.json")
 EVENT_TYPES = ("COMMISSIONED", "ROLE_CHANGE", "SHUT", "RULE_FIRED", "MORPH")
 
-# Сборка витрины требует отклика настоящего прогона; сам документ ролика
-# и разбор событий от него не зависят и проверяются на фикстуре ниже.
 needs_base_run = pytest.mark.skipif(
     not DEFAULT_RESPONSE_PATH.is_file(),
-    reason=missing_reason(f"отклик настоящего базового прогона Model_Z ({DEFAULT_RESPONSE_PATH})"),
+    reason=missing_reason(f"real Model_Z base run response ({DEFAULT_RESPONSE_PATH})"),
 )
 
 
@@ -76,7 +74,7 @@ def demo_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
     if not DEFAULT_RESPONSE_PATH.is_file():
         pytest.skip(
             missing_reason(
-                f"отклик настоящего базового прогона Model_Z ({DEFAULT_RESPONSE_PATH})"
+                f"real Model_Z base run response ({DEFAULT_RESPONSE_PATH})"
             )
         )
     out = tmp_path_factory.mktemp("demo")
@@ -89,8 +87,6 @@ def _read(path: Path) -> dict:
 
 
 def _nan_safe_equal(left: Any, right: Any) -> bool:
-    """`NaN != NaN` в IEEE-754 — `df` per-well законно `NaN` (не определён на
-    сумме по горизонту, `economics.npv.py`), сравнивать `==` напрямую нельзя."""
 
     if isinstance(left, float) and isinstance(right, float) and math.isnan(left) and math.isnan(right):
         return True
@@ -133,11 +129,10 @@ def test_whatif_scenario_carries_the_synthetic_flag(demo_dir: Path) -> None:
             meta = data["__meta__"] if name == "trace.json" else data["meta"]
             assert meta["provenance"] == DEMO_PROVENANCE
             assert meta["synthetic"] is True
-            assert meta["notice_ru"] and meta["notice_en"]
+            assert meta["notice_key"] and meta["notice"]
 
 
 def test_base_scenario_is_marked_real_not_synthetic(demo_dir: Path) -> None:
-    """G3: `base` — настоящий расчёт, `synthetic-demo` из него убрана (аудит D2)."""
 
     for scenario in ("", BASE_ID):
         for name in REAL_VIEW_FILES:
@@ -145,7 +140,7 @@ def test_base_scenario_is_marked_real_not_synthetic(demo_dir: Path) -> None:
             meta = data["__meta__"] if name == "trace.json" else data["meta"]
             assert meta["provenance"] == REAL_PROVENANCE
             assert meta["synthetic"] is False
-            assert meta["notice_ru"] and meta["notice_en"]
+            assert meta["notice_key"] and meta["notice"]
 
 
 def test_scenarios_index_meta_is_honest_about_mixed_provenance(demo_dir: Path) -> None:
@@ -181,9 +176,6 @@ def test_view_files_match_their_builders(demo_dir: Path) -> None:
 
 
 def test_scenario_index_has_no_submitted_scenario_yet(demo_dir: Path) -> None:
-    """`base` — настоящий расчёт, но не прошёл финальный тракт сдачи (задача 62/G6):
-    `final_npv` — единственный разрешённый источник заявленного числа (README §6a),
-    и заполнять его до тракта — заявлять то, что ещё не проверено."""
 
     bundles = [demo_dir / "bundles" / f"{name}.json" for name in (BASE_ID, WHATIF_ID)]
     index = build_scenario_index(bundles)
@@ -204,7 +196,8 @@ def test_demo_meta_is_honest_about_being_synthetic() -> None:
     meta = demo_meta("timeline")
     assert meta["provenance"] == DEMO_PROVENANCE
     assert meta["synthetic"] is True
-    assert "не результат расчёта" in meta["notice_ru"]
+    assert meta["notice_key"] == "showcase.notice.demo"
+    assert "не результат расчёта" in meta["notice"]
 
 
 def _script_of(artifact: RunArtifact) -> dict:
@@ -228,9 +221,6 @@ def test_demo_script_uses_only_the_declared_event_types() -> None:
 
 
 def test_every_event_frame_is_confirmed_by_the_data_of_its_step() -> None:
-    """Кадр без подтверждения интерфейс выбрасывает. Генератор обязан
-    выдавать только подтверждаемые: событие берётся из настоящей смены
-    состояния или настоящей записи трассы, а не выдумывается."""
 
     artifact = make_synthetic_artifact()
     densities = {well: _DEFAULT_DENSITY for well in artifact.schedule.meta.wells}
@@ -267,8 +257,6 @@ def test_demo_script_is_deterministic() -> None:
 
 
 def test_demo_script_fits_the_target_length() -> None:
-    """~60 секунд: ролик показывают на защите, и он не должен ни обрываться,
-    ни идти вдвое дольше слота."""
 
     script = _script_of(make_synthetic_artifact())
     assert script["total_ms"] == sum(frame["hold_ms"] for frame in script["frames"])
@@ -304,8 +292,6 @@ def _with_events(artifact: RunArtifact, *events: ControlEvent) -> RunArtifact:
 
 
 def test_state_transitions_of_the_bundle_become_events() -> None:
-    """Смена роли и остановка обязаны попадать в список кадров: без них
-    ролик показывает одни правила и о жизни фонда не рассказывает."""
 
     artifact = _with_events(
         make_synthetic_artifact(),

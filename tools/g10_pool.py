@@ -1,13 +1,3 @@
-"""G10, фаза 1: пул кандидатов CMA-ES и top-K по предсказанию суррогата.
-
-Пункт 4 запросов Андрея (`SURROGATE-REQUESTS-20.08.md`). Поиск тот же, что в
-`optimizer/search_run.py`, с тем же seed — первое место обязано совпасть с
-записанной θ*. Отличие одно: сохраняется вся история оценок, а не только
-лучшая, потому что проверять настоящим OPM предстоит top-K, а не победителя.
-
-Запуск: `PYTHONPATH=. python tools/g10_pool.py [K] [бюджет]`.
-"""
-
 from __future__ import annotations
 
 import json
@@ -18,9 +8,9 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from backend.shared.resources import model_z_dir, normatives_xlsx
-from backend.core.contracts import OptimizerResult
-from backend.core.contracts.hashing import hash_schedule
-from backend.domain.economics import load_response_artifact
+from backend.contexts.policy.domain.policy import OptimizerResult
+from backend.shared.hashing import hash_schedule
+from backend.contexts.economics.application.base_case import load_response_artifact
 from backend.contexts.optimization.application.environment import (
     load_environment,
     make_evaluator,
@@ -61,7 +51,7 @@ def main() -> int:
         result = resolve(make_policy(env, theta, {}), evaluator, initial, SEARCH_CAP)
         calls["n"] += 1
         if calls["n"] % 10 == 0:
-            print(f"  оценка {calls['n']:3d}/{POOL_BUDGET}", flush=True)
+            print(f"  evaluation {calls['n']:3d}/{POOL_BUDGET}", flush=True)
         return OptimizerResult(
             objective=max(item.npv for item in result.visited),
             feasible=True,
@@ -69,21 +59,19 @@ def main() -> int:
             provenance={"seed": str(SEED)},
         )
 
-    print(f"CMA-ES: бюджет {POOL_BUDGET}, seed {SEED}, потолок поиска {SEARCH_CAP}", flush=True)
+    print(f"CMA-ES: budget {POOL_BUDGET}, seed {SEED}, search cap {SEARCH_CAP}", flush=True)
     started = time.monotonic()
     report = optimize(objective, default_theta(), seed=SEED, max_evaluations=POOL_BUDGET)
     print(
-        f"поиск закончен за {(time.monotonic() - started) / 60:.1f} мин, "
-        f"оценок {report.evaluations}, поколений {report.generations}",
+        f"search finished in {(time.monotonic() - started) / 60:.1f} min, "
+        f"evaluations {report.evaluations}, generations {report.generations}",
         flush=True,
     )
 
     ordered = sorted(report.history, key=lambda item: -item.result.objective)
-    # Разные θ могут давать одно расписание: платить за одинаковый прогон OPM
-    # дважды незачем, дедупликация идёт по хешу плана, а не по θ.
     chosen: list[dict] = []
     seen: set[str] = set()
-    print(f"\nвосстанавливаем планы top-{TOP_K} полным потолком {FINAL_CAP}:", flush=True)
+    print(f"\nrebuilding the top-{TOP_K} plans with the full cap {FINAL_CAP}:", flush=True)
     for item in ordered:
         if len(chosen) >= TOP_K:
             break
@@ -92,7 +80,7 @@ def main() -> int:
         best = max(final.visited, key=lambda visited: visited.npv)
         digest = hash_schedule(best.schedule)
         if digest in seen:
-            print(f"  пропуск: план повторяет уже отобранный ({digest[:12]}…)", flush=True)
+            print(f"  skipped: the plan repeats an already selected one ({digest[:12]}...)", flush=True)
             continue
         seen.add(digest)
         chosen.append(
@@ -106,9 +94,9 @@ def main() -> int:
             }
         )
         print(
-            f"  {len(chosen):2d}/{TOP_K}: предсказание {best.npv / 1e9:7.3f} млрд "
-            f"(поисковое {item.result.objective / 1e9:7.3f}), {digest[:12]}…, "
-            f"{time.monotonic() - started:.0f} с",
+            f"  {len(chosen):2d}/{TOP_K}: forecast {best.npv / 1e9:7.3f} bln "
+            f"(search value {item.result.objective / 1e9:7.3f}), {digest[:12]}..., "
+            f"{time.monotonic() - started:.0f} s",
             flush=True,
         )
 
@@ -131,7 +119,7 @@ def main() -> int:
         ),
         encoding="utf-8",
     )
-    print(f"\nпул записан: {OUT / 'pool.json'}, кандидатов {len(chosen)}", flush=True)
+    print(f"\npool written: {OUT / 'pool.json'}, candidates {len(chosen)}", flush=True)
     return 0
 
 

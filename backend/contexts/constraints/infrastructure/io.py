@@ -9,15 +9,15 @@ from dataclasses import fields
 from pathlib import Path
 from typing import Any, Mapping
 
-from backend.core.contracts import (
+from backend.contexts.constraints.domain.config import (
     ArtifactHashes,
     Budgets,
     ChargeInitialEsp,
     Config,
     Policies,
     QuantizationPolicy,
-    Rule,
 )
+from backend.contexts.policy.domain.policy import Rule
 
 from backend.contexts.constraints.domain.normatives import normatives_from_mapping
 from backend.contexts.constraints.domain.schema import validate
@@ -39,7 +39,7 @@ _BUDGET_FIELDS: tuple[str, ...] = tuple(f.name for f in fields(Budgets))
 def _section(raw: Mapping[str, Any], name: str) -> Mapping[str, Any]:
     value = raw[name]
     if not isinstance(value, Mapping):
-        raise ConfigError(f"раздел {name} подан не отображением")
+        raise ConfigError(f"section {name} is not given as a mapping")
     return value
 
 
@@ -47,18 +47,18 @@ def _policies(raw: Mapping[str, Any]) -> Policies:
     known = {"charge_initial_esp", "quantization_policy"}
     missing = known - set(raw)
     if missing:
-        raise ConfigError(f"в разделе policies нет {sorted(missing)}")
+        raise ConfigError(f"the policies section is missing {sorted(missing)}")
     unknown = set(raw) - known
     if unknown:
         raise ConfigError(
-            f"снятые или незаявленные политики: {sorted(unknown)}; "
-            f"tax_policy и liquid_opex_policy закрыты 15.08 и не воскрешаются"
+            f"withdrawn or undeclared policies: {sorted(unknown)}; "
+            f"tax_policy and liquid_opex_policy were closed on 15.08 and are not revived"
         )
     try:
         charge = ChargeInitialEsp(raw["charge_initial_esp"])
         quantization = QuantizationPolicy(raw["quantization_policy"])
     except ValueError as error:
-        raise ConfigError(f"нераспознанное значение политики: {error}") from error
+        raise ConfigError(f"unrecognised policy value: {error}") from error
     return Policies(charge_initial_esp=charge, quantization_policy=quantization)
 
 
@@ -68,14 +68,14 @@ def _rules(raw: Mapping[str, Any]) -> dict[Rule, bool]:
         try:
             rule = Rule(name)
         except ValueError as error:
-            raise ConfigError(f"неизвестное правило {name}") from error
+            raise ConfigError(f"unknown rule {name}") from error
         if not isinstance(enabled, bool):
-            raise ConfigError(f"флаг {name}={enabled!r} не булев")
+            raise ConfigError(f"flag {name}={enabled!r} is not a boolean")
         parsed[rule] = enabled
     missing = set(Rule) - set(parsed)
     if missing:
         raise ConfigError(
-            f"флаги правил заданы не для всех: {sorted(r.value for r in missing)}"
+            f"rule flags are not given for all rules: {sorted(r.value for r in missing)}"
         )
     return parsed
 
@@ -83,20 +83,20 @@ def _rules(raw: Mapping[str, Any]) -> dict[Rule, bool]:
 def _budgets(raw: Mapping[str, Any]) -> Budgets:
     missing = set(_BUDGET_FIELDS) - set(raw)
     if missing:
-        raise ConfigError(f"в разделе budgets нет {sorted(missing)}")
+        raise ConfigError(f"the budgets section is missing {sorted(missing)}")
     unknown = set(raw) - set(_BUDGET_FIELDS)
     if unknown:
-        raise ConfigError(f"незаявленные бюджеты: {sorted(unknown)}")
+        raise ConfigError(f"undeclared budgets: {sorted(unknown)}")
     return Budgets(**{name: int(raw[name]) for name in _BUDGET_FIELDS})
 
 
 def _hashes(raw: Mapping[str, Any]) -> ArtifactHashes:
     missing = set(_HASH_FIELDS) - set(raw)
     if missing:
-        raise ConfigError(f"в разделе hashes нет {sorted(missing)}")
+        raise ConfigError(f"the hashes section is missing {sorted(missing)}")
     unknown = set(raw) - set(_HASH_FIELDS)
     if unknown:
-        raise ConfigError(f"незаявленные хеши: {sorted(unknown)}")
+        raise ConfigError(f"undeclared hashes: {sorted(unknown)}")
     return ArtifactHashes(**{name: str(raw[name]) for name in _HASH_FIELDS})
 
 
@@ -104,7 +104,7 @@ def _seeds(raw: Mapping[str, Any]) -> dict[str, int]:
     seeds: dict[str, int] = {}
     for name, value in raw.items():
         if isinstance(value, bool) or not isinstance(value, int):
-            raise ConfigError(f"seed {name}={value!r} не целый")
+            raise ConfigError(f"seed {name}={value!r} is not an integer")
         seeds[name] = value
     return seeds
 
@@ -116,10 +116,10 @@ def _theta(raw: Mapping[str, Any]) -> dict[str, float]:
 def parse_config(raw: Mapping[str, Any]) -> Config:
     missing = set(REQUIRED_SECTIONS) - set(raw)
     if missing:
-        raise ConfigError(f"в конфиге нет разделов {sorted(missing)}")
+        raise ConfigError(f"the config is missing the sections {sorted(missing)}")
     unknown = set(raw) - set(REQUIRED_SECTIONS)
     if unknown:
-        raise ConfigError(f"незаявленные разделы конфига: {sorted(unknown)}")
+        raise ConfigError(f"undeclared config sections: {sorted(unknown)}")
     config = Config(
         seeds=_seeds(_section(raw, "seeds")),
         policies=_policies(_section(raw, "policies")),
@@ -135,13 +135,13 @@ def parse_config(raw: Mapping[str, Any]) -> Config:
 
 def load_config(path: Path) -> Config:
     if not path.exists():
-        raise ConfigError(f"конфиг не найден: {path}")
+        raise ConfigError(f"config not found: {path}")
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
-        raise ConfigError(f"{path}: не разбирается как JSON — {error}") from error
+        raise ConfigError(f"{path}: does not parse as JSON — {error}") from error
     if not isinstance(raw, Mapping):
-        raise ConfigError(f"{path}: корень конфига не отображение")
+        raise ConfigError(f"{path}: the config root is not a mapping")
     return parse_config(raw)
 
 

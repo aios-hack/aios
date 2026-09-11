@@ -130,18 +130,18 @@ def _dataset_status(
 
 
 _PHASE_LABELS = {
-    "waiting_pilot": "Ожидается пилотный датасет",
-    "freezing_pilot_200": "Загрузка пилотных 200 прогонов",
-    "generating_extra_500": "Загрузка дополнительных 500 прогонов",
-    "loading_pilot_200": "Загрузка пилотных 200 прогонов",
-    "preparing_training_700": "Подготовка обучения на 700 сценариях",
-    "splitting_700": "Разбиение на train / validation / holdout",
-    "building_context_700": "Расчёт контекста и матрицы влияния",
-    "featureizing_700": "Построение признаков и целевых значений",
-    "training_combined_700": "Обучение нейросети",
-    "evaluating_700": "Расчёт holdout-метрик",
-    "complete": "Обучение и оценка завершены",
-    "failed": "Обучение остановлено с ошибкой",
+    "waiting_pilot": "Waiting for the pilot dataset",
+    "freezing_pilot_200": "Loading the 200 pilot runs",
+    "generating_extra_500": "Loading the 500 extra runs",
+    "loading_pilot_200": "Loading the 200 pilot runs",
+    "preparing_training_700": "Preparing training on 700 scenarios",
+    "splitting_700": "Splitting into train / validation / holdout",
+    "building_context_700": "Computing the context and the influence matrix",
+    "featureizing_700": "Building features and targets",
+    "training_combined_700": "Training the network",
+    "evaluating_700": "Computing holdout metrics",
+    "complete": "Training and evaluation are complete",
+    "failed": "Training stopped with an error",
 }
 
 
@@ -255,7 +255,7 @@ def collect_status(root: Path) -> dict[str, Any]:
     stages = [
         {
             "id": "pilot-200",
-            "title": "Пилот 200",
+            "title": "Pilot 200",
             "status": status(
                 "pilot-200", "complete" if pilot["completed"] >= 200 else "running"
             ),
@@ -264,7 +264,7 @@ def collect_status(root: Path) -> dict[str, Any]:
         },
         {
             "id": "extra-500",
-            "title": "Расширение 500",
+            "title": "Extra 500",
             "status": status(
                 "extra-500",
                 "complete" if extra["completed"] >= 500 else "queued",
@@ -274,7 +274,7 @@ def collect_status(root: Path) -> dict[str, Any]:
         },
         {
             "id": "combined-700",
-            "title": "Итого 700",
+            "title": "Total 700",
             "status": status(
                 "combined-700", "complete" if training["metrics"] else "queued"
             ),

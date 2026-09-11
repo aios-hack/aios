@@ -5,33 +5,34 @@ from datetime import date
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.reservoir.domain.response import (
     ActiveControlMode,
+    IntervalResponse,
+    StateAtDate,
+)
+from backend.contexts.constraints.domain.config import (
     ChargeInitialEsp,
     DEFAULT_NORMATIVES_2007,
-    IntervalResponse,
     NormativeSet,
     Policies,
     QuantizationPolicy,
-    Schedule,
-    ScheduleMeta,
-    StateAtDate,
 )
-from backend.domain.economics import (
+from backend.contexts.schedule.domain.schedule import Schedule, ScheduleMeta
+from backend.contexts.economics.domain.npv import (
     BalanceSheetInputs,
-    ESP_CATALOG_2007,
     Economics,
     EconomicsError,
     allocate_income_tax,
     annual_income_tax,
     build_cell_flows,
-    build_production_ledger,
     compute_npv_table,
     discount_factor,
-    load_normatives,
     monthly_income_tax_sum,
 )
-from backend.domain.economics import normatives_io
+from backend.contexts.economics.domain.esp import ESP_CATALOG_2007
+from backend.contexts.economics.domain.ledger import build_production_ledger
+from backend.contexts.economics.infrastructure.normatives_io import load_normatives
+from backend.contexts.economics.infrastructure import normatives_io
 
 from tests.support.backend.environment import missing_reason, normatives_xlsx
 
@@ -162,7 +163,7 @@ def test_normatives_loader_matches_declared_defaults() -> None:
 def test_normatives_zip_fallback_matches_openpyxl() -> None:
     pytest.importorskip(
         "openpyxl",
-        reason="сравнивать stdlib-разбор не с чем: openpyxl не установлен в этом окружении",
+        reason="there is nothing to compare the stdlib parse against: openpyxl is not installed in this environment",
     )
     sheets_openpyxl = normatives_io._read_sheets_via_openpyxl(NORMATIVES_XLSX)
     sheets_zip = normatives_io._read_sheets_via_zip(NORMATIVES_XLSX)

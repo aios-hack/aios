@@ -15,7 +15,7 @@ from typing import Any, Iterator
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     ControlEvent,
     EventKind,
@@ -24,8 +24,8 @@ from backend.core.contracts import (
     Schedule,
     ScheduleMeta,
     WellState,
-    hash_schedule,
 )
+from backend.shared.hashing import hash_schedule
 from backend.contexts.constraints.infrastructure.constraints_io import (
     constraints_from_json,
     constraints_hash,
@@ -120,7 +120,7 @@ def _load_module() -> Any:
             for name in [
                 module
                 for module in sys.modules
-                if module.startswith("backend.ml")
+                if module.startswith("backend.contexts.surrogate")
                 or module.startswith("backend.contexts.optimization.application.environment")
             ]:
                 sys.modules.pop(name, None)
@@ -365,7 +365,7 @@ def test_missing_reference_is_reported_instead_of_silently_skipped(
     for check in guard.checks:
         assert check.expected is None
         assert not check.holds
-        assert check.source == "эталон не найден"
+        assert check.source == "reference not found"
     recorded = json.loads(
         (work_root / "verification-guard.json").read_text(encoding="utf-8")
     )
@@ -374,7 +374,7 @@ def test_missing_reference_is_reported_instead_of_silently_skipped(
         "canonical_schedule_hash",
         "constraints_hash",
     ]
-    assert "не сверяется" in capsys.readouterr().out
+    assert "is not checked" in capsys.readouterr().out
     assert runner_spy["submit"] == 1
 
 

@@ -1,7 +1,7 @@
 import type { ConsoleAction } from '@/jarvis/actions/lib/consoleAction';
 import type { Transcript } from '@/jarvis/model/prefs';
 import type { SphereState } from '@/jarvis/sphere/lib/sphereState';
-import type { TransportMode } from '@/jarvis/transport/createTransport';
+import type { TransportMode } from '@/jarvis/transport/JarvisTransport';
 import type { JarvisAskContext } from '@/jarvis/transport/events';
 import type { JarvisCapabilities } from '@/jarvis/transport/sseTransport';
 import type { TransitionPhase, TransitionState } from '@/jarvis/model/transition';

@@ -1,17 +1,18 @@
-# Артефакты прогонов и датасеты — вне git, адресуются хешами
-/data
-
-# Выход CLI: wells_schedule.inc и npv.json воспроизводятся командами emit и npv,
-# держать их в git — второй источник истины про одно и то же число
+/data/*
+!/data/base_case/
+/data/base_case/*
+!/data/base_case/response.json
+!/data/lambda-window-2007/
+/data/lambda-window-2007/*
+!/data/lambda-window-2007/lambda.json
+!/data/surrogate-production.json
+!/data/release.json
 /out/
-
-# Репозиторий документации — отдельный git, склонирован внутрь рабочей копии
 docs/
+ui/
+to-delete/
+dataset-main/
 
-# Старый фронт до переезда в frontend/ — артефакты сборки и данные
-ui/web/
-
-# Python
 __pycache__/
 *.py[cod]
 .venv/
@@ -21,21 +22,24 @@ venv/
 .ruff_cache/
 .mypy_cache/
 
-# Frontend
 node_modules/
 dist/
 build/
+frontend/node_modules/
+frontend/dist/
+frontend/public/data/
+frontend/.screens/
 
-# Локальное окружение
 .env
 .env.local
 .DS_Store
-.impeccable/hook.cache.json
-**/.impeccable/hook.cache.json
 .claude/
+.impeccable/
+**/.impeccable/
 .mcp.json
+*.tmp
+.idea/
+.vscode/
+Thumbs.db
 
-# Мудборд Джарвиса: рабочий материал дизайнера, в рантайме не нужен.
-# SOURCES.md остаётся в репозитории — он описывает источники и лицензии.
-frontend/public/jarvis/references/*
-!frontend/public/jarvis/references/SOURCES.md
+frontend/public/jarvis/references/

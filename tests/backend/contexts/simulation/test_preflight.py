@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import RunResult, RunStatus
+from backend.contexts.runs.domain.run_result import RunResult, RunStatus
 from backend.contexts.simulation.infrastructure import preflight as preflight_module
 from backend.contexts.simulation.infrastructure import runner as runner_module
 from backend.contexts.simulation.infrastructure.cache import RunCache
@@ -102,7 +102,7 @@ def test_preflight_distinguishes_stopped_daemon(monkeypatch: pytest.MonkeyPatch)
     )
     report = docker_preflight(image=IMAGE)
     assert report.problem is PreflightProblem.DAEMON_DOWN
-    assert "Демон Docker не отвечает" in report.message
+    assert "The Docker daemon is not responding" in report.message
 
 
 def test_preflight_distinguishes_permission_denied(
@@ -119,7 +119,7 @@ def test_preflight_distinguishes_permission_denied(
     )
     report = docker_preflight(image=IMAGE)
     assert report.problem is PreflightProblem.PERMISSION_DENIED
-    assert "Нет прав" in report.message
+    assert "No permission" in report.message
 
 
 def test_preflight_distinguishes_missing_image(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -193,7 +193,7 @@ def test_image_reference_marks_tag_when_digest_is_unavailable(
     assert not reference.pinned
     assert reference.digest is None
     assert reference.image.startswith(IMAGE)
-    assert "тег" in reference.image
+    assert "tag" in reference.image
     assert "sha256:" not in reference.image
 
 
@@ -204,7 +204,7 @@ def test_image_reference_marks_tag_when_repo_digests_are_empty(
     reference = resolve_image_reference(image=IMAGE)
     assert not reference.pinned
     assert reference.digest is None
-    assert "тег" in reference.image
+    assert "tag" in reference.image
 
 
 def test_runner_refuses_to_start_flow_without_docker(
@@ -218,7 +218,7 @@ def test_runner_refuses_to_start_flow_without_docker(
 
     def never(command, **kwargs):  # type: ignore[no-untyped-def]
         started.append(list(command))
-        raise AssertionError("flow не должен запускаться при отказе preflight")
+        raise AssertionError("flow must not start when preflight refuses")
 
     monkeypatch.setattr(runner_module, "subprocess", _NoDocker(never))
     runner = OpmRunner(tmp_path / "runs", image=IMAGE)
@@ -230,7 +230,7 @@ def test_runner_refuses_to_start_flow_without_docker(
         run_id="preflight-run",
     )
     assert result.status is RunStatus.FAILED
-    assert "Демон Docker не отвечает" in result.message
+    assert "The Docker daemon is not responding" in result.message
     assert started == []
 
 
@@ -343,7 +343,7 @@ def test_retention_policy_is_declared_and_disjoint() -> None:
     assert ALWAYS_RETAINED
     assert COMPACTED_ON_REQUEST
     assert not set(ALWAYS_RETAINED) & set(COMPACTED_ON_REQUEST)
-    assert any("расписание" in item for item in ALWAYS_RETAINED)
+    assert any("schedule" in item for item in ALWAYS_RETAINED)
 
 
 def test_compaction_reports_a_missing_schedule_instead_of_silently_dropping_it(
@@ -356,5 +356,5 @@ def test_compaction_reports_a_missing_schedule_instead_of_silently_dropping_it(
         generator._compact_verified_response(
             result, deck, response_hash="a" * 64, scenario_id="scenario-1"
         )
-    assert "расписание" in str(error.value)
+    assert "schedule" in str(error.value)
     assert deck.data_file.parent.exists()

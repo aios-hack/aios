@@ -37,8 +37,8 @@ def _artifact_sha256(path: Path, name: str) -> str:
         raw = Path(path).read_bytes()
     except OSError as error:
         raise SearchRunError(
-            f"провенанс поиска не собран: артефакт {name} по пути {path} "
-            f"не читается — {error}"
+            f"the search provenance was not assembled: artifact {name} at path {path} "
+            f"is not readable — {error}"
         ) from error
     return hashlib.sha256(raw).hexdigest()
 

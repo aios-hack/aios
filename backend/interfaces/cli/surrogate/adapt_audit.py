@@ -7,7 +7,7 @@ from pathlib import Path
 import torch
 
 from backend.contexts.optimization.infrastructure.artifacts import resolve_runtime_artifacts
-from backend.domain.economics import load_response_artifact
+from backend.contexts.economics.application.base_case import load_response_artifact
 from backend.contexts.surrogate.application.ensemble import TrajectoryEnsemble
 from backend.contexts.surrogate.domain.features import ScheduleFeatureizer
 from backend.contexts.surrogate.application.model import (

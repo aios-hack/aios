@@ -7,11 +7,8 @@ from backend.contexts.schedule.domain.validation.constants import (
 from collections.abc import (
     Sequence,
 )
-from backend.core.contracts import (
-    IntervalResponse,
-    Schedule,
-    StateAtDate,
-)
+from backend.contexts.reservoir.domain.response import IntervalResponse, StateAtDate
+from backend.contexts.schedule.domain.schedule import Schedule
 from backend.contexts.schedule.domain.validate import (
     Violation,
     ViolationKind,
@@ -38,8 +35,9 @@ def check_response_axes(
                 well=None,
                 value=float(len(seen_states)),
                 detail=(
-                    f"StateAtDate: {len(seen_states)} пар (дата, скважина) при "
-                    f"ожидаемых {expected_states} = {len(wells)} × {n_deck_dates}"
+                    f"StateAtDate: {len(seen_states)} (date, well) pairs "
+                    f"against the expected {expected_states} = "
+                    f"{len(wells)} x {n_deck_dates}"
                 ),
             )
         )
@@ -56,9 +54,9 @@ def check_response_axes(
                 well=None,
                 value=float(len(seen_intervals)),
                 detail=(
-                    f"IntervalResponse: {len(seen_intervals)} пар (шаг, скважина) "
-                    f"при ожидаемых {expected_intervals} = {len(wells)} × "
-                    f"{n_intervals}"
+                    f"IntervalResponse: {len(seen_intervals)} (step, well) "
+                    f"pairs against the expected {expected_intervals} = "
+                    f"{len(wells)} x {n_intervals}"
                 ),
             )
         )

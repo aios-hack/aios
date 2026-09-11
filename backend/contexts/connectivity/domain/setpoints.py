@@ -4,9 +4,9 @@ from collections import Counter
 from dataclasses import dataclass
 from datetime import date
 
-from backend.core.contracts import Role
+from backend.contexts.schedule.domain.schedule import Role
 
-from backend.contexts.connectivity.infrastructure.deck import DeckSchedule
+from backend.contexts.connectivity.domain.deck_schedule import DeckSchedule
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,7 +26,7 @@ class SetpointChange:
     def relative_step(self) -> float:
         if self.previous_m3_per_day <= 0.0:
             raise ValueError(
-                f"{self.well}: относительный шаг не определён от нулевого уровня"
+                f"{self.well}: the relative step is undefined from a zero level"
             )
         return self.absolute_step_m3_per_day / self.previous_m3_per_day
 
@@ -40,9 +40,9 @@ class StepDistribution:
 
     def __post_init__(self) -> None:
         if self.records <= 0:
-            raise ValueError(f"{self.role.name}: в окне управления нет записей")
+            raise ValueError(f"{self.role.name}: no records in the control window")
         if not self.levels:
-            raise ValueError(f"{self.role.name}: в окне управления нет уставок")
+            raise ValueError(f"{self.role.name}: no setpoints in the control window")
 
     @property
     def change_share(self) -> float:
@@ -66,15 +66,15 @@ class StepDistribution:
 
     def quantile(self, values: tuple[float, ...], share: float) -> float:
         if not values:
-            raise ValueError("квантиль пустой выборки не определён")
+            raise ValueError("the quantile of an empty sample is undefined")
         if not (0.0 <= share <= 1.0):
-            raise ValueError(f"доля {share} вне 0…1")
+            raise ValueError(f"share {share} outside 0…1")
         index = min(int(share * len(values)), len(values) - 1)
         return values[index]
 
     def dominant_step_range(self, coverage: float) -> tuple[float, float]:
         if not (0.0 < coverage <= 1.0):
-            raise ValueError(f"покрытие {coverage} вне 0…1")
+            raise ValueError(f"coverage {coverage} outside 0…1")
         histogram = self.step_histogram()
         total = sum(histogram.values())
         target = coverage * total
@@ -92,7 +92,7 @@ class StepDistribution:
         low, high = self.dominant_step_range(coverage)
         level = self.median_level_m3_per_day
         if level <= 0.0:
-            raise ValueError(f"{self.role.name}: медианный уровень не положителен")
+            raise ValueError(f"{self.role.name}: the median level is not positive")
         return low / level, high / level
 
 
@@ -108,10 +108,10 @@ def setpoint_changes(
     carry_level_across_boundary: bool = True,
 ) -> StepDistribution:
     if role not in (Role.PROD, Role.INJ):
-        raise ValueError(f"роль {role.name} не несёт уставок")
+        raise ValueError(f"role {role.name} carries no setpoints")
     if not (0 <= from_deck_date_index < len(deck.dates)):
         raise ValueError(
-            f"from_deck_date_index={from_deck_date_index} вне "
+            f"from_deck_date_index={from_deck_date_index} outside "
             f"0…{len(deck.dates) - 1}"
         )
     previous: dict[str, float] = {}

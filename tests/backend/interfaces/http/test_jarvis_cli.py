@@ -10,8 +10,8 @@ from typing import Any, Iterator
 
 import pytest
 
-from backend.presentation.api import proxy
-from backend.presentation.cli import jarvis as cli
+from backend.interfaces.http.console import proxy
+from backend.interfaces.cli import jarvis as cli
 from backend.interfaces.cli.web import SpaRequestHandler
 
 ENTRYPOINT_COMMAND = "jarvis) cmd_jarvis"
@@ -53,7 +53,7 @@ def test_check_without_a_key_exits_non_zero(
 def test_entrypoint_exposes_the_jarvis_command() -> None:
     script = (repo_root() / "docker" / "entrypoint.sh").read_text(encoding="utf-8")
     assert ENTRYPOINT_COMMAND in script
-    assert "backend.presentation.cli.jarvis" in script
+    assert "aios jarvis" in script
 
 
 def test_compose_declares_the_jarvis_service() -> None:
@@ -67,7 +67,7 @@ def test_compose_declares_the_jarvis_service() -> None:
 def test_readme_documents_the_service() -> None:
     readme = (repo_root() / "README.md").read_text(encoding="utf-8")
     assert "## Джарвис" in readme
-    assert "backend.presentation.cli.jarvis" in readme
+    assert "aios jarvis" in readme
     assert "no-api-key" in readme
 
 

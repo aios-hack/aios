@@ -17,12 +17,8 @@ from dataclasses import (
 from typing import (
     Sequence,
 )
-from backend.core.contracts import (
-    ControlEvent,
-    Role,
-    Rule,
-    TraceEntry,
-)
+from backend.contexts.schedule.domain.schedule import ControlEvent, Role
+from backend.contexts.policy.domain.policy import Rule, TraceEntry
 from backend.contexts.policy.domain.state import (
     PolicyState,
     RuleContext,
@@ -47,7 +43,7 @@ class ProductionFloorCheck:
     def as_entry(self, control_step: int, agent: str) -> TraceEntry:
         if self.floor_t_per_day is None or self.predicted_t_per_day is None:
             raise ValueError(
-                "пол добычи не измерялся: записи в трассу для него нет"
+                "the production floor was not measured: there is no trace entry for it"
             )
         return TraceEntry(
             control_step=control_step,

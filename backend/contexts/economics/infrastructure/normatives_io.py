@@ -10,7 +10,7 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-from backend.core.contracts import EspCatalogEntry, NormativeSet
+from backend.contexts.constraints.domain.config import EspCatalogEntry, NormativeSet
 
 NORMATIVES_SHEET: str = "Нормативы"
 ESP_SHEET: str = "ЭЦН"
@@ -50,16 +50,16 @@ METHODOLOGY_LOCKED_RUB: dict[str, float] = {
 
 def _to_float(value: Any, code: str) -> float:
     if value is None or value == "":
-        raise NormativesError(f"норматив {code}: пустое значение")
+        raise NormativesError(f"normative {code}: empty value")
     if isinstance(value, bool):
-        raise NormativesError(f"норматив {code}: логическое значение вместо числа")
+        raise NormativesError(f"normative {code}: a boolean value instead of a number")
     if isinstance(value, (int, float)):
         return float(value)
     text = str(value).strip().replace(" ", "").replace(" ", "").replace(",", ".")
     try:
         return float(text)
     except ValueError:
-        raise NormativesError(f"норматив {code}: не число, получено {value!r}") from None
+        raise NormativesError(f"normative {code}: not a number, got {value!r}") from None
 
 
 def _scale(code: str, raw: float) -> float:
@@ -78,7 +78,7 @@ def _read_sheets_via_openpyxl(path: Path) -> dict[str, list[list[Any]]]:
         sheets: dict[str, list[list[Any]]] = {}
         for name in (NORMATIVES_SHEET, ESP_SHEET):
             if name not in workbook.sheetnames:
-                raise NormativesError(f"в файле нормативов нет листа «{name}»")
+                raise NormativesError(f"the normatives file has no sheet «{name}»")
             sheets[name] = [
                 list(row) for row in workbook[name].iter_rows(values_only=True)
             ]
@@ -162,12 +162,12 @@ def _read_sheets_via_zip(path: Path) -> dict[str, list[list[Any]]]:
                 continue
             target = targets.get(attributes.get("r:id", ""))
             if target is None:
-                raise NormativesError(f"лист «{name}»: не найдена связь с частью пакета")
+                raise NormativesError(f"sheet «{name}»: no relationship to a package part was found")
             member = _resolve_member(target)
             sheets[name] = _parse_sheet(archive.read(member), shared)
         for name in (NORMATIVES_SHEET, ESP_SHEET):
             if name not in sheets:
-                raise NormativesError(f"в файле нормативов нет листа «{name}»")
+                raise NormativesError(f"the normatives file has no sheet «{name}»")
         return sheets
 
 
@@ -221,7 +221,7 @@ def _parse_sheet(sheet_xml: bytes, shared: list[str]) -> list[list[Any]]:
 def normatives_sha256(path: str | Path) -> str:
     workbook_path = Path(path)
     if not workbook_path.is_file():
-        raise NormativesError(f"файл нормативов не найден: {workbook_path}")
+        raise NormativesError(f"normatives file not found: {workbook_path}")
     digest = hashlib.sha256()
     try:
         with workbook_path.open("rb") as handle:
@@ -229,7 +229,7 @@ def normatives_sha256(path: str | Path) -> str:
                 digest.update(chunk)
     except OSError as error:
         raise NormativesError(
-            f"файл нормативов не прочитан: {workbook_path}: {error}"
+            f"normatives file was not read: {workbook_path}: {error}"
         ) from error
     return digest.hexdigest()
 
@@ -237,7 +237,7 @@ def normatives_sha256(path: str | Path) -> str:
 def read_normative_sheets(path: str | Path) -> dict[str, list[list[Any]]]:
     workbook_path = Path(path)
     if not workbook_path.is_file():
-        raise NormativesError(f"файл нормативов не найден: {workbook_path}")
+        raise NormativesError(f"normatives file not found: {workbook_path}")
     try:
         return _read_sheets_via_openpyxl(workbook_path)
     except ImportError:
@@ -261,13 +261,13 @@ def parse_normative_set(sheets: dict[str, list[list[Any]]]) -> NormativeSet:
 
     missing = sorted(set(SCALAR_CODES.values()) - set(values))
     if missing:
-        raise NormativesError(f"в файле нормативов нет величин: {', '.join(missing)}")
+        raise NormativesError(f"the normatives file has no values: {', '.join(missing)}")
 
     for field, locked in METHODOLOGY_LOCKED_RUB.items():
         if values[field] != locked:
             raise NormativesError(
-                f"{field}={values[field]} расходится с запертой Методикой "
-                f"величиной {locked}: эталон перетирает поданное значение своим"
+                f"{field}={values[field]} diverges from the value {locked} locked by the "
+                f"Methodology: the reference overwrites the supplied value with its own"
             )
 
     catalog: list[EspCatalogEntry] = []
@@ -275,17 +275,17 @@ def parse_normative_set(sheets: dict[str, list[list[Any]]]) -> NormativeSet:
         if not row or row[0] in (None, ""):
             continue
         if len(row) < 4:
-            raise NormativesError(f"неполная строка таблицы ЭЦН: {row}")
+            raise NormativesError(f"incomplete row in the ESP table: {row}")
         catalog.append(
             EspCatalogEntry(
-                nominal=_to_float(row[0], "ЭЦН.nominal"),
-                interval_low=_to_float(row[1], "ЭЦН.interval_low"),
-                interval_high=_to_float(row[2], "ЭЦН.interval_high"),
-                cost_rub=_to_float(row[3], "ЭЦН.cost_rub") * RUB_PER_MILLION,
+                nominal=_to_float(row[0], "ESP.nominal"),
+                interval_low=_to_float(row[1], "ESP.interval_low"),
+                interval_high=_to_float(row[2], "ESP.interval_high"),
+                cost_rub=_to_float(row[3], "ESP.cost_rub") * RUB_PER_MILLION,
             )
         )
     if not catalog:
-        raise NormativesError("в файле нормативов пуста таблица ЭЦН")
+        raise NormativesError("the ESP table in the normatives file is empty")
     catalog.sort(key=lambda entry: entry.nominal)
 
     return NormativeSet(esp_catalog=tuple(catalog), **values)

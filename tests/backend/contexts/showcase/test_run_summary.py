@@ -1,6 +1,6 @@
 import json
 
-from backend.application.runs import RunManifest, WorkflowStatus
+from backend.contexts.runs.application.workflow import RunManifest, WorkflowStatus
 from backend.contexts.showcase.application.run_summary import export_run_summary
 import pytest
 

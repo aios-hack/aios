@@ -1,34 +1,32 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Mapping, Sequence
+
+from backend.contexts.policy.domain.flags import RuleFlags
 from backend.contexts.policy.domain.hierarchy_shared import (
     FIELD_AGENT,
     WELL_LIMIT_TOLERANCE_M3_PER_DAY,
 )
-
-
-from backend.contexts.policy.domain.trace_types import (
-    Level,
-    LeveledTraceEntry,
+from backend.contexts.policy.domain.levels.field_demand import (
+    _field_entry,
+    group_demand_rub_per_m3,
+    group_liquid_demand_rub_per_day,
 )
-from dataclasses import dataclass, replace
-from typing import Mapping, Sequence
-from backend.core.contracts import (
-    ControlEvent,
-    EventKind,
-    Groups,
-    Role,
-    Rule,
-    TraceEntry,
+from backend.contexts.policy.domain.levels.field_rescale import (
+    _requested_injection,
+    _requested_liquid,
+    _scale_entry,
+    _scale_event,
+    _scale_liquid_entry,
+    _scale_liquid_event,
+    _untouched_injectors,
+    _untouched_producers,
 )
-from backend.contexts.policy.domain.economics import oil_margin_rub_per_m3_liquid
-from backend.contexts.policy.domain.flags import (
-    RuleFlags,
-)
-from backend.contexts.policy.domain.rules.r1 import marginal_value_rub_per_m3
-from backend.contexts.policy.domain.state import (
-    PolicyState,
-    RuleContext,
-)
+from backend.contexts.policy.domain.policy import Rule, TraceEntry
+from backend.contexts.policy.domain.state import PolicyState, RuleContext
+from backend.contexts.policy.domain.trace_types import Level, LeveledTraceEntry
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind, Role
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,9 +41,9 @@ class GroupLimit:
 
     def __post_init__(self) -> None:
         if self.injection_m3_per_day < 0.0:
-            raise ValueError(f"{self.group_id}: отрицательный лимит закачки")
+            raise ValueError(f"{self.group_id}: negative injection limit")
         if self.liquid_m3_per_day is not None and self.liquid_m3_per_day < 0.0:
-            raise ValueError(f"{self.group_id}: отрицательная квота жидкости")
+            raise ValueError(f"{self.group_id}: negative liquid quota")
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,14 +57,14 @@ class FieldAllocation:
         allocated = sum(limit.injection_m3_per_day for limit in self.limits)
         if allocated > self.field_limit_m3_per_day + WELL_LIMIT_TOLERANCE_M3_PER_DAY:
             raise ValueError(
-                f"сумма лимитов участков {allocated} превышает лимит поля "
+                f"the sum of group limits {allocated} exceeds the field limit "
                 f"{self.field_limit_m3_per_day}"
             )
         if self.field_liquid_limit_m3_per_day is None:
             return
         if self.field_liquid_limit_m3_per_day < 0.0:
             raise ValueError(
-                f"отрицательный лимит жидкости поля: "
+                f"negative field liquid limit: "
                 f"{self.field_liquid_limit_m3_per_day}"
             )
         liquid = sum(
@@ -77,7 +75,7 @@ class FieldAllocation:
             > self.field_liquid_limit_m3_per_day + WELL_LIMIT_TOLERANCE_M3_PER_DAY
         ):
             raise ValueError(
-                f"сумма квот жидкости участков {liquid} превышает лимит поля "
+                f"the sum of group liquid quotas {liquid} exceeds the field limit "
                 f"{self.field_liquid_limit_m3_per_day}"
             )
 
@@ -91,79 +89,7 @@ class FieldAllocation:
         for limit in self.limits:
             if limit.group_id == group_id:
                 return limit
-        raise ValueError(f"участок {group_id} не получал лимита")
-
-
-def group_demand_rub_per_m3(
-    state: PolicyState, context: RuleContext, wells: Sequence[str]
-) -> tuple[float, int]:
-    influence = context.influence
-    if influence is None:
-        raise ValueError(
-            "менеджер месторождения требует измеренную λ: спрос участка на "
-            "воду без матрицы влияния не определён"
-        )
-    demand = 0.0
-    counted = 0
-    for well in sorted(wells):
-        observation = state.wells.get(well)
-        if observation is None or observation.role is not Role.INJ:
-            continue
-        if not observation.is_open:
-            continue
-        if well not in influence.injectors:
-            continue
-        value, _ = marginal_value_rub_per_m3(state, context, well)
-        counted += 1
-        if value > 0.0:
-            demand += value
-    return demand, counted
-
-
-def group_liquid_demand_rub_per_day(
-    state: PolicyState, context: RuleContext, wells: Sequence[str]
-) -> tuple[float, float, int]:
-    density = context.oil_density_t_per_m3
-    normatives = context.normatives
-    demand = 0.0
-    offtake = 0.0
-    counted = 0
-    for well in sorted(wells):
-        observation = state.wells.get(well)
-        if observation is None or observation.role is not Role.PROD:
-            continue
-        if not observation.is_open:
-            continue
-        if observation.liquid_rate_m3_per_day <= 0.0:
-            continue
-        watercut = observation.watercut(density)
-        margin = oil_margin_rub_per_m3_liquid(normatives, density, watercut)
-        margin -= normatives.opex_liquid_rub_per_t
-        offtake += observation.liquid_rate_m3_per_day
-        counted += 1
-        if margin > 0.0:
-            demand += margin * observation.liquid_rate_m3_per_day
-    return demand, offtake, counted
-
-
-def _field_entry(
-    state: PolicyState,
-    group_id: str,
-    rule: Rule,
-    inputs: dict[str, float],
-    decision: str,
-) -> LeveledTraceEntry:
-    return LeveledTraceEntry(
-        level=Level.FIELD,
-        agent=FIELD_AGENT,
-        entry=TraceEntry(
-            control_step=state.control_step,
-            well=group_id,
-            rule=rule,
-            inputs=inputs,
-            decision=decision,
-        ),
-    )
+        raise ValueError(f"group {group_id} received no limit")
 
 
 def allocate_field(
@@ -175,8 +101,8 @@ def allocate_field(
 ) -> FieldAllocation:
     if context.groups is None:
         raise ValueError(
-            "менеджер месторождения раздаёт лимиты по участкам: без Groups "
-            "делить нечего"
+            "the field manager hands out limits across groups: without Groups "
+            "there is nothing to split"
         )
     limit = (
         context.injection_budget_m3_per_day
@@ -185,19 +111,19 @@ def allocate_field(
     )
     if limit is None:
         raise ValueError(
-            "лимит поля не задан: доступная вода — вход менеджера, а не "
-            "его изобретение"
+            "the field limit is not set: the available water is an input to the manager, not "
+            "an invention of his"
         )
     if limit < 0.0:
-        raise ValueError(f"отрицательный лимит поля: {limit}")
+        raise ValueError(f"negative field limit: {limit}")
 
     group_ids = tuple(sorted(context.groups.groups))
     if not group_ids:
-        raise ValueError("нарезка пуста: раздавать лимиты некому")
+        raise ValueError("the grouping is empty: there is nobody to hand limits out to")
     if not flags.is_on(Rule.R1):
         raise ValueError(
-            "R1 выключено: спрос участка на воду считает правило предельной "
-            "ценности, менеджер месторождения своей формулы не имеет"
+            "R1 is off: the group water demand is computed by the marginal-value "
+            "rule, and the field manager has no formula of its own"
         )
     liquid_limit = (
         context.liquid_budget_m3_per_day
@@ -205,7 +131,7 @@ def allocate_field(
         else field_liquid_limit_m3_per_day
     )
     if liquid_limit is not None and liquid_limit < 0.0:
-        raise ValueError(f"отрицательный лимит жидкости поля: {liquid_limit}")
+        raise ValueError(f"negative field liquid limit: {liquid_limit}")
 
     demands: dict[str, float] = {}
     counted: dict[str, int] = {}
@@ -308,130 +234,14 @@ def allocate_field(
     )
 
 
-def _requested_injection(
-    events: Sequence[ControlEvent], state: PolicyState, wells: Sequence[str]
-) -> float:
-    inside = set(wells)
-    latest: dict[str, float] = {}
-    for event in events:
-        if event.kind is not EventKind.SET_RATE or event.value is None:
-            continue
-        if event.well not in inside:
-            continue
-        latest[event.well] = event.value
-    untouched = 0.0
-    for well in inside:
-        if well in latest:
-            continue
-        observation = state.wells.get(well)
-        if observation is None or observation.role is not Role.INJ:
-            continue
-        if not observation.is_open:
-            continue
-        untouched += observation.injection_rate_m3_per_day
-    return sum(latest.values()) + untouched
-
-
-def _untouched_injectors(
-    events: Sequence[ControlEvent], state: PolicyState, wells: Sequence[str]
-) -> tuple[str, ...]:
-    touched = {
-        event.well
-        for event in events
-        if event.kind is EventKind.SET_RATE and event.value is not None
-    }
-    return tuple(
-        well
-        for well in sorted(wells)
-        if well not in touched
-        and well in state.wells
-        and state.wells[well].role is Role.INJ
-        and state.wells[well].is_open
-        and state.wells[well].injection_rate_m3_per_day > 0.0
-    )
-
-
-def _requested_liquid(
-    events: Sequence[ControlEvent], state: PolicyState, wells: Sequence[str]
-) -> float:
-    inside = set(wells)
-    latest: dict[str, float] = {}
-    for event in events:
-        if event.kind is not EventKind.SET_LRAT or event.value is None:
-            continue
-        if event.well not in inside:
-            continue
-        latest[event.well] = event.value
-    untouched = 0.0
-    for well in inside:
-        if well in latest:
-            continue
-        observation = state.wells.get(well)
-        if observation is None or observation.role is not Role.PROD:
-            continue
-        if not observation.is_open:
-            continue
-        untouched += observation.liquid_rate_m3_per_day
-    return sum(latest.values()) + untouched
-
-
-def _untouched_producers(
-    events: Sequence[ControlEvent], state: PolicyState, wells: Sequence[str]
-) -> tuple[str, ...]:
-    touched = {
-        event.well
-        for event in events
-        if event.kind is EventKind.SET_LRAT and event.value is not None
-    }
-    return tuple(
-        well
-        for well in sorted(wells)
-        if well not in touched
-        and well in state.wells
-        and state.wells[well].role is Role.PROD
-        and state.wells[well].is_open
-        and state.wells[well].liquid_rate_m3_per_day > 0.0
-    )
-
-
-def _scale_liquid_event(event: ControlEvent, factor: float) -> ControlEvent:
-    if event.kind is not EventKind.SET_LRAT or event.value is None:
-        return event
-    return replace(event, value=event.value * factor)
-
-
-def _scale_liquid_entry(entry: TraceEntry, factor: float) -> TraceEntry:
-    if entry.decision != "SET_LRAT":
-        return entry
-    inputs = dict(entry.inputs)
-    inputs["group_liquid_limit_scale"] = factor
-    if "target_rate_m3_per_day" in inputs:
-        inputs["target_rate_m3_per_day"] = inputs["target_rate_m3_per_day"] * factor
-    return replace(entry, inputs=inputs)
-
-
-def _scale_event(event: ControlEvent, factor: float) -> ControlEvent:
-    if event.kind is not EventKind.SET_RATE or event.value is None:
-        return event
-    return replace(event, value=event.value * factor)
-
-
-def _scale_entry(entry: TraceEntry, factor: float) -> TraceEntry:
-    inputs = dict(entry.inputs)
-    inputs["group_limit_scale"] = factor
-    if "target_rate_m3_per_day" in inputs:
-        inputs["target_rate_m3_per_day"] = inputs["target_rate_m3_per_day"] * factor
-    return replace(entry, inputs=inputs)
-
-
 def field_limit_from_constraints(
     context: RuleContext, year: int
 ) -> float:
     limits: Mapping[int, float] = context.constraints.injection_limits
     if year not in limits:
         raise ValueError(
-            f"лимита закачки на {year} год нет в Constraints: менеджер "
-            f"месторождения не назначает доступную воду сам"
+            f"the injection limit for the year {year} is absent from Constraints: the field "
+            f"manager does not assign the available water itself"
         )
     return limits[year]
 

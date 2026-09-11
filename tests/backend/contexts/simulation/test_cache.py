@@ -5,9 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from backend.infrastructure.opm import CachingOpmRunner, OpmDeckEmitter, OpmRunner, RunCache, deck_hashes
-from backend.core.contracts import RunStatus, Schedule, ScheduleMeta, hash_schedule
-from backend.domain.schedule import parse_schedule
+from backend.contexts.simulation.infrastructure.cache import CachingOpmRunner, RunCache
+from backend.contexts.reservoir.infrastructure.opm_deck import OpmDeckEmitter
+from backend.contexts.simulation.infrastructure.runner import OpmRunner, deck_hashes
+from backend.contexts.runs.domain.run_result import RunStatus
+from backend.contexts.schedule.domain.schedule import Schedule, ScheduleMeta
+from backend.shared.hashing import hash_schedule
+from backend.contexts.schedule.domain.lossless import parse_schedule
 
 
 from tests.support.backend.environment import (
@@ -21,11 +25,10 @@ pytestmark = [pytest.mark.slow, pytest.mark.opm]
 
 DECKS = DECKS_ROOT
 
-# Через conftest, а не через parents[3]: см. тот же комментарий в test_runner.py.
 MODEL_Z = model_z_dir()
 
 requires_model_z = pytest.mark.skipif(
-    MODEL_Z is None, reason=missing_reason("каталог Model_Z")
+    MODEL_Z is None, reason=missing_reason("Model_Z directory")
 )
 
 KEY = {
@@ -35,13 +38,9 @@ KEY = {
 }
 
 
-# Метка вместо прежней autouse-фикстуры: `docker` в PATH ничего не говорит о
-# работающем демоне, а без него настоящий прогон возвращает FAILED и приёмка
-# читает это как дефект кеша. Промах кеша по отказу симулятор не запускает и
-# проверяется без Docker.
 requires_real_flow = pytest.mark.skipif(
     docker_unavailable_reason() is not None,
-    reason=f"приёмка задачи 5 требует настоящий OPM Flow; {docker_unavailable_reason()}",
+    reason=f"acceptance of task 5 requires a real OPM Flow; {docker_unavailable_reason()}",
 )
 
 
@@ -56,13 +55,6 @@ def _baseline_schedule(emitter: OpmDeckEmitter) -> Schedule:
 
 
 def _spy_subprocess_run(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
-    """Считает реальные вызовы `subprocess.run` в bridge.runner, не подменяет их.
-
-    Оборачивает оригинальную функцию: каждый вызов по-прежнему уходит в
-    настоящий `docker run` / настоящий Flow, счётчик — только наблюдатель.
-    Это и есть доказательство «второй запуск не стартовал симулятор» без
-    подмены Docker фиктивным симулятором.
-    """
 
     calls: list[list[str]] = []
     original = subprocess.run
@@ -88,7 +80,6 @@ def test_second_call_with_same_key_hits_cache_without_starting_simulator(
 
     second = runner.run_data_file(DECKS / "MINI.DATA", **KEY)
 
-    # Ключевое доказательство: docker run не вызывался второй раз.
     assert len(calls) == 1
     assert second.status is RunStatus.OK
     assert second.run_id == first.run_id
@@ -112,7 +103,6 @@ def test_changing_any_of_three_hashes_is_a_cache_miss(
     changed_key[changed_field] = "9" * 64
     second = runner.run_data_file(DECKS / "MINI.DATA", **changed_key)
 
-    # Другой ключ — реальный повторный прогон, а не кеш-попадание.
     assert len(calls) == 2
     assert second.status is RunStatus.OK, second.message
     assert second.run_id != first.run_id
@@ -139,7 +129,6 @@ def test_different_keys_do_not_collide_in_cache(
     assert len(calls) == 2
     assert result_a.run_id != result_b.run_id
 
-    # Оба ключа кешируются раздельно, попадания не путают результаты.
     cached_a = runner.run_data_file(DECKS / "MINI.DATA", **key_a)
     cached_b = runner.run_data_file(DECKS / "MINI.DATA", **key_b)
     assert len(calls) == 2
@@ -185,7 +174,7 @@ def test_failed_result_is_not_cached(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
     first = runner.run_data_file(tmp_path / "no-such-deck.DATA", **KEY)
     assert first.status is RunStatus.FAILED
-    assert "дек не найден" in first.message
+    assert "deck not found" in first.message
 
     second = runner.run_data_file(tmp_path / "no-such-deck.DATA", **KEY)
     assert second.status is RunStatus.FAILED

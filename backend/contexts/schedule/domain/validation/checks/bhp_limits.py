@@ -14,13 +14,9 @@ from backend.contexts.schedule.domain.validation.report import (
 from collections.abc import (
     Sequence,
 )
-from backend.core.contracts import (
-    ActiveControlMode,
-    Constraints,
-    Role,
-    Schedule,
-    StateAtDate,
-)
+from backend.contexts.reservoir.domain.response import ActiveControlMode, StateAtDate
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.schedule.domain.schedule import Role, Schedule
 from backend.contexts.constraints.domain.constraints import (
     BHP_INJECTOR_MAX_BAR,
     BHP_PRODUCER_MIN_BAR,
@@ -45,11 +41,11 @@ def bhp_constraint_check(
         CONSTRAINT_BHP_LIMITS,
         found,
         (
-            f"коридор забойного давления {limits.producer_min_bar}…"
-            f"{limits.injector_max_bar} бар: нижний предел добывающих "
+            f"bottomhole pressure corridor {limits.producer_min_bar}..."
+            f"{limits.injector_max_bar} bar: lower limit for producers "
             f"infrastructure.{BHP_PRODUCER_MIN_BAR}, "
-            f"{limit_origin(case, BHP_PRODUCER_MIN_BAR)}; верхний предел "
-            f"нагнетательных infrastructure.{BHP_INJECTOR_MAX_BAR}, "
+            f"{limit_origin(case, BHP_PRODUCER_MIN_BAR)}; upper limit for "
+            f"injectors infrastructure.{BHP_INJECTOR_MAX_BAR}, "
             f"{limit_origin(case, BHP_INJECTOR_MAX_BAR)}"
         ),
         blocking_kinds=BLOCKING_DYNAMIC_VIOLATION_KINDS,
@@ -97,8 +93,9 @@ def check_bhp_limits(
                         well=well,
                         value=state.bhp,
                         detail=(
-                            f"забойное давление нагнетательной {state.bhp} бар "
-                            f"выше предела {injector_max_bar} бар; предел "
+                            f"bottomhole pressure of the injector "
+                            f"{state.bhp} bar is above the limit "
+                            f"{injector_max_bar} bar; limit "
                             f"infrastructure.{BHP_INJECTOR_MAX_BAR}, "
                             f"{injector_origin}"
                         ),
@@ -115,8 +112,9 @@ def check_bhp_limits(
                         well=well,
                         value=state.bhp,
                         detail=(
-                            f"забойное давление добывающей {state.bhp} бар "
-                            f"ниже предела {producer_min_bar} бар; предел "
+                            f"bottomhole pressure of the producer "
+                            f"{state.bhp} bar is below the limit "
+                            f"{producer_min_bar} bar; limit "
                             f"infrastructure.{BHP_PRODUCER_MIN_BAR}, "
                             f"{producer_origin}"
                         ),

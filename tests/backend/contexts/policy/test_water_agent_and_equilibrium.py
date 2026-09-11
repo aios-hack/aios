@@ -4,31 +4,24 @@ from dataclasses import dataclass, replace
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     ControlEvent,
     EventKind,
     OperatingStatus,
     Role,
-    Rule,
     Schedule,
     ScheduleMeta,
-    TraceEntry,
     WellState,
 )
+from backend.contexts.policy.domain.policy import Rule, TraceEntry
 
-from backend.domain.policy import (
-    Evaluation,
-    FixedPointResult,
-    Level,
-    PolicyState,
-    RuleContext,
-    RuleFlags,
-    RunTrace,
-    default_theta,
-    resolve,
-    run_step,
-)
+from backend.contexts.policy.domain.fixed_point import Evaluation, FixedPointResult, resolve
+from backend.contexts.policy.application.hierarchy import Level, run_step
+from backend.contexts.policy.domain.state import PolicyState, RuleContext
+from backend.contexts.policy.domain.flags import RuleFlags
+from backend.contexts.policy.domain.trace import RunTrace
+from backend.contexts.policy.domain.theta import default_theta
 from backend.contexts.policy.domain.agents import (
     DEFAULT_REGISTRY,
     WATER_AGENT,
@@ -106,7 +99,7 @@ class SilentWellAgent:
     level: Level = Level.WELL
     rank: int = 40
     responsibilities: tuple[str, ...] = (
-        "не предлагает ничего и потому ничего не меняет",
+        "proposes nothing and therefore changes nothing",
     )
 
     def propose(self, state: PolicyState, context: RuleContext) -> Proposal:
@@ -196,12 +189,12 @@ def test_water_agent_joins_the_registry_by_one_line() -> None:
 
 
 def test_two_water_agents_on_one_rank_are_refused() -> None:
-    with pytest.raises(ValueError, match="заявили ранг"):
+    with pytest.raises(ValueError, match="declared rank"):
         with_agents(WATER_REGISTRY, WaterAgent(name="WaterAgentTwin"))
 
 
 def test_registry_extension_without_an_agent_is_refused() -> None:
-    with pytest.raises(ValueError, match="без единого агента"):
+    with pytest.raises(ValueError, match="with not a single agent"):
         with_agents(DEFAULT_REGISTRY)
 
 
@@ -313,9 +306,9 @@ def test_a_well_without_a_declared_water_cap_gets_no_ceiling(
 
 
 def test_a_negative_water_ceiling_is_reported_not_silently_zeroed() -> None:
-    with pytest.raises(ValueError, match="отрицателен"):
+    with pytest.raises(ValueError, match="is negative"):
         injection_ceiling_for_well(-1.0, None)
-    with pytest.raises(ValueError, match="отрицателен"):
+    with pytest.raises(ValueError, match="is negative"):
         injection_ceiling_for_well(None, -5.0)
     assert injection_ceiling_for_well(None, None) is None
 
@@ -432,7 +425,7 @@ def test_an_unsettled_equilibrium_is_visible_as_such() -> None:
 
 
 def test_an_equilibrium_without_an_observed_step_is_refused() -> None:
-    with pytest.raises(ValueError, match="без единого наблюдённого шага"):
+    with pytest.raises(ValueError, match="without a single observed step"):
         PolicyEquilibrium(
             iterations=0,
             converged=False,
@@ -443,7 +436,7 @@ def test_an_equilibrium_without_an_observed_step_is_refused() -> None:
 
 
 def test_more_quiet_steps_than_observed_is_refused() -> None:
-    with pytest.raises(ValueError, match="доля вне"):
+    with pytest.raises(ValueError, match="the share is outside"):
         PolicyEquilibrium(
             iterations=2,
             converged=False,
@@ -460,7 +453,7 @@ def test_a_visit_without_a_recorded_reaction_reports_an_error() -> None:
         schedule_hash="a" * 64,
         npv=1.0,
     )
-    with pytest.raises(ValueError, match="отклик политики не записан"):
+    with pytest.raises(ValueError, match="the policy response was not recorded"):
         visit.is_quiet()
 
 
@@ -482,9 +475,9 @@ def test_a_result_built_without_reactions_reports_an_error_not_a_zero() -> None:
             ),
         ),
     )
-    with pytest.raises(ValueError, match="без записанного отклика"):
+    with pytest.raises(ValueError, match="no recorded policy response"):
         result.quiet_steps()
-    with pytest.raises(ValueError, match="без записанного отклика"):
+    with pytest.raises(ValueError, match="no recorded policy response"):
         result.quiet_step_fraction()
 
 
@@ -529,7 +522,7 @@ def test_a_run_trace_survives_a_json_round_trip_without_loss() -> None:
 
 
 def test_a_trace_of_an_unknown_format_is_refused() -> None:
-    with pytest.raises(ValueError, match="нераспознанный формат"):
+    with pytest.raises(ValueError, match="unrecognised trace format"):
         loads(UNKNOWN_FORMAT_TRACE)
 
 
@@ -560,7 +553,7 @@ def test_the_theta_registry_holds_the_declared_set_and_its_own_cap() -> None:
 
 def test_a_new_parameter_needs_an_old_one_dropped_not_a_wider_contract() -> None:
     added = ThetaSpec("r4_water_margin", Rule.R4, 0.0, 1.0, 0.5)
-    with pytest.raises(ValueError, match="параметров >"):
+    with pytest.raises(ValueError, match="parameters >"):
         DEFAULT_THETA_REGISTRY.extended_with((added,))
     swapped = DEFAULT_THETA_REGISTRY.without("r7_cycle_months").extended_with(
         (added,)
@@ -573,18 +566,18 @@ def test_a_new_parameter_needs_an_old_one_dropped_not_a_wider_contract() -> None
 
 
 def test_dropping_a_parameter_that_was_never_declared_is_refused() -> None:
-    with pytest.raises(ValueError, match="незаявленные параметры"):
+    with pytest.raises(ValueError, match="undeclared"):
         DEFAULT_THETA_REGISTRY.without("r9_imaginary")
 
 
 def test_the_same_parameter_twice_is_refused() -> None:
     spec = ThetaSpec("r4_probe", Rule.R4, 0.0, 1.0, 0.5)
-    with pytest.raises(ValueError, match="объявлен дважды"):
+    with pytest.raises(ValueError, match="is declared twice"):
         ThetaRegistry(specs=(spec, spec))
 
 
 def test_a_non_positive_cap_is_refused() -> None:
-    with pytest.raises(ValueError, match="потолок"):
+    with pytest.raises(ValueError, match="cap"):
         ThetaRegistry(specs=(), cap=0)
 
 

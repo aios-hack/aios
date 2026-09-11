@@ -1,4 +1,4 @@
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     ControlEvent,
     EventKind,
@@ -6,10 +6,8 @@ from backend.core.contracts import (
     OperatingStatus,
     Role,
     WellState,
-    canonical_bytes,
-    canonical_schedule_hash,
-    content_hash,
 )
+from backend.shared.hashing import canonical_bytes, canonical_schedule_hash, content_hash
 
 
 def _sample_prefix():
@@ -57,5 +55,4 @@ def test_content_hash_is_raw_sha256_not_jcs() -> None:
     raw = b"WCONPROD\n '42' 'OPEN' 'LRAT' 1* 1* 1* 20.0 1* 50 1* 1* /\n"
     h = content_hash(raw)
     assert len(h) == 64
-    # разные байты -> разный хеш, без разбора/канонизации содержимого
     assert content_hash(raw + b" ") != h

@@ -3,7 +3,7 @@ from __future__ import annotations
 from bisect import bisect_right
 from dataclasses import dataclass
 
-from backend.core.contracts import EventKind, Role, Schedule
+from backend.contexts.schedule.domain.schedule import EventKind, Role, Schedule
 
 
 @dataclass(frozen=True, slots=True)

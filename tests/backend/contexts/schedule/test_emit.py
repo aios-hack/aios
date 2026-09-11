@@ -2,8 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import T0, content_hash
-from backend.domain.schedule import LosslessEmitter, parse_schedule
+from backend.contexts.schedule.domain.schedule import T0
+from backend.shared.hashing import content_hash
+from backend.contexts.schedule.domain.lossless import emit_lossless, parse_schedule
 from backend.contexts.schedule.application.emit import (
     WELLS_SCHEDULE_FILE_NAME,
     ScheduleEmitError,
@@ -19,7 +20,7 @@ MODEL_Z_SCHEDULE = model_z_schedule()
 
 pytestmark = pytest.mark.skipif(
     MODEL_Z_SCHEDULE is None,
-    reason=missing_reason("дек Model_Z"),
+    reason=missing_reason("Model_Z deck"),
 )
 
 
@@ -168,7 +169,7 @@ def test_emit_from_deck_supports_the_sparse_flag(tmp_path: Path) -> None:
 
 
 def test_emitter_is_the_lossless_one_not_a_second_implementation(parsed) -> None:
-    assert emit_wells_schedule(parsed).raw == LosslessEmitter.emit(parsed)
+    assert emit_wells_schedule(parsed).raw == emit_lossless(parsed)
 
 
 def test_lossless_emit_preserves_even_unknown_bytes(deck_bytes: bytes) -> None:
@@ -193,7 +194,7 @@ def test_broken_round_trip_is_reported_and_raised() -> None:
         dates_match=True,
     )
     assert not broken.ok
-    assert "не сошёлся" in broken.format()
+    assert "did not match" in broken.format()
     with pytest.raises(ScheduleEmitError):
         broken.raise_if_broken()
 

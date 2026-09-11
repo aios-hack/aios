@@ -121,7 +121,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: ["python", "-m", "backend.presentation.cli.surrogate_check", "--output", "/out/surrogate-runtime.json"]
+    command: ["aios", "surrogate-check", "--output", "/out/surrogate-runtime.json"]
     volumes:
       - ${AIOS_DOCS:-./../docs}:/data/docs:ro
       - ./data:/app/data:ro

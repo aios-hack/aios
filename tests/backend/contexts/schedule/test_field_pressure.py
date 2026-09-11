@@ -2,18 +2,20 @@ from __future__ import annotations
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.reservoir.domain.response import (
     ActiveControlMode,
-    Availability,
-    Constraints,
     IntervalResponse,
+    StateAtDate,
+)
+from backend.contexts.schedule.domain.schedule import (
+    Availability,
     OperatingStatus,
     Role,
     Schedule,
     ScheduleMeta,
-    StateAtDate,
     WellState,
 )
+from backend.contexts.constraints.domain.constraints import Constraints
 from backend.contexts.constraints.domain.constraints import (
     PRESSURE_CEILING_BAR,
     PRESSURE_FLOOR_BAR,
@@ -199,13 +201,13 @@ def test_pressure_policy_without_a_series_is_an_error_not_a_silent_skip() -> Non
         report_for(pressure_case(floor=100.0), None)
     message = str(error.value)
     assert PRESSURE_FLOOR_BAR in message
-    assert "не передана" in message
+    assert "was not supplied" in message
 
 
 def test_pressure_policy_with_an_empty_series_is_an_error() -> None:
     with pytest.raises(ValueError) as error:
         report_for(pressure_case(floor=100.0), FieldSeries(field_pressure_bar=()))
-    assert "пуста" in str(error.value)
+    assert "is empty" in str(error.value)
 
 
 def test_pressure_series_shorter_than_the_horizon_is_an_error() -> None:
@@ -217,7 +219,7 @@ def test_pressure_series_shorter_than_the_horizon_is_an_error() -> None:
     )
     with pytest.raises(ValueError) as error:
         report_for(pressure_case(floor=100.0), short)
-    assert "короче горизонта" in str(error.value)
+    assert "shorter than the horizon" in str(error.value)
 
 
 def test_pressure_below_the_floor_is_a_violation() -> None:
@@ -320,7 +322,7 @@ def test_violation_text_names_the_limit_field_source_and_case() -> None:
     )
     assert f"infrastructure.{PRESSURE_FLOOR_BAR}" in detail
     assert SOURCE_ORGANIZER in detail
-    assert "условие организаторов" in detail
+    assert "organizers' condition" in detail
     assert "config/cases/pressure.json" in detail
 
 

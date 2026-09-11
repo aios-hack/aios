@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import Groups, Lambda, Role
+from backend.contexts.connectivity.domain.connectivity import Groups, Lambda
+from backend.contexts.schedule.domain.schedule import Role
 
 from backend.contexts.connectivity.domain.groups import GroupingParams, build_groups, lambda_hash
 from backend.contexts.connectivity.infrastructure.groups_artifact import (
@@ -137,14 +138,14 @@ def test_the_round_trip_survives_a_file(
 
 
 def test_a_missing_file_is_named_not_guessed(tmp_path: Path) -> None:
-    with pytest.raises(GroupsArtifactError, match="не найден"):
-        load(tmp_path / "нет.json")
+    with pytest.raises(GroupsArtifactError, match="not found"):
+        load(tmp_path / "absent.json")
 
 
 def test_broken_json_is_refused(tmp_path: Path) -> None:
     path = tmp_path / "groups.json"
-    path.write_text("{не json", encoding="utf-8")
-    with pytest.raises(GroupsArtifactError, match="не разбирается как JSON"):
+    path.write_text("{not json", encoding="utf-8")
+    with pytest.raises(GroupsArtifactError, match="does not parse as JSON"):
         load(path)
 
 
@@ -231,7 +232,7 @@ def test_an_artifact_without_a_window_is_refused(artifact: GroupsArtifact) -> No
     payload = to_payload(artifact)
     del payload["provenance"]["window_start"]
     payload.pop("artifact_hash")
-    with pytest.raises(GroupsProvenanceError, match="окна применимости"):
+    with pytest.raises(GroupsProvenanceError, match="applicability window"):
         from_payload(payload)
 
 
@@ -240,12 +241,12 @@ def test_an_artifact_without_provenance_at_all_is_refused(
 ) -> None:
     payload = to_payload(artifact)
     del payload["provenance"]
-    with pytest.raises(GroupsArtifactError, match="нет поля provenance"):
+    with pytest.raises(GroupsArtifactError, match="no field provenance"):
         from_payload(payload)
 
 
 def test_an_inverted_window_is_refused() -> None:
-    with pytest.raises(GroupsProvenanceError, match="окно применимости"):
+    with pytest.raises(GroupsProvenanceError, match="applicability window"):
         GroupsProvenance(
             window_start=WINDOW_END,
             window_end=WINDOW_START,
@@ -259,9 +260,9 @@ def test_an_inverted_window_is_refused() -> None:
 
 def test_an_unparsable_window_is_refused(artifact: GroupsArtifact) -> None:
     payload = to_payload(artifact)
-    payload["provenance"]["window_end"] = "не дата"
+    payload["provenance"]["window_end"] = "not a date"
     payload.pop("artifact_hash")
-    with pytest.raises(GroupsProvenanceError, match="не разбирается как дата"):
+    with pytest.raises(GroupsProvenanceError, match="does not parse as a date"):
         from_payload(payload)
 
 
@@ -282,7 +283,7 @@ def test_an_artifact_of_another_window_is_not_applied_to_this_lambda(
         window_start=LATER_START,
         window_end=LATER_END,
     )
-    with pytest.raises(GroupsProvenanceError, match="не совпадает"):
+    with pytest.raises(GroupsProvenanceError, match="does not match the matrix window"):
         verify_against_lambda(artifact, other_window)
 
 
@@ -298,7 +299,7 @@ def test_an_artifact_of_another_lambda_is_recognised(
     other = block_lambda(
         n_blocks=3, injectors_per_block=2, producers_per_block=5
     )
-    with pytest.raises(GroupsProvenanceError, match="другой матрицей"):
+    with pytest.raises(GroupsProvenanceError, match="different matrix"):
         verify_against_lambda(artifact, other)
 
 
@@ -311,7 +312,7 @@ def test_an_artifact_of_another_algorithm_version_is_recognised(
     )
     assert is_current(artifact) is True
     assert is_current(stale) is False
-    with pytest.raises(GroupsProvenanceError, match="версия алгоритма"):
+    with pytest.raises(GroupsProvenanceError, match="algorithm version"):
         require_current(stale)
 
 
@@ -323,7 +324,7 @@ def test_an_artifact_of_another_algorithm_is_recognised(
         provenance=replace(artifact.provenance, algorithm="spectral-clustering"),
     )
     assert is_current(alien) is False
-    with pytest.raises(GroupsProvenanceError, match="порождён алгоритмом"):
+    with pytest.raises(GroupsProvenanceError, match="came from algorithm"):
         require_current(alien)
 
 
@@ -331,7 +332,7 @@ def test_an_artifact_of_other_parameters_is_recognised(influence: Lambda) -> Non
     built, _ = build_artifact(influence, GroupingParams(merge_overlap=0.9))
     assert matches_params(built, GroupingParams(merge_overlap=0.9)) is True
     assert matches_params(built, GroupingParams()) is False
-    with pytest.raises(GroupsProvenanceError, match="построен с параметрами"):
+    with pytest.raises(GroupsProvenanceError, match="was built with merge_overlap"):
         require_params(built, GroupingParams())
 
 
@@ -361,15 +362,15 @@ def test_the_version_travels_in_the_serialized_form(artifact: GroupsArtifact) ->
 
 def test_a_foreign_format_is_refused(artifact: GroupsArtifact) -> None:
     payload = to_payload(artifact)
-    payload["format"] = "чужой.формат"
-    with pytest.raises(GroupsArtifactError, match="нераспознанный формат"):
+    payload["format"] = "foreign.format"
+    with pytest.raises(GroupsArtifactError, match="unrecognised artifact format"):
         from_payload(payload)
 
 
 def test_a_tampered_artifact_hash_is_refused(artifact: GroupsArtifact) -> None:
     payload = to_payload(artifact)
     payload["artifact_hash"] = "0" * 64
-    with pytest.raises(GroupsArtifactError, match="не сходится"):
+    with pytest.raises(GroupsArtifactError, match="does not match"):
         from_payload(payload)
 
 
@@ -379,7 +380,7 @@ def test_a_tampered_membership_is_caught_by_the_declared_hash(
     payload = to_payload(artifact)
     victim = sorted(payload["groups"])[0]
     payload["groups"][victim] = payload["groups"][victim][:-1]
-    with pytest.raises(GroupsArtifactError, match="не сходится"):
+    with pytest.raises(GroupsArtifactError, match="does not match"):
         from_payload(payload)
 
 
@@ -393,7 +394,7 @@ def test_loading_checks_that_every_well_is_covered(artifact: GroupsArtifact) -> 
         for group_id, members in payload["groups"].items()
     }
     payload["group_hash"] = artifact.groups.group_hash
-    with pytest.raises(GroupsArtifactError, match="вне участков"):
+    with pytest.raises(GroupsArtifactError, match="outside the groups"):
         from_payload(payload)
 
 
@@ -401,16 +402,16 @@ def test_loading_refuses_an_empty_group(artifact: GroupsArtifact) -> None:
     payload = normalized_payload(artifact)
     payload["groups"]["G9"] = []
     payload["group_hash"] = artifact.groups.group_hash
-    with pytest.raises(GroupsArtifactError, match="пуст"):
+    with pytest.raises(GroupsArtifactError, match="is empty"):
         from_payload(payload)
 
 
 def test_loading_refuses_a_well_outside_the_fund(artifact: GroupsArtifact) -> None:
     payload = normalized_payload(artifact)
     victim = sorted(payload["groups"])[0]
-    payload["groups"][victim] = payload["groups"][victim] + ["чужая"]
+    payload["groups"][victim] = payload["groups"][victim] + ["stranger"]
     payload["group_hash"] = artifact.groups.group_hash
-    with pytest.raises(GroupsArtifactError, match="вне фонда"):
+    with pytest.raises(GroupsArtifactError, match="outside the artifact well stock"):
         from_payload(payload)
 
 
@@ -424,7 +425,7 @@ def test_the_injector_invariant_is_checked_against_the_lambda(
     broken = replace(
         artifact, groups=replace(artifact.groups, groups=producers_only)
     )
-    with pytest.raises(ValueError, match="без нагнетательной"):
+    with pytest.raises(ValueError, match="has no injector"):
         verify_against_lambda(broken, influence)
 
 
@@ -435,13 +436,13 @@ def test_an_uncovered_well_is_caught_against_the_lambda(
     victim = sorted(trimmed)[0]
     trimmed[victim] = tuple(trimmed[victim][1:])
     broken = replace(artifact, groups=replace(artifact.groups, groups=trimmed))
-    with pytest.raises(ValueError, match="вне участков"):
+    with pytest.raises(ValueError, match="outside the groups"):
         verify_against_lambda(broken, influence)
 
 
 def test_a_hash_that_is_not_sha256_is_refused(artifact: GroupsArtifact) -> None:
     with pytest.raises(GroupsArtifactError, match="SHA-256"):
-        replace(artifact, groups=replace(artifact.groups, group_hash="короткий"))
+        replace(artifact, groups=replace(artifact.groups, group_hash="short"))
     with pytest.raises(GroupsArtifactError, match="SHA-256"):
         replace(artifact, groups=replace(artifact.groups, lambda_hash="Z" * 64))
 
@@ -490,8 +491,8 @@ def test_the_cache_key_moves_with_the_deck(artifact: GroupsArtifact) -> None:
 def test_the_cache_key_refuses_a_part_that_is_not_a_hash(
     artifact: GroupsArtifact,
 ) -> None:
-    with pytest.raises(GroupsArtifactError, match="ключа кеша"):
-        cache_key(artifact, "дек")
+    with pytest.raises(GroupsArtifactError, match="cache key part"):
+        cache_key(artifact, "deck")
 
 
 def test_rehash_reattaches_the_artifact_to_a_recomputed_lambda(

@@ -2,16 +2,15 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     OperatingStatus,
     Role,
-    Rule,
     Schedule,
     ScheduleMeta,
-    TraceEntry,
     WellState,
 )
+from backend.contexts.policy.domain.policy import Rule, TraceEntry
 
 from backend.contexts.assistant.infrastructure.artifacts import ArtifactError, ScenarioIndex
 from backend.contexts.assistant.application.tools.context import Card, ToolContext, ToolFailure

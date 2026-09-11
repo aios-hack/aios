@@ -5,16 +5,16 @@ from datetime import date
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.constraints.domain.config import (
     DEFAULT_NORMATIVES_2007,
     EspCatalogEntry,
-    Groups,
-    Lambda,
     NormativeSet,
-    Role,
 )
+from backend.contexts.connectivity.domain.connectivity import Groups, Lambda
+from backend.contexts.schedule.domain.schedule import Role
 
-from backend.domain.policy import PolicyMemory, PolicyState, RuleContext, WellMemory, WellObservation
+from backend.contexts.policy.domain.memory import PolicyMemory, WellMemory
+from backend.contexts.policy.domain.state import PolicyState, RuleContext, WellObservation
 
 ESP_CATALOG: tuple[EspCatalogEntry, ...] = (
     EspCatalogEntry(nominal=20.0, interval_low=0.0, interval_high=25.0, cost_rub=900_000.0),

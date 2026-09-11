@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from backend.core.contracts import EventKind, Role, Rule, TraceEntry
+from backend.contexts.schedule.domain.schedule import EventKind, Role
+from backend.contexts.policy.domain.policy import Rule, TraceEntry
 
 from backend.contexts.policy.domain.agents.base import Bound, BoundSense, Proposal
 from backend.contexts.policy.domain.budget import injection_ceiling_for_well
@@ -28,9 +29,9 @@ class WaterCeiling:
     def __post_init__(self) -> None:
         if self.value_m3_per_day < 0.0:
             raise ValueError(
-                f"{self.well}: потолок закачки по водному бюджету отрицателен "
-                f"({self.value_m3_per_day} м³/сут) — ограничение не "
-                f"интерпретируемо"
+                f"{self.well}: the injection ceiling from the water budget is negative "
+                f"({self.value_m3_per_day} m3/day): the bound is not "
+                f"interpretable"
             )
 
     def binding_source(self) -> float:
@@ -91,12 +92,12 @@ class WaterAgent:
     level: Level = Level.FIELD
     rank: int = WATER_AGENT_RANK
     responsibilities: tuple[str, ...] = (
-        "выставляет потолок закачки на скважину из водного бюджета, "
-        "объявленного в RuleContext, и не назначает бюджет сам",
-        "ограничивает, а не распределяет: квоты участков остаются за "
-        "FieldCoordinator, который вызывается раньше по рангу",
-        "молчит, когда водных ограничений в кейсе нет, и тогда шаг совпадает "
-        "с прогоном без агента бит в бит",
+        "places a per-well injection ceiling taken from the water budget "
+        "declared in RuleContext, and does not assign the budget itself",
+        "constrains rather than allocates: the group quotas remain with "
+        "FieldCoordinator, which is invoked earlier by rank",
+        "stays silent when the case carries no water constraints, and then the step matches "
+        "a run without the agent bit for bit",
     )
 
     def ceilings(

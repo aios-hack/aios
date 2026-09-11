@@ -13,7 +13,7 @@ from backend.contexts.runs.application.workflow import (
     RunProvenance,
     WorkflowStatus,
 )
-from backend.core.contracts import Constraints
+from backend.contexts.constraints.domain.constraints import Constraints
 from backend.contexts.constraints.infrastructure.constraints_io import constraints_hash
 
 from .test_search_scoring_and_provenance import (
@@ -111,8 +111,8 @@ def test_manifest_after_search_has_no_null_in_available_fields(
     ]
 
     assert not empty, (
-        "после поиска манифест оставил пустыми поля провенанса, значение "
-        f"которых известно: {sorted(empty)}"
+        "after the search the manifest left provenance fields empty whose values "
+        f"are known: {sorted(empty)}"
     )
 
 
@@ -145,8 +145,8 @@ def test_every_manifest_field_has_a_named_supplier(search_outcome: Any) -> None:
     ]
 
     assert not unexplained, (
-        "поля манифеста без источника: их никто не заполняет, и в манифесте "
-        f"они окажутся null — {sorted(unexplained)}"
+        "manifest fields without a source: nobody fills them in, and in the "
+        f"manifest they will end up null - {sorted(unexplained)}"
     )
 
 

@@ -5,7 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-WORKER_MODULE = "backend.presentation.cli.web_run_worker"
+WORKER_MODULE = "backend.interfaces.cli.web_run_worker"
 WORKER_TIMEOUT_SECONDS = 7200
 WORKER_THREAD_LIMIT = "2"
 

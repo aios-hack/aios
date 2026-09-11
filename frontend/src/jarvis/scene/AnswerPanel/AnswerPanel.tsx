@@ -1,6 +1,7 @@
 import { CaretRightIcon } from '@phosphor-icons/react';
 import { useEffect, useId, useState } from 'react';
 import { useT } from '@/shared/i18n/I18nContext';
+import { latinKeyOf } from '@/shared/lib/keyboard/layout';
 import { Markdown } from '@/jarvis/markdown/Markdown/Markdown';
 import type { Scene } from '@/jarvis/model/scenes';
 import './AnswerPanel.css';
@@ -40,7 +41,7 @@ export const AnswerPanel = ({ scene }: { scene: Scene | null }) => {
       if (event.ctrlKey || event.metaKey || event.altKey) {
         return;
       }
-      if (event.key === 'a' || event.key === 'A' || event.key === 'ф' || event.key === 'Ф') {
+      if (latinKeyOf(event.key) === 'a') {
         event.preventDefault();
         setExpanded((value) => !value);
       }

@@ -24,10 +24,7 @@ import torch
 from torch import (
     Tensor,
 )
-from backend.core.contracts import (
-    N_INTERVALS,
-    Role,
-)
+from backend.contexts.schedule.domain.schedule import N_INTERVALS, Role
 from backend.contexts.surrogate.domain.features import (
     SurrogateInput,
 )
@@ -37,9 +34,9 @@ def _validate_input(item: SurrogateInput) -> None:
     expected = {(well, step) for well in item.wells for step in range(N_INTERVALS)}
     actual = {(node.well, node.control_step) for node in item.nodes}
     if actual != expected or len(item.nodes) != len(expected):
-        raise SurrogateModelError("SurrogateInput не покрывает wells × 224 без дублей")
+        raise SurrogateModelError("SurrogateInput does not cover wells × 224 without duplicates")
     if any(len(node.static_values) != len(item.static_feature_names) for node in item.nodes):
-        raise SurrogateModelError("static_values не совпадает со static_feature_names")
+        raise SurrogateModelError("static_values does not match static_feature_names")
 
 
 def _scenario_summary(x: Tensor, item: SurrogateInput, *, mode: object) -> Tensor:
@@ -61,7 +58,7 @@ def _scenario_summary(x: Tensor, item: SurrogateInput, *, mode: object) -> Tenso
     return torch.nan_to_num(summary).expand(rows, -1)
 
 
-def _features(
+def build_features(
     item: SurrogateInput,
     wells: tuple[str, ...],
     *,
@@ -69,7 +66,7 @@ def _features(
 ) -> tuple[Tensor, Tensor]:
     _validate_input(item)
     if item.wells != wells:
-        raise SurrogateModelError(f"ось wells разошлась: {item.wells} != {wells}")
+        raise SurrogateModelError(f"the wells axis diverged: {item.wells} != {wells}")
     well_to_index = {well: index for index, well in enumerate(wells)}
     x = torch.tensor([_node_vector(node) for node in item.nodes], dtype=torch.float32)
     if scenario_context:
@@ -121,7 +118,7 @@ def _targets(
             state = states[(node.well, HORIZON.history_offset + 1 + node.control_step)]
         except KeyError as error:
             raise SurrogateModelError(
-                f"отклик не покрывает ({node.well!r}, {node.control_step})"
+                f"the response does not cover ({node.well!r}, {node.control_step})"
             ) from error
         raw = {
             "oil_mass_delta": response.oil_mass_delta,
@@ -134,14 +131,14 @@ def _targets(
         for name, value in raw.items():
             if not math.isfinite(value):
                 raise SurrogateModelError(
-                    f"нечисловая цель ({node.well!r}, {node.control_step}) "
+                    f"non-numeric target ({node.well!r}, {node.control_step}) "
                     f"{name}={value!r}"
                 )
             if value >= -_ROUNDOFF_TOLERANCE:
                 continue
             if name not in _BACKFLOW_FIELDS or value < _BACKFLOW_FLOOR:
                 raise SurrogateModelError(
-                    f"отрицательная цель ({node.well!r}, {node.control_step}) "
+                    f"negative target ({node.well!r}, {node.control_step}) "
                     f"{name}={value!r}"
                 )
             if stats is not None:
@@ -172,7 +169,7 @@ def _example_tensors(
     ys: list[Tensor] = []
     counters: dict[str, int] = {}
     for example in examples:
-        x, well_index = _features(
+        x, well_index = build_features(
             example.input, wells, scenario_context=scenario_context
         )
         xs.append(x)
@@ -186,15 +183,15 @@ def _example_tensors(
             )
         )
     if not xs:
-        raise SurrogateModelError("обучающая выборка пуста")
+        raise SurrogateModelError("the training sample is empty")
     target = torch.cat(ys)
     backflow = counters.get("backflow_intervals", 0)
     share = backflow / max(1, target.shape[0])
     if share > _BACKFLOW_SHARE_LIMIT:
         raise SurrogateModelError(
-            f"перетоков {backflow} из {target.shape[0]} интервалов ({share:.3%}) — "
-            f"выше порога {_BACKFLOW_SHARE_LIMIT:.1%}; это уже не переток, "
-            "а расхождение в разборе отклика"
+            f"{backflow} backflows out of {target.shape[0]} intervals ({share:.3%}), "
+            f"above the {_BACKFLOW_SHARE_LIMIT:.1%} threshold; this is no longer backflow "
+            "but a discrepancy in the response parsing"
         )
     if stats is not None:
         stats.update(counters)

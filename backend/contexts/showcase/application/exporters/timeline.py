@@ -5,10 +5,15 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from backend.core.contracts import (
-    ControlEvent, EventKind, FixedDeckEvent, IntervalResponse, RunArtifact,
-    Schedule, StateAtDate, compensation_policy, watercut,
+from backend.contexts.schedule.domain.schedule import (
+    ControlEvent,
+    EventKind,
+    FixedDeckEvent,
+    Schedule,
 )
+from backend.contexts.reservoir.domain.response import IntervalResponse, StateAtDate, watercut
+from backend.contexts.runs.domain.run_artifact import RunArtifact
+from backend.contexts.constraints.domain.constraints import compensation_policy
 from backend.contexts.showcase.application.exporters.compensation_view import (
     COMPENSATION_BASIS_RESERVOIR,
     COMPENSATION_BASIS_SURFACE,

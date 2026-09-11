@@ -9,9 +9,7 @@ from backend.contexts.schedule.domain.validation.report import (
     BLOCKING_DYNAMIC_VIOLATION_KINDS,
     FieldSeries,
 )
-from backend.core.contracts import (
-    MATERIAL_BALANCE_RELATIVE_TOLERANCE,
-)
+from backend.contexts.runs.domain.run_result import MATERIAL_BALANCE_RELATIVE_TOLERANCE
 from backend.contexts.schedule.domain.validate import (
     CONSTRAINT_MATERIAL_BALANCE,
     ConstraintCheck,
@@ -33,8 +31,8 @@ def check_material_balance(
             _not_set(
                 CONSTRAINT_MATERIAL_BALANCE,
                 (
-                    "полевые серии FOIP/FWIP/FOPT/FWPT/FWIT не переданы: "
-                    "материальный баланс пласта не проверялся"
+                    "the field series FOIP/FWIP/FOPT/FWPT/FWIT were not "
+                    "supplied: the reservoir material balance was not checked"
                 ),
             ),
         )
@@ -67,10 +65,11 @@ def check_material_balance(
                 well=None,
                 value=oil_error,
                 detail=(
-                    f"баланс нефти по горизонту не сходится: относительная "
-                    f"невязка {oil_error:.6f} выше допуска "
-                    f"{MATERIAL_BALANCE_RELATIVE_TOLERANCE}; изменение запаса "
-                    f"{oil_stock:.3f} м³ против добытого {oil_flow:.3f} м³"
+                    f"the oil balance over the horizon does not close: "
+                    f"relative residual {oil_error:.6f} is above the "
+                    f"tolerance {MATERIAL_BALANCE_RELATIVE_TOLERANCE}; stock "
+                    f"change {oil_stock:.3f} m3 against produced "
+                    f"{oil_flow:.3f} m3"
                 ),
             )
         )
@@ -82,11 +81,11 @@ def check_material_balance(
                 well=None,
                 value=water_error,
                 detail=(
-                    f"баланс воды по горизонту не сходится: относительная "
-                    f"невязка {water_error:.6f} выше допуска "
-                    f"{MATERIAL_BALANCE_RELATIVE_TOLERANCE}; изменение запаса "
-                    f"{water_stock:.3f} м³ против закачанного минус добытого "
-                    f"{water_injected - water_produced:.3f} м³"
+                    f"the water balance over the horizon does not close: "
+                    f"relative residual {water_error:.6f} is above the "
+                    f"tolerance {MATERIAL_BALANCE_RELATIVE_TOLERANCE}; stock "
+                    f"change {water_stock:.3f} m3 against injected minus "
+                    f"produced {water_injected - water_produced:.3f} m3"
                 ),
             )
         )
@@ -95,9 +94,9 @@ def check_material_balance(
             CONSTRAINT_MATERIAL_BALANCE,
             found,
             (
-                f"материальный баланс сверен по горизонту при допуске "
-                f"{MATERIAL_BALANCE_RELATIVE_TOLERANCE}: невязка по нефти "
-                f"{oil_error:.6f}, по воде {water_error:.6f}"
+                f"material balance checked over the horizon at tolerance "
+                f"{MATERIAL_BALANCE_RELATIVE_TOLERANCE}: oil residual "
+                f"{oil_error:.6f}, water residual {water_error:.6f}"
             ),
             blocking_kinds=BLOCKING_DYNAMIC_VIOLATION_KINDS,
         ),

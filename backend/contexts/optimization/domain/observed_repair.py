@@ -1,9 +1,10 @@
 from dataclasses import replace
 import math
 
-from backend.core.contracts import ControlEvent, EventKind, water_supply_policy
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind
+from backend.contexts.constraints.domain.constraints import water_supply_policy
 from backend.contexts.constraints.domain.constraints import bhp_limits
-from backend.domain.schedule import canonicalize
+from backend.contexts.schedule.domain.canonical import canonicalize
 
 
 def production_from_observation(schedule, response, constraints, *, scale=1.25, pressure_margin=10.0):

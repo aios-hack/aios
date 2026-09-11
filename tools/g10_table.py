@@ -1,11 +1,3 @@
-"""G10, фаза 3: таблица «предсказано против факта» и кривая regret.
-
-Это же метрики качества суррогата, требуемые §10.3: отдельно их считать не
-нужно, они побочный результат проверки кандидатов настоящим прогоном.
-
-Запуск: `PYTHONPATH=. python tools/g10_table.py`.
-"""
-
 from __future__ import annotations
 
 import json
@@ -50,16 +42,16 @@ def main() -> int:
     for path in sorted(OUT.glob("candidate-*.json")):
         rows.append(json.loads(path.read_text(encoding="utf-8")))
     if not rows:
-        print("ни одного посчитанного кандидата", flush=True)
+        print("not a single computed candidate", flush=True)
         return 1
     scored = [row for row in rows if row["actual_npv"] is not None]
-    print(f"кандидатов посчитано {len(rows)}, с выданным ЧДД {len(scored)}")
+    print(f"candidates computed {len(rows)}, with an issued NPV {len(scored)}")
     if not scored:
         return 1
 
     scored.sort(key=lambda row: -row["predicted_npv"])
-    print("\n=== предсказано против факта, млрд руб ===")
-    print("  место  предсказано     факт   ошибка   нарушений  индекс")
+    print("\n=== predicted against actual, bln RUB ===")
+    print("  place  predicted     actual   error   violations  index")
     for place, row in enumerate(scored, start=1):
         predicted = row["predicted_npv"] / 1e9
         actual = row["actual_npv"] / 1e9
@@ -70,35 +62,35 @@ def main() -> int:
 
     predicted = [row["predicted_npv"] for row in scored]
     actual = [row["actual_npv"] for row in scored]
-    print(f"\nSpearman предсказания против факта: {_pearson(_ranks(predicted), _ranks(actual)):.4f}")
+    print(f"\nSpearman of predicted against actual: {_pearson(_ranks(predicted), _ranks(actual)):.4f}")
     print(f"Pearson:                            {_pearson(predicted, actual):.4f}")
     mae = sum(abs(p - a) for p, a in zip(predicted, actual)) / len(scored)
     bias = sum(p - a for p, a in zip(predicted, actual)) / len(scored)
-    print(f"средняя абсолютная ошибка: {mae / 1e9:.3f} млрд, смещение {bias / 1e9:+.3f} млрд")
+    print(f"mean absolute error: {mae / 1e9:.3f} bln, bias {bias / 1e9:+.3f} bln")
 
     champion = max(scored, key=lambda row: row["actual_npv"])
     place = next(i for i, row in enumerate(scored, start=1) if row["index"] == champion["index"])
     print(
-        f"\nчемпион по настоящей физике: кандидат {champion['index']}, "
-        f"факт {champion['actual_npv'] / 1e9:.3f} млрд, "
-        f"место в предсказанном порядке {place} из {len(scored)}"
+        f"\nchampion by real physics: candidate {champion['index']}, "
+        f"actual {champion['actual_npv'] / 1e9:.3f} bln, "
+        f"place in the predicted order {place} of {len(scored)}"
     )
     best_actual = champion["actual_npv"]
-    print("\n=== regret@K: сколько теряем, доверяя суррогату шортлист из K ===")
-    print("  K   лучший факт в top-K   regret, млн руб   чемпион внутри")
+    print("\n=== regret@K: how much we lose by trusting the surrogate with a shortlist of K ===")
+    print("  K   best actual in top-K   regret, mln RUB   champion inside")
     seen = float("-inf")
     for k in range(1, len(scored) + 1):
         seen = max(seen, scored[k - 1]["actual_npv"])
         regret = best_actual - seen
-        inside = "да" if regret == 0.0 else "нет"
+        inside = "yes" if regret == 0.0 else "no"
         if k <= 10 or regret == 0.0 or k == len(scored):
             print(f"  {k:2d}  {seen / 1e9:17.3f}   {regret / 1e6:14.1f}   {inside}")
         if regret == 0.0:
             break
 
     print(
-        f"\nбазовое расписание организаторов: {BASE_NPV / 1e9:.3f} млрд; "
-        f"лучший наш кандидат отстаёт на {(BASE_NPV - best_actual) / 1e9:.3f} млрд"
+        f"\nthe organizers' base schedule: {BASE_NPV / 1e9:.3f} bln; "
+        f"our best candidate trails by {(BASE_NPV - best_actual) / 1e9:.3f} bln"
     )
     (OUT / "table.json").write_text(
         json.dumps(
@@ -131,7 +123,7 @@ def main() -> int:
         ),
         encoding="utf-8",
     )
-    print(f"\nзаписано: {OUT / 'table.json'}")
+    print(f"\nwritten: {OUT / 'table.json'}")
     return 0
 
 

@@ -124,8 +124,8 @@ def _find(context: ToolContext, run_id: str | None) -> Located:
     if not items:
         roots = ", ".join(str(root) for root in _roots(context))
         raise ToolFailure(
-            f"{NO_RUNS}: ни одного прогона с манифестом не найдено в каталогах "
-            f"{roots}; расчёт ещё не запускался, и придумать его результат нельзя"
+            f"{NO_RUNS}: no run with a manifest was found in the directories "
+            f"{roots}; no calculation has been made yet, and its result cannot be invented"
         )
     if run_id is None:
         return items[0]
@@ -134,8 +134,8 @@ def _find(context: ToolContext, run_id: str | None) -> Located:
             return item
     known = ", ".join(item.run_id for item in items[:MAX_LIMIT])
     raise ToolFailure(
-        f"прогона {run_id!r} нет ни в одном каталоге прогонов: известные "
-        f"прогоны — {known}"
+        f"run {run_id!r} is in none of the run directories: known runs "
+        f"are {known}"
     )
 
 
@@ -167,8 +167,8 @@ def run_history(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
     if not items:
         roots = ", ".join(str(root) for root in _roots(context))
         raise ToolFailure(
-            f"{NO_RUNS}: ни одного прогона с манифестом не найдено в каталогах "
-            f"{roots}; списка прогонов не существует"
+            f"{NO_RUNS}: no run with a manifest was found in the directories "
+            f"{roots}; there is no list of runs"
         )
     rows = [_row(item) for item in items]
     if status is not None:
@@ -179,8 +179,8 @@ def run_history(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
                 {str(row["status"]) for row in (_row(item) for item in items)}
             )
             raise ToolFailure(
-                f"прогонов со статусом {wanted!r} нет: встречаются статусы "
-                f"{', '.join(statuses)}"
+                f"there are no runs with status {wanted!r}: the statuses present "
+                f"are {', '.join(statuses)}"
             )
     payload = {
         "rows": rows[:limit],
@@ -217,9 +217,9 @@ def _physics(directory: Path) -> dict[str, Any]:
             "blocking": None,
             "warnings": None,
             "reason": (
-                "отчёта о физике нет: в каталоге "
-                f"{directory / VALIDATION_DIR} нет файла physics*.json, поэтому "
-                "допустимость отклика неизвестна"
+                "there is no physics report: the directory "
+                f"{directory / VALIDATION_DIR} holds no physics*.json file, so "
+                "the admissibility of the response is unknown"
             ),
             "source": None,
         }
@@ -298,7 +298,7 @@ def physics_report(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
     report = _physics(item.directory)
     if not report["recorded"]:
         raise ToolFailure(
-            f"{report['reason']} (прогон {item.run_id})"
+            f"{report['reason']} (run {item.run_id})"
         )
     payload = {
         "run_id": item.run_id,
@@ -350,8 +350,8 @@ def compare_runs(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
     items = _located(context)
     if len(items) < 2 and (arguments.get("a") is None or arguments.get("b") is None):
         raise ToolFailure(
-            f"{NO_RUNS}: для сравнения нужны два прогона, а найден "
-            f"{len(items)}; сравнивать нечего"
+            f"{NO_RUNS}: a comparison needs two runs, but {len(items)} was "
+            "found; there is nothing to compare"
         )
     left_id = arguments.get("a")
     right_id = arguments.get("b")
@@ -359,8 +359,8 @@ def compare_runs(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
     right = _find(context, str(right_id) if right_id is not None else items[0].run_id)
     if left.run_id == right.run_id:
         raise ToolFailure(
-            f"прогон {left.run_id} сравнивается сам с собой: разница всегда "
-            "нулевая, назовите два разных прогона"
+            f"run {left.run_id} is being compared with itself: the difference "
+            "is always zero, name two different runs"
         )
     a = _side(left, context)
     b = _side(right, context)
@@ -378,9 +378,9 @@ def compare_runs(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
             None
             if comparison is not None
             else (
-                f"{NO_COMPARISON}: у прогона {right.run_id} нет файла "
-                f"{COMPARISON_FILE}, поэтому разложение разницы по скважинам "
-                "неизвестно"
+                f"{NO_COMPARISON}: run {right.run_id} has no "
+                f"{COMPARISON_FILE} file, so the breakdown of the difference "
+                "by well is unknown"
             )
         ),
     }

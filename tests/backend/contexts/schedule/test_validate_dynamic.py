@@ -6,23 +6,23 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.reservoir.domain.response import (
     ActiveControlMode,
+    IntervalResponse,
+    StateAtDate,
+)
+from backend.contexts.schedule.domain.schedule import (
     Availability,
-    Constraints,
     ControlEvent,
     FixedDeckEvent,
-    IntervalResponse,
     OperatingStatus,
     Role,
-    RunResult,
-    RunStatus,
     Schedule,
     ScheduleMeta,
-    StateAtDate,
-    WellOutage,
     WellState,
 )
+from backend.contexts.constraints.domain.constraints import Constraints, WellOutage
+from backend.contexts.runs.domain.run_result import RunResult, RunStatus
 from backend.contexts.constraints.domain.constraints import (
     BHP_INJECTOR_MAX_BAR,
     BHP_PRODUCER_MIN_BAR,
@@ -32,7 +32,7 @@ from backend.contexts.constraints.domain.constraints import (
     SOURCE_ORGANIZER,
     source_key,
 )
-from backend.domain.schedule import load_schedule
+from backend.contexts.schedule.domain.build import load_schedule
 from backend.contexts.schedule.domain.validate import ViolationKind
 
 from tests.support.backend.environment import base_run_dir, base_run_output_dir, missing_reason
@@ -488,7 +488,7 @@ def test_clean_response_has_no_violations_and_raises_nothing() -> None:
     report = validate_dynamic(schedule, states, full_intervals(schedule))
     assert report.ok, report.format()
     assert report.violations == ()
-    assert "нарушений нет" in report.format()
+    assert "no violations" in report.format()
     report.raise_if_violated()
 
 
@@ -599,7 +599,7 @@ def test_compensation_above_the_ceiling_is_reported() -> None:
     violations = report.by_kind()[ViolationKind.COMPENSATION_OUT_OF_CORRIDOR]
     assert len(violations) == 1
     assert violations[0].value == pytest.approx(1.4)
-    assert "выше верхней" in violations[0].detail
+    assert "above the upper" in violations[0].detail
 
 
 def test_compensation_corridor_edges_are_inclusive() -> None:
@@ -651,7 +651,7 @@ def test_zero_withdrawal_is_a_separate_diagnostic_not_a_fake_ratio() -> None:
     assert ViolationKind.COMPENSATION_OUT_OF_CORRIDOR not in counts
     assert counts[ViolationKind.COMPENSATION_UNDEFINED] == 1
     detail = report.by_kind()[ViolationKind.COMPENSATION_UNDEFINED][0].detail
-    assert "не определена" in detail
+    assert "is undefined" in detail
     assert report.blocking_ok
 
 
@@ -691,7 +691,11 @@ def _load_real_response():
     deck = base_run_dir() / "deck"
     if not (deck / "Model_Z_sch.inc").is_file():
         return None
-    from backend.infrastructure.opm import ResponseLoader, build_summary_plan, load_density_by_pvtnum
+    from backend.contexts.simulation.infrastructure.response_loader import (
+        ResponseLoader,
+        load_density_by_pvtnum,
+    )
+    from backend.contexts.reservoir.infrastructure.summary import build_summary_plan
 
     schedule = load_schedule(deck / "Model_Z_sch.inc")
     plan = build_summary_plan(deck, sorted(schedule.meta.wells))
@@ -714,7 +718,7 @@ REAL_RESPONSE = _load_real_response()
 
 real_response = pytest.mark.skipif(
     REAL_RESPONSE is None,
-    reason=missing_reason("сохранённый отклик настоящего прогона OPM"),
+    reason=missing_reason("a stored response of a real OPM run"),
 )
 
 
@@ -904,7 +908,7 @@ def test_bhp_violation_text_says_when_no_source_was_declared() -> None:
         for item in report.report.violations
         if item.kind is ViolationKind.BHP_BELOW_PRODUCER_LIMIT
     )
-    assert "не объявлен" in detail
+    assert "not declared" in detail
 
 
 def test_compensation_violation_text_names_the_source() -> None:

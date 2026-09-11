@@ -6,7 +6,7 @@
     "recordings.json": "sha256 of the 11 Jarvis recordings",
     "knowledge.json": "sha256 of the 3 knowledge files",
     "behaviour.json": "npv, champion bundle, scenarios, grid, timeline stats",
-    "api_surface.json": "public classes and functions of every backend module (226 modules, 1964 symbols)",
+    "api_surface.json": "public classes and functions of every backend module (378 modules, 2141 symbols)",
     "errors.json": "every custom error class name (80)",
     "cli.json": "exit codes and messages of representative CLI invocations",
     "tests.json": "test counts per stack"
@@ -28,6 +28,20 @@
         "knowledge.json"
       ],
       "why": "showcase.json was captured on a locally regenerated showcase that never entered the index; hierarchy-index.json and the per-step split existed only on disk. recordings track the document corpus, which the plan edits changed. knowledge.json reflects the deliberate language split."
+    },
+    {
+      "at": "2026-09-11 after wave 4 (Z-04a)",
+      "files": [
+        "recordings.json"
+      ],
+      "why": "ten root documents moved to the sibling docs repository, which the Jarvis index also walks, so the corpus grew 1222 -> 1228 chunks and BM25 renormalised. Three recordings changed by 0.0001 in hit scores and by indexed_chunks; cited sources, their order and every answer text are byte-identical."
+    },
+    {
+      "at": "2026-09-11 after wave 4 (Z-08)",
+      "files": [
+        "api_surface.json"
+      ],
+      "why": "every one of the 226 keys was a pre-refactor module path (backend/application/**, backend/domain/**) that no longer exists, so the snapshot guarded nothing. Regenerated over the real tree (backend/shared, backend/contexts/**, backend/interfaces/**) with the original convention: ast.walk over the module, every non-underscore FunctionDef/AsyncFunctionDef/ClassDef at any nesting depth, sorted, modules without public symbols omitted. Verified by replaying the extractor against commit cda8c456, where it reproduces 225 of the 226 recorded entries exactly. Seven public symbols from the old surface are absent: Knowledge -> KnowledgeStore, shared_system_map and reset_shared_system_map -> the private _system_map cache in contexts/assistant/__init__.py, make_synthetic_artifact -> tests/support/backend/showcase_fixtures.py, commissioned -> a field of the Fund dataclass rather than a property, wells_file -> a method the old capture missed, LosslessEmitter -> removed with the legacy deck writer."
     }
   ]
 }

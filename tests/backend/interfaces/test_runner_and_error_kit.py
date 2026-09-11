@@ -59,7 +59,7 @@ def test_cli_exit_codes_follow_the_hierarchy(kind: type[AiosError], expected: in
     stderr = io.StringIO()
 
     def main() -> int:
-        raise kind("что-то не так")
+        raise kind("something is wrong")
 
     assert run(main, stderr=stderr) == expected
 
@@ -77,11 +77,11 @@ def test_the_message_and_code_reach_stderr() -> None:
     stderr = io.StringIO()
 
     def main() -> int:
-        raise ValidationError("кейс отклонён", code="runs.case_rejected")
+        raise ValidationError("case rejected", code="runs.case_rejected")
 
     run(main, stderr=stderr)
 
-    assert stderr.getvalue().strip() == "error[runs.case_rejected]: кейс отклонён"
+    assert stderr.getvalue().strip() == "error[runs.case_rejected]: case rejected"
 
 
 def test_a_foreign_exception_is_not_swallowed() -> None:
@@ -94,24 +94,24 @@ def test_a_foreign_exception_is_not_swallowed() -> None:
 
 @pytest.mark.parametrize("kind,expected", HTTP_CASES)
 def test_http_status_codes_follow_the_hierarchy(kind: type[AiosError], expected: int) -> None:
-    assert status_for(kind("боль")) == expected
+    assert status_for(kind("pain")) == expected
 
 
 def test_the_http_body_always_has_the_three_fields() -> None:
-    status, body = to_response(NotFoundError("прогона нет", run_id="r-1"))
+    status, body = to_response(NotFoundError("there is no such run", run_id="r-1"))
 
     assert status == 404
     assert body == {
         "error": "not_found",
-        "message": "прогона нет",
+        "message": "there is no such run",
         "details": {"run_id": "r-1"},
     }
 
 
 def test_a_bare_exception_becomes_a_500_without_leaking_its_text() -> None:
-    status, body = to_response(RuntimeError("секрет в тексте"))
+    status, body = to_response(RuntimeError("a secret in the text"))
 
     assert status == 500
     assert body == internal_body()
     assert body["error"] == INTERNAL_CODE
-    assert "секрет" not in str(body)
+    assert "secret" not in str(body)

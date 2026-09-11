@@ -1,9 +1,16 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { MapWell } from '@/entities/maps/types';
 import type { TimelineWellRow } from '@/entities/timeline/types';
 import { clamp01, ratioColor } from '@/shared/theme/scales';
+import { visibleLabels } from '@/pages/field-maps/model/labelPlacement';
 
 export const WELL_RADIUS = 1.15;
+
+export const LABEL_OFFSET_PX = 6;
+
+export const LABEL_BASELINE_PX = 4;
+
+export const LABEL_FONT_PX = 11;
 export const SELECTED_SCALE = 1.6;
 
 export interface WellPlacement {
@@ -46,8 +53,10 @@ interface MapWellLayerProps {
   rows: Map<string, TimelineWellRow>;
   bounds: { min: number; max: number };
   selectedWell: string | null;
+  hoveredWell: string | null;
   showLabels: boolean;
   scale: number;
+  unitsPerPixel: number;
   onSelectWell: (well: string) => void;
   onHoverWell: (well: string | null) => void;
   onFocusWell: (point: { clientX: number; clientY: number }) => void;
@@ -58,14 +67,27 @@ export const MapWellLayer = ({
   rows,
   bounds,
   selectedWell,
+  hoveredWell,
   showLabels,
   scale,
+  unitsPerPixel,
   onSelectWell,
   onHoverWell,
   onFocusWell
 }: MapWellLayerProps) => {
   const radius = WELL_RADIUS / Math.max(scale, 0.2);
   const stroke = radius * 0.34;
+  const pinned = useMemo(
+    () => [selectedWell, hoveredWell].filter((id): id is string => id !== null),
+    [selectedWell, hoveredWell]
+  );
+  const labelled = useMemo(
+    () =>
+      showLabels
+        ? visibleLabels(placements, unitsPerPixel, LABEL_OFFSET_PX, pinned)
+        : new Set<string>(),
+    [showLabels, placements, unitsPerPixel, pinned]
+  );
 
   const fillOf = useCallback(
     (row: TimelineWellRow | undefined): string => {
@@ -157,12 +179,13 @@ export const MapWellLayer = ({
                 strokeWidth={stroke * 1.4}
               />
             )}
-            {showLabels && (
+            {labelled.has(well.id) && (
               <text
                 className="field-maps-well-label"
-                x={size + stroke * 3}
-                y={size * 0.6}
-                fontSize={radius * 1.9}
+                data-pinned={selected || hoveredWell === well.id ? 'true' : 'false'}
+                x={size + LABEL_OFFSET_PX * unitsPerPixel}
+                y={LABEL_BASELINE_PX * unitsPerPixel}
+                style={{ fontSize: `${LABEL_FONT_PX * unitsPerPixel}px` }}
               >
                 {well.id}
               </text>

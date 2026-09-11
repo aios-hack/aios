@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
-from backend.core.contracts import canonical_bytes
+from backend.shared.hashing import canonical_bytes
 
 TARGET_PROVENANCE_FORMAT = "aios.npv-target-provenance.v2"
 TARGET_SOURCE_FILES: tuple[str, ...] = (

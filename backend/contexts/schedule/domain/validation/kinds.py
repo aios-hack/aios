@@ -20,8 +20,8 @@ def constraint_kinds(constraint: str) -> tuple[ViolationKind, ...]:
         return (ViolationKind.WELL_OUTAGE_VIOLATED,)
     if constraint not in _CONSTRAINT_KINDS:
         raise KeyError(
-            f"ограничение {constraint!r} не объявлено в отчёте о проверках: "
-            "виды нарушений для него неизвестны"
+            f"constraint {constraint!r} is not declared in the check "
+            "report: the violation kinds for it are unknown"
         )
     return _CONSTRAINT_KINDS[constraint]
 

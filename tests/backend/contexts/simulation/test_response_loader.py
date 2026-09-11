@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.infrastructure.opm import OpmRunner
+from backend.contexts.simulation.infrastructure.runner import OpmRunner
 from backend.contexts.simulation.infrastructure.response_loader import (
     _ELEMENTS_PER_BLOCK,
     ResponseLoader,
@@ -24,18 +24,16 @@ from backend.contexts.simulation.infrastructure.response_loader import (
     load_density_by_pvtnum,
 )
 from backend.contexts.reservoir.infrastructure.summary import SummaryConnection, SummaryPlan
-from backend.core.contracts import (
-    ActiveControlMode,
+from backend.contexts.reservoir.domain.response import ActiveControlMode
+from backend.contexts.schedule.domain.schedule import (
     ControlEvent,
     EventKind,
     N_INTERVALS,
     OperatingStatus,
-    RunResult,
-    RunStatus,
     Schedule,
     ScheduleMeta,
-    SummarySpec,
 )
+from backend.contexts.runs.domain.run_result import RunResult, RunStatus, SummarySpec
 from backend.contexts.reservoir.domain.response import N_DECK_DATES
 
 
@@ -50,11 +48,10 @@ pytestmark = [pytest.mark.slow, pytest.mark.opm]
 
 DECKS = DECKS_ROOT
 
-# Через conftest, а не через parents[3]: см. тот же комментарий в test_runner.py.
 MODEL_Z = model_z_dir()
 
 requires_model_z = pytest.mark.skipif(
-    MODEL_Z is None, reason=missing_reason("каталог Model_Z")
+    MODEL_Z is None, reason=missing_reason("Model_Z directory")
 )
 
 _PVT_WELLS = ("INJ", "MULTI", "PROD2")
@@ -77,7 +74,7 @@ def require_docker() -> None:
     reason = docker_unavailable_reason()
     if reason is not None:
         pytest.skip(
-            f"приёмка ResponseLoader на реальных артефактах требует OPM Flow; {reason}"
+            f"ResponseLoader acceptance on real artifacts requires OPM Flow; {reason}"
         )
 
 
@@ -94,11 +91,9 @@ def _run_deck(tmp_path: Path, name: str) -> RunResult:
     return result
 
 
-# --- реальные артефакты OPM: формат парсинга и восстановление WOMT/WOMR ---
 
 
 def test_read_smspec_and_unsmry_report_rows_real_mini(tmp_path: Path) -> None:
-    """MINI.DATA: 10 report step (TSTEP 10*30), настоящий бинарный SMSPEC/UNSMRY."""
 
     result = _run_deck(tmp_path, "MINI.DATA")
     smspec_path = _find_artifact(result.artifacts, "SMSPEC")
@@ -115,18 +110,13 @@ def test_read_smspec_and_unsmry_report_rows_real_mini(tmp_path: Path) -> None:
 
 
 def test_build_well_rows_reconstructs_oil_mass_across_pvt_regions_real(tmp_path: Path) -> None:
-    """PVT.DATA: MULTI вскрывает оба PVT-региона — восстановление WOMT/WOMR на
-
-    настоящем прогоне обязано учитывать разные плотности по подключениям, а
-    не одну плотность на скважину.
-    """
 
     result = _run_deck(tmp_path, "PVT.DATA")
     smspec_path = _find_artifact(result.artifacts, "SMSPEC")
     unsmry_path = _find_artifact(result.artifacts, "UNSMRY")
     smspec = _read_smspec(smspec_path)
     raw_rows = _read_unsmry_report_rows(unsmry_path, smspec.n_vectors)
-    assert len(raw_rows) == 3  # TSTEP 30 30 / TSTEP 30 — три report step
+    assert len(raw_rows) == 3
 
     plan = SummaryPlan(spec=SummarySpec(), wells=_PVT_WELLS, connections=_PVT_CONNECTIONS)
     well_rows = _build_well_rows(smspec, raw_rows, plan, _PVT_DENSITY)
@@ -134,7 +124,7 @@ def test_build_well_rows_reconstructs_oil_mass_across_pvt_regions_real(tmp_path:
     last = well_rows[-1]["MULTI"]
     copt_k1 = raw_rows[-1][smspec.column[("COPT", "MULTI", _nums(1, 1, smspec))]]
     copt_k3 = raw_rows[-1][smspec.column[("COPT", "MULTI", _nums(3, 1, smspec))]]
-    assert copt_k1 > 0.0 and copt_k3 > 0.0  # иначе тест ничего не проверяет
+    assert copt_k1 > 0.0 and copt_k3 > 0.0
 
     correct = copt_k1 * 800.0 / 1000.0 + copt_k3 * 850.0 / 1000.0
     single_density_wrong = copt_k1 * 800.0 / 1000.0 + copt_k3 * 800.0 / 1000.0
@@ -142,8 +132,6 @@ def test_build_well_rows_reconstructs_oil_mass_across_pvt_regions_real(tmp_path:
     assert last.oil_mass_cum == pytest.approx(correct)
     assert last.oil_mass_cum != pytest.approx(single_density_wrong)
 
-    # WMCTL реальными числами: MULTI держит LRAT, INJ держит RATE закачки,
-    # PROD2 не достигает уставки и упирается в BHP (4->7), затем глушится (->0).
     assert _resolve_control_mode("MULTI", 0, well_rows[0]["MULTI"], {}) is ActiveControlMode.RATE_TARGET
     assert _resolve_control_mode("INJ", 0, well_rows[0]["INJ"], {}) is ActiveControlMode.RATE_TARGET
     assert (
@@ -153,7 +141,6 @@ def test_build_well_rows_reconstructs_oil_mass_across_pvt_regions_real(tmp_path:
 
 
 def test_load_rejects_wrong_report_step_count_real(tmp_path: Path) -> None:
-    """Полный ResponseLoader.load на настоящих артефактах с не тем числом дат."""
 
     result = _run_deck(tmp_path, "PVT.DATA")
     plan = SummaryPlan(spec=SummarySpec(), wells=_PVT_WELLS, connections=_PVT_CONNECTIONS)
@@ -171,13 +158,11 @@ def test_load_density_by_pvtnum_real_model_z() -> None:
 
 
 def _nums(k: int, _unused: int, smspec) -> int:
-    # MULTI занимает (2,2,k) в PVT.DATA (3x3x3 грид).
     from backend.contexts.reservoir.infrastructure.summary import _grid_index
 
     return _grid_index(2, 2, k, smspec.nx, smspec.ny, smspec.nz) + 1
 
 
-# --- синтетика: форма/границы осей, разделение приростов, коды WMCTL ---
 
 
 def _well_row(**overrides) -> _WellRow:
@@ -220,11 +205,6 @@ def test_state_at_date_wrong_length_raises(wrong_length: int) -> None:
 
 
 def test_interval_response_axis_boundaries_and_per_well_isolation() -> None:
-    """control_step 0…223 ровно, 224 никогда не строится, приросты не текут
-
-    между скважинами, а неравномерные накопления ловят сдвиг оси на один
-    deck_date_index (ровно две ошибки, для которых существует задача 59).
-    """
 
     wells = ("A", "B")
     rows = []
@@ -254,22 +234,17 @@ def test_interval_response_axis_boundaries_and_per_well_isolation() -> None:
 
     by_key = {(r.control_step, r.well): r for r in result}
     for k in (0, 112, N_INTERVALS - 1):
-        # raw_diff[146+k] = (147+k)^2 - (146+k)^2. Неравномерный
-        # прирост отличает правильный индекс от обоих соседних.
         expected = float((147 + k) ** 2 - (146 + k) ** 2)
         response_a = by_key[(k, "A")]
         assert response_a.liquid_volume_delta == pytest.approx(expected)
         assert response_a.oil_mass_delta == pytest.approx(10.0 * expected)
         assert response_a.injection_volume_delta == pytest.approx(100.0 * expected)
 
-        # Большое смещение накопленного у B не переносится через границу
-        # скважин; меняется только собственный множитель её ряда.
         response_b = by_key[(k, "B")]
         assert response_b.liquid_volume_delta == pytest.approx(2.0 * expected)
         assert response_b.oil_mass_delta == pytest.approx(20.0 * expected)
         assert response_b.injection_volume_delta == pytest.approx(200.0 * expected)
 
-    # Последний интервал использует даты 369→370. Терминального k=224 нет.
     assert (N_INTERVALS - 1, "A") in by_key
     assert (N_INTERVALS, "A") not in by_key
 
@@ -317,16 +292,13 @@ def test_resolve_control_mode_wmctl_zero_not_commissioned_then_shut() -> None:
         fixed_deck_events=(),
         control_events=(ControlEvent(control_step=60, well="W", kind=EventKind.OPEN),),
     )
-    from backend.contexts.simulation.infrastructure.response_loader import _build_well_timelines
+    from backend.contexts.simulation.infrastructure.response_loader import build_well_timelines
 
-    timelines = _build_well_timelines(schedule)
+    timelines = build_well_timelines(schedule)
     row = _well_row(wmctl=0.0)
 
-    # deck_date_index=200 -> control_step=53, до OPEN(60): ещё не введена.
     assert _resolve_control_mode("W", 200, row, timelines) is ActiveControlMode.NOT_COMMISSIONED
-    # deck_date_index=250 -> control_step=103, после OPEN(60): введена, но WMCTL=0 -> SHUT.
     assert _resolve_control_mode("W", 250, row, timelines) is ActiveControlMode.SHUT
-    # историческая часть (< deck_date_index 146): WMCTL=0 всегда SHUT, NOT_COMMISSIONED там не бывает.
     assert _resolve_control_mode("W", 50, row, timelines) is ActiveControlMode.SHUT
 
 
@@ -370,14 +342,13 @@ def test_load_rejects_non_ok_run_result() -> None:
         summary_hash="s" * 64,
         artifacts=(),
         wallclock_seconds=1.0,
-        message="не сошёлся",
+        message="did not converge",
     )
     plan = SummaryPlan(spec=SummarySpec(), wells=(), connections=())
     with pytest.raises(ResponseLoaderError):
         ResponseLoader().load(run_result, plan, _EMPTY_SCHEDULE, {})
 
 
-# --- синтетический полный проход ResponseLoader.load: форма/хеш/NaN, не физика ---
 
 
 def _pack_record(payload: bytes) -> bytes:
@@ -412,7 +383,6 @@ def _write_keyword_file(path: Path, blocks: list) -> None:
 
 
 def _fabricate_smspec(path: Path) -> None:
-    # Один well "W1" с одним подключением в ячейке (1,1,1) сетки 1x1x1: nums=1.
     keywords = ["WLPR", "WWIR", "WBHP", "WTHP", "WEFF", "WLPT", "WWIT", "WMCTL", "COPT", "COPR"]
     wgnames = ["W1"] * 8 + ["W1", "W1"]
     nums = [0] * 8 + [1, 1]
@@ -446,16 +416,16 @@ def _synthetic_run_result(tmp_path: Path, *, inject_nan_at: int | None = None) -
         bhp = float("nan") if d == inject_nan_at else 120.0
         rows.append(
             [
-                5.0,  # WLPR
-                0.0,  # WWIR
-                bhp,  # WBHP
-                30.0,  # WTHP
-                1.0,  # WEFF
-                float(d),  # WLPT cumulative, diff=1/interval
-                0.0,  # WWIT
-                4.0,  # WMCTL -> RATE_TARGET
-                float(d) * 2.0,  # COPT cumulative, diff=2/interval
-                5.0,  # COPR instantaneous
+                5.0,
+                0.0,
+                bhp,
+                30.0,
+                1.0,
+                float(d),
+                0.0,
+                4.0,
+                float(d) * 2.0,
+                5.0,
             ]
         )
     _fabricate_unsmry(unsmry_path, rows)
@@ -468,7 +438,7 @@ def _synthetic_run_result(tmp_path: Path, *, inject_nan_at: int | None = None) -
         summary_hash="s" * 64,
         artifacts=(str(smspec_path), str(unsmry_path)),
         wallclock_seconds=0.01,
-        message="synthetic fixture — форма/границы, не физика",
+        message="synthetic fixture - shape/bounds, not physics",
     )
 
 
@@ -483,7 +453,7 @@ def _synthetic_plan() -> SummaryPlan:
 def test_load_end_to_end_synthetic_axes_hash_and_control_mode(tmp_path: Path) -> None:
     run_result = _synthetic_run_result(tmp_path)
     plan = _synthetic_plan()
-    density = {1: 900.0}  # кг/м3 -> т/м3 = 0.9
+    density = {1: 900.0}
 
     artifact = ResponseLoader().load(run_result, plan, _EMPTY_SCHEDULE, density)
 
@@ -494,7 +464,7 @@ def test_load_end_to_end_synthetic_axes_hash_and_control_mode(tmp_path: Path) ->
     assert {r.control_step for r in artifact.interval_response} == set(range(N_INTERVALS))
     assert all(s.active_control_mode is ActiveControlMode.RATE_TARGET for s in artifact.state_at_date)
     assert all(r.liquid_volume_delta == pytest.approx(1.0) for r in artifact.interval_response)
-    assert all(r.oil_mass_delta == pytest.approx(1.8) for r in artifact.interval_response)  # 2 * 0.9
+    assert all(r.oil_mass_delta == pytest.approx(1.8) for r in artifact.interval_response)
 
     artifact_again = ResponseLoader().load(run_result, plan, _EMPTY_SCHEDULE, density)
     assert artifact_again.response_hash == artifact.response_hash
@@ -511,7 +481,7 @@ def test_check_no_nan_accepts_clean_data() -> None:
     rows = [{"W1": _well_row(wmctl=4.0)} for _ in range(N_DECK_DATES)]
     state = _build_state_at_date(rows, ("W1",), _EMPTY_SCHEDULE)
     interval = _build_interval_response(rows, ("W1",))
-    _check_no_nan(state, interval)  # не должно бросать
+    _check_no_nan(state, interval)
 
 
 @pytest.mark.parametrize('operator,args,expected_status,target', [
@@ -519,14 +489,14 @@ def test_check_no_nan_accepts_clean_data() -> None:
     ('WCONINJE', ('WATER', 'SHUT', 'RATE', '80'), OperatingStatus.SHUT, 80.),
 ])
 def test_fixed_commissioning_controls_availability_status_and_target(operator, args, expected_status, target):
-    from backend.core.contracts import FixedDeckEvent
-    from backend.contexts.simulation.infrastructure.response_loader import _build_well_timelines
+    from backend.contexts.schedule.domain.schedule import FixedDeckEvent
+    from backend.contexts.simulation.infrastructure.response_loader import build_well_timelines
     schedule = Schedule(
         meta=ScheduleMeta(wells=('NEW',)), initial_state={},
         fixed_deck_events=(FixedDeckEvent(14, 'NEW', operator, args),),
         control_events=(),
     )
-    timeline = _build_well_timelines(schedule)['NEW']
+    timeline = build_well_timelines(schedule)['NEW']
     assert not timeline.is_commissioned(13)
     assert timeline.is_commissioned(14)
     assert timeline.operating_status(14) is expected_status
@@ -534,8 +504,8 @@ def test_fixed_commissioning_controls_availability_status_and_target(operator, a
 
 
 def test_managed_controls_override_fixed_commissioning_at_same_step():
-    from backend.core.contracts import FixedDeckEvent
-    from backend.contexts.simulation.infrastructure.response_loader import _build_well_timelines
+    from backend.contexts.schedule.domain.schedule import FixedDeckEvent
+    from backend.contexts.simulation.infrastructure.response_loader import build_well_timelines
     schedule = Schedule(
         meta=ScheduleMeta(wells=('NEW',)), initial_state={},
         fixed_deck_events=(FixedDeckEvent(14, 'NEW', 'WCONPROD', ('OPEN', 'LRAT', '1*', '1*', '1*', '120')),),
@@ -546,7 +516,7 @@ def test_managed_controls_override_fixed_commissioning_at_same_step():
             ControlEvent(14, 'NEW', EventKind.SHUT),
         ),
     )
-    timeline = _build_well_timelines(schedule)['NEW']
+    timeline = build_well_timelines(schedule)['NEW']
     assert timeline.is_commissioned(14)
     assert timeline.operating_status(14) is OperatingStatus.SHUT
     assert timeline.setpoint(14) == 80.

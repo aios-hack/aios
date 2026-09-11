@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-from backend.core.contracts import OptimizerResult, ScenarioViolation, Theta
+from backend.contexts.policy.domain.policy import OptimizerResult, ScenarioViolation, Theta
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,7 +42,7 @@ class Objective:
         ids = [scenario.scenario_id for scenario in battery]
         duplicates = {sid for sid in ids if ids.count(sid) > 1}
         if duplicates:
-            raise ValueError(f"scenario_id повторяется в батарее: {sorted(duplicates)}")
+            raise ValueError(f"scenario_id is repeated in the battery: {sorted(duplicates)}")
         self._nominal = nominal
         self._battery = battery
         self._provenance = provenance

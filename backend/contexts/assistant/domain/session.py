@@ -8,8 +8,9 @@ import threading
 from dataclasses import dataclass, field
 from typing import Sequence
 
-from backend.contexts.assistant.infrastructure.session_store import SessionDisk, restore_exchanges
-from backend.contexts.assistant.application.tools.context import ConsoleContext
+from backend.contexts.assistant.domain.ports import SessionRecordStore
+from backend.contexts.assistant.domain.session_events import restore_exchanges
+from backend.contexts.assistant.domain.console_context import ConsoleContext
 
 HISTORY_LIMIT = 6
 MAX_QUESTION_LENGTH = 600
@@ -79,7 +80,7 @@ class SessionStore:
     def __init__(
         self,
         history_limit: int = HISTORY_LIMIT,
-        disk: SessionDisk | None = None,
+        disk: SessionRecordStore | None = None,
     ) -> None:
         self._sessions: dict[str, Session] = {}
         self._lock = threading.Lock()
@@ -87,7 +88,7 @@ class SessionStore:
         self._disk = disk
 
     @property
-    def disk(self) -> SessionDisk | None:
+    def disk(self) -> SessionRecordStore | None:
         return self._disk
 
     def get(self, session_id: str, console: ConsoleContext | None = None) -> Session:

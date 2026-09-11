@@ -61,13 +61,13 @@ def _ood_threshold_decision(
             value = float(override)
         except ValueError as error:
             raise SearchRunError(
-                f"AIOS_OOD_THRESHOLD={override!r} — порог области применимости "
-                "задаётся числом"
+                f"AIOS_OOD_THRESHOLD={override!r} — the applicability domain threshold "
+                "is given as a number"
             ) from error
         if not math.isfinite(value) or value < 0.0:
             raise SearchRunError(
-                f"AIOS_OOD_THRESHOLD={override!r} — порог обязан быть конечным "
-                "и неотрицательным"
+                f"AIOS_OOD_THRESHOLD={override!r} — the threshold must be finite "
+                "and non-negative"
             )
         return OodThreshold(
             value=value,
@@ -76,14 +76,14 @@ def _ood_threshold_decision(
             source="none" if not calibration_path.is_file() else str(calibration_path),
             point_count=0,
             detail=(
-                f"AIOS_OOD_THRESHOLD={override!r} перекрывает артефакт калибровки; "
-                "происхождение порога — явное переопределение оператором"
+                f"AIOS_OOD_THRESHOLD={override!r} overrides the calibration artifact; "
+                "the threshold originates from an explicit operator override"
             ),
         )
     if configured and not calibration_path.is_file():
         raise SearchRunError(
-            f"AIOS_OOD_CALIBRATION_PATH={configured} указывает на отсутствующий "
-            "артефакт калибровки"
+            f"AIOS_OOD_CALIBRATION_PATH={configured} points at a missing "
+            "calibration artifact"
         )
     if not calibration_path.is_file():
         return OodThreshold(
@@ -93,35 +93,35 @@ def _ood_threshold_decision(
             source="none",
             point_count=0,
             detail=(
-                f"артефакт калибровки {calibration_path} отсутствует: порог "
-                f"{CONSERVATIVE_OOD_THRESHOLD} взят как консервативный, "
-                "НЕ ОТКАЛИБРОВАН — отвергается любой кандидат хоть с одним узлом "
-                "вне обучающего диапазона"
+                f"calibration artifact {calibration_path} is absent: threshold "
+                f"{CONSERVATIVE_OOD_THRESHOLD} is taken as conservative, "
+                "NOT CALIBRATED — any candidate with even one node outside the "
+                "training range is rejected"
             ),
         )
     try:
         payload = json.loads(calibration_path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as error:
         raise SearchRunError(
-            f"артефакт калибровки OOD {calibration_path} не читается: {error}"
+            f"OOD calibration artifact {calibration_path} is not readable: {error}"
         ) from error
     if not isinstance(payload, dict) or payload.get("format") != OOD_CALIBRATION_FORMAT:
         raise SearchRunError(
-            f"неподдерживаемый артефакт калибровки OOD: {calibration_path}"
+            f"unsupported OOD calibration artifact: {calibration_path}"
         )
     threshold = payload.get("threshold")
     if isinstance(threshold, bool) or not isinstance(threshold, (int, float)):
-        raise SearchRunError(f"{calibration_path}: порог калибровки не число")
+        raise SearchRunError(f"{calibration_path}: the calibration threshold is not a number")
     value = float(threshold)
     if not math.isfinite(value) or value < 0.0:
         raise SearchRunError(
-            f"{calibration_path}: порог калибровки {value} не конечен или отрицателен"
+            f"{calibration_path}: calibration threshold {value} is not finite or is negative"
         )
     count = payload.get("point_count")
     if isinstance(count, bool) or not isinstance(count, int) or count < 1:
         raise SearchRunError(
-            f"{calibration_path}: калибровка без единой измеренной точки "
-            "не задаёт порог"
+            f"{calibration_path}: a calibration without a single measured point "
+            "does not define a threshold"
         )
     reliable = bool(payload.get("curve_is_reliable", False))
     return OodThreshold(
@@ -135,9 +135,9 @@ def _ood_threshold_decision(
         source=str(calibration_path),
         point_count=count,
         detail=(
-            f"порог {value} взят из {calibration_path} по {count} измеренным "
-            f"точкам «ошибка против OOD»"
-            + ("" if reliable else "; точек мало, кривая ненадёжна")
+            f"threshold {value} is taken from {calibration_path} over {count} measured "
+            f"\"error versus OOD\" points"
+            + ("" if reliable else "; too few points, the curve is unreliable")
         ),
     )
 
@@ -153,8 +153,8 @@ def _soft_penalty_enabled(environ: Mapping[str, str] | None = None) -> bool:
     if normalized in ("", "0", "false", "no", "off"):
         return False
     raise SearchRunError(
-        f"AIOS_OOD_SOFT_PENALTY={raw!r} — включение мягкого штрафа задаётся "
-        "булевым значением (1/0, true/false, yes/no, on/off)"
+        f"AIOS_OOD_SOFT_PENALTY={raw!r} — enabling the soft penalty is given as "
+        "a boolean value (1/0, true/false, yes/no, on/off)"
     )
 
 
@@ -165,12 +165,12 @@ def _soft_penalty_rate(environ: Mapping[str, str] | None = None) -> float:
         value = float(raw)
     except ValueError as error:
         raise SearchRunError(
-            f"AIOS_OOD_PENALTY_PER_UNIT={raw!r} — ставка мягкого штрафа задаётся числом"
+            f"AIOS_OOD_PENALTY_PER_UNIT={raw!r} — the soft penalty rate is given as a number"
         ) from error
     if not math.isfinite(value) or value <= 0.0:
         raise SearchRunError(
-            f"AIOS_OOD_PENALTY_PER_UNIT={raw!r} — ставка обязана быть конечной "
-            "и положительной"
+            f"AIOS_OOD_PENALTY_PER_UNIT={raw!r} — the rate must be finite "
+            "and positive"
         )
     return value
 

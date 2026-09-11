@@ -4,20 +4,17 @@ import argparse
 import json
 from pathlib import Path
 
-from backend.core.contracts import (
+from backend.contexts.constraints.domain.config import (
     ChargeInitialEsp,
     DEFAULT_NORMATIVES_2007,
     NormativeSet,
     Policies,
     QuantizationPolicy,
 )
-from backend.domain.economics import (
-    BalanceSheetInputs,
-    ESP_CATALOG_2007,
-    build_production_ledger,
-    compute_npv_table,
-    load_normatives,
-)
+from backend.contexts.economics.domain.npv import BalanceSheetInputs, compute_npv_table
+from backend.contexts.economics.domain.esp import ESP_CATALOG_2007
+from backend.contexts.economics.domain.ledger import build_production_ledger
+from backend.contexts.economics.infrastructure.normatives_io import load_normatives
 from backend.contexts.economics.application.reference_parity import (
     compare_with_reference,
     run_reference,
@@ -37,7 +34,7 @@ from backend.interfaces.cli.runner import run as run_cli
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="aios npv",
-        description="Расчёт ЧДД по Методике и сверка с эталонным расчётчиком организаторов.",
+        description="Compute NPV per the Methodology and compare with the organizers' reference calculator.",
     )
     parser.add_argument("--out", type=Path, default=Path("/out"))
     parser.add_argument("--input", type=Path, default=None)
@@ -49,9 +46,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
-    chdd_dir = require(chdd_python_dir(), "эталонный расчётчик CHDD_PYTHON")
+    chdd_dir = require(chdd_python_dir(), "the CHDD_PYTHON reference calculator")
     source = args.input if args.input is not None else example_input_xlsx()
-    source = require(source, "входные данные (Пример_исходных_данных.xlsx)")
+    source = require(source, "the input data (Пример_исходных_данных.xlsx)")
 
     workbook = normatives_xlsx()
     if workbook is not None:
@@ -68,14 +65,14 @@ def main(argv: list[str] | None = None) -> int:
         quantization_policy=QuantizationPolicy.NONE,
     )
 
-    print(f"вход:      {source}")
-    print(f"нормативы: {normatives_source}")
+    print(f"input:      {source}")
+    print(f"normatives: {normatives_source}")
     print(f"seed:      {args.seed}")
 
     data = load_example_input(chdd_dir, source)
-    print(f"скважин:   {data.n_wells}")
-    print(f"интервалов:{data.n_intervals}")
-    print(f"год начала:{data.start_year}")
+    print(f"wells:      {data.n_wells}")
+    print(f"intervals:  {data.n_intervals}")
+    print(f"start year: {data.start_year}")
 
     ledger = build_production_ledger(
         data.states_by_well,
@@ -92,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
         discount_base_year=data.start_year,
     )
 
-    print(f"\nnpv_methodology = {table.npv_methodology:.6f} руб")
+    print(f"\nnpv_methodology = {table.npv_methodology:.6f} RUB")
 
     payload: dict[str, object] = {
         "npv_methodology": table.npv_methodology,
@@ -119,9 +116,9 @@ def main(argv: list[str] | None = None) -> int:
         report = compare_with_reference(
             table, reference, data.interval_start_dates
         )
-        print(f"эталон          = {report.npv_reference:.6f} руб")
-        print(f"расхождение     = {report.npv_absolute:.6e} руб")
-        print(f"схождение       = {'ДА' if report.matched else 'НЕТ'}")
+        print(f"reference       = {report.npv_reference:.6f} RUB")
+        print(f"difference      = {report.npv_absolute:.6e} RUB")
+        print(f"converged       = {'YES' if report.matched else 'NO'}")
         payload["npv_reference"] = report.npv_reference
         payload["npv_absolute_difference"] = report.npv_absolute
         payload["matched"] = report.matched
@@ -133,7 +130,7 @@ def main(argv: list[str] | None = None) -> int:
         json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True),
         encoding="utf-8",
     )
-    print(f"\nзаписано: {destination}")
+    print(f"\nwritten: {destination}")
 
     if not args.no_reference and not payload.get("matched", True):
         return 1

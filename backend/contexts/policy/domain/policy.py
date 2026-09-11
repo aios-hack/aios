@@ -25,10 +25,10 @@ class Theta:
 
     def __post_init__(self) -> None:
         if len(self.values) > MAX_THETA_PARAMS:
-            raise ValueError(f"θ: {len(self.values)} параметров > {MAX_THETA_PARAMS}")
+            raise ValueError(f"θ: {len(self.values)} parameters > {MAX_THETA_PARAMS}")
         missing_bounds = set(self.values) - set(self.bounds)
         if missing_bounds:
-            raise ValueError(f"без объявленных границ: {missing_bounds}")
+            raise ValueError(f"without declared bounds: {missing_bounds}")
 
 
 @dataclass(frozen=True, slots=True)

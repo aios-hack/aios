@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from backend.core.paths import project_root
+from backend.shared.paths import project_root
 
 SCRIPT_DIRECTORIES: tuple[str, ...] = ("tools", "scripts")
 
@@ -35,7 +35,7 @@ def imported_modules(path: Path) -> set[str]:
 
 def test_scripts_are_discovered_automatically() -> None:
     scripts = discovered_scripts()
-    assert scripts, "не найдено ни одного скрипта-точки входа"
+    assert scripts, "no entry-point script was found"
     names = {path.as_posix() for path in scripts}
     assert "tools/lambda_compare.py" in names, sorted(names)
 
@@ -49,4 +49,4 @@ def test_production_scripts_do_not_import_pytest_configuration() -> None:
         compile(source, str(path), "exec")
         if "conftest" in imported_modules(path):
             offenders.append(relative.as_posix())
-    assert not offenders, f"скрипты импортируют конфигурацию тестов: {offenders}"
+    assert not offenders, f"scripts import the pytest configuration: {offenders}"

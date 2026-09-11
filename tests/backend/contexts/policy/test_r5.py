@@ -4,9 +4,13 @@ from dataclasses import replace
 
 import pytest
 
-from backend.core.contracts import EventKind, Rule
+from backend.contexts.schedule.domain.schedule import EventKind
+from backend.contexts.policy.domain.policy import Rule
 
-from backend.domain.policy import RuleContext, RuleFlags, apply_rule, default_theta, make_theta
+from backend.contexts.policy.domain.state import RuleContext
+from backend.contexts.policy.domain.flags import RuleFlags
+from backend.contexts.policy.domain.rules import apply_rule
+from backend.contexts.policy.domain.theta import default_theta, make_theta
 from backend.contexts.policy.domain.rules import r5
 from tests.backend.contexts.policy.conftest import groups_of, injector, producer, state_of
 
@@ -109,7 +113,7 @@ def test_a_wider_corridor_leaves_more_states_untouched(
 def test_compensation_is_a_group_quantity_not_a_well_one(
     context: RuleContext,
 ) -> None:
-    with pytest.raises(ValueError, match="нарезку на участки"):
+    with pytest.raises(ValueError, match="requires a grouping"):
         r5.apply(state_of(*WELLS), context, default_theta())
 
 
@@ -120,12 +124,12 @@ def test_missing_group_offtake_is_refused(context: RuleContext) -> None:
         group_injection_m3_per_day={GROUP: 100.0},
         group_offtake_m3_per_day={},
     )
-    with pytest.raises(ValueError, match="коридор"):
+    with pytest.raises(ValueError, match="corridor"):
         r5.apply(state_of(*WELLS), broken, default_theta())
 
 
 def test_compensation_at_zero_offtake_is_not_defined() -> None:
-    with pytest.raises(ValueError, match="нулевом отборе"):
+    with pytest.raises(ValueError, match="zero group offtake"):
         r5.compensation(100.0, 0.0)
 
 

@@ -18,19 +18,19 @@ class ProbeSelection:
     def __post_init__(self) -> None:
         if len(self.wells) < MIN_SWEEP_PROBES:
             raise ValueError(
-                f"свип требует минимум {MIN_SWEEP_PROBES} нагнетательных с разной "
-                f"плотностью окружения, выбрано {len(self.wells)}"
+                f"the sweep needs at least {MIN_SWEEP_PROBES} injectors with different "
+                f"neighbourhood density, {len(self.wells)} selected"
             )
         if len(self.wells) > MAX_SWEEP_PROBES:
             raise ValueError(
-                f"свип рассчитан максимум на {MAX_SWEEP_PROBES} скважин, "
-                f"выбрано {len(self.wells)}"
+                f"the sweep is designed for at most {MAX_SWEEP_PROBES} wells, "
+                f"{len(self.wells)} selected"
             )
         if len(set(self.wells)) != len(self.wells):
-            raise ValueError("скважина названа в свипе дважды")
+            raise ValueError("a well is named twice in the sweep")
         missing = set(self.wells) - set(self.neighbour_count)
         if missing:
-            raise ValueError(f"нет плотности окружения для {sorted(missing)}")
+            raise ValueError(f"no neighbourhood density for {sorted(missing)}")
 
     @property
     def density_spread(self) -> int:
@@ -45,13 +45,13 @@ def headroom_injectors(
     tolerance: float,
 ) -> tuple[str, ...]:
     if not (0.0 <= tolerance < 1.0):
-        raise ValueError(f"допуск недобора {tolerance} вне [0, 1)")
+        raise ValueError(f"shortfall tolerance {tolerance} outside [0, 1)")
     missing = set(injectors) - set(baseline_rate_by_well)
     missing |= set(injectors) - set(baseline_setpoint_by_well)
     if missing:
         raise ValueError(
-            f"нет базовой приёмистости или уставки для {sorted(missing)}: "
-            f"запас по давлению определяется замером, не предположением"
+            f"no baseline injectivity or setpoint for {sorted(missing)}: "
+            f"pressure headroom is determined by measurement, not by assumption"
         )
     free: list[str] = []
     for well in injectors:
@@ -71,17 +71,17 @@ def select_probe_injectors(
 ) -> ProbeSelection:
     if not (MIN_SWEEP_PROBES <= probes <= MAX_SWEEP_PROBES):
         raise ValueError(
-            f"число скважин свипа {probes} вне {MIN_SWEEP_PROBES}…{MAX_SWEEP_PROBES}"
+            f"sweep well count {probes} outside {MIN_SWEEP_PROBES}…{MAX_SWEEP_PROBES}"
         )
     if len(injectors) < probes:
         raise ValueError(
-            f"нагнетательных с запасом по давлению {len(injectors)}, на свип "
-            f"нужно {probes}: скважина, уже стоящая на пределе, повышения "
-            f"уставки не реализует и амплитуду не измеряет"
+            f"{len(injectors)} injectors have pressure headroom, the sweep needs "
+            f"{probes}: a well already at its limit cannot realise a setpoint "
+            f"increase and measures no amplitude"
         )
     missing = set(injectors) - set(neighbour_count)
     if missing:
-        raise ValueError(f"нет плотности окружения для {sorted(missing)}")
+        raise ValueError(f"no neighbourhood density for {sorted(missing)}")
     ordered = sorted(injectors, key=lambda well: (neighbour_count[well], well))
     if probes == 1:
         picked = [ordered[0]]
@@ -112,18 +112,18 @@ def sweep_amplitudes(
     relative_levels: Sequence[float],
 ) -> tuple[Amplitude, ...]:
     if not relative_levels:
-        raise ValueError("свип без единого уровня амплитуды не строится")
+        raise ValueError("a sweep cannot be built without a single amplitude level")
     if sorted(relative_levels) != list(relative_levels):
-        raise ValueError("уровни свипа обязаны строго возрастать")
+        raise ValueError("sweep levels must strictly increase")
     if len(set(relative_levels)) != len(relative_levels):
-        raise ValueError("уровень свипа назван дважды")
+        raise ValueError("a sweep level is named twice")
     level = distribution.median_level_m3_per_day
     if level <= 0.0:
-        raise ValueError("медианный уровень закачки не положителен")
+        raise ValueError("the median injection level is not positive")
     amplitudes: list[Amplitude] = []
     for relative in relative_levels:
         if relative <= 0.0:
-            raise ValueError(f"относительная амплитуда {relative} не положительна")
+            raise ValueError(f"relative amplitude {relative} is not positive")
         step = relative * level
         amplitudes.append(
             Amplitude(
@@ -145,12 +145,12 @@ FLOAT32_MANTISSA_BITS = 23
 def numerical_noise_floor(baseline_cumulative_m3: float, safety_factor: float) -> float:
     if baseline_cumulative_m3 < 0.0:
         raise ValueError(
-            f"накопленная добыча базового прогона {baseline_cumulative_m3} отрицательна"
+            f"cumulative production of the baseline run {baseline_cumulative_m3} is negative"
         )
     if safety_factor < 1.0:
         raise ValueError(
-            f"запас {safety_factor} меньше единицы: порог различимости не может "
-            f"быть ниже разрешения самого носителя"
+            f"safety factor {safety_factor} is below one: the distinguishability "
+            f"threshold cannot be below the resolution of the carrier itself"
         )
     return baseline_cumulative_m3 * (2.0 ** -FLOAT32_MANTISSA_BITS) * safety_factor
 
@@ -201,12 +201,12 @@ class AmplitudeProbe:
     def __post_init__(self) -> None:
         if self.relative_amplitude <= 0.0:
             raise ValueError(
-                f"относительная амплитуда {self.relative_amplitude} не положительна"
+                f"relative amplitude {self.relative_amplitude} is not positive"
             )
         if not self.outcomes:
-            raise ValueError("замер амплитуды без единого исхода прогона")
+            raise ValueError("an amplitude measurement without a single run outcome")
         if self.noise_floor_m3 < 0.0:
-            raise ValueError(f"уровень шума {self.noise_floor_m3} отрицателен")
+            raise ValueError(f"noise floor {self.noise_floor_m3} is negative")
 
     @property
     def realized_drive_m3_per_day(self) -> float:
@@ -221,8 +221,8 @@ class AmplitudeProbe:
         drive = self.realized_drive_m3_per_day
         if drive <= 0.0:
             raise ValueError(
-                f"амплитуда {self.relative_amplitude}: фактическое воздействие нулевое, "
-                f"отношение отклика к воздействию не определено"
+                f"amplitude {self.relative_amplitude}: the actual drive is zero, "
+                f"the response-to-drive ratio is undefined"
             )
         return self.response_m3 / drive
 
@@ -252,19 +252,19 @@ class AmplitudeMeasurement:
 
     def __post_init__(self) -> None:
         if not self.probes:
-            raise ValueError("замер без единой точки свипа")
+            raise ValueError("a measurement without a single sweep probe")
         levels = [probe.relative_amplitude for probe in self.probes]
         if sorted(levels) != levels:
-            raise ValueError("точки свипа обязаны идти по возрастанию амплитуды")
+            raise ValueError("sweep probes must be ordered by increasing amplitude")
         if len(set(levels)) != len(levels):
-            raise ValueError("точка свипа повторена")
+            raise ValueError("a sweep probe is repeated")
         if not (0.0 <= self.achievability_tolerance < 1.0):
             raise ValueError(
-                f"допуск недобора {self.achievability_tolerance} вне [0, 1)"
+                f"shortfall tolerance {self.achievability_tolerance} outside [0, 1)"
             )
         if self.linearity_tolerance <= 0.0:
             raise ValueError(
-                f"допуск нелинейности {self.linearity_tolerance} не положителен"
+                f"nonlinearity tolerance {self.linearity_tolerance} is not positive"
             )
 
     def gains(self) -> tuple[float, ...]:
@@ -277,8 +277,8 @@ class AmplitudeMeasurement:
         reference = self.reference_gain()
         if reference == 0.0:
             raise ValueError(
-                "отклик на наименьшей амплитуде нулевой: точка отсчёта линейности "
-                "не определена, свип начат ниже уровня шума"
+                "the response at the smallest amplitude is zero: the linearity "
+                "reference point is undefined, the sweep starts below the noise floor"
             )
         return tuple(abs(gain - reference) / abs(reference) for gain in self.gains())
 
@@ -320,10 +320,10 @@ class AmplitudeVerdict:
         return self.probes_run > 0
 
 
-LIMITED_BY_LINEARITY = "нелинейность"
-LIMITED_BY_ACHIEVABILITY = "недостижимость"
-LIMITED_BY_NOISE = "шум"
-LIMITED_BY_SWEEP_RANGE = "верх свипа"
+LIMITED_BY_LINEARITY = "nonlinearity"
+LIMITED_BY_ACHIEVABILITY = "unachievable"
+LIMITED_BY_NOISE = "noise"
+LIMITED_BY_SWEEP_RANGE = "top of sweep"
 
 
 def _limiting_reason(
@@ -344,9 +344,10 @@ def choose_amplitude(measurement: AmplitudeMeasurement) -> AmplitudeVerdict:
     admissible = measurement.admissible_probes()
     if not admissible:
         raise ValueError(
-            "ни одна точка свипа не прошла: отклик не отличим от шума либо "
-            "верхний уровень систематически не добирается. Амплитуда не "
-            "замерена — назначать её «на глаз» протокол §8.3 запрещает"
+            "not a single sweep probe passed: the response is indistinguishable "
+            "from noise or the top level is systematically not reached. The "
+            "amplitude is not measured — protocol section 8.3 forbids "
+            "assigning it by eye"
         )
     chosen = admissible[-1]
     return AmplitudeVerdict(
@@ -364,7 +365,7 @@ def demote_plan_amplitude(
     amplitude: Amplitude, verdict: AmplitudeVerdict
 ) -> Amplitude:
     if verdict.relative_amplitude <= 0.0:
-        raise ValueError("замеренная относительная амплитуда не положительна")
+        raise ValueError("the measured relative amplitude is not positive")
     measured = verdict.chosen.step_m3_per_day
     if amplitude.step_m3_per_day <= measured:
         return amplitude

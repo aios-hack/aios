@@ -68,7 +68,7 @@ def test_tool_refuses_to_work_on_empty_data(tmp_path: Path) -> None:
     empty = tmp_path / "web-runs"
     empty.mkdir()
 
-    with pytest.raises(OodCalibrationError, match="нет ни одной пары"):
+    with pytest.raises(OodCalibrationError, match="not a single forecast-versus-fact pair"):
         calibrate([empty], 0.01)
 
 
@@ -84,7 +84,7 @@ def test_tool_refuses_when_run_has_no_opm_fact(tmp_path: Path) -> None:
         json.dumps({"ood_threshold": 0.0, "evaluations": []}), encoding="utf-8"
     )
 
-    with pytest.raises(OodCalibrationError, match="нет ни одной пары"):
+    with pytest.raises(OodCalibrationError, match="not a single forecast-versus-fact pair"):
         calibrate([root], 0.01)
 
 
@@ -133,11 +133,11 @@ def test_threshold_is_the_largest_score_still_inside_tolerated_error(tmp_path: P
 def test_tool_refuses_when_no_point_meets_the_tolerated_error() -> None:
     points = [CalibrationPoint("a", "h", 0.0, 100.0, 150.0, 0.5, "s")]
 
-    with pytest.raises(OodCalibrationError, match="не укладывается"):
+    with pytest.raises(OodCalibrationError, match="fits into the tolerated"):
         choose_threshold(points, [], 0.01)
 
 
-@pytest.mark.skipif(not REAL_RUNS.is_dir(), reason="каталог прогонов недоступен")
+@pytest.mark.skipif(not REAL_RUNS.is_dir(), reason="the runs directory is unavailable")
 def test_real_runs_give_the_pairs_the_report_claims() -> None:
     points, rejected = collect_points([REAL_RUNS])
 
@@ -156,7 +156,7 @@ def test_real_runs_give_the_pairs_the_report_claims() -> None:
     assert rejected
 
 
-@pytest.mark.skipif(not REAL_RUNS.is_dir(), reason="каталог прогонов недоступен")
+@pytest.mark.skipif(not REAL_RUNS.is_dir(), reason="the runs directory is unavailable")
 def test_run_without_opm_fact_contributes_no_point() -> None:
     for directory in sorted(REAL_RUNS.iterdir()):
         if not directory.is_dir() or (directory / "manifest.json").is_file():
@@ -249,11 +249,11 @@ def test_missing_artifact_gives_the_conservative_threshold_marked_uncalibrated(
     assert decision.origin == "uncalibrated-conservative-default"
     assert decision.calibration_path is None
     assert provenance["ood_threshold_calibrated"] == "false"
-    assert "НЕ ОТКАЛИБРОВАН" in provenance["ood_threshold_detail"]
+    assert "NOT CALIBRATED" in provenance["ood_threshold_detail"]
 
 
 def test_configured_calibration_path_that_is_missing_is_an_error(tmp_path: Path) -> None:
-    with pytest.raises(RuntimeArtifactError, match="отсутствующий"):
+    with pytest.raises(RuntimeArtifactError, match="points at a missing"):
         resolve_ood_threshold({"AIOS_OOD_CALIBRATION_PATH": str(tmp_path / "absent.json")})
 
 
@@ -264,13 +264,13 @@ def test_calibration_without_a_single_point_does_not_set_a_threshold(tmp_path: P
         encoding="utf-8",
     )
 
-    with pytest.raises(RuntimeArtifactError, match="без единой измеренной точки"):
+    with pytest.raises(RuntimeArtifactError, match="without a single measured point"):
         resolve_ood_threshold({"AIOS_OOD_CALIBRATION_PATH": str(artifact)})
 
 
 def test_non_numeric_override_is_an_error_not_a_silent_zero() -> None:
-    with pytest.raises(RuntimeArtifactError, match="задаётся числом"):
-        resolve_ood_threshold({"AIOS_OOD_THRESHOLD": "почти ноль"})
+    with pytest.raises(RuntimeArtifactError, match="is given as a number"):
+        resolve_ood_threshold({"AIOS_OOD_THRESHOLD": "almost zero"})
 
 
 def _calibration_file(path: Path, threshold: float, reliable: bool) -> Path:
@@ -329,7 +329,7 @@ def test_the_run_marks_an_unreliable_curve_in_provenance(tmp_path: Path) -> None
     ).as_provenance()
 
     assert provenance["ood_threshold_origin"].endswith("insufficient-points")
-    assert "точек мало" in provenance["ood_threshold_detail"]
+    assert "too few points" in provenance["ood_threshold_detail"]
 
 
 def test_the_run_lets_the_environment_variable_override_and_records_it(
@@ -357,7 +357,7 @@ def test_the_run_falls_back_to_the_conservative_threshold_marked_uncalibrated(
     assert provenance["ood_threshold_origin"] == "uncalibrated-conservative-default"
     assert provenance["ood_threshold_calibrated"] == "false"
     assert provenance["ood_threshold_source"] == "none"
-    assert "НЕ ОТКАЛИБРОВАН" in provenance["ood_threshold_detail"]
+    assert "NOT CALIBRATED" in provenance["ood_threshold_detail"]
 
 
 def test_the_run_refuses_a_calibration_without_a_measured_point(tmp_path: Path) -> None:
@@ -367,7 +367,7 @@ def test_the_run_refuses_a_calibration_without_a_measured_point(tmp_path: Path) 
         encoding="utf-8",
     )
 
-    with pytest.raises(SearchRunError, match="без единой измеренной точки"):
+    with pytest.raises(SearchRunError, match="without a single measured point"):
         _ood_threshold_decision({"AIOS_OOD_CALIBRATION_PATH": str(artifact)})
 
 
@@ -434,13 +434,13 @@ def test_soft_penalty_does_not_flip_the_sign_of_a_negative_npv() -> None:
 
 
 def test_penalty_refuses_a_non_finite_npv_instead_of_inventing_one() -> None:
-    with pytest.raises(ScheduleSearchError, match="не конечен"):
+    with pytest.raises(ScheduleSearchError, match="is not finite"):
         apply_ood_penalty(float("inf"), 1.0, 1.0)
 
-    with pytest.raises(ScheduleSearchError, match="не конечно или отрицательно"):
+    with pytest.raises(ScheduleSearchError, match="is not finite or is negative"):
         ood_penalty_factor(-1.0, 1.0)
 
-    with pytest.raises(ScheduleSearchError, match="не конечна или отрицательна"):
+    with pytest.raises(ScheduleSearchError, match="is not finite or is negative"):
         ood_penalty_factor(1.0, -1.0)
 
 
@@ -455,7 +455,7 @@ def test_enabling_the_penalty_without_a_rate_is_refused_not_silently_disarmed() 
     source = Path(_src_environment.__file__).read_text(encoding="utf-8")
 
     assert "if ood_soft_penalty and ood_penalty_per_unit <= 0.0:" in source
-    assert "снятой охраны" in source
+    assert "removing the guard entirely" in source
 
 
 def test_the_evaluator_only_penalizes_when_the_option_is_on() -> None:
@@ -473,11 +473,11 @@ def test_penalty_rate_must_be_positive_when_the_option_is_on() -> None:
     assert _soft_penalty_rate({}) == 1.0
     assert _soft_penalty_rate({"AIOS_OOD_PENALTY_PER_UNIT": "0.25"}) == 0.25
 
-    with pytest.raises(SearchRunError, match="конечной"):
+    with pytest.raises(SearchRunError, match="must be finite"):
         _soft_penalty_rate({"AIOS_OOD_PENALTY_PER_UNIT": "0"})
 
-    with pytest.raises(SearchRunError, match="задаётся числом"):
-        _soft_penalty_rate({"AIOS_OOD_PENALTY_PER_UNIT": "почти"})
+    with pytest.raises(SearchRunError, match="is given as a number"):
+        _soft_penalty_rate({"AIOS_OOD_PENALTY_PER_UNIT": "almost"})
 
-    with pytest.raises(SearchRunError, match="булевым значением"):
-        _soft_penalty_enabled({"AIOS_OOD_SOFT_PENALTY": "может быть"})
+    with pytest.raises(SearchRunError, match="a boolean value"):
+        _soft_penalty_enabled({"AIOS_OOD_SOFT_PENALTY": "maybe"})

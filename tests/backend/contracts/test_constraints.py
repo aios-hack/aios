@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.constraints.domain.constraints import (
     Constraints,
     compensation_policy,
     water_supply_policy,
@@ -107,7 +107,7 @@ def test_compensation_corridor_is_complete_and_ordered() -> None:
         compensation_policy(
             Constraints(infrastructure={"compensation_min": 0.85})
         )
-    with pytest.raises(ValueError, match="коридор компенсации пуст"):
+    with pytest.raises(ValueError, match="the compensation corridor is empty"):
         compensation_policy(
             Constraints(
                 infrastructure={"compensation_min": 1.15, "compensation_max": 0.85}
@@ -156,7 +156,7 @@ def test_bhp_limits_come_from_the_case_when_declared() -> None:
 
 
 def test_empty_bhp_corridor_is_refused() -> None:
-    with pytest.raises(ValueError, match="коридор забойного давления пуст"):
+    with pytest.raises(ValueError, match="the bottomhole pressure corridor is empty"):
         bhp_limits(
             Constraints(
                 infrastructure={
@@ -190,7 +190,7 @@ def test_unknown_source_value_is_refused() -> None:
     constraints = Constraints(
         infrastructure={
             BHP_PRODUCER_MIN_BAR: 60.0,
-            source_key(BHP_PRODUCER_MIN_BAR): "нашлось",
+            source_key(BHP_PRODUCER_MIN_BAR): "found",
         }
     )
     with pytest.raises(ValueError, match="bhp_producer_min_bar_source"):

@@ -13,11 +13,9 @@ from backend.contexts.schedule.domain.validation.report import (
 from collections.abc import (
     Sequence,
 )
-from backend.core.contracts import (
-    Constraints,
-    Schedule,
-    StateAtDate,
-)
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.schedule.domain.schedule import Schedule
+from backend.contexts.reservoir.domain.response import StateAtDate
 from backend.contexts.schedule.domain.validate import (
     CONSTRAINT_WELL_OUTAGES,
     ConstraintCheck,
@@ -36,8 +34,8 @@ def _check_outages(
             _not_set(
                 CONSTRAINT_WELL_OUTAGES,
                 (
-                    "well_outages в кейсе не заданы: работа скважин внутри "
-                    "окон простоя не проверялась"
+                    "well_outages are not set in the case: well operation "
+                    "inside outage windows was not checked"
                 ),
             ),
         )
@@ -59,8 +57,9 @@ def _check_outages(
                         well=outage.well,
                         value=flow,
                         detail=(
-                            f"скважина работает внутри окна простоя "
-                            f"{outage.control_step_from}…{outage.control_step_to}"
+                            f"the well operates inside the outage window "
+                            f"{outage.control_step_from}..."
+                            f"{outage.control_step_to}"
                         ),
                     )
                 )
@@ -69,8 +68,9 @@ def _check_outages(
             CONSTRAINT_WELL_OUTAGES,
             found,
             (
-                f"окон простоя {len(constraints.well_outages)}: отклик сверен "
-                "на нулевой дебит и нулевую закачку внутри каждого окна"
+                f"outage windows {len(constraints.well_outages)}: the "
+                "response was checked for zero rate and zero injection "
+                "inside each window"
             ),
             blocking_kinds=BLOCKING_DYNAMIC_VIOLATION_KINDS,
         ),

@@ -10,7 +10,7 @@ import math
 from dataclasses import replace
 from typing import Any, Mapping, Sequence
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     ControlEvent,
     EventKind,
@@ -19,10 +19,9 @@ from backend.core.contracts import (
     Role,
     Schedule,
     WellState,
-    canonical_bytes,
-    canonical_schedule_hash,
 )
-from backend.core.contracts.hashing import ecmascript_number
+from backend.shared.hashing import canonical_bytes, canonical_schedule_hash
+from backend.shared.hashing import ecmascript_number
 
 _KIND_RANK: dict[EventKind, int] = {
     EventKind.CONVERT_INJ: 0,
@@ -90,10 +89,14 @@ def normalize_initial_state(
     )
     missing = [well for well in axis if well not in initial_state]
     if missing:
-        raise ScheduleCanonicalError(f"в initial_state нет скважин оси: {missing}")
+        raise ScheduleCanonicalError(
+            f"initial_state is missing axis wells: {missing}"
+        )
     extra = [well for well in initial_state if well not in set(axis)]
     if extra:
-        raise ScheduleCanonicalError(f"initial_state содержит скважины вне оси: {sorted(extra)}")
+        raise ScheduleCanonicalError(
+            f"initial_state contains wells outside the axis: {sorted(extra)}"
+        )
     return {well: normalize_well_state(initial_state[well]) for well in axis}
 
 
@@ -121,8 +124,8 @@ def canonicalize_control_events(
     if conflicts:
         step, well, kind, values = conflicts[0]
         raise ScheduleCanonicalError(
-            f"конфликтующие управляющие события: скважина {well!r}, "
-            f"control_step={step}, {kind.name}, значения {values}"
+            f"conflicting control events: well {well!r}, "
+            f"control_step={step}, {kind.name}, values {values}"
         )
     unique: dict[tuple[int, str, EventKind, float | None], ControlEvent] = {}
     for event in events:
@@ -175,7 +178,9 @@ def hash_canonical_schedule(schedule: Schedule) -> str:
         + canonical_digest(list(canonical.control_events))
     ).hexdigest()
     if len(digest) != _HASH_HEX_LENGTH:
-        raise ScheduleCanonicalError(f"хеш не {_HASH_HEX_LENGTH} hex-символов: {digest}")
+        raise ScheduleCanonicalError(
+            f"the hash is not {_HASH_HEX_LENGTH} hex characters: {digest}"
+        )
     return digest
 
 
@@ -191,7 +196,7 @@ def hash_parts_raw(
     )
     for digest in digests:
         if len(digest) != _DIGEST_BYTES:
-            raise ScheduleCanonicalError("часть хеша не 32 байта")
+            raise ScheduleCanonicalError("a hash part is not 32 bytes")
     return hashlib.sha256(b"".join(digests)).hexdigest()
 
 

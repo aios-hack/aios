@@ -110,6 +110,7 @@ const NodeLayerView = ({
               : 'open';
       const mark = highlight.stateOf(node.id);
       const dimmed = isDimmed(node.id);
+      const groupRingColor = showGroups ? highlight.groupColorOf(node.id) : null;
       return (
         <g
           key={node.id}
@@ -174,14 +175,14 @@ const NodeLayerView = ({
             fill="transparent"
             stroke="none"
           />
-          {mark !== 'plain' && (
+          {(mark !== 'plain' || groupRingColor !== null) && (
             <SelectionRings
               x={node.x}
               y={node.y}
               r={radius}
               scale={scale}
               state={mark}
-              groupColor={showGroups ? highlight.groupColorOf(node.id) : null}
+              groupColor={groupRingColor}
               neighbourWeight={highlight.neighbourWeightOf(node.id)}
             />
           )}

@@ -11,14 +11,15 @@ from typing import (
     Protocol,
 )
 
-from backend.core.contracts import Constraints, Theta
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.policy.domain.policy import Theta
 
 from backend.contexts.optimization.domain.optimizer import (
     ObjectiveFunction,
     SearchReport,
     optimize,
 )
-from backend.contexts.robustness.application.battery import FragilityBattery, Scenario, Split
+from backend.contexts.robustness.domain.battery import FragilityBattery, Scenario, Split
 from backend.contexts.robustness.domain.regret import RegretReport, ScenarioOutcome
 
 
@@ -46,7 +47,7 @@ class BaselineSearch:
     def __post_init__(self) -> None:
         if self.evaluations < 1:
             raise ScenarioBaselineError(
-                f"{self.scenario_id}: бейзлайн без единой оценки"
+                f"{self.scenario_id}: baseline without a single evaluation"
             )
 
 
@@ -70,7 +71,7 @@ class RegretComputation:
         for search in self.searches:
             if search.scenario_id == scenario_id:
                 return search
-        raise ScenarioBaselineError(f"сценария {scenario_id!r} нет в отчёте")
+        raise ScenarioBaselineError(f"scenario {scenario_id!r} is not in the report")
 
 
 def scenario_baseline(
@@ -84,7 +85,7 @@ def scenario_baseline(
 ) -> tuple[BaselineSearch, float]:
     if max_evaluations < 1:
         raise ScenarioBaselineError(
-            f"{scenario.scenario_id}: бюджет оценок {max_evaluations} < 1"
+            f"{scenario.scenario_id}: evaluation budget {max_evaluations} < 1"
         )
 
     constraints = scenario.constraints(base_constraints)
@@ -127,7 +128,7 @@ def compute_regret(
     base_constraints: Constraints | None = None,
 ) -> RegretComputation:
     if not battery.scenarios:
-        raise ScenarioBaselineError("пустая батарея ничего не меряет")
+        raise ScenarioBaselineError("an empty battery measures nothing")
 
     searches: list[BaselineSearch] = []
     outcomes: list[ScenarioOutcome] = []
@@ -175,5 +176,5 @@ def worst_scenarios(
 
 def evaluation_budget(battery: FragilityBattery, per_scenario: int) -> int:
     if per_scenario < 1:
-        raise ScenarioBaselineError(f"бюджет на сценарий {per_scenario} < 1")
+        raise ScenarioBaselineError(f"per-scenario budget {per_scenario} < 1")
     return len(battery.scenarios) * per_scenario

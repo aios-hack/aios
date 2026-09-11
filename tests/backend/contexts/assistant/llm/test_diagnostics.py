@@ -7,7 +7,7 @@ from typing import Sequence
 
 import pytest
 
-from backend.core.contracts import IntervalResponse, StateAtDate
+from backend.contexts.reservoir.domain.response import IntervalResponse, StateAtDate
 from backend.contexts.assistant.infrastructure.llm.diagnostics import (
     Finding,
     PATTERNS,

@@ -5,7 +5,9 @@ import json
 from dataclasses import dataclass
 from typing import Callable, Iterable, Mapping, Sequence
 
-from backend.core.contracts import ControlEvent, N_INTERVALS, Rule, TraceEntry, canonical_bytes
+from backend.contexts.schedule.domain.schedule import ControlEvent, N_INTERVALS
+from backend.contexts.policy.domain.policy import Rule, TraceEntry
+from backend.shared.hashing import canonical_bytes
 
 from backend.contexts.policy.domain.flags import RuleFlags
 from backend.contexts.policy.domain.rules.base import RuleOutcome
@@ -22,17 +24,17 @@ class RunTrace:
         for entry in self.entries:
             if not entry.inputs:
                 raise ValueError(
-                    f"{entry.rule.value}/{entry.well}: запись Trace без чисел входа"
+                    f"{entry.rule.value}/{entry.well}: a Trace entry without input numbers"
                 )
             if not (0 <= entry.control_step <= N_INTERVALS - 1):
                 raise ValueError(
                     f"{entry.rule.value}/{entry.well}: control_step="
-                    f"{entry.control_step} вне 0…{N_INTERVALS - 1}"
+                    f"{entry.control_step} is outside 0…{N_INTERVALS - 1}"
                 )
             if not self.flags.is_on(entry.rule):
                 raise ValueError(
-                    f"{entry.rule.value} выключено флагом, но оставило запись "
-                    f"по скважине {entry.well} на шаге {entry.control_step}"
+                    f"{entry.rule.value} is disabled by a flag yet left an entry "
+                    f"for well {entry.well} at step {entry.control_step}"
                 )
 
     def __len__(self) -> int:
@@ -116,7 +118,7 @@ class RunResultWithTrace:
         ]
         if untraced:
             raise ValueError(
-                f"решения без записи Trace: {sorted(untraced)}"
+                f"decisions without a Trace entry: {sorted(untraced)}"
             )
 
 
@@ -130,7 +132,7 @@ class TraceCollector:
         for entry in outcome.trace:
             if not self._flags.is_on(entry.rule):
                 raise ValueError(
-                    f"{entry.rule.value} выключено флагом, но вернуло запись Trace"
+                    f"{entry.rule.value} is disabled by a flag yet returned a Trace entry"
                 )
         self._entries.extend(outcome.trace)
         self._decisions.extend(outcome.decisions)
@@ -194,10 +196,10 @@ def dumps(trace: RunTrace) -> str:
 def loads(text: str) -> RunTrace:
     payload = json.loads(text)
     if payload.get("format") != TRACE_FORMAT:
-        raise ValueError(f"нераспознанный формат трассы: {payload.get('format')!r}")
+        raise ValueError(f"unrecognised trace format: {payload.get('format')!r}")
     declared = payload.get("flags")
     if not isinstance(declared, dict):
-        raise ValueError("в трассе нет блока флагов: отключение правил непроверяемо")
+        raise ValueError("the trace has no flags block: disabling of rules is unverifiable")
     flags = RuleFlags(enabled={rule: bool(declared[rule.value]) for rule in Rule})
     entries = tuple(
         TraceEntry(

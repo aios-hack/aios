@@ -9,13 +9,8 @@ from typing import (
     Callable,
     Sequence,
 )
-from backend.core.contracts import (
-    Constraints,
-    ControlEvent,
-    EventKind,
-    Schedule,
-    water_supply_policy,
-)
+from backend.contexts.constraints.domain.constraints import Constraints, water_supply_policy
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind, Schedule
 from backend.contexts.policy.domain.budget import (
     interval_produced_water_rate_m3_per_day,
 )
@@ -96,8 +91,8 @@ def injection_budget_for_step(
 ) -> InjectionBudget:
     if not 0.0 < command_margin <= 1.0:
         raise ScheduleSearchError(
-            f"control_step={control_step}: запас команды закачки должен лежать "
-            f"в диапазоне (0, 1], получено {command_margin}"
+            f"control_step={control_step}: the injection command margin must lie "
+            f"in the range (0, 1], got {command_margin}"
         )
     contributions: list[tuple[str, float]] = []
     if physical_limit_m3_per_day is not None:
@@ -119,8 +114,8 @@ def injection_budget_for_step(
         water_limit = water.limit(produced)
         if water_limit is None:
             raise ScheduleSearchError(
-                f"control_step={control_step}: политика воды включена, но "
-                "потолок закачки по водному балансу не посчитан"
+                f"control_step={control_step}: the water policy is enabled, but the "
+                "injection ceiling from the water balance was not computed"
             )
         contributions.append((SOURCE_WATER_BALANCE, float(water_limit)))
 

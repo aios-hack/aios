@@ -4,26 +4,24 @@ from dataclasses import replace
 
 import pytest
 
-from backend.core.contracts import N_INTERVALS, Rule, TraceEntry
+from backend.contexts.schedule.domain.schedule import N_INTERVALS
+from backend.contexts.policy.domain.policy import Rule, TraceEntry
 
-from backend.domain.policy import (
-    IMPLEMENTED_RULES,
-    RuleContext,
-    RuleFlags,
+from backend.contexts.policy.domain.flags import IMPLEMENTED_RULES, RuleFlags, all_off
+from backend.contexts.policy.domain.state import RuleContext
+from backend.contexts.policy.domain.trace import (
     RunTrace,
     TraceCollector,
-    all_off,
-    apply_all,
     collect,
-    default_theta,
     dumps,
     explain,
     loads,
     run_trace,
-    superseded,
     to_payload,
     trace_hash,
 )
+from backend.contexts.policy.domain.rules import apply_all, superseded
+from backend.contexts.policy.domain.theta import default_theta
 from tests.backend.contexts.policy.conftest import DECIDING_WELLS, deciding_context, state_of
 
 RUN_STEPS = (0, 1, 2)
@@ -141,7 +139,7 @@ def test_trace_rejects_a_record_from_a_disabled_rule(
     context: RuleContext,
 ) -> None:
     result = run(context, RuleFlags())
-    with pytest.raises(ValueError, match="выключено флагом"):
+    with pytest.raises(ValueError, match="disabled by a flag"):
         RunTrace(
             entries=result.trace.entries,
             flags=RuleFlags().with_disabled(Rule.R3),
@@ -154,12 +152,12 @@ def test_collector_rejects_an_outcome_from_a_disabled_rule(
     ctx = deciding_context(context)
     enabled = apply_all(state_of(*WELLS), ctx, default_theta(), RuleFlags())
     collector = TraceCollector(RuleFlags().with_disabled(Rule.R2))
-    with pytest.raises(ValueError, match="выключено флагом"):
+    with pytest.raises(ValueError, match="disabled by a flag"):
         collector.add(enabled)
 
 
 def test_trace_rejects_a_record_without_numbers() -> None:
-    with pytest.raises(ValueError, match="без чисел"):
+    with pytest.raises(ValueError, match="without input numbers"):
         RunTrace(
             entries=(
                 TraceEntry(
@@ -175,7 +173,7 @@ def test_trace_rejects_a_record_without_numbers() -> None:
 
 
 def test_trace_rejects_the_terminal_step() -> None:
-    with pytest.raises(ValueError, match="вне"):
+    with pytest.raises(ValueError, match="is outside"):
         RunTrace(
             entries=(
                 TraceEntry(
@@ -206,8 +204,8 @@ def test_serialized_trace_carries_the_flags(context: RuleContext) -> None:
 
 
 def test_serialization_without_flags_is_rejected(context: RuleContext) -> None:
-    text = dumps(run(context, RuleFlags()).trace).replace('"flags"', '"нет"')
-    with pytest.raises(ValueError, match="флаг"):
+    text = dumps(run(context, RuleFlags()).trace).replace('"flags"', '"none"')
+    with pytest.raises(ValueError, match="flags block"):
         loads(text)
 
 

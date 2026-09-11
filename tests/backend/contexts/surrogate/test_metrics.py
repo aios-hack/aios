@@ -1,35 +1,19 @@
-"""Приёмка задачи 36 (docs/v1/assignments/andrey.md, docs/context/08_contracts.md §5.5).
-
-Карточка: «Бьёт CRM по ранговой корреляции; отдельно проверяет `ACTIVE/SHUT`,
-переходы, пороги ЭЦН, денежную ошибку событий/CAPEX, F1 `BHP_LIMITED` и
-ошибку BHP».
-
-Здесь проверяется **сам измерительный инструмент**, а не качество модели:
-что метрика на известном ответе даёт этот ответ, что гейт по CRM отвергает
-не бьющую базовую линию модель и что денежные метрики считаются теми же
-автоматами, что считают деньги в экономике, а не своей копией правил.
-Качество обученной модели меряется на настоящем датасете (задача 34) и в
-этом файле не утверждается ни разу.
-
-Траектории ниже — сконструированные, с известным ответом. Это не «синтетика
-в метриках качества» (правило 4): проверяется формула, а не модель, и
-`accept_against_baseline` отдельным тестом обязан отказаться выносить
-вердикт, если ему сказали, что вход синтетический.
-"""
 
 from __future__ import annotations
 
 import pytest
 
-from backend.core.contracts import (
-    DEFAULT_NORMATIVES_2007,
-    ActiveControlMode,
+from backend.contexts.constraints.domain.config import (
     ChargeInitialEsp,
+    DEFAULT_NORMATIVES_2007,
     EspCatalogEntry,
-    IntervalResponse,
     NormativeSet,
     Policies,
     QuantizationPolicy,
+)
+from backend.contexts.reservoir.domain.response import (
+    ActiveControlMode,
+    IntervalResponse,
     StateAtDate,
 )
 
@@ -111,12 +95,11 @@ def _trajectory(well: str, rates: list[float], **kwargs) -> WellTrajectory:
     return WellTrajectory(well=well, states=states, responses=responses)
 
 
-# --- Ранжирование по ЧДД ---------------------------------------------------
 
 
 def test_perfect_ordering_gives_correlation_one_and_zero_regret() -> None:
     actual = [10.0, 20.0, 30.0, 40.0, 50.0]
-    predicted = [1.0, 2.0, 3.0, 4.0, 5.0]  # другой масштаб, тот же порядок
+    predicted = [1.0, 2.0, 3.0, 4.0, 5.0]
 
     metrics = ranking_metrics(actual, predicted, k_values=(1, 3))
 
@@ -133,33 +116,25 @@ def test_reversed_ordering_gives_correlation_minus_one() -> None:
 
     assert metrics.spearman_rank_correlation == pytest.approx(-1.0)
     assert metrics.precision_at_k[1] == 0.0
-    # Модель назвала лучшим худшего: теряется вся разница между ними.
     assert metrics.regret_at_k_rub[1] == pytest.approx(40.0)
 
 
 def test_mae_can_be_perfect_while_the_ordering_is_useless() -> None:
-    """Ровно та причина, по которой сдаваемая метрика ранговая, а не MAE
-    (§5.2): сдвиг на константу не портит MAE-порядок величин, но
-    перестановка соседей рушит решение оптимизатора."""
 
     actual = [100.0, 101.0, 102.0, 300.0]
-    predicted = [102.0, 101.0, 100.0, 300.0]  # ошибка не больше 2 руб
+    predicted = [102.0, 101.0, 100.0, 300.0]
 
     metrics = ranking_metrics(actual, predicted, k_values=(1, 2))
 
     assert max(abs(a - p) for a, p in zip(actual, predicted)) <= 2.0
     assert metrics.spearman_rank_correlation < 1.0
-    # При этом настоящий лучший всё же найден — regret@1 нулевой, и это
-    # именно то, что regret обязан показывать отдельно от корреляции.
     assert metrics.regret_at_k_rub[1] == 0.0
 
 
 def test_precision_at_k_counts_set_overlap_not_order_inside() -> None:
-    """Внутри среза порядок не важен: оптимизатор пересчитывает срез
-    настоящим прогоном, ему нужен состав, а не расстановка внутри."""
 
     actual = [50.0, 40.0, 30.0, 20.0, 10.0]
-    predicted = [40.0, 50.0, 30.0, 10.0, 20.0]  # первые два переставлены
+    predicted = [40.0, 50.0, 30.0, 10.0, 20.0]
 
     metrics = ranking_metrics(actual, predicted, k_values=(2,))
 
@@ -168,8 +143,6 @@ def test_precision_at_k_counts_set_overlap_not_order_inside() -> None:
 
 
 def test_regret_is_measured_in_roubles_not_in_ranks() -> None:
-    """Одинаковая перестановка рангов стоит разных денег — метрика обязана
-    это различать, иначе цена ошибки теряется."""
 
     cheap = ranking_metrics([100.0, 99.0, 1.0], [99.0, 100.0, 1.0], k_values=(1,))
     costly = ranking_metrics([100.0, 1.0, 0.5], [1.0, 100.0, 0.5], k_values=(1,))
@@ -193,14 +166,11 @@ def test_mismatched_lengths_are_rejected() -> None:
 
 
 def test_single_candidate_is_rejected() -> None:
-    """Моков нет: ранжирование одного кандидата не определено, и метрика
-    обязана это сказать, а не вернуть 1.0."""
 
     with pytest.raises(MetricsError):
         ranking_metrics([1.0], [1.0])
 
 
-# --- Гейт по CRM -----------------------------------------------------------
 
 
 def _ranking(spearman_target: list[float], predicted: list[float]):
@@ -209,19 +179,17 @@ def _ranking(spearman_target: list[float], predicted: list[float]):
 
 def test_model_beating_crm_is_accepted() -> None:
     actual = [1.0, 2.0, 3.0, 4.0, 5.0]
-    model = _ranking(actual, [1.0, 2.0, 3.0, 4.0, 5.0])  # корреляция 1.0
-    crm = _ranking(actual, [1.0, 2.0, 3.0, 5.0, 4.0])  # ниже
+    model = _ranking(actual, [1.0, 2.0, 3.0, 4.0, 5.0])
+    crm = _ranking(actual, [1.0, 2.0, 3.0, 5.0, 4.0])
 
     verdict = accept_against_baseline(model, crm)
 
     assert verdict.accepted is True
     assert verdict.margin > 0.0
-    assert "выше" in verdict.reason
+    assert "is above" in verdict.reason
 
 
 def test_model_not_beating_crm_is_rejected() -> None:
-    """«Любая модель обязана бить CRM по ранговой корреляции, иначе
-    отвергается» (§5.5) — исполняемая форма, а не отчётная строка."""
 
     actual = [1.0, 2.0, 3.0, 4.0, 5.0]
     model = _ranking(actual, [5.0, 4.0, 3.0, 2.0, 1.0])
@@ -230,12 +198,10 @@ def test_model_not_beating_crm_is_rejected() -> None:
     verdict = accept_against_baseline(model, crm)
 
     assert verdict.accepted is False
-    assert "отвергается" in verdict.reason
+    assert "rejected" in verdict.reason
 
 
 def test_tie_with_crm_is_rejected_not_accepted() -> None:
-    """Равенство базовой линии — не основание её менять: модель дороже в
-    обучении и непрозрачнее, а даёт то же самое."""
 
     actual = [1.0, 2.0, 3.0, 4.0, 5.0]
     same = [1.0, 2.0, 3.0, 4.0, 5.0]
@@ -246,8 +212,6 @@ def test_tie_with_crm_is_rejected_not_accepted() -> None:
 
 
 def test_comparison_on_different_samples_is_rejected() -> None:
-    """Гейт сравнивает CRM и модель на одном holdout: иначе «бьёт» ничего
-    не значит."""
 
     model = ranking_metrics([1.0, 2.0, 3.0], [1.0, 2.0, 3.0])
     crm = ranking_metrics([1.0, 2.0, 3.0, 4.0], [1.0, 2.0, 3.0, 4.0])
@@ -257,8 +221,6 @@ def test_comparison_on_different_samples_is_rejected() -> None:
 
 
 def test_synthetic_inputs_block_the_verdict_entirely() -> None:
-    """Правило 4 репозитория: синтетика не может быть предъявлена как замер
-    качества. Гейт отказывается принимать модель, даже когда числа хорошие."""
 
     actual = [1.0, 2.0, 3.0, 4.0, 5.0]
     model = _ranking(actual, actual)
@@ -267,10 +229,9 @@ def test_synthetic_inputs_block_the_verdict_entirely() -> None:
     verdict = accept_against_baseline(model, crm, synthetic_inputs=True)
 
     assert verdict.accepted is False
-    assert "синтетик" in verdict.reason
+    assert "synthetic" in verdict.reason
 
 
-# --- StateAtDate: ACTIVE/SHUT, переходы, ЭЦН, деньги, BHP ------------------
 
 
 def test_identical_trajectories_give_perfect_state_metrics() -> None:
@@ -292,8 +253,6 @@ def test_identical_trajectories_give_perfect_state_metrics() -> None:
 
 
 def test_confusing_active_with_shut_is_caught() -> None:
-    """«Суррогат путает работает и остановлена» — строка §5.5. Ошибка на
-    одном шаге из шести обязана быть видна в точности, а не утонуть."""
 
     fact = _trajectory("W1", [0.0, 50.0, 50.0, 50.0, 50.0, 50.0])
     model = _trajectory("W1", [0.0, 50.0, 50.0, 0.0, 50.0, 50.0])
@@ -305,8 +264,6 @@ def test_confusing_active_with_shut_is_caught() -> None:
 
 
 def test_false_transition_costs_real_money_and_is_measured() -> None:
-    """Ложный переход PROD_ACTIVE → SHUT → PROD_ACTIVE стоит событийных
-    затрат. Метрика обязана показать разницу в рублях, а не только в долях."""
 
     fact = _trajectory("W1", [0.0, 50.0, 50.0, 50.0, 50.0, 50.0])
     model = _trajectory("W1", [0.0, 50.0, 50.0, 0.0, 50.0, 50.0])
@@ -314,17 +271,13 @@ def test_false_transition_costs_real_money_and_is_measured() -> None:
     metrics = state_metrics([model], [fact], normatives=NORMATIVES, policies=POLICIES)
 
     assert metrics.event_cost_absolute_error_rub > 0.0
-    # Модель насчитала лишние переходы — знаковая ошибка положительна.
     assert metrics.event_cost_signed_error_rub > 0.0
     assert metrics.transition_recall == 1.0
     assert metrics.transition_precision < 1.0
 
 
 def test_esp_size_error_is_counted_at_the_catalog_boundary_only() -> None:
-    """Промах внутри интервала каталога ничего не стоит, промах мимо границы
-    стоит разницы CAPEX — метрика ловит второе, а не отклонение дебита."""
 
-    # 30 и 40 м³/сут — оба в интервале 25…60, типоразмер один и тот же.
     inside = state_metrics(
         [_trajectory("W1", [0.0, 30.0, 30.0, 30.0, 30.0, 30.0])],
         [_trajectory("W1", [0.0, 40.0, 40.0, 40.0, 40.0, 40.0])],
@@ -333,7 +286,6 @@ def test_esp_size_error_is_counted_at_the_catalog_boundary_only() -> None:
     )
     assert inside.esp_nominal_accuracy == 1.0
 
-    # 24 и 30 отличаются меньше, но лежат по разные стороны границы 25.
     across = state_metrics(
         [_trajectory("W1", [0.0, 24.0, 24.0, 24.0, 24.0, 24.0])],
         [_trajectory("W1", [0.0, 30.0, 30.0, 30.0, 30.0, 30.0])],
@@ -344,12 +296,8 @@ def test_esp_size_error_is_counted_at_the_catalog_boundary_only() -> None:
 
 
 def test_esp_money_error_comes_from_the_real_state_machine() -> None:
-    """Денежная ошибка ЭЦН считается прогоном `EspStateMachine` по обеим
-    траекториям, а не формулой рядом: своя копия правил разошлась бы с
-    Методикой молча (правило 5)."""
 
     fact = _trajectory("W1", [0.0, 30.0, 30.0, 30.0, 30.0, 30.0])
-    # Рост дебита за границу 60 заставляет автомат сменить типоразмер вверх.
     model = _trajectory("W1", [0.0, 30.0, 30.0, 90.0, 90.0, 90.0])
 
     metrics = state_metrics([model], [fact], normatives=NORMATIVES, policies=POLICIES)
@@ -359,14 +307,6 @@ def test_esp_money_error_comes_from_the_real_state_machine() -> None:
 
 
 def test_signed_and_absolute_money_errors_are_reported_separately() -> None:
-    """Систематический недосчёт и систематический пересчёт — разные дефекты;
-    модуль складывает их в неразличимую кучу, знак — нет.
-
-    Зеркало предыдущего теста: там замену придумала модель, здесь она её
-    проспала. Первичное оснащение при `NOT_CHARGED` не начисляется вовсе
-    (CLAUDE.md), поэтому CAPEX появляется только на смене типоразмера — две
-    плоские траектории на разных дебитах дали бы ноль у обеих.
-    """
 
     fact = _trajectory("W1", [0.0, 30.0, 30.0, 90.0, 90.0, 90.0])
     model = _trajectory("W1", [0.0, 30.0, 30.0, 30.0, 30.0, 30.0])
@@ -378,9 +318,6 @@ def test_signed_and_absolute_money_errors_are_reported_separately() -> None:
 
 
 def test_bhp_limited_f1_catches_the_missed_infeasibility() -> None:
-    """«Суррогат не видит недостижимость — прямая причина ловушки §5.1.1».
-    Модель, никогда не сказавшая BHP_LIMITED, обязана получить F1 = 0 при
-    ненулевой accuracy: одна accuracy этот дефект прячет."""
 
     limited = [ActiveControlMode.BHP_LIMITED] * 2 + [ActiveControlMode.RATE_TARGET] * 4
     never = [ActiveControlMode.RATE_TARGET] * 6
@@ -448,8 +385,6 @@ def test_unknown_well_is_rejected() -> None:
 
 
 def test_trajectory_without_history_is_rejected() -> None:
-    """Храповик ЭЦН требует прокрутки истории с начала данных: ряд, где дат
-    дека не больше числа интервалов, автоматом не считается."""
 
     with pytest.raises(MetricsError):
         WellTrajectory(
@@ -460,9 +395,6 @@ def test_trajectory_without_history_is_rejected() -> None:
 
 
 def test_negative_rule_exclusion_is_applied_to_the_esp_machine() -> None:
-    """Правило исключения отрицательного месячного прироста обязательно даже
-    там, где собственные приросты неотрицательны (CLAUDE.md, докстринг
-    `is_excluded_by_negative_rule`) — траектория обязана его вычислять."""
 
     states = tuple(_state(i, "W1", liquid=50.0) for i in range(N_STATES))
     responses = (
@@ -478,7 +410,6 @@ def test_negative_rule_exclusion_is_applied_to_the_esp_machine() -> None:
     assert excluded == frozenset({track.first_interval_end_deck_step + 1})
 
 
-# --- Обводнённость: диагностика, не отбраковка -----------------------------
 
 
 def test_watercut_error_is_measured() -> None:
@@ -492,12 +423,8 @@ def test_watercut_error_is_measured() -> None:
 
 
 def test_falling_watercut_is_reported_but_does_not_reject() -> None:
-    """§5.5, исправление 14.08: монотонность обводнённости — не жёсткий
-    oracle. Метрика считает долю падений и отдаёт её человеку; вердикт
-    приёмки её не видит вовсе."""
 
     actual = [_response(k, "W1", oil=100.0, liquid=200.0) for k in range(4)]
-    # Обводнённость падает: доля нефти в жидкости растёт.
     predicted = [
         _response(0, "W1", oil=100.0, liquid=200.0),
         _response(1, "W1", oil=120.0, liquid=200.0),
@@ -510,8 +437,6 @@ def test_falling_watercut_is_reported_but_does_not_reject() -> None:
     assert metrics.share_of_drops == pytest.approx(1.0)
     assert metrics.mae > 0.0
 
-    # И при этом вердикт приёмки про обводнённость ничего не знает: его
-    # поля — только ранговая корреляция модели и базовой линии.
     verdict = accept_against_baseline(
         ranking_metrics([1.0, 2.0, 3.0], [1.0, 2.0, 3.0]),
         ranking_metrics([1.0, 2.0, 3.0], [3.0, 2.0, 1.0]),

@@ -56,7 +56,7 @@ def test_data_and_out_hang_off_the_project_root_when_unset(tmp_path: Path) -> No
     assert settings.out_root == tmp_path.resolve() / "out"
 
 
-@pytest.mark.parametrize("value", ["0", "-1", "два", " "])
+@pytest.mark.parametrize("value", ["0", "-1", "two", " "])
 def test_an_unusable_cap_is_refused_not_silently_defaulted(value: str) -> None:
     with pytest.raises(ConfigurationError) as error:
         Settings.from_env({"AIOS_SEARCH_FIXED_POINT_CAP": value})
@@ -76,7 +76,7 @@ def test_caps_are_read_from_the_environment() -> None:
 
 def test_a_non_integer_seed_names_the_variable() -> None:
     with pytest.raises(ConfigurationError) as error:
-        Settings.from_env({"AIOS_SEED": "не число"})
+        Settings.from_env({"AIOS_SEED": "not a number"})
 
     assert error.value.details["variable"] == "AIOS_SEED"
 

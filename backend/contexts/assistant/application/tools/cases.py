@@ -50,17 +50,17 @@ def _config_root(settings: Settings | None = None) -> Path:
 def _read(path: Path) -> Mapping[str, Any]:
     if not path.is_file():
         raise ToolFailure(
-            f"файла ограничений {path} нет: набор ограничений не задан, а "
-            "выдумывать лимиты нельзя"
+            f"there is no constraints file {path}: the constraint set is not given, "
+            "and limits must not be invented"
         )
     try:
         loaded = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as error:
         raise ToolFailure(
-            f"файл ограничений {path} не читается: {error}"
+            f"constraints file {path} cannot be read: {error}"
         ) from error
     if not isinstance(loaded, dict):
-        raise ToolFailure(f"файл ограничений {path} не объект JSON")
+        raise ToolFailure(f"constraints file {path} is not a JSON object")
     return loaded
 
 
@@ -116,7 +116,7 @@ def case_constraints(context: ToolContext, arguments: Mapping[str, Any]) -> Card
         if name not in known:
             listed = ", ".join((DEFAULT_CASE, *known))
             raise ToolFailure(
-                f"кейса {name!r} нет в {root / CASES_DIR}: известные кейсы — "
+                f"case {name!r} is not in {root / CASES_DIR}: known cases are "
                 f"{listed}"
             )
         path = root / CASES_DIR / f"{name}.json"

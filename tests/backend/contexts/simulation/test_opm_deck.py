@@ -7,15 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from backend.infrastructure.opm import OpmDeckEmitter, OpmDeckError
-from backend.core.contracts import (
+from backend.contexts.reservoir.infrastructure.opm_deck import OpmDeckEmitter, OpmDeckError
+from backend.contexts.runs.domain.run_result import (
     OPM_CONNECTION_SUMMARY_KEYS,
     OPM_WELL_SUMMARY_KEYS,
-    EventKind,
-    Schedule,
-    ScheduleMeta,
 )
-from backend.domain.schedule import parse_schedule
+from backend.contexts.schedule.domain.schedule import EventKind, Schedule, ScheduleMeta
+from backend.contexts.schedule.domain.lossless import parse_schedule
 
 
 from tests.support.backend.environment import (
@@ -27,7 +25,7 @@ from tests.support.backend.environment import (
 MODEL_Z = model_z_dir()
 OPM_IMAGE = os.environ.get("OPM_FLOW_IMAGE", "openporousmedia/opmreleases:latest")
 
-pytestmark = [pytest.mark.skipif(MODEL_Z is None, reason=missing_reason('каталог Model_Z')), pytest.mark.slow, pytest.mark.opm]
+pytestmark = [pytest.mark.skipif(MODEL_Z is None, reason=missing_reason('Model_Z directory')), pytest.mark.slow, pytest.mark.opm]
 
 
 def _baseline_schedule(emitter: OpmDeckEmitter) -> Schedule:
@@ -140,7 +138,7 @@ def test_rejects_changed_fixed_layer(tmp_path: Path) -> None:
         control_events=baseline.control_events,
     )
 
-    with pytest.raises(OpmDeckError, match="фиксированный слой"):
+    with pytest.raises(OpmDeckError, match="fixed layer"):
         emitter.emit(changed, tmp_path / "bad")
 
 
@@ -178,7 +176,7 @@ def test_replaces_organizer_controls_with_our_dense_layer(tmp_path: Path) -> Non
 def test_emitted_deck_is_read_by_real_opm_flow(tmp_path: Path) -> None:
     reason = docker_unavailable_reason()
     if reason is not None:
-        pytest.skip(f"приёмка задачи 2 требует настоящий OPM Flow; {reason}")
+        pytest.skip(f"acceptance of task 2 requires a real OPM Flow; {reason}")
 
     emitter = OpmDeckEmitter(MODEL_Z)
     artifact = emitter.emit(_baseline_schedule(emitter), tmp_path / "opm-deck")

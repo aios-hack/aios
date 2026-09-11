@@ -1,13 +1,22 @@
-"""G3: приёмка карточки — synthetic=false, ЧДД сходится с независимым
-пересчётом, оси из данных, а не литералы."""
 
 from __future__ import annotations
 
 import pytest
 
-from backend.core.contracts import ChargeInitialEsp, DEFAULT_NORMATIVES_2007, NormativeSet, Policies, QuantizationPolicy
-from backend.domain.economics import MACHINE_ZERO_RUB, ESP_CATALOG_2007, analyze_base_case, load_response_artifact
-from backend.domain.schedule import parse_schedule
+from backend.contexts.constraints.domain.config import (
+    ChargeInitialEsp,
+    DEFAULT_NORMATIVES_2007,
+    NormativeSet,
+    Policies,
+    QuantizationPolicy,
+)
+from backend.contexts.economics.domain.decomposition import MACHINE_ZERO_RUB
+from backend.contexts.economics.domain.esp import ESP_CATALOG_2007
+from backend.contexts.economics.application.base_case import (
+    analyze_base_case,
+    load_response_artifact,
+)
+from backend.contexts.schedule.domain.lossless import parse_schedule
 from backend.contexts.showcase.application.base_artifact import (
     DEFAULT_RESPONSE_PATH,
     REAL_PROVENANCE,
@@ -22,7 +31,7 @@ MODEL_Z_SCHEDULE = model_z_schedule()
 pytestmark = pytest.mark.skipif(
     MODEL_Z_DIR is None or not DEFAULT_RESPONSE_PATH.is_file(),
     reason=missing_reason(
-        f"дек Model_Z или отклик базового прогона ({DEFAULT_RESPONSE_PATH})"
+        f"the Model_Z deck or the base run response ({DEFAULT_RESPONSE_PATH})"
     ),
 )
 
@@ -43,8 +52,6 @@ def test_bundle_is_marked_real_not_synthetic(result) -> None:
 
 
 def test_npv_methodology_matches_independently_recomputed_economics(result) -> None:
-    """Не тот же вызов, что внутри билдера — независимая сборка того же расчёта,
-    чтобы поймать «посчитали один раз правильно, экспортировали не то»."""
 
     parsed = parse_schedule(MODEL_Z_SCHEDULE.read_bytes())
     artifact = load_response_artifact(DEFAULT_RESPONSE_PATH)

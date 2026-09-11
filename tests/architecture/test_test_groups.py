@@ -60,7 +60,7 @@ def test_every_marker_used_by_a_test_is_declared() -> None:
         if used:
             undeclared[path.as_posix()] = used
 
-    assert not undeclared, f"незадекларированные маркеры: {undeclared}"
+    assert not undeclared, f"undeclared markers: {undeclared}"
 
 
 def test_the_slow_group_is_marked_by_decorators_not_by_a_path_list() -> None:
@@ -69,13 +69,13 @@ def test_the_slow_group_is_marked_by_decorators_not_by_a_path_list() -> None:
         if not path.is_file():
             continue
         body = path.read_text(encoding="utf-8")
-        assert "SLOW_FILES" not in body, f"{name}: ручной список медленных файлов должен быть удалён"
+        assert "SLOW_FILES" not in body, f"{name}: the manual list of slow files must be removed"
         assert "SLOW_DIRECTORIES" not in body, name
 
 
 def test_the_root_conftest_no_longer_holds_utilities() -> None:
     assert not (project_root() / "conftest.py").is_file(), (
-        "утилиты переехали в tests/support/backend, корневой conftest.py не нужен"
+        "the utilities moved to tests/support/backend, the root conftest.py is not needed"
     )
 
 
@@ -83,7 +83,7 @@ def test_the_root_conftest_no_longer_holds_utilities() -> None:
 def test_each_required_marker_is_actually_used(marker: str) -> None:
     users = [path.as_posix() for path in collected_test_files() if marker in marks_used_in(path)]
 
-    assert users, f"маркер {marker} объявлен, но ни одним тестом не используется"
+    assert users, f"marker {marker} is declared but used by no test"
 
 
 def test_testpaths_are_the_two_roots_and_they_exist() -> None:
@@ -101,4 +101,4 @@ def test_no_test_lives_outside_the_shared_tests_root() -> None:
         if "__pycache__" not in path.as_posix()
     ]
 
-    assert not strays, f"тесты в боевом пакете: {strays}"
+    assert not strays, f"tests inside the production package: {strays}"

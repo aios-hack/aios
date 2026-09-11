@@ -7,7 +7,7 @@ from typing import Literal
 import torch
 from torch import Tensor
 
-from backend.core.contracts import N_INTERVALS
+from backend.contexts.schedule.domain.schedule import N_INTERVALS
 
 from backend.contexts.surrogate.domain.npv_head import ScenarioNpvHeadError
 
@@ -20,10 +20,10 @@ ECONOMIC_AGGREGATIONS = 4
 KernelName = Literal["linear", "poly2", "rbf"]
 FeatureSet = Literal["global", "temporal", "full", "economic", "well_temporal"]
 FEATURE_PROVENANCE_FILES = (
-    "backend/core/contracts/schedule.py",
-    "backend/ml/surrogate/features.py",
-    "backend/ml/surrogate/model.py",
-    "backend/ml/surrogate/npv_economic_features.py",
+    "backend/contexts/schedule/domain/schedule.py",
+    "backend/contexts/surrogate/domain/features/featureizer.py",
+    "backend/contexts/surrogate/domain/network.py",
+    "backend/contexts/surrogate/domain/npv_economic_features.py",
 )
 
 LEGACY_FEATURE_PROVENANCE_HASHES = {
@@ -135,21 +135,21 @@ def scenario_feature_vector(
 ) -> Tensor:
     if x.ndim != 2 or x.shape[1] < BASE_FEATURES:
         raise ScenarioNpvHeadError(
-            f"ожидался x[:, >={BASE_FEATURES}], получено {x.shape}"
+            f"expected x[:, >={BASE_FEATURES}], got {x.shape}"
         )
     if len(x) != N_INTERVALS * n_wells or well_index.shape != (len(x),):
-        raise ScenarioNpvHeadError("scenario tensor не покрывает 224 × wells")
+        raise ScenarioNpvHeadError("the scenario tensor does not cover 224 × wells")
     if n_wells < 1:
-        raise ScenarioNpvHeadError("n_wells должен быть положительным")
+        raise ScenarioNpvHeadError("n_wells must be positive")
     if bool(((well_index < 0) | (well_index >= n_wells)).any()):
-        raise ScenarioNpvHeadError("индекс скважины вышел за допустимый диапазон")
+        raise ScenarioNpvHeadError("the well index is out of the allowed range")
     base = x[:, :BASE_FEATURES].to(dtype=torch.float64)
     step_index = torch.round(base[:, 11] * (N_INTERVALS - 1)).to(torch.long)
     if bool(((step_index < 0) | (step_index >= N_INTERVALS)).any()):
-        raise ScenarioNpvHeadError("календарный индекс вышел за 0…223")
+        raise ScenarioNpvHeadError("the calendar index is outside 0…223")
     flat_index = step_index * n_wells + well_index.to(torch.long)
     if len(torch.unique(flat_index)) != len(flat_index):
-        raise ScenarioNpvHeadError("scenario tensor содержит дубли step × well")
+        raise ScenarioNpvHeadError("the scenario tensor contains duplicate step × well entries")
     grid = torch.empty(
         N_INTERVALS * n_wells,
         BASE_FEATURES,
@@ -171,7 +171,7 @@ def scenario_feature_vector(
         return global_features
 
     if N_INTERVALS % TEMPORAL_BINS:
-        raise ScenarioNpvHeadError("224 интервала не делятся на temporal bins")
+        raise ScenarioNpvHeadError("224 intervals are not divisible into temporal bins")
     bin_width = N_INTERVALS // TEMPORAL_BINS
     bins = grid.reshape(TEMPORAL_BINS, bin_width * n_wells, BASE_FEATURES)
     temporal = torch.cat(
@@ -181,7 +181,7 @@ def scenario_feature_vector(
         return torch.cat((global_features, temporal))
 
     if feature_set not in {"full", "economic", "well_temporal"}:
-        raise ScenarioNpvHeadError(f"неизвестный feature_set={feature_set!r}")
+        raise ScenarioNpvHeadError(f"unknown feature_set={feature_set!r}")
     controls = grid[:, :, :8]
     by_well = torch.cat(
         (

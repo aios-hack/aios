@@ -12,7 +12,7 @@ def repo_root() -> Path:
     for parent in here.parents:
         if (parent / "frontend" / "public" / "data").is_dir():
             return parent
-    raise RuntimeError("корень репозитория с frontend/public/data не найден")
+    raise RuntimeError("the repository root holding frontend/public/data was not found")
 
 
 @pytest.fixture(scope="session")

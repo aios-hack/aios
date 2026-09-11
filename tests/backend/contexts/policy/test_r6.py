@@ -4,16 +4,14 @@ from dataclasses import replace
 
 import pytest
 
-from backend.core.contracts import EventKind, Rule
+from backend.contexts.schedule.domain.schedule import EventKind
+from backend.contexts.policy.domain.policy import Rule
 
-from backend.domain.policy import (
-    RuleContext,
-    RuleFlags,
-    WellMemory,
-    apply_rule,
-    default_theta,
-    make_theta,
-)
+from backend.contexts.policy.domain.state import RuleContext
+from backend.contexts.policy.domain.flags import RuleFlags
+from backend.contexts.policy.domain.memory import WellMemory
+from backend.contexts.policy.domain.rules import apply_rule
+from backend.contexts.policy.domain.theta import default_theta, make_theta
 from backend.contexts.policy.domain.rules import r6
 from tests.backend.contexts.policy.conftest import (
     influence_of,
@@ -134,7 +132,7 @@ def test_an_already_converted_well_is_not_converted_twice(
 def test_conversion_needs_the_measured_influence_matrix(
     context: RuleContext,
 ) -> None:
-    with pytest.raises(ValueError, match="измеренную λ"):
+    with pytest.raises(ValueError, match="a measured"):
         r6.apply(state_of(*wells(NEARLY_DEAD_WATERCUT)), context, default_theta())
 
 
@@ -161,14 +159,6 @@ def test_disabled_r6_makes_no_decisions_and_no_records(
 def test_producer_outside_lambda_follows_the_deck_conversion(
     context: RuleContext,
 ) -> None:
-    """Скважина вне окна λ переводится на том шаге, где её переводит дек.
-
-    Прежний `continue` был замкнутым кругом: чтобы правило разрешило перевести
-    скважину в нагнетательные, она должна была уже быть нагнетательной в
-    измеренной λ. Скважина, которую дек переводит после окна замера, в окне
-    добывала и в матрицу попасть не могла — восемь таких скважин базового
-    дека мы не переводили вовсе, и это 395 м³/сут недокачки на прогоне G7.
-    """
 
     influence = influence_of(
         producers=("42",), injectors=("101",), matrix=((0.6,),)
@@ -197,7 +187,6 @@ def test_producer_outside_lambda_follows_the_deck_conversion(
 def test_producer_outside_lambda_waits_for_the_deck_step(
     context: RuleContext,
 ) -> None:
-    """Раньше дека не переводим: шаг перевода — тоже данные дека, не наш выбор."""
 
     influence = influence_of(
         producers=("42",), injectors=("101",), matrix=((0.6,),)
@@ -220,7 +209,6 @@ def test_producer_outside_lambda_waits_for_the_deck_step(
 def test_producer_outside_lambda_and_outside_the_deck_is_left_alone(
     context: RuleContext,
 ) -> None:
-    """Дек её не переводит — и мы не переводим: судить по-прежнему не на чем."""
 
     influence = influence_of(
         producers=("42",), injectors=("101",), matrix=((0.6,),)

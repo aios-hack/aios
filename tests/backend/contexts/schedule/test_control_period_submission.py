@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from backend.core.contracts import N_CONTROL_DATES, T0, hash_schedule
-from backend.domain.schedule import build_schedule, parse_schedule
+from backend.contexts.schedule.domain.schedule import N_CONTROL_DATES, T0
+from backend.shared.hashing import hash_schedule
+from backend.contexts.schedule.domain.build import build_schedule
+from backend.contexts.schedule.domain.lossless import parse_schedule
 from backend.contexts.schedule.application.emit import verify_schedule_round_trip
 from backend.contexts.reservoir.infrastructure.opm_deck import (
     render_control_period_include,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from backend.core.contracts import ControlEvent, EventKind, Role, Rule, Theta, TraceEntry
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind, Role
+from backend.contexts.policy.domain.policy import Rule, Theta, TraceEntry
 
 from backend.contexts.policy.domain.economics import annual_margin_rub, breakeven_watercut
 from backend.contexts.policy.domain.memory import WellMemory
@@ -10,7 +11,7 @@ from backend.contexts.policy.domain.theta import read
 
 RULE = Rule.R3
 ADMISSION_CRITERION = (
-    "Закрываем после N месяцев убытка, открываем только с запасом."
+    "Shut in after N months of loss, reopen only with a margin."
 )
 THETA_NAMES: tuple[str, ...] = ("r3_months_in_loss", "r3_reopen_margin")
 

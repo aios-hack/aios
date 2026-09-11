@@ -19,9 +19,8 @@ from backend.contexts.surrogate.domain.raw_model_output import RawModelOutput
 from typing import (
     Mapping,
 )
-from backend.core.contracts import (
-    Schedule,
-)
+from backend.contexts.schedule.domain.schedule import Schedule
+from backend.contexts.optimization.domain.search_environment import SearchEnvironment
 
 
 def missing_invariants(report: PhysicsReport) -> tuple[str, ...]:
@@ -37,7 +36,7 @@ def _incompleteness_description(report: PhysicsReport) -> str:
         reason = report.skipped.get(name)
         parts.append(name if reason is None else f"{name} ({reason})")
     return (
-        "physics_complete=false: проверка неполная, не посчитаны инварианты: "
+        "physics_complete=false: the check is incomplete, these invariants were not computed: "
         + "; ".join(parts)
     )
 
@@ -67,7 +66,7 @@ def _enforce_physics(
     )
     if example is not None:
         description += (
-            f"; например скважина {example.well}, шаг {example.control_step}: "
+            f"; for example well {example.well}, step {example.control_step}: "
             f"{example.detail}"
         )
     raise PhysicallyImpossibleScheduleError(blocking, description)
@@ -78,8 +77,8 @@ def full_physics_report(
 ) -> PhysicsReport:
     if env.reference_schedule is None or env.reference_response is None:
         raise MissingReferenceError(
-            "провенанс опоры: "
-            + env.provenance.get("reference", "absent: опора не строилась")
+            "reference provenance: "
+            + env.provenance.get("reference", "absent: the reference was not built")
         )
     single = check_prediction(
         candidate, schedule=schedule, oil_density_t_per_m3=env.oil_density_t_per_m3
@@ -119,7 +118,7 @@ def full_physics_report(
         )
     except PhysicsCheckError as error:
         raise MissingReferenceError(
-            f"пара опора/кандидат непригодна для проверки: {error}"
+            f"the reference/candidate pair is unsuitable for checking: {error}"
         ) from error
     counts = dict(single.counts)
     for name, count in pair.counts.items():

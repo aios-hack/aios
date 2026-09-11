@@ -88,19 +88,6 @@ output {
   font-size: var(--font-size-md);
 }
 
-.app-main:focus {
-  outline: none;
-}
-
-.app-view-title {
-  margin: 0 0 var(--space-4);
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-heavy);
-  line-height: var(--line-height-snug);
-  letter-spacing: var(--tracking-tight);
-  text-wrap: balance;
-}
-
 .app-view-enter > * {
   animation: view-rise var(--duration-drawer) var(--ease-out) both;
 }
@@ -162,7 +149,6 @@ output {
     scroll-behavior: auto !important;
   }
 }
-
 
 .skip-link {
   position: absolute;

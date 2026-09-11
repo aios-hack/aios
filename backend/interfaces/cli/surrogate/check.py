@@ -29,7 +29,9 @@ from backend.contexts.optimization.application.environment import (
 from backend.contexts.optimization.domain.physics_gate import (
     missing_invariants,
 )
-from backend.core.contracts import Constraints, Schedule, hash_schedule
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.schedule.domain.schedule import Schedule
+from backend.shared.hashing import hash_schedule
 from backend.shared.paths import data_root
 from backend.contexts.connectivity.domain.measure import load_lambda_provenance
 from backend.contexts.constraints.infrastructure.constraints_io import constraints_hash
@@ -73,18 +75,19 @@ def _lambda_artifact_provenance(lambda_path: Path) -> dict[str, str]:
 
 
 BASE_PHYSICS_GATE_NOTE = (
-    "physics_gate=off для базового расписания: базовое расписание и есть опора "
-    "прогноза, а дифференциальные инварианты (INJECTION_RESPONSE, "
-    "MATERIAL_BALANCE) сравнивают кандидата с опорой — при совпадении все "
-    "разности тождественно нулевые, и инвариант ничего не утверждает. Он не "
-    "нарушен, он не определён по построению, поэтому гейт снят явно, а не "
-    "ошибка спрятана. Одиночные инварианты проверены полностью."
+    "physics_gate=off for the base schedule: the base schedule is itself the "
+    "reference of the forecast, while the differential invariants (INJECTION_RESPONSE, "
+    "MATERIAL_BALANCE) compare a candidate against that reference - when they "
+    "coincide every difference is identically zero and the invariant asserts nothing. "
+    "It is not violated, it is undefined by construction, so the gate is lifted "
+    "explicitly rather than an error being hidden. The single-point invariants are "
+    "checked in full."
 )
 
 CASE_PHYSICS_GATE_NOTE = (
-    "physics_gate=off для прогноза на кейсе: проверка обязана дойти до отчёта "
-    "и на недопустимом расписании, иначе гейт превращает диагностику в падение. "
-    "Все посчитанные инварианты и их нарушения перечислены ниже."
+    "physics_gate=off for the forecast on a case: the check must reach the report "
+    "even on an inadmissible schedule, otherwise the gate turns diagnostics into a "
+    "crash. Every computed invariant and its violations are listed below."
 )
 
 
@@ -223,7 +226,7 @@ def exit_code_for(payload: dict) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Проверка production-артефактов и реальный базовый прогноз без OPM"
+            "Check the production artifacts and run a real base forecast without OPM"
         )
     )
     parser.add_argument("--manifest", type=Path, default=data_root() / "surrogate-production.json")
@@ -245,7 +248,7 @@ def main(argv: list[str] | None = None) -> int:
             case_path=args.case,
         )
     except LambdaDesyncError as error:
-        print(f"строгий режим: {error}", file=sys.stderr)
+        print(f"strict mode: {error}", file=sys.stderr)
         return 2
     encoded = json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
     if args.output:

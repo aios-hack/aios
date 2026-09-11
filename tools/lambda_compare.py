@@ -10,7 +10,7 @@ from typing import Mapping, Sequence
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-from backend.core.contracts import Lambda
+from backend.contexts.connectivity.domain.connectivity import Lambda
 from backend.contexts.connectivity.application.campaign import CampaignError
 from backend.contexts.connectivity.domain.measure import artifact_id, load_lambda_with_provenance
 
@@ -86,7 +86,7 @@ class ComparisonReport:
 def average_ranks(values: Sequence[float]) -> tuple[float, ...]:
     if not values:
         raise LambdaCompareError(
-            "ранжировать нечего: передан пустой набор значений"
+            "there is nothing to rank: an empty set of values was given"
         )
     order = sorted(range(len(values)), key=lambda index: values[index])
     ranks = [0.0] * len(values)
@@ -105,13 +105,13 @@ def average_ranks(values: Sequence[float]) -> tuple[float, ...]:
 def spearman(left: Sequence[float], right: Sequence[float]) -> float:
     if len(left) != len(right):
         raise LambdaCompareError(
-            f"длины рядов расходятся: {len(left)} против {len(right)} — "
-            f"ранговую корреляцию считать не по чему"
+            f"series lengths disagree: {len(left)} against {len(right)} — there is "
+            f"nothing to compute the rank correlation from"
         )
     if len(left) < 2:
         raise LambdaCompareError(
-            f"общих рёбер {len(left)}: ранговая корреляция определена от двух "
-            f"наблюдений, на меньшем числе она не считается, а не равна нулю"
+            f"{len(left)} shared edges: the rank correlation is defined from two "
+            f"observations onwards; below that it is not computed, not zero"
         )
     left_ranks = average_ranks(left)
     right_ranks = average_ranks(right)
@@ -125,8 +125,8 @@ def spearman(left: Sequence[float], right: Sequence[float]) -> float:
     variance_right = sum((b - mean_right) ** 2 for b in right_ranks)
     if variance_left == 0.0 or variance_right == 0.0:
         raise LambdaCompareError(
-            "один из рядов вырожден: все ранги совпали, корреляция не "
-            "определена — выдавать за неё ноль нельзя"
+            "one of the series is degenerate: every rank coincides, the "
+            "correlation is undefined — zero must not be passed off as it"
         )
     return covariance / math.sqrt(variance_left * variance_right)
 
@@ -136,11 +136,11 @@ def sign_agreement(
 ) -> float:
     if len(left) != len(right):
         raise LambdaCompareError(
-            f"длины рядов расходятся: {len(left)} против {len(right)}"
+            f"series lengths disagree: {len(left)} against {len(right)}"
         )
     if not left:
         raise LambdaCompareError(
-            "общих рёбер нет: доля совпадающих знаков не определена"
+            "there are no shared edges: the share of matching signs is undefined"
         )
 
     def sign_of(value: float) -> int:
@@ -177,9 +177,10 @@ def overlap(left: Lambda, right: Lambda, *, zero_tolerance: float) -> EdgeOverla
     injectors = tuple(sorted(set(left.injectors) & set(right.injectors)))
     if not producers or not injectors:
         raise LambdaCompareError(
-            f"общая подматрица пуста: совпало добывающих {len(producers)}, "
-            f"нагнетательных {len(injectors)} — сравнивать нечего, и нулевая "
-            f"корреляция здесь была бы выдумкой, а не результатом"
+            f"the shared submatrix is empty: {len(producers)} producers and "
+            f"{len(injectors)} injectors coincide — there is nothing to "
+            f"compare, and a zero correlation here would be an invention, "
+            f"not a result"
         )
     left_cells = _cell_lookup(left)
     right_cells = _cell_lookup(right)
@@ -255,19 +256,19 @@ def _format_provenance(name: str, provenance: Mapping[str, object]) -> list[str]
     missing = provenance.get("missing_fields") or []
     for field in ("artifact_id", "measured_at", "n_runs", "code_version"):
         value = provenance.get(field)
-        shown = "не записано" if value is None else str(value)
+        shown = "not recorded" if value is None else str(value)
         lines.append(f"    {field:<16} {shown}")
     runs = provenance.get("source_run_ids")
     if runs is None:
-        lines.append(f"    {'source_run_ids':<16} не записано")
+        lines.append(f"    {'source_run_ids':<16} not recorded")
     else:
         listed = list(runs)
         head = ", ".join(str(item) for item in listed[:3])
-        tail = "" if len(listed) <= 3 else f" … и ещё {len(listed) - 3}"
+        tail = "" if len(listed) <= 3 else f" … and {len(listed) - 3} more"
         lines.append(f"    {'source_run_ids':<16} {head}{tail}")
     if missing:
         lines.append(
-            f"    происхождение неполно, не записаны поля: "
+            f"    provenance is incomplete, fields not recorded: "
             f"{', '.join(str(item) for item in missing)}"
         )
     return lines
@@ -275,34 +276,34 @@ def _format_provenance(name: str, provenance: Mapping[str, object]) -> list[str]
 
 def render(report: ComparisonReport) -> str:
     lines = [
-        "=== два артефакта λ ===",
+        "=== two lambda artifacts ===",
         f"  A  {report.left_path}",
-        f"     окно {report.left_window[0]}…{report.left_window[1]}, "
-        f"{report.left_shape[0]}×{report.left_shape[1]}, лаг "
-        f"{report.left_lag_months} мес, устойчивость {report.left_stability:.4f}",
-        f"     artifact_id (пересчитан) {report.left_artifact_id[:16]}…",
+        f"     window {report.left_window[0]}…{report.left_window[1]}, "
+        f"{report.left_shape[0]}×{report.left_shape[1]}, lag "
+        f"{report.left_lag_months} months, stability {report.left_stability:.4f}",
+        f"     artifact_id (recomputed) {report.left_artifact_id[:16]}…",
         f"  B  {report.right_path}",
-        f"     окно {report.right_window[0]}…{report.right_window[1]}, "
-        f"{report.right_shape[0]}×{report.right_shape[1]}, лаг "
-        f"{report.right_lag_months} мес, устойчивость {report.right_stability:.4f}",
-        f"     artifact_id (пересчитан) {report.right_artifact_id[:16]}…",
+        f"     window {report.right_window[0]}…{report.right_window[1]}, "
+        f"{report.right_shape[0]}×{report.right_shape[1]}, lag "
+        f"{report.right_lag_months} months, stability {report.right_stability:.4f}",
+        f"     artifact_id (recomputed) {report.right_artifact_id[:16]}…",
         "",
-        "=== общая подматрица ===",
-        f"  добывающих в обоих      {report.shared_producers}",
-        f"  нагнетательных в обоих  {report.shared_injectors}",
-        f"  общих ячеек             {report.shared_edges}",
+        "=== shared submatrix ===",
+        f"  producers in both       {report.shared_producers}",
+        f"  injectors in both       {report.shared_injectors}",
+        f"  shared cells            {report.shared_edges}",
         "",
-        "=== согласие ===",
-        f"  ранговая корреляция Спирмена  {report.spearman:+.4f}",
-        f"  доля совпадающих знаков       {report.sign_agreement:.4f}",
-        f"  различие лагов                {report.lag_difference:+d} мес "
+        "=== agreement ===",
+        f"  Spearman rank correlation     {report.spearman:+.4f}",
+        f"  share of matching signs       {report.sign_agreement:.4f}",
+        f"  lag difference                {report.lag_difference:+d} months "
         f"(A {report.left_lag_months}, B {report.right_lag_months})",
         "",
-        "=== ненулевые рёбра ===",
-        f"  только в A  {report.left_only_edges}",
-        f"  только в B  {report.right_only_edges}",
+        "=== non-zero edges ===",
+        f"  only in A   {report.left_only_edges}",
+        f"  only in B   {report.right_only_edges}",
         "",
-        "=== происхождение ===",
+        "=== provenance ===",
     ]
     lines.extend(_format_provenance("A", report.left_provenance))
     lines.extend(_format_provenance("B", report.right_provenance))
@@ -313,9 +314,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="lambda_compare",
         description=(
-            "Сравнить два измеренных артефакта λ: общая подматрица, ранговая "
-            "корреляция Спирмена, совпадение знаков, различие лагов, рёбра "
-            "только в одном из артефактов."
+            "Compare two measured lambda artifacts: shared submatrix, Spearman "
+            "rank correlation, sign agreement, lag difference, and edges "
+            "present in only one of the artifacts."
         ),
     )
     parser.add_argument("left", type=Path)
@@ -332,13 +333,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.left, args.right, zero_tolerance=args.zero_tolerance
         )
     except LambdaCompareError as error:
-        print(f"сравнение не выполнено: {error}", flush=True)
+        print(f"comparison not performed: {error}", flush=True)
         return 2
     except CampaignError as error:
-        print(f"артефакт λ не прочитан: {error}", flush=True)
+        print(f"lambda artifact not read: {error}", flush=True)
         return 3
     except (OSError, KeyError, ValueError) as error:
-        print(f"артефакт не прочитан: {error}", flush=True)
+        print(f"artifact not read: {error}", flush=True)
         return 3
     print(render(report), flush=True)
     if args.json_out is not None:
@@ -347,7 +348,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             json.dumps(report.to_json(), ensure_ascii=False, indent=2, sort_keys=True),
             encoding="utf-8",
         )
-        print(f"\nотчёт записан: {args.json_out}", flush=True)
+        print(f"\nreport written: {args.json_out}", flush=True)
     return 0
 
 

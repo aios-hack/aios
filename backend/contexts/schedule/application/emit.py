@@ -8,14 +8,15 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from backend.core.contracts import ControlEvent, Schedule, content_hash, hash_schedule
+from backend.contexts.schedule.domain.schedule import ControlEvent, Schedule
+from backend.shared.hashing import content_hash, hash_schedule
 
 from backend.contexts.schedule.domain.build import ScheduleBuildError, build_schedule
 from backend.contexts.schedule.domain.canonical import canonicalize
 from backend.contexts.schedule.domain.lossless import (
     LosslessBlock,
     LosslessChunk,
-    LosslessEmitter,
+    emit_lossless,
     ParsedSchedule,
     ScheduleParseError,
     parse_schedule,
@@ -102,7 +103,7 @@ def emit_wells_schedule(
 ) -> EmittedSchedule:
     if sparse:
         return _emit_sparse(parsed)
-    raw = LosslessEmitter.emit(parsed)
+    raw = emit_lossless(parsed)
     stats = _block_stats(parsed.blocks, len(parsed.dates), 0)
     return EmittedSchedule(
         raw=raw,
@@ -178,15 +179,15 @@ class RoundTripReport:
     def format(self) -> str:
         if self.ok:
             return (
-                f"round-trip байт в байт: {self.n_source_bytes} байт, "
+                f"round-trip byte for byte: {self.n_source_bytes} bytes, "
                 f"content_hash {self.emitted_hash}"
             )
         return (
-            f"round-trip не сошёлся: байт {self.n_source_bytes} против "
-            f"{self.n_emitted_bytes}, первое расхождение на позиции "
-            f"{self.first_difference}, хеши {self.source_hash} против "
-            f"{self.emitted_hash}, события управления {self.control_events_match}, "
-            f"фиксированные {self.fixed_events_match}, даты {self.dates_match}"
+            f"round-trip did not match: bytes {self.n_source_bytes} against "
+            f"{self.n_emitted_bytes}, first difference at position "
+            f"{self.first_difference}, hashes {self.source_hash} against "
+            f"{self.emitted_hash}, control events {self.control_events_match}, "
+            f"fixed {self.fixed_events_match}, dates {self.dates_match}"
         )
 
     def raise_if_broken(self) -> None:
@@ -210,7 +211,7 @@ def round_trip(source: bytes) -> RoundTripReport:
         reparsed = parse_schedule(emitted)
     except ScheduleParseError as error:
         raise ScheduleEmitError(
-            f"эмитированный файл не разбирается обратно: {error}"
+            f"the emitted file does not parse back: {error}"
         ) from error
     return RoundTripReport(
         byte_identical=emitted == source,
@@ -246,7 +247,7 @@ def emit_from_deck(
         parsed = parse_schedule(source)
     except ScheduleParseError as error:
         raise ScheduleEmitError(
-            f"дек {source_path!r} не разбирается: {error}"
+            f"deck {source_path!r} does not parse: {error}"
         ) from error
     report = round_trip(source)
     report.raise_if_broken()
@@ -262,8 +263,9 @@ class ScheduleDivergence:
 
     def format(self) -> str:
         return (
-            f"первое расхождение управляющего слоя на позиции {self.index}: "
-            f"исходное {self.expected!r} против перечитанного {self.actual!r}"
+            f"first divergence of the control layer at position "
+            f"{self.index}: source {self.expected!r} against reparsed "
+            f"{self.actual!r}"
         )
 
 
@@ -293,20 +295,21 @@ class ScheduleRoundTripReport:
     def format(self) -> str:
         if self.ok:
             return (
-                f"round-trip расписания сошёлся: {self.n_bytes} байт, "
+                f"schedule round-trip matched: {self.n_bytes} bytes, "
                 f"content_hash {self.content_hash}, "
                 f"canonical_schedule_hash {self.source_hash}"
             )
         detail = (
             self.divergence.format()
             if self.divergence is not None
-            else "управляющий слой совпал, разошлись фиксированный слой или "
-            "начальное состояние"
+            else "the control layer matched, the fixed layer or the initial "
+            "state diverged"
         )
         return (
-            f"round-trip расписания не сошёлся: canonical_schedule_hash "
-            f"{self.source_hash} против {self.reparsed_hash} на {self.n_bytes} "
-            f"байтах (content_hash {self.content_hash}); {detail}"
+            f"schedule round-trip did not match: canonical_schedule_hash "
+            f"{self.source_hash} against {self.reparsed_hash} over "
+            f"{self.n_bytes} bytes (content_hash {self.content_hash}); "
+            f"{detail}"
         )
 
     def raise_if_broken(self) -> None:
@@ -323,7 +326,7 @@ def verify_schedule_round_trip(
         parsed = parse_schedule(raw)
     except ScheduleParseError as error:
         raise ScheduleEmitError(
-            f"эмитированное расписание не разбирается обратно: {error}"
+            f"the emitted schedule does not parse back: {error}"
         ) from error
     source = canonicalize(schedule)
     try:
@@ -337,7 +340,7 @@ def verify_schedule_round_trip(
         )
     except ScheduleBuildError as error:
         raise ScheduleEmitError(
-            f"эмитированное расписание не собирается в Schedule: {error}"
+            f"the emitted schedule does not build into a Schedule: {error}"
         ) from error
     return ScheduleRoundTripReport(
         source_hash=hash_schedule(source),

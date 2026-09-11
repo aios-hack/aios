@@ -1,15 +1,3 @@
-"""G10, фаза 2: один кандидат из пула через настоящий OPM.
-
-Отдельный процесс на кандидата: прогон Flow стоит около 513 с и держится
-на своём контейнере, поэтому параллелить дешевле процессами, чем потоками —
-экономика отклика считается на Python и упирается в GIL.
-
-План не передаётся между процессами и не сериализуется: он функция от θ,
-и восстановить его неподвижной точкой стоит 16 с против 240 МБ обмена.
-
-Запуск: `PYTHONPATH=. python tools/g10_run.py <индекс кандидата>`.
-"""
-
 from __future__ import annotations
 
 import json
@@ -21,13 +9,16 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from backend.shared.resources import model_z_dir, normatives_xlsx
-from backend.infrastructure.opm import submit_schedule
+from backend.contexts.simulation.application.submission import submit_schedule
 from backend.contexts.reservoir.infrastructure.opm_deck import OpmDeckEmitter
 from backend.contexts.simulation.infrastructure.runner import deck_hashes, summary_spec_hash
 from backend.contexts.constraints.domain.schema import default_config
-from backend.core.contracts import ArtifactHashes, Constraints, Theta
-from backend.core.contracts.hashing import hash_schedule
-from backend.domain.economics import load_normatives, load_response_artifact
+from backend.contexts.constraints.domain.config import ArtifactHashes
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.policy.domain.policy import Theta
+from backend.shared.hashing import hash_schedule
+from backend.contexts.economics.infrastructure.normatives_io import load_normatives
+from backend.contexts.economics.application.base_case import load_response_artifact
 from backend.contexts.optimization.application.environment import (
     load_environment,
     make_evaluator,
@@ -54,7 +45,7 @@ def main() -> int:
     candidate = next(item for item in pool["candidates"] if item["index"] == INDEX)
     result_path = OUT / f"candidate-{INDEX:02d}.json"
     if result_path.exists():
-        print(f"[{INDEX:02d}] уже посчитан, пропуск", flush=True)
+        print(f"[{INDEX:02d}] already computed, skipped", flush=True)
         return 0
 
     model_dir = model_z_dir()
@@ -76,12 +67,10 @@ def main() -> int:
     best = max(final.visited, key=lambda item: item.npv)
     schedule = best.schedule
     digest = hash_schedule(schedule)
-    print(f"[{INDEX:02d}] план восстановлен за {time.monotonic() - started:.0f} с", flush=True)
+    print(f"[{INDEX:02d}] plan rebuilt in {time.monotonic() - started:.0f} s", flush=True)
     if digest != candidate["canonical_schedule_hash"]:
-        # Расхождение означает, что план перестал быть функцией от θ:
-        # дальше считать нечего, число будет не про того кандидата.
         print(
-            f"[{INDEX:02d}] ХЕШ РАЗОШЁЛСЯ: {digest} против "
+            f"[{INDEX:02d}] HASH DIVERGED: {digest} against "
             f"{candidate['canonical_schedule_hash']}",
             flush=True,
         )
@@ -108,7 +97,7 @@ def main() -> int:
 
     work_root = OUT / f"work-{INDEX:02d}"
     work_root.mkdir(parents=True, exist_ok=True)
-    print(f"[{INDEX:02d}] звено А пошло", flush=True)
+    print(f"[{INDEX:02d}] link A started", flush=True)
     started = time.monotonic()
     submission = submit_schedule(
         schedule, model_dir, work_root, config, constraints=Constraints(), strict=False
@@ -118,8 +107,6 @@ def main() -> int:
     counts: dict[str, int] = {}
     if submission.dynamic_report is not None:
         for violation in submission.dynamic_report.violations:
-            # ViolationKind — enum без порядка, а отчёт пишется с sort_keys:
-            # ключом идёт имя, иначе json не соберётся.
             kind = getattr(violation.kind, "name", None) or str(violation.kind)
             counts[kind] = counts.get(kind, 0) + 1
     npv = submission.final_npv.npv_methodology if submission.final_npv else None
@@ -144,15 +131,15 @@ def main() -> int:
     )
     if npv is None:
         print(
-            f"[{INDEX:02d}] ЧДД не выдан: статус {submission.opm_run.status}, "
-            f"тождеств не сошлось {len(submission.failed_identities)}, за {elapsed / 60:.1f} мин",
+            f"[{INDEX:02d}] NPV not issued: status {submission.opm_run.status}, "
+            f"identities failed {len(submission.failed_identities)}, in {elapsed / 60:.1f} min",
             flush=True,
         )
     else:
         print(
-            f"[{INDEX:02d}] предсказано {candidate['predicted_npv_final_cap'] / 1e9:.3f} — "
-            f"факт {npv / 1e9:.3f} млрд, нарушений {sum(counts.values())}, "
-            f"за {elapsed / 60:.1f} мин",
+            f"[{INDEX:02d}] predicted {candidate['predicted_npv_final_cap'] / 1e9:.3f} - "
+            f"actual {npv / 1e9:.3f} bln, violations {sum(counts.values())}, "
+            f"in {elapsed / 60:.1f} min",
             flush=True,
         )
     return 0

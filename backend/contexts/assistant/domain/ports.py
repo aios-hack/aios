@@ -31,6 +31,19 @@ class SessionArchive(Protocol):
 
 
 @runtime_checkable
+class SessionMeta(Protocol):
+    @property
+    def summary(self) -> str: ...
+
+
+@runtime_checkable
+class SessionRecordStore(Protocol):
+    def meta(self, session_id: str) -> SessionMeta | None: ...
+
+    def events(self, session_id: str) -> list[dict[str, Any]]: ...
+
+
+@runtime_checkable
 class ShowcaseReader(Protocol):
     def read(self, *parts: str) -> Any: ...
 
@@ -45,6 +58,8 @@ class DocumentSearch(Protocol):
 __all__ = [
     "DocumentSearch",
     "SessionArchive",
+    "SessionMeta",
+    "SessionRecordStore",
     "ShowcaseReader",
     "SpeechRecognition",
     "SpeechSynthesis",

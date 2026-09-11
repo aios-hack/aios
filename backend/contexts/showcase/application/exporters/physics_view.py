@@ -29,22 +29,22 @@ class ScenarioPhysics:
         seen: set[str] = set()
         for name in self.evaluated:
             if name not in known:
-                raise ValueError(f"неизвестный инвариант в evaluated: {name!r}")
+                raise ValueError(f"unknown invariant in evaluated: {name!r}")
             if name in seen:
-                raise ValueError(f"инвариант {name!r} повторён в evaluated")
+                raise ValueError(f"invariant {name!r} is repeated in evaluated")
             seen.add(name)
         for name, reason in self.skipped:
             if name not in known:
-                raise ValueError(f"неизвестный инвариант в skipped: {name!r}")
+                raise ValueError(f"unknown invariant in skipped: {name!r}")
             if name in seen:
                 raise ValueError(
-                    f"инвариант {name!r} одновременно посчитан и пропущен"
+                    f"invariant {name!r} is both evaluated and skipped"
                 )
             if not reason:
-                raise ValueError(f"инвариант {name!r} пропущен без причины")
+                raise ValueError(f"invariant {name!r} is skipped without a reason")
             seen.add(name)
         if self.blocking_count < 0 or self.warning_count < 0:
-            raise ValueError("счётчики флагов физпроверок не могут быть отрицательными")
+            raise ValueError("physics check flag counters cannot be negative")
 
     @classmethod
     def from_report(cls, report: Any) -> "ScenarioPhysics":

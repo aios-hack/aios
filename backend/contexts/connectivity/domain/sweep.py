@@ -3,14 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Mapping, Protocol, Sequence
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     ControlEvent,
     EventKind,
-    IntervalResponse,
     Schedule,
     ScheduleMeta,
-    StateAtDate,
 )
+from backend.contexts.reservoir.domain.response import IntervalResponse, StateAtDate
 
 from backend.contexts.connectivity.domain.amplitude import (
     AmplitudeMeasurement,
@@ -34,10 +33,10 @@ class WindowSteps:
 
     def __post_init__(self) -> None:
         if self.first < 0:
-            raise ValueError(f"первый шаг окна {self.first} отрицателен")
+            raise ValueError(f"the first window step {self.first} is negative")
         if self.last < self.first:
             raise ValueError(
-                f"окно замера пусто: last={self.last} < first={self.first}"
+                f"the measurement window is empty: last={self.last} < first={self.first}"
             )
 
     def contains(self, control_step: int) -> bool:
@@ -66,8 +65,8 @@ def injection_setpoints(
     missing = sorted(well for well, value in resolved.items() if value is None)
     if missing:
         raise ValueError(
-            f"в расписании нет ни одной уставки закачки для {missing}: "
-            f"целевой уровень свипа назначается от факта, не от константы"
+            f"the schedule holds no injection setpoint for {missing}: the sweep "
+            f"target level is set relative to the actual one, not to a constant"
         )
     return {well: value for well, value in resolved.items() if value is not None}
 
@@ -79,7 +78,7 @@ def perturbed_schedule(
     provenance: str,
 ) -> Schedule:
     if not targets:
-        raise ValueError("возмущение без единой адресованной скважины")
+        raise ValueError("a perturbation without a single addressed well")
     touched = set(targets)
     events: list[ControlEvent] = []
     for event in baseline.control_events:
@@ -109,8 +108,8 @@ def perturbed_schedule(
     unreached = touched - replaced
     if unreached:
         raise ValueError(
-            f"в окне {steps.first}…{steps.last} нет ни одной уставки закачки для "
-            f"{sorted(unreached)}: возмущение не материализовалось бы в деке"
+            f"the window {steps.first}…{steps.last} holds no injection setpoint for "
+            f"{sorted(unreached)}: the perturbation would not materialise in the deck"
         )
     meta = ScheduleMeta(
         model=baseline.meta.model,
@@ -146,7 +145,7 @@ def mean_injection_rate(
     ]
     if not values:
         raise ValueError(
-            f"{well}: в окне дат {first}…{last} нет ни одной записи отклика"
+            f"{well}: no response record in the date window {first}…{last}"
         )
     return sum(values) / len(values)
 
@@ -158,7 +157,7 @@ def cumulative_liquid(
 ) -> float:
     selected = set(wells)
     if not selected:
-        raise ValueError("накопленная добыча по пустому списку скважин не определена")
+        raise ValueError("cumulative production over an empty list of wells is undefined")
     total = 0.0
     seen = False
     for interval in intervals:
@@ -170,8 +169,8 @@ def cumulative_liquid(
         seen = True
     if not seen:
         raise ValueError(
-            f"в окне шагов {steps.first}…{steps.last} нет откликов по "
-            f"{sorted(selected)}"
+            f"no responses for {sorted(selected)} in the step window "
+            f"{steps.first}…{steps.last}"
         )
     return total
 
@@ -180,10 +179,10 @@ def responders_of(
     probe_well: str, neighbours: Mapping[str, Sequence[str]]
 ) -> tuple[str, ...]:
     if probe_well not in neighbours:
-        raise ValueError(f"{probe_well}: окружение не задано, отклик считать не по кому")
+        raise ValueError(f"{probe_well}: the neighbourhood is not given, there is nobody to compute the response over")
     listed = tuple(sorted(set(neighbours[probe_well])))
     if not listed:
-        raise ValueError(f"{probe_well}: пустое окружение, замер отклика невозможен")
+        raise ValueError(f"{probe_well}: empty neighbourhood, a response measurement is impossible")
     return listed
 
 
@@ -207,7 +206,7 @@ def build_probe(
 ) -> AmplitudeProbe:
     if not runs:
         raise ValueError(
-            f"амплитуда {relative_amplitude}: ни одного прогона, замерять нечего"
+            f"amplitude {relative_amplitude}: not a single run, there is nothing to measure"
         )
     outcomes = tuple(
         ProbeOutcome(
@@ -249,7 +248,7 @@ def sweep_targets(
 ) -> dict[str, float]:
     missing = set(selection.wells) - set(current_by_well)
     if missing:
-        raise ValueError(f"нет текущего уровня закачки для {sorted(missing)}")
+        raise ValueError(f"no current injection level for {sorted(missing)}")
     return {
         well: amplitude.target(level, current_by_well[well])
         for well in selection.wells

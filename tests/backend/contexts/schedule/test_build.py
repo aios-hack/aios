@@ -1,7 +1,7 @@
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     ControlEvent,
     EventKind,
@@ -11,18 +11,18 @@ from backend.core.contracts import (
     Role,
     T0,
     WellState,
-    hash_schedule,
 )
-from backend.domain.schedule import (
+from backend.shared.hashing import hash_schedule
+from backend.contexts.schedule.domain.build import (
     ScheduleBuildError,
     build_schedule,
     canonical_control_events,
     deck_well_axis,
     detect_control_conflicts,
     load_schedule,
-    parse_schedule,
     schedule_hash_parts,
 )
+from backend.contexts.schedule.domain.lossless import parse_schedule
 
 from tests.support.backend.environment import missing_reason, model_z_schedule
 
@@ -31,7 +31,7 @@ MODEL_Z_SCHEDULE = model_z_schedule()
 
 pytestmark = pytest.mark.skipif(
     MODEL_Z_SCHEDULE is None,
-    reason=missing_reason("дек Model_Z"),
+    reason=missing_reason("Model_Z deck"),
 )
 
 
@@ -186,12 +186,12 @@ def test_conflicting_events_are_rejected() -> None:
     assert conflicts[0].well == "1"
     assert set(conflicts[0].values) == {42.0, 43.0}
 
-    with pytest.raises(ScheduleBuildError, match="конфликтующие"):
+    with pytest.raises(ScheduleBuildError, match="conflicting"):
         canonical_control_events(events)
 
 
 def test_lrat_ceiling_is_enforced_by_constructor() -> None:
-    with pytest.raises(ValueError, match="превышает потолок"):
+    with pytest.raises(ValueError, match="exceeds the Methodology ceiling"):
         ControlEvent(
             control_step=0,
             well="1",
@@ -264,9 +264,9 @@ def test_well_state_has_four_fields(schedule) -> None:
 
 
 def test_load_schedule_reads_real_deck() -> None:
-    schedule = load_schedule(MODEL_Z_SCHEDULE, provenance="базовый дек")
+    schedule = load_schedule(MODEL_Z_SCHEDULE, provenance="base deck")
 
-    assert schedule.meta.provenance == "базовый дек"
+    assert schedule.meta.provenance == "base deck"
     assert schedule.control_events
     assert schedule.fixed_deck_events
 

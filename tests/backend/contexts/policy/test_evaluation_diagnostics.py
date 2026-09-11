@@ -4,7 +4,7 @@ from types import MappingProxyType
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     ControlEvent,
     EventKind,
@@ -15,7 +15,7 @@ from backend.core.contracts import (
     WellState,
 )
 from backend.contexts.constraints.domain.schema import DEFAULT_BUDGETS
-from backend.domain.policy import Evaluation, resolve
+from backend.contexts.policy.domain.fixed_point import Evaluation, resolve
 from backend.contexts.policy.domain.fixed_point import FixedPointResult, Visited
 
 WELL = "42"

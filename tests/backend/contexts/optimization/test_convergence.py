@@ -1,23 +1,3 @@
-"""Приёмка задачи 40 (docs/v1/assignments/andrey.md, docs/context/08_contracts.md §10.4).
-
-Карточка: критерий «прогноз сошёлся» — «**замеряется на данных, а не
-выбирается**».
-
-§10.4 держит вопрос открытым: три кандидата — абсолютное отклонение ЧДД,
-ранговая согласованность top-k, оба порога сразу — и ни один не замерен.
-Поэтому приёмка проверяет не «правильный критерий выбран», а что:
-
-1. все три кандидата §10.4 построены и работают;
-2. замер идёт по решению, ради которого критерий существует, — расширять
-   область доверия или сжимать;
-3. две ошибки разделены: ложное расширение уводит цикл, упущенное только
-   замедляет, и в одну величину они не складываются;
-4. порог просматривается сеткой целиком, а не назначается точкой;
-5. на синтетике вердикт не выносится вовсе.
-
-Таблицы раундов здесь сконструированы с известным ответом: проверяется
-измерительный инструмент, а не качество суррогата, которого пока нет.
-"""
 
 from __future__ import annotations
 
@@ -26,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import Theta
+from backend.contexts.policy.domain.policy import Theta
 
 from backend.contexts.optimization.domain.convergence import (
     CalibrationReport,
@@ -86,12 +66,9 @@ def _round(index: int, pairs: list[tuple[float, float]]) -> RoundReport:
     )
 
 
-# --- 1. Три кандидата §10.4 -------------------------------------------------
 
 
 def test_absolute_deviation_criterion_uses_relative_error() -> None:
-    """Порог относительный, а не в рублях: ЧДД Model_Z порядка 1e10, и
-    рублёвый порог пришлось бы переназначать при смене нормативов."""
 
     within = [_check(predicted=105.0, actual=100.0)]
     beyond = [_check(predicted=130.0, actual=100.0)]
@@ -103,8 +80,6 @@ def test_absolute_deviation_criterion_uses_relative_error() -> None:
 
 
 def test_absolute_deviation_needs_every_candidate_inside() -> None:
-    """Один промахнувшийся кандидат снимает сходимость всего раунда:
-    расширять область по среднему значило бы усреднить промах."""
 
     mixed = [_check(101.0, 100.0), _check(300.0, 100.0)]
 
@@ -112,12 +87,8 @@ def test_absolute_deviation_needs_every_candidate_inside() -> None:
 
 
 def test_rank_agreement_criterion_looks_at_order_not_at_values() -> None:
-    """Это то, что цикл на самом деле использует: он берёт top-k по
-    прогнозу, и важен порядок, а не совпадение чисел (§5.2)."""
 
-    # Числа мимо на порядок, порядок верен.
     shifted = [_check(1_000.0, 10.0), _check(2_000.0, 20.0), _check(3_000.0, 30.0)]
-    # Числа близки, порядок перевёрнут.
     reversed_order = [_check(30.0, 10.0), _check(20.0, 20.0), _check(10.0, 30.0)]
 
     criterion = rank_agreement_criterion(0.9)
@@ -127,16 +98,12 @@ def test_rank_agreement_criterion_looks_at_order_not_at_values() -> None:
 
 
 def test_rank_agreement_on_a_single_candidate_is_an_error_not_true() -> None:
-    """Возвращать True на одном кандидате значило бы объявлять сходимость
-    даром — ранговая согласованность одной точки не определена."""
 
     with pytest.raises(ConvergenceError):
         rank_agreement_criterion(0.5)([_check(1.0, 1.0)])
 
 
 def test_both_criterion_is_a_conjunction_not_an_average() -> None:
-    """Среднее позволило бы отличной корреляции выкупить провальное
-    отклонение."""
 
     good_order_bad_values = [
         _check(1_000.0, 10.0),
@@ -149,7 +116,6 @@ def test_both_criterion_is_a_conjunction_not_an_average() -> None:
     assert both_criterion(0.1, 0.9)(good_order_bad_values) is False
 
 
-# --- 2. Замер идёт по решению, ради которого критерий существует -----------
 
 
 def test_trust_is_justified_when_the_predicted_best_is_actually_best() -> None:
@@ -159,8 +125,6 @@ def test_trust_is_justified_when_the_predicted_best_is_actually_best() -> None:
 
 
 def test_trust_is_not_justified_when_the_predicted_best_is_actually_worst() -> None:
-    """Ровно та ошибка, ради которой критерий стоит в цикле: суррогат
-    поставил первым кандидата, который по факту хуже всех."""
 
     checks = [_check(300.0, 10.0), _check(200.0, 20.0), _check(100.0, 30.0)]
 
@@ -179,21 +143,12 @@ def test_zero_best_npv_is_an_error_not_a_silent_ratio() -> None:
         trust_was_justified([_check(1.0, 0.0)], regret_tolerance=0.1)
 
 
-# --- 3. Две ошибки разделены -----------------------------------------------
 
 
 def test_false_and_missed_expansions_are_counted_separately() -> None:
-    """Ложное расширение уводит цикл в зону, где суррогат вводит в
-    заблуждение; упущенное только тратит раунд. В одну accuracy они не
-    складываются."""
 
     rounds = [
-        # Числа близки (отклонение ≤ 2%), но порядок перевёрнут: критерий по
-        # отклонению скажет «сошлось», а суррогат при этом поставил первым
-        # кандидата, который по факту худший. Ложное расширение.
         _round(0, [(102.0, 100.0), (101.0, 101.0), (100.0, 102.0)]),
-        # Порядок верен, числа мимо на два порядка: доверие оправдано, а
-        # критерий по отклонению скажет «разошлось». Упущенное расширение.
         _round(1, [(3_000.0, 30.0), (2_000.0, 20.0), (1_000.0, 10.0)]),
     ]
 
@@ -207,8 +162,6 @@ def test_false_and_missed_expansions_are_counted_separately() -> None:
 
 
 def test_ranking_prefers_fewer_false_expansions_over_more_correct_ones() -> None:
-    """Лексикографика, а не взвешенная сумма: вес означал бы курс обмена
-    между «увели цикл» и «потратили раунд», а его никто не замерял."""
 
     safe = CriterionMeasurement(
         name="a",
@@ -234,8 +187,6 @@ def test_ranking_prefers_fewer_false_expansions_over_more_correct_ones() -> None
 
 
 def test_module_never_weights_the_two_errors_into_one_number() -> None:
-    """Статическая проверка: в коде нет сложения ложных и упущенных
-    расширений в одну величину."""
 
     tree = ast.parse((ROOT / "convergence.py").read_text(encoding="utf-8"))
     for node in ast.walk(tree):
@@ -243,12 +194,10 @@ def test_module_never_weights_the_two_errors_into_one_number() -> None:
             dumped = ast.dump(node)
             assert not (
                 "false_expansions" in dumped and "missed_expansions" in dumped
-            ), "две ошибки свёрнуты в одну величину"
+            ), "two errors collapsed into a single quantity"
 
 
 def test_rank_agreement_catches_what_deviation_misses() -> None:
-    """Смысл замера: кандидаты §10.4 ошибаются на разных раундах, и какой
-    ошибается реже — вопрос к данным, а не к вкусу."""
 
     reversed_but_close = _round(0, [(102.0, 100.0), (101.0, 101.0), (100.0, 102.0)])
 
@@ -256,12 +205,9 @@ def test_rank_agreement_catches_what_deviation_misses() -> None:
     assert rank_agreement_criterion(0.5)(reversed_but_close.checks) is False
 
 
-# --- 4. Порог просматривается сеткой ---------------------------------------
 
 
 def test_every_threshold_of_the_grid_is_reported() -> None:
-    """Единственное число «оптимальный порог 0.07» скрывает, устойчив он или
-    стоит на игле."""
 
     rounds = [
         _round(0, [(101.0, 100.0), (201.0, 200.0)]),
@@ -306,7 +252,6 @@ def test_stability_of_the_best_threshold_is_reported() -> None:
     assert sweep.best in sweep.measurements
 
 
-# --- 5. Вердикт: замер, а не выбор -----------------------------------------
 
 
 def test_verdict_names_a_winner_only_on_real_data() -> None:
@@ -320,12 +265,10 @@ def test_verdict_names_a_winner_only_on_real_data() -> None:
     assert isinstance(report, CalibrationReport)
     assert report.winner is not None
     assert report.winner.name in {"absolute_deviation", "rank_agreement", "both"}
-    assert "ложных расширений" in report.verdict
+    assert "false expansions" in report.verdict
 
 
 def test_synthetic_table_blocks_the_verdict() -> None:
-    """Правило 4: критерий, откалиброванный на выдуманных данных, — это
-    выбор, замаскированный под замер, ровно то, что карточка запрещает."""
 
     rounds = [
         _round(0, [(101.0, 100.0), (201.0, 200.0)]),
@@ -335,22 +278,18 @@ def test_synthetic_table_blocks_the_verdict() -> None:
     report = measure_criteria(rounds, regret_tolerance=0.05, synthetic_inputs=True)
 
     assert report.winner is None
-    assert "синтетическ" in report.verdict
+    assert "synthetic" in report.verdict
 
 
 def test_one_round_is_not_a_measurement() -> None:
-    """На одном раунде кандидаты не различаются — объявлять победителя
-    значило бы выбирать, а не мерить."""
 
     report = measure_criteria([_round(0, [(101.0, 100.0), (201.0, 200.0)])], regret_tolerance=0.05)
 
     assert report.winner is None
-    assert "замер не состоялся" in report.verdict
+    assert "the measurement did not take place" in report.verdict
 
 
 def test_module_hardcodes_no_winner() -> None:
-    """Главное требование карточки, проверенное структурно: в коде нет
-    константы с «выбранным» критерием или его порогом."""
 
     text = (ROOT / "convergence.py").read_text(encoding="utf-8")
     lowered = text.lower()
@@ -359,7 +298,6 @@ def test_module_hardcodes_no_winner() -> None:
         assert forbidden not in lowered
 
 
-# --- Отказы вместо правдоподобных чисел ------------------------------------
 
 
 def test_empty_history_is_rejected() -> None:
@@ -392,4 +330,4 @@ def test_unknown_candidate_lookup_is_rejected() -> None:
     )
 
     with pytest.raises(ConvergenceError):
-        report.sweep_of("нет такого критерия")
+        report.sweep_of("no such criterion")

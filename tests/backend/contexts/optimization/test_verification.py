@@ -1,25 +1,3 @@
-"""Приёмка задачи 39 (docs/v1/assignments/andrey.md, docs/context/08_contracts.md §10.1–10.3).
-
-Карточка: «таблица "предсказано против факта" по всем кандидатам
-сохраняется — это сдаваемые метрики суррогата; лучший кандидат цикла
-переоценивается **последней версией модели** и несёт `self_consistent`.
-**Это внутренний выбор кандидата, не источник сдаваемого числа** — за него
-отвечает задача 62».
-
-Четыре части приёмки:
-
-1. схема раунда §10.1 исполняется — top-k, прогон, расширение или сужение
-   области, дообучение только на разошедшемся раунде;
-2. область доверия работает как ограничение, а не как отбор постфактум:
-   кандидат с `ood_score > τ` не попадает в top-k вовсе;
-3. таблица §10.3 сохраняется целиком, включая разошедшиеся раунды;
-4. переоценка сделана **последней** версией суррогата, и цикл структурно
-   не может выдать сдаваемое число.
-
-Суррогат и истина здесь — настоящие вычисляемые функции от θ с известным
-ответом, а не заглушки: цикл действительно ищет по ним, а тест знает, где
-они расходятся.
-"""
 
 from __future__ import annotations
 
@@ -29,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import Theta
+from backend.contexts.policy.domain.policy import Theta
 
 from backend.contexts.optimization.application.verification import (
     CandidateCheck,
@@ -52,11 +30,6 @@ def _theta(value: float = 1.0) -> Theta:
 
 
 class _Surrogate:
-    """ЧДД растёт с x; `ood_score` растёт с удалением от обучающей точки.
-
-    Настоящая функция: оптимизатор ищет по ней максимум, а область доверия
-    ограничивает, насколько далеко он вправе уйти.
-    """
 
     def __init__(self, version: int = 1, *, bias: float = 0.0, centre: float = 0.0) -> None:
         self.version = version
@@ -74,7 +47,6 @@ class _Surrogate:
 
 
 class _Truth:
-    """Истина: тот же рост, но без смещения суррогата."""
 
     def __init__(self) -> None:
         self.calls: list[Theta] = []
@@ -91,7 +63,6 @@ class _Truth:
 
 
 class _Retrainer:
-    """Дообучение: каждая новая версия сдвигает смещение к нулю."""
 
     def __init__(self, produce: list[_Surrogate]) -> None:
         self.produce = produce
@@ -103,12 +74,6 @@ class _Retrainer:
 
 
 def _tolerance(limit: float):
-    """Критерий «сошлось»: относительное отклонение не больше `limit`.
-
-    Задача 40 меряет, каким критерий должен быть (§10.4 оставляет это
-    незамеренным); здесь он подаётся снаружи именно поэтому — цикл не
-    вправе выбирать его за задачу 40.
-    """
 
     def criterion(checks) -> bool:
         return all(abs(check.relative_deviation) <= limit for check in checks)
@@ -128,7 +93,6 @@ def _loop(**kwargs):
     return run_verification_loop(**defaults)
 
 
-# --- 1. Схема раунда §10.1 --------------------------------------------------
 
 
 def test_converged_round_expands_the_trust_region() -> None:
@@ -148,8 +112,6 @@ def test_converged_round_expands_the_trust_region() -> None:
 
 
 def test_diverged_round_contracts_the_region_and_retrains() -> None:
-    """«разошлось → область сужается, k прогонов уходят в обучающую
-    выборку, суррогат дообучается» — все три следствия сразу."""
 
     surrogate = _Surrogate(version=1, bias=1_000_000.0)
     next_version = _Surrogate(version=2, bias=0.0)
@@ -168,7 +130,6 @@ def test_diverged_round_contracts_the_region_and_retrains() -> None:
     assert first.converged is False
     assert first.next_tau < first.tau
     assert first.retrained is True
-    # Дообучение получило ровно наблюдения этого раунда, не всю историю.
     assert len(retrainer.observations) == 1
     assert retrainer.observations[0] == first.checks
 
@@ -187,8 +148,6 @@ def test_retraining_happens_only_on_a_diverged_round() -> None:
 
 
 def test_number_of_runs_per_round_is_the_budget_not_a_guess() -> None:
-    """k — это `Budgets.runs_per_verification_round`: каждый прогон стоит
-    513 с на реальном Model_Z, поэтому он задаётся, а не подбирается."""
 
     truth = _Truth()
     report = _loop(
@@ -205,16 +164,13 @@ def test_number_of_runs_per_round_is_the_budget_not_a_guess() -> None:
     assert len(truth.calls) == report.total_runs
 
 
-# --- 2. Область доверия — ограничение, а не отбор постфактум ---------------
 
 
 def test_candidates_outside_the_region_never_reach_the_simulator() -> None:
-    """Ключевое отличие от отбора постфактум: прогон стоит денег, и
-    кандидат вне области не должен до него доезжать."""
 
     surrogate = _Surrogate(centre=0.0)
     truth = _Truth()
-    tau = 1.0  # ood_score = |x| / 10 ⇒ допустимо x ≤ 10
+    tau = 1.0
 
     _loop(
         surrogate=surrogate,
@@ -226,14 +182,12 @@ def test_candidates_outside_the_region_never_reach_the_simulator() -> None:
         max_rounds=1,
     )
 
-    assert truth.calls, "истина не вызывалась вовсе"
+    assert truth.calls, "the ground truth was never called"
     for theta in truth.calls:
         assert theta.values["x"] <= 10.0 + 1e-9, theta.values
 
 
 def test_trust_region_is_expressed_as_infeasibility_not_as_a_correction() -> None:
-    """Выход за область снимает `feasible` и пишет нарушение; предсказанный
-    ЧДД при этом не трогается — иначе ограничение стало бы поправкой."""
 
     surrogate = _Surrogate(centre=0.0)
     objective = trust_region_objective(surrogate, tau=1.0)
@@ -247,7 +201,6 @@ def test_trust_region_is_expressed_as_infeasibility_not_as_a_correction() -> Non
     assert outside.feasible is False
     assert outside.violations_by_scenario
     assert outside.violations_by_scenario[0].scenario_id == "trust_region"
-    # ЧДД остался тем, что сказал суррогат, без поправки на выход за область.
     assert outside.objective == pytest.approx(100.0 * 50.0)
 
 
@@ -260,12 +213,10 @@ def test_provenance_binds_the_prediction_to_a_surrogate_version_and_tau() -> Non
 
 
 def test_empty_trust_region_stops_the_loop_instead_of_pretending() -> None:
-    """Если внутри области не нашлось ни одного кандидата, раунд не
-    состоялся. Притворяться, что состоялся, — то же самое, что мок."""
 
-    surrogate = _Surrogate(centre=1_000.0)  # вся область далеко от границ θ
+    surrogate = _Surrogate(centre=1_000.0)
 
-    with pytest.raises(VerificationError, match="ни одного раунда"):
+    with pytest.raises(VerificationError, match="no rounds at all"):
         _loop(
             surrogate=surrogate,
             truth=_Truth(),
@@ -276,12 +227,9 @@ def test_empty_trust_region_stops_the_loop_instead_of_pretending() -> None:
         )
 
 
-# --- 3. Таблица §10.3 -------------------------------------------------------
 
 
 def test_table_covers_every_checked_candidate_in_order() -> None:
-    """«Таблица предсказанный ЧДД против фактического по всем проверенным
-    кандидатам и есть метрики качества суррогата, требуемые к сдаче»."""
 
     truth = _Truth()
     report = _loop(
@@ -304,12 +252,8 @@ def test_table_covers_every_checked_candidate_in_order() -> None:
 
 
 def test_diverged_rounds_stay_in_the_table() -> None:
-    """Выбрасывать неудачные раунды значило бы отчитываться по подобранной
-    подвыборке — метрики сдаются по всем проверенным кандидатам."""
 
     surrogate = _Surrogate(version=1, bias=1_000_000.0)
-    # Оба раунда расходятся, значит дообучение случится дважды — версий
-    # в очереди столько же, сколько раундов.
     retrainer = _Retrainer(
         [
             _Surrogate(version=2, bias=1_000_000.0),
@@ -365,13 +309,9 @@ def test_zero_actual_npv_is_an_error_not_a_silent_ratio() -> None:
         check.relative_deviation
 
 
-# --- 4. Переоценка последней версией и запрет заявлять число ---------------
 
 
 def test_final_reevaluation_uses_the_latest_surrogate_version() -> None:
-    """«Кандидат найден суррогатом версии r, а к концу цикла обучение ушло
-    на r+1. Без переоценки цикл выбирает кандидата по модели, которой уже
-    нет» — проверяется версией, а не фактом вызова."""
 
     first = _Surrogate(version=1, bias=1_000_000.0)
     second = _Surrogate(version=2, bias=1_000_000.0)
@@ -388,13 +328,10 @@ def test_final_reevaluation_uses_the_latest_surrogate_version() -> None:
     )
 
     assert report.final_surrogate_version == 3
-    # Переоценка обязана быть сделана третьей версией: у неё нет смещения.
-    assert third.calls, "последняя версия не вызывалась при переоценке"
+    assert third.calls, "the latest version was not called during re-evaluation"
 
 
 def test_best_candidate_is_chosen_by_fact_not_by_prediction() -> None:
-    """Все кандидаты таблицы прогнаны на OPM, истина по ним известна — брать
-    лучшего по прогнозу значило бы доверять модели там, где есть замер."""
 
     report = _loop(
         surrogate=_Surrogate(),
@@ -409,7 +346,6 @@ def test_best_candidate_is_chosen_by_fact_not_by_prediction() -> None:
 
 
 def test_self_consistent_is_false_when_the_latest_model_disagrees() -> None:
-    """Несогласованный кандидат допустим как результат, но помечен (§6.5)."""
 
     first = _Surrogate(version=1, bias=1_000_000.0)
     disagreeing = _Surrogate(version=2, bias=5_000_000.0)
@@ -442,9 +378,6 @@ def test_self_consistent_is_true_when_the_latest_model_reproduces_the_choice() -
 
 
 def test_report_carries_no_claimable_npv_field() -> None:
-    """§10.5 и карточка Андрея: задача 39 — внутренний выбор кандидата, не
-    сдача. Отсутствие поля с заявляемым числом здесь структурное, а не
-    договорённость: перепутать два «финала» слишком легко."""
 
     names = {field.name for field in fields(VerificationReport)}
     forbidden = {
@@ -458,8 +391,6 @@ def test_report_carries_no_claimable_npv_field() -> None:
 
 
 def test_module_never_builds_the_final_artifact() -> None:
-    """Тот же запрет статически: цикл не импортирует и не собирает
-    `FinalNpvArtifact` — это принадлежит задаче 62."""
 
     tree = ast.parse((ROOT / "verification.py").read_text(encoding="utf-8"))
     names: set[str] = set()
@@ -472,7 +403,6 @@ def test_module_never_builds_the_final_artifact() -> None:
     assert "FinalNpvArtifact" not in names
 
 
-# --- Отказы вместо правдоподобных чисел ------------------------------------
 
 
 def test_zero_runs_per_round_is_rejected() -> None:
@@ -518,7 +448,6 @@ def test_negative_ood_score_is_rejected() -> None:
 
 
 def test_truth_without_run_id_is_rejected() -> None:
-    """Строка таблицы §10.3 без `run_id` ни с чем не связана."""
 
     with pytest.raises(VerificationError):
         TruthVerdict(npv=1.0, run_id="", canonical_schedule_hash="c" * 64)

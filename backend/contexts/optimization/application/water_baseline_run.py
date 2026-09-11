@@ -8,13 +8,17 @@ from collections import Counter
 from dataclasses import replace
 from pathlib import Path
 
-from backend.core.contracts import EventKind, ResponseArtifact, Schedule, hash_schedule
+from backend.contexts.schedule.domain.schedule import EventKind, Schedule
+from backend.contexts.runs.domain.run_result import ResponseArtifact
+from backend.shared.hashing import hash_schedule
 from backend.contexts.constraints.domain.constraints import (
     DEFAULT_WATER_SAFETY_FACTOR,
     water_safety_factor as case_water_safety_factor,
 )
-from backend.domain.economics import load_response_artifact
-from backend.domain.schedule import canonicalize, validate_dynamic, validate_static
+from backend.contexts.economics.application.base_case import load_response_artifact
+from backend.contexts.schedule.domain.canonical import canonicalize
+from backend.contexts.schedule.domain.validate_dynamic import validate_dynamic
+from backend.contexts.schedule.domain.validate import validate_static
 from backend.shared.resources import chdd_python_dir, model_z_dir
 from backend.contexts.schedule.infrastructure.json_io import load_schedule_json
 
@@ -129,7 +133,7 @@ def main() -> int:
         else float(args.water_safety_factor)
     )
     if not 0.0 < safety_factor <= 1.0:
-        raise ValueError("water-safety-factor должен лежать в (0, 1]")
+        raise ValueError("water-safety-factor must lie in (0, 1]")
     env = load_environment(
         model_dir=model_z_dir(),
         normatives_path=chdd_python_dir() / "input" / "Нормативы_ЧДД.xlsx",
@@ -205,13 +209,13 @@ def main() -> int:
     ]
     schedule_hash = hash_schedule(schedule)
     calibrated_label = (
-        f"{calibrated.npv_rub / 1e9:.3f} млрд"
+        f"{calibrated.npv_rub / 1e9:.3f} bln"
         if calibrated.npv_rub is not None
         else f"OUTSIDE ({calibrated.domain_score:.3f})"
     )
     print(
-        f"water-baseline построен за {time.monotonic() - started:.1f} с; "
-        f"hash={schedule_hash}; raw-head={prediction.npv / 1e9:.3f} млрд; "
+        f"water-baseline built in {time.monotonic() - started:.1f} s; "
+        f"hash={schedule_hash}; raw-head={prediction.npv / 1e9:.3f} bln; "
         f"active-calibrated={calibrated_label}",
         flush=True,
     )
@@ -231,16 +235,16 @@ def main() -> int:
         flush=True,
     )
     if not static.ok:
-        raise RuntimeError(f"water-baseline нарушает static: {static.violations[:3]}")
+        raise RuntimeError(f"water-baseline violates static: {static.violations[:3]}")
 
     started = time.monotonic()
     result = verify_schedule(schedule, work_root)
     print(
-        f"OPM завершён за {(time.monotonic() - started) / 60:.1f} мин; "
+        f"OPM finished in {(time.monotonic() - started) / 60:.1f} min; "
         f"status={result.opm_run.status}; sound={result.sound}; "
-        f"NPV={result.final_npv.npv_methodology / 1e9:.3f} млрд"
+        f"NPV={result.final_npv.npv_methodology / 1e9:.3f} bln"
         if result.final_npv is not None
-        else f"OPM завершён: status={result.opm_run.status}, NPV отсутствует",
+        else f"OPM finished: status={result.opm_run.status}, NPV is absent",
         flush=True,
     )
     observation_dir = persist_observation(

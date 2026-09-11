@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Mapping, Sequence
 
-from backend.core.contracts import Lambda
+from backend.contexts.connectivity.domain.connectivity import Lambda
 
 from backend.contexts.connectivity.domain.doe import Orthogonality, orthogonality_of
 from backend.contexts.connectivity.domain.fund import Window
@@ -19,14 +19,14 @@ class DriveMatrix:
 
     def __post_init__(self) -> None:
         if not self.injectors:
-            raise ValueError("матрица воздействий без единой нагнетательной")
+            raise ValueError("the drive matrix has no injectors at all")
         if not self.rows:
-            raise ValueError("матрица воздействий без единого прогона")
+            raise ValueError("the drive matrix has no runs at all")
         for index, row in enumerate(self.rows):
             if len(row) != len(self.injectors):
                 raise ValueError(
-                    f"прогон {index}: {len(row)} воздействий при "
-                    f"{len(self.injectors)} нагнетательных"
+                    f"run {index}: {len(row)} drives for "
+                    f"{len(self.injectors)} injectors"
                 )
 
     @property
@@ -54,17 +54,17 @@ def realized_drive(
     missing_baseline = set(ordered) - set(baseline_by_well)
     if missing_baseline:
         raise ValueError(
-            f"нет базовой приёмистости для {sorted(missing_baseline)}: "
-            f"ΔWWIR считается от факта базового прогона"
+            f"no baseline injectivity for {sorted(missing_baseline)}: "
+            f"ΔWWIR is computed against the actual baseline run"
         )
     rows: list[tuple[float, ...]] = []
     for index, actual in enumerate(actual_by_run):
         missing = set(ordered) - set(actual)
         if missing:
             raise ValueError(
-                f"прогон {index}: нет фактической приёмистости для {sorted(missing)}. "
-                f"Регрессия идёт на фактические ΔWWIR, проектные уровни плана "
-                f"подставлять запрещено (§8.2)"
+                f"run {index}: no actual injectivity for {sorted(missing)}. "
+                f"The regression runs on actual ΔWWIR; substituting the planned "
+                f"design levels is forbidden (section 8.2)"
             )
         rows.append(tuple(actual[well] - baseline_by_well[well] for well in ordered))
     return DriveMatrix(injectors=ordered, rows=tuple(rows))
@@ -97,8 +97,9 @@ def _solve_symmetric(
         pivot = max(range(column, size), key=lambda r: abs(work[r][column]))
         if abs(work[pivot][column]) <= SINGULARITY_TOLERANCE:
             raise ValueError(
-                "нормальные уравнения вырождены даже с регуляризацией: "
-                "фактические воздействия линейно зависимы, оценка λ не определена"
+                "the normal equations are singular even with regularisation: "
+                "the actual drives are linearly dependent, the lambda estimate "
+                "is undefined"
             )
         work[column], work[pivot] = work[pivot], work[column]
         head = work[column]
@@ -128,12 +129,12 @@ def least_squares(
 ) -> Fit:
     if len(design) != len(response):
         raise ValueError(
-            f"строк воздействия {len(design)}, наблюдений отклика {len(response)}"
+            f"{len(design)} drive rows, {len(response)} response observations"
         )
     if not design:
-        raise ValueError("регрессия по пустой выборке не определена")
+        raise ValueError("a regression over an empty sample is undefined")
     if ridge < 0.0:
-        raise ValueError(f"регуляризация {ridge} отрицательна")
+        raise ValueError(f"regularisation {ridge} is negative")
     augmented = [[1.0, *row] for row in design]
     transposed = _transpose(augmented)
     gram = _matmul(transposed, augmented)
@@ -168,17 +169,6 @@ class LagScan:
     r_squared: float
 
 
-def _shifted_window(steps: WindowSteps, lag_months: int, horizon: int) -> WindowSteps:
-    first = steps.first + lag_months
-    last = steps.last + lag_months
-    if last >= horizon:
-        raise ValueError(
-            f"лаг {lag_months} мес выводит окно замера за горизонт наблюдения "
-            f"({last} ≥ {horizon}): оценка на несуществующих месяцах запрещена"
-        )
-    return WindowSteps(first=first, last=last)
-
-
 @dataclass(frozen=True, slots=True)
 class ProducerObservation:
     producer: str
@@ -198,7 +188,7 @@ class LaggedObservations:
     def __post_init__(self) -> None:
         missing = set(self.producers) - set(self.by_producer)
         if missing:
-            raise ValueError(f"нет наблюдений отклика для {sorted(missing)}")
+            raise ValueError(f"no response observations for {sorted(missing)}")
 
 
 def scan_lag(
@@ -207,7 +197,7 @@ def scan_lag(
     ridge: float,
 ) -> tuple[LagScan, ...]:
     if not observations_by_lag:
-        raise ValueError("сетка лагов пуста: перебирать нечего")
+        raise ValueError("the lag grid is empty: there is nothing to search over")
     scans: list[LagScan] = []
     for lag in sorted(observations_by_lag):
         observations = observations_by_lag[lag]
@@ -217,27 +207,21 @@ def scan_lag(
             response = observations.by_producer[producer].deltas()
             if len(response) != drive.n_runs:
                 raise ValueError(
-                    f"лаг {lag}, {producer}: наблюдений {len(response)} при "
-                    f"{drive.n_runs} прогонах"
+                    f"lag {lag}, {producer}: {len(response)} observations for "
+                    f"{drive.n_runs} runs"
                 )
             pooled += least_squares(drive.rows, response, ridge).r_squared
             counted += 1
         if counted == 0:
-            raise ValueError(f"лаг {lag}: ни одной добывающей в отклике")
+            raise ValueError(f"lag {lag}: no producers in the response")
         scans.append(LagScan(lag_months=lag, r_squared=pooled / counted))
     return tuple(scans)
 
 
 def best_lag(scans: Sequence[LagScan]) -> LagScan:
     if not scans:
-        raise ValueError("выбор лага по пустой развёртке не определён")
+        raise ValueError("lag selection over an empty scan is undefined")
     return max(scans, key=lambda scan: (scan.r_squared, -scan.lag_months))
-
-
-def _column_means(rows: Sequence[Sequence[float]]) -> tuple[float, ...]:
-    if not rows:
-        return ()
-    return tuple(sum(column) / len(column) for column in zip(*rows))
 
 
 @dataclass(frozen=True, slots=True)
@@ -264,13 +248,13 @@ def stability_between(
     first: Sequence[Sequence[float]], second: Sequence[Sequence[float]]
 ) -> float:
     if len(first) != len(second):
-        raise ValueError("партии дали разное число строк матрицы")
+        raise ValueError("the batches produced different numbers of matrix rows")
     flat_first = [value for row in first for value in row]
     flat_second = [value for row in second for value in row]
     if len(flat_first) != len(flat_second):
-        raise ValueError("партии дали разную форму матрицы")
+        raise ValueError("the batches produced matrices of different shape")
     if not flat_first:
-        raise ValueError("устойчивость пустой матрицы не определена")
+        raise ValueError("stability of an empty matrix is undefined")
     mean_first = sum(flat_first) / len(flat_first)
     mean_second = sum(flat_second) / len(flat_second)
     covariance = sum(
@@ -281,8 +265,8 @@ def stability_between(
     denominator = (variance_first * variance_second) ** 0.5
     if denominator <= SINGULARITY_TOLERANCE:
         raise ValueError(
-            "одна из партий даёт вырожденную матрицу без разброса: "
-            "устойчивость не определена"
+            "one of the batches yields a degenerate matrix with no spread: "
+            "stability is undefined"
         )
     return covariance / denominator
 
@@ -298,25 +282,25 @@ def estimate_lambda(
 ) -> Lambda:
     if len(batches) < 2:
         raise ValueError(
-            f"партий {len(batches)}: устойчивость меряется ДВУМЯ независимыми "
-            f"партиями плана (§8.2), постфактум её проверить нельзя"
+            f"{len(batches)} batches: stability is measured by TWO independent "
+            f"plan batches (section 8.2), it cannot be checked after the fact"
         )
     if not producers:
-        raise ValueError("матрица влияния без единой добывающей")
+        raise ValueError("the influence matrix has no producers at all")
     injectors = batches[0].drive.injectors
     for index, batch in enumerate(batches):
         if batch.drive.injectors != injectors:
             raise ValueError(
-                f"партия {index} построена на другом фонде нагнетательных"
+                f"batch {index} was built on a different set of injectors"
             )
         if batch.observations.lag_months != lag_months:
             raise ValueError(
-                f"партия {index} наблюдалась на лаге "
-                f"{batch.observations.lag_months}, а матрица строится на {lag_months}"
+                f"batch {index} was observed at lag "
+                f"{batch.observations.lag_months}, while the matrix is built at {lag_months}"
             )
     missing = set(injectors) - set(achievability_ok)
     if missing:
-        raise ValueError(f"нет диагностики достижимости для {sorted(missing)}")
+        raise ValueError(f"no achievability diagnostics for {sorted(missing)}")
 
     per_batch = [
         _estimate_matrix(batch.drive, batch.observations, producers, ridge)

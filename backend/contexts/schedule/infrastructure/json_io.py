@@ -3,9 +3,16 @@ import json
 from datetime import date
 from pathlib import Path
 from typing import Any
-from backend.core.contracts import (
-    Schedule, ScheduleMeta, WellState, FixedDeckEvent, ControlEvent,
-    Availability, Role, OperatingStatus, EventKind,
+from backend.contexts.schedule.domain.schedule import (
+    Availability,
+    ControlEvent,
+    EventKind,
+    FixedDeckEvent,
+    OperatingStatus,
+    Role,
+    Schedule,
+    ScheduleMeta,
+    WellState,
 )
 from backend.shared.json_io import read_json
 

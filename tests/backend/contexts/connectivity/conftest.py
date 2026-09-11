@@ -5,12 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from backend.domain.connectivity import DeckSchedule, FundHistory, build_fund_history, parse_deck_schedule
+from backend.contexts.connectivity.infrastructure.deck import DeckSchedule, parse_deck_schedule
+from backend.contexts.connectivity.domain.fund import FundHistory, build_fund_history
 
 from tests.support.backend.environment import missing_reason, model_z_schedule
 
-#: Явный путь к деку в обход поиска каталога docs. Нужен, когда дек лежит
-#: не сиблингом репозитория; обычная раскладка разрешается сама.
 DECK_ENV = "AIOS_DECK_SCHEDULE"
 
 
@@ -26,7 +25,7 @@ def deck_path() -> Path | None:
 def deck() -> DeckSchedule:
     path = deck_path()
     if path is None:
-        pytest.skip(missing_reason(f"дек Model_Z (либо путь через {DECK_ENV})"))
+        pytest.skip(missing_reason(f"Model_Z deck (or a path via {DECK_ENV})"))
     return parse_deck_schedule(path)
 
 

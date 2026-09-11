@@ -4,7 +4,8 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Protocol, runtime_checkable
 
-from backend.core.contracts import ControlEvent, EventKind, Rule, TraceEntry
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind
+from backend.contexts.policy.domain.policy import Rule, TraceEntry
 
 from backend.contexts.policy.domain.levels import Level, LeveledTraceEntry
 from backend.contexts.policy.domain.state import PolicyState, RuleContext
@@ -32,11 +33,11 @@ class Bound:
 
     def __post_init__(self) -> None:
         if not self.well:
-            raise ValueError("ограничение без имени скважины: адресата нет")
+            raise ValueError("a bound without a well name: there is no addressee")
         if self.value < 0.0:
             raise ValueError(
-                f"{self.well}/{self.kind.value}: отрицательная граница "
-                f"{self.value} — ограничение не интерпретируемо"
+                f"{self.well}/{self.kind.value}: negative bound "
+                f"{self.value} - the bound is not interpretable"
             )
 
     def key(self) -> tuple[str, str, str]:
@@ -45,7 +46,7 @@ class Bound:
     def tightened_by(self, other: Bound) -> Bound:
         if self.key() != other.key():
             raise ValueError(
-                f"нельзя сравнить границы разных величин: {self.key()} и "
+                f"bounds on different quantities cannot be compared: {self.key()} and "
                 f"{other.key()}"
             )
         if self.sense is BoundSense.CEILING:
@@ -76,41 +77,41 @@ class Proposal:
 
     def __post_init__(self) -> None:
         if not self.agent:
-            raise ValueError("предложение без имени агента: автора не восстановить")
+            raise ValueError("a proposal without an agent name: the author cannot be recovered")
         if len(self.decisions) != len(self.rule_by_decision):
             raise ValueError(
-                f"{self.agent}: {len(self.decisions)} решений при "
-                f"{len(self.rule_by_decision)} правилах — авторство решения "
-                f"не восстановимо"
+                f"{self.agent}: {len(self.decisions)} decisions against "
+                f"{len(self.rule_by_decision)} rules - the authorship of a decision "
+                f"cannot be recovered"
             )
         for leveled in self.trace:
             if leveled.level is not self.level:
                 raise ValueError(
-                    f"{self.agent}: запись уровня {leveled.level.value} в "
-                    f"предложении уровня {self.level.value}"
+                    f"{self.agent}: an entry of level {leveled.level.value} inside "
+                    f"a proposal of level {self.level.value}"
                 )
         if self.verdict is Verdict.VETO:
             if self.decisions:
                 raise ValueError(
-                    f"{self.agent}: вето с {len(self.decisions)} решениями — "
-                    f"запрет и уставка одновременно не исполнимы"
+                    f"{self.agent}: a veto carrying {len(self.decisions)} decisions - "
+                    f"a prohibition and a setpoint cannot be executed at once"
                 )
             if not self.veto_reason:
                 raise ValueError(
-                    f"{self.agent}: вето без причины — на защите его нечем "
-                    f"объяснить"
+                    f"{self.agent}: a veto without a reason - there is nothing to "
+                    f"explain it with at the defence"
                 )
         elif self.veto_reason:
             raise ValueError(
-                f"{self.agent}: причина вето при вердикте "
-                f"{self.verdict.value}: решение и объяснение расходятся"
+                f"{self.agent}: a veto reason under verdict "
+                f"{self.verdict.value}: the decision and the explanation diverge"
             )
         seen: set[tuple[str, str, str]] = set()
         for bound in self.bounds:
             if bound.key() in seen:
                 raise ValueError(
-                    f"{self.agent}: граница {bound.key()} объявлена дважды — "
-                    f"какая из них действует, не определено"
+                    f"{self.agent}: bound {bound.key()} is declared twice - "
+                    f"which of them applies is undefined"
                 )
             seen.add(bound.key())
 
@@ -207,13 +208,13 @@ def merge_proposals(
 ) -> Proposal:
     if not proposals:
         raise ValueError(
-            "слияние пустого списка предложений: результат шага не определён"
+            "merging an empty list of proposals: the result of the step is undefined"
         )
     head = proposals[0]
     for proposal in proposals:
         if proposal.level is not head.level:
             raise ValueError(
-                f"слияние предложений разных уровней: {head.level.value} и "
+                f"merging proposals of different levels: {head.level.value} and "
                 f"{proposal.level.value}"
             )
     if len(proposals) == 1:

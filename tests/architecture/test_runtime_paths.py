@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from backend.core.paths import data_root, out_root, project_root
+from backend.shared.paths import data_root, out_root, project_root
 from backend.contexts.showcase.application.base_artifact import DEFAULT_RESPONSE_PATH
 from backend.contexts.showcase.application.build_showcase import DEFAULT_OUT_DIR
 from backend.contexts.reservoir.application.well_geometry import DEFAULT_OUT_PATH

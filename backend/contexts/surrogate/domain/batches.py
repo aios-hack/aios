@@ -29,19 +29,19 @@ class _ScenarioBatches:
         self.generator = generator
         self.scenario_targets = scenario_targets
         if not counts or any(size <= 0 for size in counts) or len(set(counts)) != 1:
-            raise SurrogateModelError("ранговые батчи требуют одинаковые непустые оси сценариев")
+            raise SurrogateModelError("ranking batches require identical non-empty scenario axes")
         if scenario_targets is not None and (
             scenario_targets.shape != (len(counts),)
             or not bool(torch.isfinite(scenario_targets).all())
         ):
-            raise SurrogateModelError("ранговые цели не покрывают сценарии конечными числами")
+            raise SurrogateModelError("ranking targets do not cover the scenarios with finite numbers")
         offsets, start = [], 0
         for size in counts:
             offsets.append((start, size))
             start += size
         if start != tensors[0].shape[0]:
             raise SurrogateModelError(
-                f"счётчики сценариев дают {start} строк против {tensors[0].shape[0]}"
+                f"the scenario counters yield {start} rows against {tensors[0].shape[0]}"
             )
         self.offsets = offsets
 

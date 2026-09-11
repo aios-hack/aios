@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from backend.core.contracts import N_INTERVALS
-from backend.ml.surrogate import RawModelOutput, RawWellStepPrediction
+from backend.contexts.schedule.domain.schedule import N_INTERVALS
+from backend.contexts.surrogate.domain.raw_model_output import RawModelOutput, RawWellStepPrediction
 
 
 def _node(well: str = "P", control_step: int = 0, **overrides) -> RawWellStepPrediction:
@@ -54,7 +54,7 @@ def test_rejects_negative_numeric_field() -> None:
 def test_rejects_missing_pair() -> None:
     wells = ("P",)
     nodes = tuple(_node(well="P", control_step=step) for step in range(N_INTERVALS - 1))
-    with pytest.raises(ValueError, match="не покрывает"):
+    with pytest.raises(ValueError, match="does not cover"):
         RawModelOutput(canonical_schedule_hash="hash", wells=wells, nodes=nodes)
 
 
@@ -63,7 +63,7 @@ def test_rejects_duplicate_pair() -> None:
     nodes = tuple(
         _node(well="P", control_step=step) for step in range(N_INTERVALS)
     ) + (_node(well="P", control_step=0),)
-    with pytest.raises(ValueError, match="дублирующиеся"):
+    with pytest.raises(ValueError, match="duplicate"):
         RawModelOutput(canonical_schedule_hash="hash", wells=wells, nodes=nodes)
 
 
@@ -73,10 +73,10 @@ def test_rejects_node_on_unknown_well() -> None:
         _node(well="P", control_step=step) for step in range(N_INTERVALS)
     )
     nodes = nodes[:-1] + (_node(well="FOREIGN", control_step=N_INTERVALS - 1),)
-    with pytest.raises(ValueError, match="не покрывает"):
+    with pytest.raises(ValueError, match="does not cover"):
         RawModelOutput(canonical_schedule_hash="hash", wells=wells, nodes=nodes)
 
 
 def test_rejects_duplicate_well_in_axis() -> None:
-    with pytest.raises(ValueError, match="дубликаты"):
+    with pytest.raises(ValueError, match="duplicates"):
         _full_output(wells=("P", "P"))

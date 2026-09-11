@@ -3,8 +3,12 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from backend.infrastructure.opm import OpmDeckEmitter, build_summary_plan, render_summary_include
-from backend.core.contracts import (
+from backend.contexts.reservoir.infrastructure.opm_deck import OpmDeckEmitter
+from backend.contexts.reservoir.infrastructure.summary import (
+    build_summary_plan,
+    render_summary_include,
+)
+from backend.contexts.runs.domain.run_result import (
     OPM_CONNECTION_SUMMARY_KEYS,
     OPM_WELL_SUMMARY_KEYS,
     SUMMARY_EXPORT_KEYS,
@@ -18,7 +22,7 @@ from tests.support.backend.environment import missing_reason, model_z_dir
 MODEL_Z = model_z_dir()
 
 pytestmark = pytest.mark.skipif(
-    MODEL_Z is None, reason=missing_reason("каталог Model_Z")
+    MODEL_Z is None, reason=missing_reason("Model_Z directory")
 )
 
 

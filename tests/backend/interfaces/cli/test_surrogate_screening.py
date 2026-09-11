@@ -2,7 +2,7 @@ from dataclasses import replace
 
 import pytest
 
-from backend.core.contracts import ControlEvent, EventKind
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind
 from backend.interfaces.cli.surrogate.audit import ranking_metrics
 from backend.interfaces.cli.surrogate.screen import (
     add_hybrid_scores,
@@ -111,6 +111,6 @@ def test_known_measurements_are_reused_only_with_identical_conditions(tmp_path, 
     (root / "manifest.json").write_text(json.dumps(dict(champion, sound=False, schedule_hash="s")))
     (root / "economics/result.json").write_text(json.dumps(champion))
     monkeypatch.setattr(surrogate_screen, "load_groups", lambda _: SimpleNamespace(group_hash="g"))
-    assert known_schedule_hashes(tmp_path, champion) == {"s"}  # failed trials also cost OPM
+    assert known_schedule_hashes(tmp_path, champion) == {"s"}
     assert known_schedule_hashes(tmp_path, dict(champion, constraints_hash="other")) == set()
     assert known_schedule_hashes(tmp_path, dict(champion, groups_hash="other")) == set()

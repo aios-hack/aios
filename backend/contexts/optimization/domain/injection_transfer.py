@@ -14,27 +14,23 @@ from dataclasses import (
 from typing import (
     Mapping,
 )
-from backend.core.contracts import (
-    Schedule,
-    EventKind,
-)
-from backend.domain.schedule import (
-    canonicalize,
-)
+from backend.contexts.schedule.domain.schedule import EventKind, Schedule
+from backend.contexts.schedule.domain.canonical import canonicalize
 
 
 def _lambda_connectivity(lambda_) -> dict[str, float]:
     if lambda_ is None:
         raise ConnectivitySearchError(
-            "λ не загружена: ранжировать закачку по связности нечем, а перебор "
-            "по номеру скважины оптимизирует не то, что заявлено"
+            "λ is not loaded: there is nothing to rank injection by connectivity "
+            "with, and enumerating by well number optimizes something other "
+            "than what is declared"
         )
     injectors = tuple(lambda_.injectors)
     if not injectors:
         raise ConnectivitySearchError(
-            "λ не содержит ни одной нагнетательной: ранжировать закачку по "
-            "связности нечем, а перебор по номеру скважины оптимизирует не то, "
-            "что заявлено"
+            "λ contains no injector: there is nothing to rank injection by "
+            "connectivity with, and enumerating by well number optimizes "
+            "something other than what is declared"
         )
     strength: dict[str, float] = {}
     for column, injector in enumerate(injectors):
@@ -43,8 +39,8 @@ def _lambda_connectivity(lambda_) -> dict[str, float]:
             value = float(row[column])
             if not math.isfinite(value):
                 raise ConnectivitySearchError(
-                    f"λ содержит нечисловой коэффициент для нагнетательной "
-                    f"{injector}: предельная ценность закачки не определена"
+                    f"λ contains a non-numeric coefficient for injector "
+                    f"{injector}: the marginal value of injection is undefined"
                 )
             total += value
         strength[injector] = total
@@ -86,9 +82,9 @@ def _injection_transfer_plan(
     }
     if len(active) < 2:
         raise ConnectivitySearchError(
-            f"в исходном плане закачка задана {len(active)} нагнетательным из "
-            f"{len(strength)} в окне λ: перераспределять закачку между "
-            "соседями не между кем"
+            f"the source schedule sets injection for {len(active)} injectors out of "
+            f"{len(strength)} in the λ window: there is nobody to redistribute "
+            "injection between"
         )
     ordered = sorted(active, key=lambda well: (-active[well], well))
     pairs: list[tuple[str, str, float]] = []
@@ -107,9 +103,10 @@ def _injection_transfer_plan(
                 return tuple(pairs)
     if not pairs:
         raise ConnectivitySearchError(
-            "ни одной пары «донор — получатель» с положительным перепадом "
-            "связности и ненулевой закачкой: перераспределение по λ не "
-            "строится, а слепой перебор по номеру скважины подставлять запрещено"
+            "not a single \"donor — receiver\" pair with a positive connectivity "
+            "difference and non-zero injection: redistribution by λ cannot be "
+            "built, and substituting a blind enumeration by well number is "
+            "forbidden"
         )
     return tuple(pairs)
 

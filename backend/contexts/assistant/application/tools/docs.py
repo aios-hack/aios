@@ -24,8 +24,8 @@ def search_docs(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
     query = str(arguments.get("query") or "").strip()
     if not query:
         raise ToolFailure(
-            "запрос к документации пуст: искать нечего, назовите тему словами "
-            "из вопроса"
+            "the documentation query is empty: there is nothing to search for, name "
+            "the topic with words from the question"
         )
     scope = str(arguments.get("scope") or "all")
     requested = arguments.get("k")
@@ -38,10 +38,10 @@ def search_docs(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
         raise ToolFailure(str(error)) from error
     if not hits:
         raise ToolFailure(
-            f"{NO_HITS}: в индексе документации ({index.size()} фрагментов из "
-            f"{len(index.sources())} файлов) нет ни одного совпадения с "
-            f"запросом {query!r} в области {scope}; выдумывать содержание "
-            "документов нельзя"
+            f"{NO_HITS}: the documentation index ({index.size()} chunks from "
+            f"{len(index.sources())} files) holds no match for the query "
+            f"{query!r} in scope {scope}; the content of documents must not "
+            "be invented"
         )
     head = hits[0]
     payload: dict[str, Any] = {

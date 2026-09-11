@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from backend.core.contracts import ControlEvent, EventKind, Role, Rule, Theta, TraceEntry
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind, Role
+from backend.contexts.policy.domain.policy import Rule, Theta, TraceEntry
 
 from backend.contexts.policy.domain.economics import DAYS_PER_YEAR, oil_margin_rub_per_m3_liquid
 from backend.contexts.policy.domain.memory import esp_size_for, esp_upgrade_cost_rub
@@ -9,7 +10,7 @@ from backend.contexts.policy.domain.state import PolicyState, RuleContext
 
 RULE = Rule.R4
 ADMISSION_CRITERION = (
-    "Не пересекаем границу типоразмера, если разгон не окупает насос."
+    "Do not cross the ESP size boundary unless the ramp-up pays for the pump."
 )
 THETA_NAMES: tuple[str, ...] = ()
 

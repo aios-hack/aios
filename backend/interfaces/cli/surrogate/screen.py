@@ -11,21 +11,31 @@ import torch
 
 from backend.contexts.optimization.infrastructure.artifacts import resolve_runtime_artifacts
 from backend.contexts.optimization.domain.observed_repair import repair_from_observation
-from backend.application.runs import RunRequest, RunWorkflow
+from backend.contexts.runs.application.workflow import RunRequest, RunWorkflow
 from backend.contexts.runs.infrastructure.provenance import git_commit
-from backend.core.contracts import EventKind, ResponseArtifact, canonical_bytes, hash_schedule
+from backend.contexts.schedule.domain.schedule import EventKind
+from backend.contexts.runs.domain.run_result import ResponseArtifact
+from backend.shared.hashing import canonical_bytes, hash_schedule
 from backend.contexts.constraints.domain.schema import default_policies
 from backend.contexts.connectivity.infrastructure.groups_artifact import (
     load as load_groups,
     save as save_groups,
 )
-from backend.domain.economics import analyze_base_case, load_normatives, load_response_artifact
-from backend.domain.schedule import canonicalize, build_schedule, parse_schedule, validate_static
+from backend.contexts.economics.application.base_case import (
+    analyze_base_case,
+    load_response_artifact,
+)
+from backend.contexts.economics.infrastructure.normatives_io import load_normatives
+from backend.contexts.schedule.domain.canonical import canonicalize
+from backend.contexts.schedule.domain.build import build_schedule
+from backend.contexts.schedule.domain.lossless import parse_schedule
+from backend.contexts.schedule.domain.validate import validate_static
 from backend.contexts.reservoir.infrastructure.opm_deck import render_schedule_include
 from backend.shared.resources import model_z_dir, normatives_xlsx
 from backend.contexts.surrogate.application.adapter import ResponseAdapter
 from backend.contexts.surrogate.domain.features import ScheduleFeatureizer
-from backend.contexts.surrogate.application.model import TrajectorySurrogate, _features
+from backend.contexts.surrogate.application.model import TrajectorySurrogate
+from backend.contexts.surrogate.domain.vectorize import build_features
 from backend.contexts.surrogate.infrastructure.model_z_context import ModelZFeatureArtifact
 from backend.contexts.surrogate.domain.npv_block_head import load_direct_npv_head
 from backend.contexts.surrogate.domain.npv_economic_features import scenario_feature_vector
@@ -140,7 +150,7 @@ def main(argv=None):
     parser.add_argument("--count", type=int, default=16)
     parser.add_argument("--seed", type=int, default=20260910)
     parser.add_argument("--max-water-margin", type=float, default=.95,
-                        help="верхняя доля измеренной воды; >0.95 — явная агрессивная проба, не гарантия допустимости")
+                        help="upper fraction of the measured water; >0.95 is an explicitly aggressive probe, not a guarantee of admissibility")
     parser.add_argument("--allow-ood-experiment", action="store_true")
     parser.add_argument("--trajectory-model", type=Path,
                         help="research checkpoint: choose its physical-NPV top against direct-head control")
@@ -210,7 +220,7 @@ def main(argv=None):
         tick = time.perf_counter()
         with torch.inference_mode():
             model_input = featureizer.transform(schedule, context.context)
-            x, indices = _features(model_input, head.wells, scenario_context=False)
+            x, indices = build_features(model_input, head.wells, scenario_context=False)
             vector = scenario_feature_vector(x, indices, n_wells=len(head.wells), feature_set="economic")
             score = head.predict_vector(vector)
             ood = domain.score(vector[:domain.feature_width])

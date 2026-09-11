@@ -2,23 +2,22 @@ from datetime import date
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     OperatingStatus,
     Role,
     T0,
     WellState,
 )
-from backend.domain.schedule import (
+from backend.contexts.schedule.domain.replay import (
     Conversion,
     ReplayError,
-    build_schedule,
-    deck_well_axis,
     history_blocks,
-    parse_schedule,
     replay,
     replay_initial_state,
 )
+from backend.contexts.schedule.domain.build import build_schedule, deck_well_axis
+from backend.contexts.schedule.domain.lossless import parse_schedule
 from backend.contexts.schedule.domain.lossless import LosslessBlock, ParsedSchedule
 from backend.contexts.schedule.domain.replay import _Fund, _apply_record
 
@@ -29,7 +28,7 @@ MODEL_Z_SCHEDULE = model_z_schedule()
 
 pytestmark = pytest.mark.skipif(
     MODEL_Z_SCHEDULE is None,
-    reason=missing_reason("дек Model_Z"),
+    reason=missing_reason("Model_Z deck"),
 )
 
 
@@ -209,7 +208,7 @@ def test_replay_is_reread_stable(deck_bytes: bytes, wells: tuple[str, ...], resu
 
 
 def test_replay_rejects_wells_outside_axis(parsed: ParsedSchedule) -> None:
-    with pytest.raises(ReplayError, match="вне оси WELSPECS"):
+    with pytest.raises(ReplayError, match="outside the WELSPECS axis"):
         replay(parsed, ("1",))
 
 
@@ -273,7 +272,7 @@ def test_first_appearance_commissions_the_well() -> None:
 def test_malformed_prod_record_is_rejected() -> None:
     fund = _Fund()
 
-    with pytest.raises(ReplayError, match="ожидается режим LRAT"):
+    with pytest.raises(ReplayError, match="LRAT mode expected"):
         _apply_record(
             fund, "WCONPROD", ("7", "OPEN", "ORAT", "1*", "1*", "1*", "10.0"), T0
         )
@@ -282,14 +281,14 @@ def test_malformed_prod_record_is_rejected() -> None:
 def test_malformed_inje_record_is_rejected() -> None:
     fund = _Fund()
 
-    with pytest.raises(ReplayError, match="фаза WATER"):
+    with pytest.raises(ReplayError, match="WATER phase"):
         _apply_record(fund, "WCONINJE", ("7", "GAS", "OPEN", "RATE", "60.0"), T0)
 
 
 def test_unknown_status_is_rejected() -> None:
     fund = _Fund()
 
-    with pytest.raises(ReplayError, match="неизвестный статус"):
+    with pytest.raises(ReplayError, match="unknown well status"):
         _apply_record(
             fund,
             "WCONPROD",
@@ -301,11 +300,11 @@ def test_unknown_status_is_rejected() -> None:
 def test_non_numeric_setpoint_is_rejected() -> None:
     fund = _Fund()
 
-    with pytest.raises(ReplayError, match="не является числом"):
+    with pytest.raises(ReplayError, match="is not a number"):
         _apply_record(
             fund,
             "WCONPROD",
-            ("7", "OPEN", "LRAT", "1*", "1*", "1*", "много"),
+            ("7", "OPEN", "LRAT", "1*", "1*", "1*", "many"),
             date(2000, 1, 1),
         )
 

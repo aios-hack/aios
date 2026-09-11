@@ -12,7 +12,7 @@ from typing import (
 )
 import torch
 from torch import Tensor, nn
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     N_INTERVALS,
     OperatingStatus,

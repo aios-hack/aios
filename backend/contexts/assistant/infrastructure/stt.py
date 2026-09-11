@@ -71,13 +71,13 @@ def audio_format(content_type: str | None) -> str:
 def check_audio(audio: bytes) -> bytes:
     if not audio:
         raise SttError(
-            "тело запроса пустое: расшифровывать нечего, запись не дошла до "
-            "сервера"
+            "the request body is empty: there is nothing to transcribe, the recording "
+            "never reached the server"
         )
     if len(audio) > MAX_AUDIO_BYTES:
         raise SttError(
-            f"запись весит {len(audio)} байт при пределе {MAX_AUDIO_BYTES}: "
-            f"держите фразу короче {MAX_SECONDS} секунд"
+            f"the recording weighs {len(audio)} bytes against a limit of {MAX_AUDIO_BYTES}: "
+            f"keep the phrase shorter than {MAX_SECONDS} seconds"
         )
     return audio
 
@@ -94,14 +94,14 @@ def extract_text(payload: Mapping[str, Any]) -> str:
     error = payload.get("error")
     if isinstance(error, Mapping):
         raise SttUnavailable(
-            "модель расшифровки вернула ошибку: "
-            f"{error.get('message', 'без описания')}"
+            "the transcription model returned an error: "
+            f"{error.get('message', 'no description')}"
         )
     choices = payload.get("choices")
     if not isinstance(choices, list) or not choices:
         raise SttUnavailable(
-            "ответ модели расшифровки не содержит ни одного варианта: "
-            "расшифровки нет"
+            "the transcription model response carries no choice at all: "
+            "there is no transcript"
         )
     message = choices[0].get("message") if isinstance(choices[0], Mapping) else None
     content = message.get("content") if isinstance(message, Mapping) else None
@@ -114,7 +114,7 @@ def extract_text(payload: Mapping[str, Any]) -> str:
                 parts.append(item["text"])
         return "".join(parts).strip()
     raise SttUnavailable(
-        "ответ модели расшифровки пришёл без текстового содержимого"
+        "the transcription model response came without text content"
     )
 
 
@@ -169,8 +169,8 @@ class SttEngine:
     ) -> Transcript:
         if not self._key:
             raise SttUnavailable(
-                f"{KEY_ENV_VAR} не задан: расшифровка на сервере недоступна, "
-                "распознавание остаётся браузерным"
+                f"{KEY_ENV_VAR} is not set: server-side transcription is unavailable, "
+                "recognition stays in the browser"
             )
         chosen = normalize_lang(lang)
         fmt = audio_format(content_type)
@@ -191,12 +191,12 @@ class SttEngine:
         except urllib.error.HTTPError as error:
             detail = error.read().decode("utf-8", errors="replace")[:400]
             raise SttUnavailable(
-                f"модель расшифровки ответила {error.code}: "
+                f"the transcription model answered {error.code}: "
                 f"{detail or error.reason}"
             ) from error
         except urllib.error.URLError as error:
             raise SttUnavailable(
-                f"модель расшифровки недоступна: {error.reason}"
+                f"the transcription model is unavailable: {error.reason}"
             ) from error
         with response:
             raw = response.read()
@@ -204,11 +204,11 @@ class SttEngine:
             loaded = json.loads(raw.decode("utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError) as error:
             raise SttUnavailable(
-                f"ответ модели расшифровки не разбирается как JSON: {error}"
+                f"the transcription model response does not parse as JSON: {error}"
             ) from error
         if not isinstance(loaded, Mapping):
             raise SttUnavailable(
-                "ответ модели расшифровки не является объектом JSON"
+                "the transcription model response is not a JSON object"
             )
         return Transcript(text=extract_text(loaded), lang=chosen)
 

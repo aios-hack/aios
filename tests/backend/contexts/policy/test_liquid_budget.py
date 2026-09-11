@@ -4,18 +4,20 @@ from dataclasses import replace
 
 import pytest
 
-from backend.core.contracts import Constraints, EventKind, Rule
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.schedule.domain.schedule import EventKind
+from backend.contexts.policy.domain.policy import Rule
 
-from backend.domain.policy import (
-    RuleContext,
-    RuleFlags,
+from backend.contexts.policy.domain.state import RuleContext
+from backend.contexts.policy.domain.flags import RuleFlags
+from backend.contexts.policy.application.hierarchy import (
     allocate_field,
-    apply_rule,
     decide_group,
-    default_theta,
     group_liquid_demand_rub_per_day,
     run_step,
 )
+from backend.contexts.policy.domain.rules import apply_rule
+from backend.contexts.policy.domain.theta import default_theta
 from backend.contexts.policy.domain.budget import liquid_limit_for_step, production_floor_for_step
 from backend.contexts.policy.domain.rules import r2
 from tests.backend.contexts.policy.conftest import (
@@ -111,15 +113,15 @@ def test_liquid_limit_is_none_when_constraints_are_empty() -> None:
 
 def test_liquid_limit_refuses_a_step_outside_the_horizon() -> None:
     constraints = Constraints(liquid_limits={2010: 1.0})
-    with pytest.raises(ValueError, match="вне 0"):
+    with pytest.raises(ValueError, match="is outside 0"):
         liquid_limit_for_step(constraints, 2010, -1)
-    with pytest.raises(ValueError, match="вне 0"):
+    with pytest.raises(ValueError, match="is outside 0"):
         liquid_limit_for_step(constraints, 2010, 224)
 
 
 def test_liquid_limit_refuses_a_negative_limit() -> None:
     constraints = Constraints(liquid_limits={2010: -1.0})
-    with pytest.raises(ValueError, match="отрицателен"):
+    with pytest.raises(ValueError, match="is negative"):
         liquid_limit_for_step(constraints, 2010, 0)
 
 
@@ -135,14 +137,14 @@ def test_context_defaults_carry_no_liquid_budget(context: RuleContext) -> None:
 
 
 def test_context_refuses_a_negative_liquid_budget(context: RuleContext) -> None:
-    with pytest.raises(ValueError, match="отрицательный лимит жидкости"):
+    with pytest.raises(ValueError, match="negative liquid limit"):
         replace(context, liquid_budget_m3_per_day=-1.0)
 
 
 def test_context_refuses_a_negative_group_liquid_quota(
     context: RuleContext,
 ) -> None:
-    with pytest.raises(ValueError, match="отрицательная квота жидкости"):
+    with pytest.raises(ValueError, match="negative liquid quota"):
         replace(context, group_liquid_budget_m3_per_day={GROUP_A: -1.0})
 
 
@@ -280,7 +282,7 @@ def test_field_allocation_refuses_a_negative_liquid_limit(
     context: RuleContext,
 ) -> None:
     scoped = two_group_context(context)
-    with pytest.raises(ValueError, match="отрицательный лимит жидкости поля"):
+    with pytest.raises(ValueError, match="negative field liquid limit"):
         allocate_field(
             two_group_state(),
             scoped,

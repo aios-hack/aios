@@ -1,20 +1,3 @@
-"""Приёмка задачи 38 (docs/v1/assignments/andrey.md, docs/context/08_contracts.md §6.1).
-
-Карточка: «Оптимизатор — подключается после выбора семейства
-(`07_concept.md` §8.2)». Семейство выбрано — CMA-ES, обоснование в
-докстринге `optimizer/search.py`. Приёмка складывается из того, что §6.1
-требует от границы, и из того, что обязано быть верно у любого поиска,
-который эту границу двигает:
-
-1. подключается к `Objective` из задачи 37 и двигает θ, а не что-то своё;
-2. ограничение устойчивости не сворачивается в штраф — недопустимая точка
-   не выигрывает ни при каком `objective`;
-3. по батарее по-прежнему не суммируется;
-4. объявленные границы θ не нарушаются ни одной оценённой точкой;
-5. воспроизводимо при фиксированном seed;
-6. бюджет оценок жёсткий — вызовов не больше заявленного;
-7. оптимизатор не видит ни скважин, ни расписания.
-"""
 
 from __future__ import annotations
 
@@ -26,8 +9,8 @@ from typing import get_type_hints
 
 import pytest
 
-from backend.core.contracts import OptimizerResult, ScenarioViolation, Theta
-from backend.application.optimization import Objective, ScenarioOutcome
+from backend.contexts.policy.domain.policy import OptimizerResult, ScenarioViolation, Theta
+from backend.contexts.optimization.domain.interface import Objective, ScenarioOutcome
 from backend.contexts.optimization.domain.optimizer import (
     Evaluation,
     OptimizerError,
@@ -49,8 +32,6 @@ def _theta(**values: float) -> Theta:
 
 
 def _quadratic(theta: Theta) -> float:
-    """Гладкая цель с одним максимумом внутри границ. Не заглушка:
-    оптимизатор считает по ней настоящий поиск, а тест знает ответ."""
 
     return -sum((theta.values[name] - OPTIMUM[name]) ** 2 for name in OPTIMUM)
 
@@ -74,8 +55,6 @@ def _infeasible_result(objective: float, *regrets: float) -> OptimizerResult:
 
 
 class _Counting:
-    """Оборачивает цель и считает вызовы: бюджет проверяется по факту,
-    а не по отчёту, который поиск сам о себе печатает."""
 
     def __init__(self, inner) -> None:
         self._inner = inner
@@ -92,12 +71,9 @@ def _nominal_objective(nominal=_quadratic, battery=()) -> Objective:
     return Objective(nominal=nominal, battery=battery, provenance=lambda theta: {})
 
 
-# --- 1. Подключается к границе задачи 37 -----------------------------------
 
 
 def test_optimizer_drives_the_task_37_objective_and_improves_it() -> None:
-    """Поиск идёт через `Objective` §6.1 — не через собственный интерфейс —
-    и приходит к оптимуму заметно ближе, чем стартовая точка."""
 
     counting = _Counting(_nominal_objective())
     start = _theta()
@@ -121,8 +97,6 @@ def test_first_population_spends_one_slot_on_the_declared_start() -> None:
 
 
 def test_returned_best_carries_the_full_optimizer_result() -> None:
-    """Наружу отдаётся не скаляр: `feasible`, `violations_by_scenario` и
-    `provenance` доезжают до вызывающей стороны нетронутыми."""
 
     stamp = {"surrogate": "a" * 64, "groups": "b" * 64, "dataset": "c" * 64, "seed": "7"}
     objective = Objective(
@@ -137,13 +111,9 @@ def test_returned_best_carries_the_full_optimizer_result() -> None:
     assert report.best.result.violations_by_scenario == ()
 
 
-# --- 2. Ограничение не сворачивается в штраф -------------------------------
 
 
 def test_infeasible_never_beats_feasible_however_large_the_objective() -> None:
-    """Ключевое свойство §13.3. Недопустимая точка с ЧДД на два порядка выше
-    обязана проиграть допустимой — иначе устойчивость стала бы штрафом,
-    который допустимо «выкупить» достаточно большим номиналом."""
 
     modest_but_feasible = _feasible_result(1.0)
     enormous_but_infeasible = _infeasible_result(1.0e15, 1.0e-9)
@@ -153,11 +123,9 @@ def test_infeasible_never_beats_feasible_however_large_the_objective() -> None:
 
 
 def test_search_prefers_the_feasible_region_over_a_higher_infeasible_peak() -> None:
-    """То же свойство, но у работающего поиска, а не у функции сравнения:
-    цель устроена так, что максимум номинала лежит в недопустимой зоне."""
 
     def nominal(theta: Theta) -> float:
-        return theta.values["a"]  # растёт до правой границы
+        return theta.values["a"]
 
     class _CapScenario:
         scenario_id = "cap"
@@ -173,19 +141,16 @@ def test_search_prefers_the_feasible_region_over_a_higher_infeasible_peak() -> N
 
     assert report.best.result.feasible is True
     assert report.best.theta.values["a"] <= 4.0
-    # И при этом внутри допустимой области он всё же максимизирует номинал.
     assert report.best.theta.values["a"] > 3.9
 
 
 def test_objective_of_the_best_is_the_nominal_value_untouched_by_regret() -> None:
-    """`objective` лучшей точки — ровно то, что вернул номинальный сценарий.
-    Никакой поправки на батарею в него не подмешано."""
 
     class _AlwaysViolating:
         scenario_id = "always"
 
         def __call__(self, theta: Theta) -> ScenarioOutcome:
-            return ScenarioOutcome(regret=1.0e12, feasible=False, what="всегда")
+            return ScenarioOutcome(regret=1.0e12, feasible=False, what="always")
 
     objective = Objective(
         nominal=_quadratic, battery=(_AlwaysViolating(),), provenance=lambda t: {}
@@ -196,14 +161,9 @@ def test_objective_of_the_best_is_the_nominal_value_untouched_by_regret() -> Non
     assert report.best.result.feasible is False
 
 
-# --- 3. Сложения по батарее нет --------------------------------------------
 
 
 def test_ranking_of_infeasible_points_never_sums_the_battery() -> None:
-    """Две недопустимые точки: у одной одно нарушение с regret 100, у другой
-    два по 1. Сумма сказала бы, что вторая лучше (2 < 100). Правило §6.1 —
-    сначала число нарушенных сценариев — говорит обратное, и это не деталь
-    реализации: сложение по батарее запрещено (`optimizer/interface.py`)."""
 
     one_big = _infeasible_result(0.0, 100.0)
     two_small = _infeasible_result(0.0, 1.0, 1.0)
@@ -213,8 +173,6 @@ def test_ranking_of_infeasible_points_never_sums_the_battery() -> None:
 
 
 def test_among_equally_many_violations_the_worst_scenario_decides() -> None:
-    """При равном числе нарушений сравнивает худший сценарий — `max`, не `sum`.
-    Суммы 10+10 и 19+1 равны, максимумы 10 и 19 — нет."""
 
     balanced = _infeasible_result(0.0, 10.0, 10.0)
     skewed = _infeasible_result(0.0, 19.0, 1.0)
@@ -223,8 +181,6 @@ def test_among_equally_many_violations_the_worst_scenario_decides() -> None:
 
 
 def test_search_module_contains_no_summation_over_the_battery() -> None:
-    """Статическая проверка: `violations_by_scenario` в коде поиска не
-    попадает под `sum(...)`. Запрет структурный, а не «мы помним»."""
 
     path = Path(_src_optimizer.__file__)
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -235,16 +191,13 @@ def test_search_module_contains_no_summation_over_the_battery() -> None:
         if node.func.id != "sum":
             continue
         source = ast.dump(node)
-        assert "violations_by_scenario" not in source, "батарея свёрнута сложением"
-        assert "regret" not in source, "regret свёрнут сложением"
+        assert "violations_by_scenario" not in source, "the battery is collapsed by summation"
+        assert "regret" not in source, "regret is collapsed by summation"
 
 
-# --- 4. Границы θ соблюдаются ----------------------------------------------
 
 
 def test_no_evaluated_theta_ever_leaves_the_declared_bounds() -> None:
-    """Проверяется на всей истории, а не на лучшей точке: за границы нельзя
-    выходить даже пробно — там `Constraints` физически не определены."""
 
     counting = _Counting(_nominal_objective())
     report = optimize(counting, _theta(), seed=5, max_evaluations=300)
@@ -256,8 +209,6 @@ def test_no_evaluated_theta_ever_leaves_the_declared_bounds() -> None:
 
 
 def test_start_on_the_boundary_stays_inside() -> None:
-    """Отражение от стенок, а не обрезка: старт в самом углу куба не выносит
-    поиск наружу и не приклеивает всё облако к границе."""
 
     corner = Theta(values={"a": 0.0, "b": -5.0, "c": 1.0}, bounds=dict(BOUNDS))
     counting = _Counting(_nominal_objective())
@@ -268,12 +219,10 @@ def test_start_on_the_boundary_stays_inside() -> None:
             assert low <= theta.values[name] <= high, f"{name}={theta.values[name]}"
 
     distinct = {round(theta.values["a"], 9) for theta in counting.seen}
-    assert len(distinct) > 1, "все точки слиплись на границе"
+    assert len(distinct) > 1, "all points collapsed onto the boundary"
 
 
 def test_bounds_are_carried_into_every_produced_theta() -> None:
-    """θ на выходе несёт те же объявленные границы: без них следующий
-    потребитель не сможет проверить, что она допустима."""
 
     counting = _Counting(_nominal_objective())
     optimize(counting, _theta(), seed=1, max_evaluations=40)
@@ -282,12 +231,9 @@ def test_bounds_are_carried_into_every_produced_theta() -> None:
         assert theta.bounds == BOUNDS
 
 
-# --- 5. Воспроизводимость по seed ------------------------------------------
 
 
 def test_same_seed_gives_the_same_trajectory() -> None:
-    """Сдача требует зафиксированного seed без неконтролируемых случайных
-    параметров (`config/schema.py`). Один seed — одна и та же история."""
 
     first = _Counting(_nominal_objective())
     second = _Counting(_nominal_objective())
@@ -307,20 +253,15 @@ def test_different_seed_gives_a_different_trajectory() -> None:
 
 
 def test_seed_comes_from_the_component_registry() -> None:
-    """`optimizer` заявлен в реестре компонентов конфига — seed берётся
-    оттуда, а не назначается на месте."""
 
     from backend.contexts.constraints.domain.schema import COMPONENT_SEEDS
 
     assert "optimizer" in COMPONENT_SEEDS
 
 
-# --- 6. Бюджет оценок жёсткий ----------------------------------------------
 
 
 def test_budget_is_never_exceeded() -> None:
-    """Вызов границы стоит прогона (513 с на реальном OPM), поэтому бюджет
-    считается оценками и превышаться не может."""
 
     for budget in (12, 40, 137, 500):
         counting = _Counting(_nominal_objective())
@@ -330,8 +271,6 @@ def test_budget_is_never_exceeded() -> None:
 
 
 def test_partial_generation_is_not_started() -> None:
-    """Поколение оценивается целиком либо не начинается: половина поколения
-    даёт смещённую рекомбинацию, а стоит столько же, сколько лишние прогоны."""
 
     size = 3
     population = default_population(size)
@@ -345,15 +284,12 @@ def test_partial_generation_is_not_started() -> None:
 
 
 def test_budget_smaller_than_one_generation_is_an_error_not_an_empty_answer() -> None:
-    """Моков нет: если бюджета не хватает даже на одно поколение, поиск
-    обязан сказать это исключением, а не вернуть стартовую θ как «лучшую»."""
 
     with pytest.raises(OptimizerError):
         optimize(_nominal_objective(), _theta(), seed=1, max_evaluations=2)
 
 
 def test_history_is_kept_whole_and_in_evaluation_order() -> None:
-    """История — сдаваемая трасса выбора кандидата (§10.1), не диагностика."""
 
     counting = _Counting(_nominal_objective())
     report = optimize(counting, _theta(), seed=8, max_evaluations=100)
@@ -365,12 +301,9 @@ def test_history_is_kept_whole_and_in_evaluation_order() -> None:
     assert report.best in report.history
 
 
-# --- 7. Слепота к скважинам и расписанию -----------------------------------
 
 
 def test_search_module_never_references_well_level_types() -> None:
-    """Та же статическая проверка, что у задачи 37: оптимизатор двигает
-    ≤10 чисел и не знает ни фонда, ни расписания."""
 
     path = Path(_src_optimizer.__file__)
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -383,7 +316,7 @@ def test_search_module_never_references_well_level_types() -> None:
             names.add(node.id)
 
     for forbidden in ("Schedule", "FieldState", "Well", "ControlEvent", "IntervalResponse"):
-        assert forbidden not in names, f"{forbidden!r} просочился в оптимизатор"
+        assert forbidden not in names, f"{forbidden!r} leaked into the optimizer"
 
 
 def test_objective_function_protocol_is_theta_to_optimizer_result() -> None:
@@ -395,7 +328,6 @@ def test_objective_function_protocol_is_theta_to_optimizer_result() -> None:
     assert list(signature.parameters)[:2] == ["objective", "start"]
 
 
-# --- Отказы вместо правдоподобных чисел ------------------------------------
 
 
 def test_degenerate_bounds_are_rejected() -> None:
@@ -422,8 +354,6 @@ def test_zero_budget_is_rejected() -> None:
 
 
 def test_ten_parameters_are_supported() -> None:
-    """Потолок θ — 10 (`MAX_THETA_PARAMS`); на нём поиск обязан работать,
-    а не упираться в размерность ковариации."""
 
     names = [f"p{i}" for i in range(10)]
     target = {name: 0.25 * (i + 1) for i, name in enumerate(names)}

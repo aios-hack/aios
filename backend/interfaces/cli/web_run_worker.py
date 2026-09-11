@@ -22,7 +22,7 @@ def main() -> int:
     os.environ['AIOS_SEARCH_DIAGNOSTICS_PATH'] = str(root / 'diagnostics.json')
     import torch
     torch.set_num_threads(2)
-    from backend.application.runs import RunRequest, RunWorkflow
+    from backend.contexts.runs.application.workflow import RunRequest, RunWorkflow
     workflow = RunWorkflow(root.parent)
     if args.mode == 'search':
         from backend.contexts.optimization.application.search_use_case import run_search

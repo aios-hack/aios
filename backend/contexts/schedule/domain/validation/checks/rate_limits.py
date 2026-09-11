@@ -18,11 +18,9 @@ from collections.abc import (
     Mapping,
     Sequence,
 )
-from backend.core.contracts import (
-    Constraints,
-    Schedule,
-    StateAtDate,
-)
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.schedule.domain.schedule import Schedule
+from backend.contexts.reservoir.domain.response import StateAtDate
 from backend.contexts.schedule.domain.validate import (
     CONSTRAINT_INJECTION_LIMITS,
     CONSTRAINT_LIQUID_LIMITS,
@@ -71,8 +69,8 @@ def _check_rate_limits(
                     well=None,
                     value=liquid,
                     detail=(
-                        f"суммарная добыча жидкости {liquid} м³/сут выше лимита "
-                        f"{liquid_limit} м³/сут на {year} год"
+                        f"total liquid production {liquid} m3/day is above "
+                        f"the limit {liquid_limit} m3/day for year {year}"
                     ),
                 )
             )
@@ -85,8 +83,8 @@ def _check_rate_limits(
                     well=None,
                     value=injection,
                     detail=(
-                        f"суммарная закачка {injection} м³/сут выше лимита "
-                        f"{injection_limit} м³/сут на {year} год"
+                        f"total injection {injection} m3/day is above the "
+                        f"limit {injection_limit} m3/day for year {year}"
                     ),
                 )
             )
@@ -99,8 +97,8 @@ def _check_rate_limits(
                     well=None,
                     value=oil,
                     detail=(
-                        f"суммарная добыча нефти {oil} т/сут ниже нижней границы "
-                        f"{floor} т/сут на {year} год"
+                        f"total oil production {oil} t/day is below the "
+                        f"lower bound {floor} t/day for year {year}"
                     ),
                 )
             )
@@ -113,8 +111,8 @@ def _check_rate_limits(
                     well=None,
                     value=oil,
                     detail=(
-                        f"суммарная добыча нефти {oil} т/сут выше потолка "
-                        f"{oil_limit} т/сут на {year} год"
+                        f"total oil production {oil} t/day is above the "
+                        f"ceiling {oil_limit} t/day for year {year}"
                     ),
                 )
             )
@@ -128,29 +126,33 @@ def _rate_limit_checks(
         (
             CONSTRAINT_LIQUID_LIMITS,
             constraints.liquid_limits,
-            "верхний предел суммарной добычи жидкости по годам",
+            "the upper limit of total liquid production by year",
         ),
         (
             CONSTRAINT_INJECTION_LIMITS,
             constraints.injection_limits,
-            "верхний предел суммарной закачки по годам",
+            "the upper limit of total injection by year",
         ),
         (
             CONSTRAINT_PRODUCTION_FLOORS,
             constraints.production_floors,
-            "нижняя граница суммарной добычи нефти по годам",
+            "the lower bound of total oil production by year",
         ),
         (
             CONSTRAINT_OIL_LIMITS,
             constraints.oil_limits,
-            "верхний предел суммарной добычи нефти по годам",
+            "the upper limit of total oil production by year",
         ),
     )
     records: list[ConstraintCheck] = []
     for name, limits, meaning in sources:
         if not limits:
             records.append(
-                _not_set(name, f"{name} в кейсе не заданы: {meaning} не проверялся")
+                _not_set(
+                    name,
+                    f"{name} are not set in the case: {meaning} was not "
+                    f"checked",
+                )
             )
             continue
         years = ", ".join(str(year) for year in sorted(limits))
@@ -158,7 +160,8 @@ def _rate_limit_checks(
             _checked(
                 name,
                 found,
-                f"{meaning} задан на годы {years} и сверен пошагово",
+                f"{meaning} is set for years {years} and checked step by "
+                f"step",
                 blocking_kinds=BLOCKING_DYNAMIC_VIOLATION_KINDS,
             )
         )

@@ -2,16 +2,15 @@ from dataclasses import replace
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.runs.domain.run_result import (
     FinalNpvArtifact,
-    LineItems,
-    NpvTable,
     OPM_CONNECTION_SUMMARY_KEYS,
     OPM_WELL_SUMMARY_KEYS,
     SUMMARY_EXPORT_KEYS,
     SubmissionBundle,
     SummarySpec,
 )
+from backend.contexts.economics.domain.economics import LineItems, NpvTable
 from backend.contexts.runs.domain.run_result import SUBMISSION_BUNDLE_REQUIRED_TEXT_FIELDS
 
 
@@ -60,7 +59,7 @@ def test_final_npv_artifact_rejects_mismatched_methodology_value() -> None:
     with pytest.raises(ValueError):
         FinalNpvArtifact(
             npv_table=table,
-            npv_methodology=200.0,  # разошлось с table.npv_methodology
+            npv_methodology=200.0,
             source_run_id="run-1",
             source_response_hash="deadbeef",
             economics_config_hash="deadbeef",

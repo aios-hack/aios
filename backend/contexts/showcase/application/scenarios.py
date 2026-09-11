@@ -11,7 +11,7 @@ from backend.contexts.constraints.infrastructure.constraints_io import (
     constraints_from_json,
     constraints_to_json,
 )
-from backend.core.contracts import Constraints
+from backend.contexts.constraints.domain.constraints import Constraints
 
 from backend.contexts.showcase.infrastructure.artifact_io import load_bundle
 from backend.contexts.showcase.application.exporters.physics_view import (
@@ -47,11 +47,11 @@ class WorstRegret:
     def __post_init__(self) -> None:
         if self.part not in REGRET_PARTS:
             raise ValueError(
-                f"часть батареи «{self.part}» неизвестна: ожидается одна из "
+                f"unknown battery part {self.part!r}: expected one of "
                 f"{', '.join(REGRET_PARTS)}"
             )
         if not self.scenario_id:
-            raise ValueError("худший сожалению сценарий без идентификатора")
+            raise ValueError("worst-regret scenario has no identifier")
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,25 +69,26 @@ class ScenarioRobustness:
     def __post_init__(self) -> None:
         if (self.final_npv_rub is None) != (self.final_npv_run_id is None):
             raise ValueError(
-                "final_npv — заявленное число вместе с прогоном, который его дал: "
-                "половина пары запрещена"
+                "final_npv is the claimed number together with the run that produced "
+                "it: half of the pair is not allowed"
             )
         if self.ood_score is not None and self.ood_threshold is None:
             raise ValueError(
-                "ood_score без ood_threshold нечитаем: порог задаёт, что значит «вне области»"
+                "ood_score without ood_threshold is unreadable: the threshold defines "
+                "what out-of-domain means"
             )
         if self.predicted_npv_rub is not None and not math.isfinite(
             self.predicted_npv_rub
         ):
-            raise ValueError("predicted_npv_rub должен быть конечным числом")
+            raise ValueError("predicted_npv_rub must be a finite number")
         if self.calibrated_npv_rub is not None and not math.isfinite(
             self.calibrated_npv_rub
         ):
-            raise ValueError("calibrated_npv_rub должен быть конечным числом")
+            raise ValueError("calibrated_npv_rub must be a finite number")
         if self.run_validation_clean is not None and not isinstance(
             self.run_validation_clean, bool
         ):
-            raise ValueError("run_validation_clean должен быть bool или null")
+            raise ValueError("run_validation_clean must be a bool or null")
 
 
 def _robustness_json(robustness: ScenarioRobustness) -> dict[str, Any]:
@@ -174,8 +175,8 @@ def build_scenario_index(
         )
     if len(submitted) > 1:
         raise ValueError(
-            "final_npv заполнен более чем у одного сценария "
-            f"({', '.join(sorted(submitted))}): сдан может быть ровно один"
+            "final_npv is filled in for more than one scenario "
+            f"({', '.join(sorted(submitted))}): exactly one may be submitted"
         )
     return {"scenarios": scenarios, "submitted": submitted[0] if submitted else None}
 

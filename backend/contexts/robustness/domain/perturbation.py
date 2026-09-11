@@ -4,7 +4,7 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Protocol
 
-from backend.core.contracts import Constraints, WellOutage
+from backend.contexts.constraints.domain.constraints import Constraints, WellOutage
 
 
 class PerturbationKind(Enum):
@@ -26,12 +26,12 @@ ORGANIZER_KINDS: tuple[PerturbationKind, ...] = (
 )
 
 KIND_SOURCE: dict[PerturbationKind, str] = {
-    PerturbationKind.WELL_OUTAGE: "выпадение скважин на ремонт или аварию",
-    PerturbationKind.INJECTION_LIMIT: "ограничение по закачке в конкретном году",
-    PerturbationKind.LIQUID_LIMIT: "ограничение по жидкости",
-    PerturbationKind.PRODUCTION_FLOOR: "нижняя граница добычи",
-    PerturbationKind.WATERCUT_LIMIT: "ограничение по обводнённости",
-    PerturbationKind.INFRASTRUCTURE_LIMIT: "инфраструктурные лимиты",
+    PerturbationKind.WELL_OUTAGE: "wells going out for repair or failure",
+    PerturbationKind.INJECTION_LIMIT: "injection constraint in a particular year",
+    PerturbationKind.LIQUID_LIMIT: "liquid constraint",
+    PerturbationKind.PRODUCTION_FLOOR: "production floor",
+    PerturbationKind.WATERCUT_LIMIT: "watercut constraint",
+    PerturbationKind.INFRASTRUCTURE_LIMIT: "infrastructure limits",
 }
 
 
@@ -50,10 +50,10 @@ class WellsOut:
 
     def __post_init__(self) -> None:
         if not self.wells:
-            raise ValueError("выпадение без скважин — не возмущение")
+            raise ValueError("an outage without wells is not a perturbation")
         if self.control_step_to <= self.control_step_from:
             raise ValueError(
-                f"пустое окно недоступности "
+                f"empty unavailability window "
                 f"{self.control_step_from}…{self.control_step_to}"
             )
 
@@ -75,8 +75,8 @@ class InjectionCap:
     kind: PerturbationKind = PerturbationKind.INJECTION_LIMIT
 
     def __post_init__(self) -> None:
-        _reject_empty(self.limits_by_year, "лимит закачки")
-        _reject_negative(self.limits_by_year, "лимит закачки")
+        _reject_empty(self.limits_by_year, "injection limit")
+        _reject_negative(self.limits_by_year, "injection limit")
 
     def apply(self, base: Constraints) -> Constraints:
         return replace(
@@ -91,8 +91,8 @@ class LiquidCap:
     kind: PerturbationKind = PerturbationKind.LIQUID_LIMIT
 
     def __post_init__(self) -> None:
-        _reject_empty(self.limits_by_year, "лимит жидкости")
-        _reject_negative(self.limits_by_year, "лимит жидкости")
+        _reject_empty(self.limits_by_year, "liquid limit")
+        _reject_negative(self.limits_by_year, "liquid limit")
 
     def apply(self, base: Constraints) -> Constraints:
         return replace(
@@ -107,8 +107,8 @@ class ProductionFloor:
     kind: PerturbationKind = PerturbationKind.PRODUCTION_FLOOR
 
     def __post_init__(self) -> None:
-        _reject_empty(self.floors_by_year, "нижняя граница добычи")
-        _reject_negative(self.floors_by_year, "нижняя граница добычи")
+        _reject_empty(self.floors_by_year, "production floor")
+        _reject_negative(self.floors_by_year, "production floor")
 
     def apply(self, base: Constraints) -> Constraints:
         merged = dict(base.production_floors)
@@ -123,10 +123,10 @@ class WatercutCap:
     kind: PerturbationKind = PerturbationKind.WATERCUT_LIMIT
 
     def __post_init__(self) -> None:
-        _reject_empty(self.limits_by_year, "ограничение по обводнённости")
+        _reject_empty(self.limits_by_year, "watercut constraint")
         for year, share in self.limits_by_year.items():
             if not (0.0 <= share <= 1.0):
-                raise ValueError(f"{year}: обводнённость {share} вне [0, 1]")
+                raise ValueError(f"{year}: watercut {share} is outside [0, 1]")
 
     def apply(self, base: Constraints) -> Constraints:
         return replace(
@@ -142,14 +142,14 @@ class InfrastructureLimit:
 
     def __post_init__(self) -> None:
         if not self.entries:
-            raise ValueError("инфраструктурное ограничение без содержимого")
+            raise ValueError("an infrastructure constraint without content")
 
     def apply(self, base: Constraints) -> Constraints:
         merged = dict(base.infrastructure)
         clashes = set(merged) & set(self.entries)
         if clashes:
             raise ValueError(
-                f"инфраструктурные ключи уже заняты базовым документом: "
+                f"infrastructure keys are already taken by the base document: "
                 f"{sorted(clashes)}"
             )
         merged.update(self.entries)
@@ -158,13 +158,13 @@ class InfrastructureLimit:
 
 def _reject_empty(mapping: dict[int, float], what: str) -> None:
     if not mapping:
-        raise ValueError(f"{what} без единого года — не возмущение")
+        raise ValueError(f"{what} without a single year is not a perturbation")
 
 
 def _reject_negative(mapping: dict[int, float], what: str) -> None:
     for year, value in mapping.items():
         if value < 0.0:
-            raise ValueError(f"{year}: {what} отрицателен ({value})")
+            raise ValueError(f"{year}: {what} is negative ({value})")
 
 
 def _tightened(

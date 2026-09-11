@@ -1,4 +1,3 @@
-"""Экран «Совет» строится из настоящего журнала решений, не из RNG."""
 
 from __future__ import annotations
 
@@ -9,7 +8,8 @@ from typing import Any
 
 import pytest
 
-from backend.core.contracts import Groups, RunArtifact
+from backend.contexts.connectivity.domain.connectivity import Groups
+from backend.contexts.runs.domain.run_artifact import RunArtifact
 
 from backend.contexts.policy.domain.agents.registry import DEFAULT_REGISTRY
 from backend.contexts.policy.domain.levels import Level
@@ -36,7 +36,7 @@ def _artifact() -> RunArtifact:
 
     bundle = SHOWCASE / "bundles" / "base.json"
     if not bundle.is_file():
-        pytest.skip(f"нет базового бандла {bundle}")
+        pytest.skip(f"no base bundle {bundle}")
     return load_bundle(bundle)
 
 
@@ -54,7 +54,7 @@ def test_export_is_marked_as_real_in_the_showcase() -> None:
     for name in ("hierarchy.json", Path("base") / "hierarchy.json"):
         path = SHOWCASE / name
         if not path.is_file():
-            pytest.skip(f"витрина не собрана: нет {path}")
+            pytest.skip(f"showcase is not built: no {path}")
         data = json.loads(path.read_text(encoding="utf-8"))
         assert data["meta"]["synthetic"] is False
         assert data["meta"]["provenance"] != "synthetic-demo"
@@ -64,7 +64,7 @@ def test_export_is_marked_as_real_in_the_showcase() -> None:
 def test_showcase_carries_a_non_empty_agent_registry() -> None:
     path = SHOWCASE / "hierarchy.json"
     if not path.is_file():
-        pytest.skip(f"витрина не собрана: нет {path}")
+        pytest.skip(f"showcase is not built: no {path}")
     data = json.loads(path.read_text(encoding="utf-8"))
     assert data["agents"]
     for agent in data["agents"]:
@@ -164,7 +164,7 @@ def test_empty_slicing_is_refused_instead_of_being_synthesised() -> None:
             group_hash=artifact.groups.group_hash,
         ),
     )
-    with pytest.raises(ValueError, match="нарезка"):
+    with pytest.raises(ValueError, match="the grouping is empty"):
         build_hierarchy(without)
 
 
@@ -176,7 +176,6 @@ def test_a_step_without_a_response_is_refused_instead_of_being_synthesised() -> 
 
 
 def test_a_synthetic_artifact_is_still_refused_when_the_policy_cannot_decide() -> None:
-    """Синтетическая фикстура не обязана давать журнал; обязана — падать."""
 
     artifact = make_synthetic_artifact()
     try:

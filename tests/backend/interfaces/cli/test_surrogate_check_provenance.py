@@ -12,8 +12,8 @@ from backend.contexts.optimization.application.environment import (
     lambda_sync_provenance,
     npv_blend_provenance,
 )
-from backend.core.contracts import Lambda
-from backend.core.paths import data_root
+from backend.contexts.connectivity.domain.connectivity import Lambda
+from backend.shared.paths import data_root
 from backend.contexts.connectivity.domain.measure import load_lambda
 from backend.contexts.surrogate.infrastructure.model_z_context import ModelZFeatureArtifact
 from backend.interfaces.cli.surrogate import check as surrogate_check
@@ -129,14 +129,14 @@ def test_exit_code_is_nonzero_on_corrupted_bundle() -> None:
 
 def test_strict_desync_exits_with_error_code(monkeypatch, capsys) -> None:
     def _explode(*args: object, **kwargs: object) -> dict:
-        raise LambdaDesyncError("λ поиска разошлась с λ обучения контекста")
+        raise LambdaDesyncError("the search lambda diverged from the context training lambda")
 
     monkeypatch.setattr(surrogate_check, "check", _explode)
 
     code = surrogate_check.main(["--lambda-strict"])
 
     assert code == 2
-    assert "строгий режим" in capsys.readouterr().err
+    assert "strict mode" in capsys.readouterr().err
 
 
 def test_check_payload_carries_blend_and_lambda_sync(monkeypatch, tmp_path) -> None:

@@ -1,4 +1,3 @@
-"""Guard behavior only; synthetic counts are never model-quality evidence."""
 from pathlib import Path
 import pytest
 

@@ -6,20 +6,21 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     ControlEvent,
     EventKind,
     Schedule,
     ScheduleMeta,
-    hash_schedule,
 )
-from backend.domain.schedule import build_schedule, parse_schedule
+from backend.shared.hashing import hash_schedule
+from backend.contexts.schedule.domain.build import build_schedule
+from backend.contexts.schedule.domain.lossless import parse_schedule
 from backend.contexts.schedule.application.emit import (
     ScheduleEmitError,
     ScheduleRoundTripReport,
     verify_schedule_round_trip,
 )
-from backend.infrastructure.opm import (
+from backend.contexts.reservoir.infrastructure.opm_deck import (
     EmittedSchedule,
     OpmDeckEmitter,
     render_schedule_include,
@@ -30,7 +31,7 @@ from tests.support.backend.environment import missing_reason, model_z_dir
 MODEL_Z = model_z_dir()
 
 pytestmark = pytest.mark.skipif(
-    MODEL_Z is None, reason=missing_reason("каталог Model_Z")
+    MODEL_Z is None, reason=missing_reason("Model_Z directory")
 )
 
 
@@ -59,7 +60,7 @@ def _first_setpoint_index(events: tuple[ControlEvent, ...]) -> int:
     for index, event in enumerate(events):
         if event.kind is EventKind.SET_LRAT and event.value:
             return index
-    raise AssertionError("в расписании нет ни одной ненулевой уставки LRAT")
+    raise AssertionError("the schedule has no non-zero LRAT setpoint")
 
 
 def test_render_schedule_include_matches_the_full_deck_byte_for_byte(
@@ -117,8 +118,8 @@ def test_changing_one_event_breaks_the_round_trip(plan: Schedule) -> None:
     assert report.divergence.actual is not None
     assert report.divergence.expected != report.divergence.actual
     message = report.format()
-    assert "не сошёлся" in message
-    assert "первое расхождение управляющего слоя" in message
+    assert "did not match" in message
+    assert "first divergence of the control layer" in message
 
     with pytest.raises(ScheduleEmitError) as raised:
         report.raise_if_broken()

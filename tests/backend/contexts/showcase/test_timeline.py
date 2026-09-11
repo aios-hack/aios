@@ -7,7 +7,9 @@ from typing import Any
 
 import pytest
 
-from backend.core.contracts import ControlEvent, EventKind, Rule, RunArtifact, TraceEntry
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind
+from backend.contexts.policy.domain.policy import Rule, TraceEntry
+from backend.contexts.runs.domain.run_artifact import RunArtifact
 
 from tests.support.backend.showcase_fixtures import make_synthetic_artifact
 from backend.contexts.showcase.application.exporters.timeline import (
@@ -236,8 +238,6 @@ def test_export_trace_writes_grouped_json(tmp_path: Path) -> None:
 
 
 def test_field_norms_carry_the_compensation_corridor() -> None:
-    """F6: коридор — параметр политики R5, а не наблюдаемая величина.
-    Интерфейс рисует полосу по нему и границ из ряда не выводит."""
 
     timeline = build_timeline(make_synthetic_artifact(), DENSITIES)
     corridor = timeline["field_norms"]["compensation"]

@@ -4,7 +4,8 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Callable, Mapping, Protocol
 
-from backend.core.contracts import Schedule, hash_schedule
+from backend.contexts.schedule.domain.schedule import Schedule
+from backend.shared.hashing import hash_schedule
 
 _EMPTY_FLOATS: Mapping[str, float] = MappingProxyType({})
 _EMPTY_COUNTS: Mapping[str, int] = MappingProxyType({})
@@ -43,13 +44,13 @@ class Visited:
 
     def __post_init__(self) -> None:
         if self.iteration < 0:
-            raise ValueError(f"номер итерации {self.iteration} отрицателен")
+            raise ValueError(f"iteration number {self.iteration} is negative")
 
     def is_quiet(self) -> bool:
         if self.reaction_hash is None:
             raise ValueError(
-                f"итерация {self.iteration}: отклик политики не записан — "
-                f"судить, изменили правила расписание или нет, не по чему"
+                f"iteration {self.iteration}: the policy response was not recorded, so "
+                f"there is nothing to judge whether the rules changed the schedule by"
             )
         return self.reaction_hash == self.schedule_hash
 
@@ -71,15 +72,15 @@ class FixedPointResult:
 
     def __post_init__(self) -> None:
         if self.iterations < 0:
-            raise ValueError(f"число итераций {self.iterations} отрицательно")
+            raise ValueError(f"the iteration count {self.iterations} is negative")
         if not self.visited:
             raise ValueError(
-                "неподвижная точка без посещённых расписаний: выбирать не из чего"
+                "a fixed point with no visited schedules: there is nothing to choose from"
             )
         if self.converged and not self.self_consistent:
             raise ValueError(
-                "сошедшееся расписание обязано быть самосогласованным: "
-                "хеши совпали, значит отклик снят с него самого"
+                "a converged schedule must be self-consistent: "
+                "the hashes matched, so the response was taken off that very schedule"
             )
 
     def hashes(self) -> tuple[str, ...]:
@@ -96,8 +97,8 @@ class FixedPointResult:
         ]
         if silent:
             raise ValueError(
-                f"итерации {silent} без записанного отклика политики: долю "
-                f"неизменённых шагов посчитать не из чего"
+                f"iterations {silent} carry no recorded policy response: there is nothing "
+                f"to compute the share of unchanged steps from"
             )
         return sum(1 for entry in self.visited if entry.is_quiet())
 
@@ -125,19 +126,19 @@ class PolicyEquilibrium:
     def __post_init__(self) -> None:
         if self.observed_steps <= 0:
             raise ValueError(
-                "равновесие политики без единого наблюдённого шага: доля "
-                "неизменённых шагов не определена"
+                "a policy equilibrium without a single observed step: the share "
+                "of unchanged steps is undefined"
             )
         if not (0 <= self.quiet_steps <= self.observed_steps):
             raise ValueError(
-                f"неизменённых шагов {self.quiet_steps} из "
-                f"{self.observed_steps}: доля вне 0…1"
+                f"{self.quiet_steps} unchanged steps out of "
+                f"{self.observed_steps}: the share is outside 0…1"
             )
         if self.iterations < 0:
-            raise ValueError(f"число итераций {self.iterations} отрицательно")
+            raise ValueError(f"the iteration count {self.iterations} is negative")
         if self.converged and not self.self_consistent:
             raise ValueError(
-                "сошедшаяся политика обязана быть самосогласованной"
+                "a converged policy must be self-consistent"
             )
 
     def quiet_step_fraction(self) -> float:
@@ -166,8 +167,8 @@ def resolve(
 ) -> FixedPointResult:
     if iteration_cap <= 0:
         raise ValueError(
-            f"потолок итераций {iteration_cap} не положителен: потолок "
-            f"берётся из конфига, а не назначается на месте"
+            f"the iteration cap {iteration_cap} is not positive: the cap "
+            f"is taken from the config and not assigned on the spot"
         )
     schedule = policy(initial_state)
     current_hash = hash_schedule(schedule)

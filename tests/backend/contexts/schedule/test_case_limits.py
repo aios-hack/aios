@@ -1,7 +1,8 @@
 import pytest
 from datetime import date
 from dataclasses import replace
-from backend.core.contracts import Constraints, ControlEvent, EventKind, WellOutage
+from backend.contexts.constraints.domain.constraints import Constraints, WellOutage
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind
 from backend.contexts.schedule.domain.case_limits import (
     CaseLimitsForecastRequired,
     apply_case_limits,

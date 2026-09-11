@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from backend.core.contracts import (
-    N_INTERVALS,
-)
+from backend.contexts.schedule.domain.schedule import N_INTERVALS
 from backend.contexts.constraints.domain.constraints import (
     BHP_INJECTOR_MAX_BAR,
     BHP_PRODUCER_MIN_BAR,
@@ -133,15 +131,16 @@ PHYSICS_CONSTRAINT_NAMES: tuple[str, ...] = (CONSTRAINT_MATERIAL_BALANCE,)
 PROVENANCE_FIELDS: frozenset[str] = frozenset({"infrastructure", "case_path"})
 
 
-COMPENSATION_SURFACE_CONDITIONS: str = "поверхностные условия"
+COMPENSATION_SURFACE_CONDITIONS: str = "surface conditions"
 
 
-COMPENSATION_RESERVOIR_CONDITIONS: str = "пластовые условия"
+COMPENSATION_RESERVOIR_CONDITIONS: str = "reservoir conditions"
 
 
 COMPENSATION_SURFACE_NOTICE: str = (
-    "объёмные коэффициенты B_o/B_w в валидатор не переданы: C(k) считается "
-    "в поверхностных условиях, пересчёт в пластовые не выполнялся"
+    "the formation volume factors B_o/B_w were not supplied to the "
+    "validator: C(k) is computed under surface conditions, conversion to "
+    "reservoir conditions was not performed"
 )
 
 

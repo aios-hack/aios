@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     ControlEvent,
     EventKind,
     FixedDeckEvent,
@@ -45,13 +45,16 @@ class ControlEventConflict:
 def deck_well_axis(raw: bytes) -> tuple[str, ...]:
     match = _WELSPECS_RE.search(raw)
     if match is None:
-        raise ScheduleBuildError("в деке нет блока WELSPECS: ось скважин неоткуда взять")
+        raise ScheduleBuildError(
+            "the deck has no WELSPECS block: there is nowhere to take the "
+            "well axis from"
+        )
     wells = [well.decode("ascii") for well in _WELSPECS_WELL_RE.findall(match.group(1))]
     if not wells:
-        raise ScheduleBuildError("WELSPECS не содержит ни одной скважины")
+        raise ScheduleBuildError("WELSPECS contains no wells")
     unique = sorted(set(wells))
     if len(unique) != len(wells):
-        raise ScheduleBuildError("WELSPECS содержит повторяющиеся скважины")
+        raise ScheduleBuildError("WELSPECS contains duplicate wells")
     return tuple(unique)
 
 
@@ -85,7 +88,9 @@ def initial_state_from_prefix(
     try:
         return replay_initial_state(parsed, wells, T0)
     except ReplayError as error:
-        raise ScheduleBuildError(f"replay истории не сошёлся: {error}") from error
+        raise ScheduleBuildError(
+            f"history replay did not converge: {error}"
+        ) from error
 
 
 def control_dates(parsed: ParsedSchedule) -> tuple[date, ...]:
@@ -100,7 +105,7 @@ def build_schedule(
 ) -> Schedule:
     dates = control_dates(parsed)
     if not dates:
-        raise ScheduleBuildError("после t0 в деке нет управляющих дат")
+        raise ScheduleBuildError("the deck has no control dates after t0")
     n_control_dates = len(dates)
     n_intervals = n_control_dates - 1
 
@@ -114,13 +119,15 @@ def build_schedule(
     }
     unknown = sorted(event_wells - axis)
     if unknown:
-        raise ScheduleBuildError(f"события по скважинам вне оси WELSPECS: {unknown}")
+        raise ScheduleBuildError(
+            f"events for wells outside the WELSPECS axis: {unknown}"
+        )
 
     for control_event in control_events:
         if control_event.control_step >= n_intervals:
             raise ScheduleBuildError(
-                f"управляющее событие на control_step={control_event.control_step} "
-                f"вне {n_intervals} интервалов дека"
+                f"control event at control_step={control_event.control_step} "
+                f"is outside the {n_intervals} deck intervals"
             )
 
     initial_state = initial_state_from_prefix(parsed, wells)
@@ -153,5 +160,7 @@ def load_schedule(path: str | Path, provenance: str = "") -> Schedule:
     try:
         parsed = parse_schedule(raw)
     except ScheduleParseError as error:
-        raise ScheduleBuildError(f"дек {path!r} не разбирается: {error}") from error
+        raise ScheduleBuildError(
+            f"deck {path!r} does not parse: {error}"
+        ) from error
     return build_schedule(parsed, raw, provenance=provenance)

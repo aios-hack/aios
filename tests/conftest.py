@@ -71,7 +71,7 @@ def frozen_clock() -> FrozenClock:
 def model_z() -> Path:
     directory = model_z_dir()
     if directory is None:
-        pytest.skip(missing_reason("каталог Model_Z"))
+        pytest.skip(missing_reason("the Model_Z directory"))
     return directory
 
 
@@ -79,7 +79,7 @@ def model_z() -> Path:
 def model_z_deck() -> Path:
     deck = model_z_schedule()
     if deck is None:
-        pytest.skip(missing_reason("дек Model_Z_sch.inc"))
+        pytest.skip(missing_reason("the Model_Z_sch.inc deck"))
     return deck
 
 
@@ -95,7 +95,7 @@ def normatives_workbook() -> Path:
 def reference_calculator() -> Path:
     directory = chdd_python_dir()
     if directory is None:
-        pytest.skip(missing_reason("расчётчик CHDD_PYTHON"))
+        pytest.skip(missing_reason("the CHDD_PYTHON calculator"))
     return directory
 
 
@@ -103,7 +103,7 @@ def reference_calculator() -> Path:
 def base_run() -> Path:
     directory = base_run_dir()
     if directory is None:
-        pytest.skip(missing_reason("базовый прогон OPM"))
+        pytest.skip(missing_reason("the base OPM run"))
     return directory
 
 
@@ -111,7 +111,7 @@ def base_run() -> Path:
 def base_run_output() -> Path:
     directory = base_run_output_dir()
     if directory is None:
-        pytest.skip(missing_reason("вывод базового прогона OPM"))
+        pytest.skip(missing_reason("the output of the base OPM run"))
     return directory
 
 

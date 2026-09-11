@@ -1,12 +1,14 @@
-"""G2: contracts и schedule дают один хеш и один порядок оси скважин."""
 
 from __future__ import annotations
 
 import pytest
 
-from backend.infrastructure.opm import OpmDeckEmitter
-from backend.core.contracts import Rule, canonical_bytes, hash_schedule
-from backend.domain.schedule import build_schedule, deck_well_axis, hash_canonical_schedule, parse_schedule
+from backend.contexts.reservoir.infrastructure.opm_deck import OpmDeckEmitter
+from backend.contexts.policy.domain.policy import Rule
+from backend.shared.hashing import canonical_bytes, hash_schedule
+from backend.contexts.schedule.domain.build import build_schedule, deck_well_axis
+from backend.contexts.schedule.domain.canonical import hash_canonical_schedule
+from backend.contexts.schedule.domain.lossless import parse_schedule
 
 import tests.support.backend.environment as conftest
 

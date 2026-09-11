@@ -2,29 +2,27 @@ from __future__ import annotations
 
 import pytest
 
-from backend.domain.connectivity import (
+from backend.contexts.connectivity.domain.amplitude import (
+    AmplitudeMeasurement,
     LIMITED_BY_ACHIEVABILITY,
     LIMITED_BY_LINEARITY,
     LIMITED_BY_NOISE,
     LIMITED_BY_SWEEP_RANGE,
-    Amplitude,
-    AmplitudeMeasurement,
-    DeckSchedule,
-    Level,
     MIN_SWEEP_PROBES,
     ProbeSelection,
-    build_probe,
-    headroom_injectors,
     choose_amplitude,
     demote_plan_amplitude,
+    headroom_injectors,
     numerical_noise_floor,
     prior_bracket,
     select_probe_injectors,
-    setpoint_changes,
     sweep_amplitudes,
-    SweepRun,
 )
-from backend.core.contracts import Role
+from backend.contexts.connectivity.domain.doe import Amplitude, Level
+from backend.contexts.connectivity.infrastructure.deck import DeckSchedule
+from backend.contexts.connectivity.domain.sweep import SweepRun, build_probe
+from backend.contexts.connectivity.domain.setpoints import setpoint_changes
+from backend.contexts.schedule.domain.schedule import Role
 
 PROBE_WELLS = ("A1", "A2", "A3")
 NEIGHBOURS = {"A1": 2, "A2": 5, "A3": 9, "A4": 4, "A5": 7}
@@ -89,7 +87,6 @@ def a_probe(
 
 
 def test_probe_selection_spans_neighbour_density() -> None:
-    """§8.3: свип идёт по 3–4 нагнетательным с РАЗНОЙ плотностью окружения."""
 
     selection = select_probe_injectors(tuple(NEIGHBOURS), NEIGHBOURS, 3)
     assert len(selection.wells) == 3
@@ -97,18 +94,6 @@ def test_probe_selection_spans_neighbour_density() -> None:
 
 
 def test_wells_pinned_at_the_pressure_limit_are_kept_out_of_the_sweep() -> None:
-    """Замер 16.08 на настоящем базовом прогоне Model_Z: из 27 нагнетательных
-
-    раннего окна 7 зажаты пределом 300 бар и целевую закачку не добирают уже
-    в базовом расписании — 27 недобирает 76%, 17 — 65%, 53 — 60%, 102 — 46%,
-    49 — 41%, 8 — 39%, 110 — 7%. Запас есть у 20 скважин.
-
-    Свип по зажатой скважине не измеряет ничего: повышение уставки не
-    реализуется, отношение отклика к воздействию считается от почти нулевого
-    знаменателя. Отбор скважин свипа обязан идти по фактическому запасу, а не
-    по одной плотности окружения — иначе замер проваливается по достижимости
-    ещё на минимальной амплитуде приора (что и произошло в первом заходе).
-    """
 
     setpoints = {"27": 80.0, "17": 90.0, "110": 15.0, "25": 35.0, "12": 40.0}
     rates = {"27": 19.04, "17": 31.50, "110": 13.89, "25": 35.83, "12": 40.0}
@@ -124,7 +109,7 @@ def test_sweep_cannot_be_built_when_too_few_wells_have_headroom() -> None:
     rates = {"27": 19.04, "17": 31.50, "25": 35.83}
     free = headroom_injectors(tuple(setpoints), rates, setpoints, TOLERANCE)
     assert len(free) < MIN_SWEEP_PROBES
-    with pytest.raises(ValueError, match="запасом по давлению"):
+    with pytest.raises(ValueError, match="pressure headroom"):
         select_probe_injectors(free, {w: 5 for w in free}, MIN_SWEEP_PROBES)
 
 
@@ -136,7 +121,6 @@ def test_probe_selection_refuses_a_degenerate_sweep_width() -> None:
 
 
 def test_every_perturbed_run_is_checked_against_its_target() -> None:
-    """Приёмка 27: фактическая приёмистость сверяется с целевой после КАЖДОГО прогона."""
 
     probe = a_probe(0.2, gain=4.0, shortfall_share=0.0)
     assert len(probe.outcomes) == len(PROBE_WELLS)
@@ -161,7 +145,6 @@ def test_shortfall_is_measured_per_well_not_assumed() -> None:
 
 
 def test_systematic_shortfall_drops_the_amplitude_of_the_whole_plan() -> None:
-    """Приёмка 27: систематический недобор роняет амплитуду ВСЕГО плана."""
 
     step = 0.4 * 30.0
     runs = tuple(
@@ -187,23 +170,6 @@ def test_systematic_shortfall_drops_the_amplitude_of_the_whole_plan() -> None:
 
 
 def test_shortfall_measured_on_the_real_base_run_of_model_z() -> None:
-    """Замер 16.08 на настоящем базовом прогоне Model_Z, окно 01.01.2007 + 12 мес.
-
-    Три скважины свипа, выбранные по плотности окружения (110: 2 соседа,
-    25: 9, 17: 15), в самом базовом расписании ведут себя по-разному:
-
-    - 17 — `BHP_LIMITED` все 12 месяцев, забойное ровно на пределе 300.0 бар,
-      фактическая приёмистость 31.5 м³/сут при уставке 90.0, недобор 65%;
-    - 110 — `BHP_LIMITED` первые 4 месяца, дальше выходит на режим:
-      13.9 м³/сут при уставке 15.0, недобор 7%;
-    - 25 — `RATE_TARGET`, забойное 154 бар, 35.8 м³/сут при уставке 35.0,
-      целевую закачку добирает полностью.
-
-    Недобор существует ДО всякого возмущения, и повышать уставку у скважины,
-    уже стоящей на 300 бар, бессмысленно: план проектируется на одни уровни,
-    а реализуются другие. Ровно поэтому §8.2 требует регрессии на фактические
-    ΔWWIR, а §8.3 — сверки факта с целью после каждого прогона.
-    """
 
     measured = (
         ("17", 90.0, 31.495544751485188),
@@ -233,24 +199,6 @@ def test_shortfall_measured_on_the_real_base_run_of_model_z() -> None:
 
 
 def test_full_sweep_on_pinned_wells_refuses_to_name_an_amplitude() -> None:
-    """Полный свип 16.08 по трём точкам, три настоящих прогона OPM (975 / 948 /
-
-    1036 с). Скважины выбраны первым, ошибочным отбором — по одной плотности
-    окружения, без проверки запаса по давлению, поэтому 17 и 110 зажаты
-    пределом 300 бар.
-
-    Замеренные числа по точкам +17% / +33% / +50%:
-
-    - фактическое воздействие почти не растёт: 64.1 → 68.9 → 74.0 м³/сут,
-      хотя план требовал роста втрое, — двигается только скважина 25;
-    - недобор растёт: 110 — 26% → 41% → 51%, 17 — 67% → 69% → 70%;
-    - отношение отклика к воздействию не постоянно вовсе:
-      15.0 → 39.4 → 63.9, дрейф 0% → 163% → 326%.
-
-    Ни одна точка не проходит: недобор систематический на всех трёх.
-    Протокол §8.3 в этом случае обязан отказаться назвать амплитуду, а не
-    выбрать «наименее плохую» — и отказывается.
-    """
 
     baseline = {
         "110": 13.89351499080658,
@@ -323,26 +271,11 @@ def test_full_sweep_on_pinned_wells_refuses_to_name_an_amplitude() -> None:
     assert gains[2] == pytest.approx(63.9, abs=0.1)
     assert measurement.gain_drift()[2] > 3.0
     assert measurement.admissible_probes() == ()
-    with pytest.raises(ValueError, match="не замерена"):
+    with pytest.raises(ValueError, match="not measured"):
         choose_amplitude(measurement)
 
 
 def test_first_sweep_point_measured_on_model_z_is_rejected_by_achievability() -> None:
-    """Первая точка свипа, замеренная настоящими прогонами OPM 16.08.
-
-    Возмущение +17% от медианы (шаг 5.1 м³/сут — нижняя граница приора из
-    дека) на трёх скважинах, окно 01.01.2007 + 12 месяцев, 975 с на прогон:
-
-    - 25 добрала цель 40.1 ровно (недобор 0%);
-    - 110 при цели 20.1 дала 14.81 — недобор 26%;
-    - 17 при цели 95.1 дала 31.19, то есть приёмистость даже упала против
-      базовых 31.50 — недобор 67%.
-
-    Две скважины из трёх не добирают, недобор систематический уже на
-    минимальной амплитуде приора. Отклик соседей при этом различим
-    (+320.5 м³ против порога шума 0.04 м³) — то есть замер ограничивает
-    не шум и не нелинейность, а достижимость.
-    """
 
     baseline = {
         "110": 13.89351499080658,
@@ -385,7 +318,7 @@ def test_first_sweep_point_measured_on_model_z_is_rejected_by_achievability() ->
         achievability_tolerance=TOLERANCE,
         linearity_tolerance=LINEARITY,
     )
-    with pytest.raises(ValueError, match="не замерена"):
+    with pytest.raises(ValueError, match="not measured"):
         choose_amplitude(measurement)
 
 
@@ -407,7 +340,6 @@ def test_largest_still_linear_amplitude_wins() -> None:
 
 
 def test_response_below_the_noise_floor_is_not_a_measurement() -> None:
-    """Отклик, не отличимый от шума, точку свипа не проходит — амплитуда стоит ниже."""
 
     louder = a_probe(0.05, gain=4.0, noise=1.0)
     assert louder.distinguishable()
@@ -435,7 +367,6 @@ def test_sweep_that_stays_linear_to_the_top_reports_no_breakpoint() -> None:
 
 
 def test_amplitude_is_never_assigned_when_nothing_passed() -> None:
-    """Протокол §8.3: не замерено — значит не назначается вовсе, а не «на глаз»."""
 
     dead = a_probe(0.05, gain=4.0, noise=10_000.0)
     measurement = AmplitudeMeasurement(
@@ -443,12 +374,11 @@ def test_amplitude_is_never_assigned_when_nothing_passed() -> None:
         achievability_tolerance=TOLERANCE,
         linearity_tolerance=LINEARITY,
     )
-    with pytest.raises(ValueError, match="не замерена"):
+    with pytest.raises(ValueError, match="not measured"):
         choose_amplitude(measurement)
 
 
 def test_sweep_levels_come_from_the_deck_prior(deck: DeckSchedule) -> None:
-    """§8.3: стартовая точка свипа — приор из дека, не выдуманное число."""
 
     distribution = setpoint_changes(deck, Role.INJ, 146)
     low, high = prior_bracket(distribution, 0.8)
@@ -468,13 +398,6 @@ def test_sweep_levels_must_increase() -> None:
 
 
 def test_noise_floor_is_derived_from_the_data_not_assigned() -> None:
-    """Порог различимости выводится из разрешения носителя, а не назначается.
-
-    `UNSMRY` хранит накопления в float32: на объёме порядка 3.4·10⁵ м³ за
-    12 месяцев разрешение — около 0.04 м³, то есть численный шум заведомо не
-    является связывающим ограничением протокола (замерено на настоящем
-    базовом прогоне Model_Z 16.08). Ограничивают линейность и достижимость.
-    """
 
     floor = numerical_noise_floor(342_035.65, safety_factor=1.0)
     assert floor == pytest.approx(0.0408, abs=1e-3)

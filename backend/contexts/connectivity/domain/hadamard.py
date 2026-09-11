@@ -88,7 +88,7 @@ def _doubled(base: Matrix) -> Matrix:
     for row in base:
         rows.append(tuple(row) + tuple(-v for v in row))
     if len(rows) != 2 * size:
-        raise ValueError("удвоение Сильвестра не дало матрицу двойного порядка")
+        raise ValueError("Sylvester doubling did not produce a matrix of double order")
     return tuple(rows)
 
 
@@ -99,8 +99,8 @@ def hadamard(order: int) -> Matrix:
         return ((1, 1), (1, -1))
     if order % 4 != 0:
         raise ValueError(
-            f"порядок {order} не кратен четырём: матрицы Адамара такого "
-            f"порядка не существует"
+            f"order {order} is not a multiple of four: no Hadamard matrix of that "
+            f"order exists"
         )
     if is_prime(order - 1):
         return _paley_first(order)
@@ -110,8 +110,8 @@ def hadamard(order: int) -> Matrix:
     if order % 2 == 0:
         return _doubled(hadamard(order // 2))
     raise ValueError(
-        f"матрица Адамара порядка {order} не строится доступными "
-        f"конструкциями (Пэли I, Пэли II, удвоение Сильвестра)"
+        f"a Hadamard matrix of order {order} cannot be built by the available "
+        f"constructions (Paley I, Paley II, Sylvester doubling)"
     )
 
 
@@ -119,7 +119,7 @@ def is_hadamard(matrix: Matrix) -> bool:
     size = len(matrix)
     for row in matrix:
         if len(row) != size:
-            raise ValueError("матрица Адамара не квадратна")
+            raise ValueError("the Hadamard matrix is not square")
         if any(value not in (1, -1) for value in row):
             return False
     for first in range(size):

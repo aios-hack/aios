@@ -31,7 +31,7 @@ def test_git_commit_returns_none_for_missing_directory(tmp_path: Path) -> None:
 def test_git_commit_is_hex_when_available() -> None:
     commit = git_commit()
     if commit is None:
-        pytest.skip("git недоступен или каталог не является репозиторием")
+        pytest.skip("git is unavailable or the directory is not a repository")
     assert len(commit) == 40
     assert all(character in "0123456789abcdef" for character in commit)
     assert git_dirty() in (True, False)

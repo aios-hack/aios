@@ -7,7 +7,7 @@ from contextlib import contextmanager
 
 @contextmanager
 def _legacy_checkpoint_modules():
-    from backend.ml.surrogate import ood as current_ood
+    from backend.contexts.robustness.domain import ood as current_ood
 
     names = ("surrogate", "surrogate.ood")
     previous = {name: sys.modules.get(name) for name in names}

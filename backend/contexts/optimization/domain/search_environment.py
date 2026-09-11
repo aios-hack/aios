@@ -14,21 +14,16 @@ from types import MappingProxyType
 from typing import (
     Mapping,
 )
-from backend.core.contracts import (
-    Constraints,
-    Groups,
-    Lambda,
-    NormativeSet,
-    Policies,
-    ResponseArtifact,
-    Schedule,
-)
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.connectivity.domain.connectivity import Groups, Lambda
+from backend.contexts.constraints.domain.config import NormativeSet, Policies
+from backend.contexts.runs.domain.run_result import ResponseArtifact
+from backend.contexts.schedule.domain.schedule import Schedule
 from backend.contexts.policy.domain.flags import (
     RuleFlags,
 )
-from backend.contexts.surrogate.application.ensemble import TrajectoryEnsemble
-from backend.contexts.surrogate.application.model import TrajectorySurrogate
-from backend.contexts.surrogate.infrastructure.model_z_context import ModelZFeatureArtifact
+from backend.contexts.surrogate.domain.predictor import TrajectoryPredictor
+from backend.contexts.surrogate.domain.model_z_artifact import ModelZFeatureArtifact
 from backend.contexts.surrogate.domain.npv_head import ScenarioNpvHead
 
 
@@ -40,7 +35,7 @@ class SearchEnvironment:
     policies: Policies
     oil_density_t_per_m3: float
     feature_context: ModelZFeatureArtifact
-    model: TrajectorySurrogate | TrajectoryEnsemble
+    model: TrajectoryPredictor
     control_dates: tuple[date, ...]
     deck_dates: tuple[date, ...]
     t0_deck_date_index: int

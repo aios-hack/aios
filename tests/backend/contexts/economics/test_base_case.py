@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.constraints.domain.config import (
     ChargeInitialEsp,
     DEFAULT_NORMATIVES_2007,
     NormativeSet,
@@ -12,18 +12,17 @@ from backend.core.contracts import (
     QuantizationPolicy,
 )
 from backend.contexts.optimization.application.search_use_case import BASE_NPV
-from backend.core.paths import data_root
-from backend.domain.economics import (
-    ESP_CATALOG_2007,
-    MACHINE_ZERO_RUB,
+from backend.shared.paths import data_root
+from backend.contexts.economics.domain.esp import ESP_CATALOG_2007
+from backend.contexts.economics.domain.decomposition import MACHINE_ZERO_RUB, TaxBasis
+from backend.contexts.economics.application.base_case import (
     RUB_PER_MILLION,
-    TaxBasis,
     analyze_base_case,
     format_report,
     load_response_artifact,
 )
 from backend.contexts.economics.domain.decomposition import MACHINE_RELATIVE_TOLERANCE
-from backend.domain.schedule import parse_schedule
+from backend.contexts.schedule.domain.lossless import parse_schedule
 
 from tests.support.backend.environment import missing_reason, model_z_schedule
 
@@ -50,8 +49,8 @@ POLICIES = Policies(
 pytestmark = pytest.mark.skipif(
     MODEL_Z_SCHEDULE is None or not BASE_CASE_RESPONSE.is_file(),
     reason=missing_reason(
-        "отклик настоящего базового прогона Model_Z "
-        f"({BASE_CASE_RESPONSE}) или дек организаторов"
+        "real Model_Z base run response "
+        f"({BASE_CASE_RESPONSE}) or the organizers' deck"
     ),
 )
 
@@ -196,5 +195,5 @@ def test_negative_row_rule_excludes_the_terminal_date_only(analysis) -> None:
 
 def test_report_is_printable(analysis) -> None:
     text = format_report(analysis)
-    assert "ЧДД по Методике" in text
+    assert "NPV per the Methodology" in text
     assert f"{analysis.npv_methodology / RUB_PER_MILLION:.3f}" in text

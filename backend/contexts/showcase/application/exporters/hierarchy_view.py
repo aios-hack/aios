@@ -4,14 +4,11 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from backend.core.contracts import (
-    DEFAULT_NORMATIVES_2007,
-    NormativeSet,
-    Role,
-    RunArtifact,
-)
+from backend.contexts.constraints.domain.config import DEFAULT_NORMATIVES_2007, NormativeSet
+from backend.contexts.schedule.domain.schedule import Role
+from backend.contexts.runs.domain.run_artifact import RunArtifact
 
-from backend.domain.economics import ESP_CATALOG_2007
+from backend.contexts.economics.domain.esp import ESP_CATALOG_2007
 from backend.contexts.policy.domain.agents.registry import DEFAULT_REGISTRY, AgentRegistry
 from backend.contexts.policy.domain.flags import RuleFlags
 from backend.contexts.policy.application.hierarchy import (
@@ -67,8 +64,8 @@ def _observations(
     at_step = rows.get(deck_index)
     if at_step is None:
         raise ValueError(
-            f"шаг {control_step}: отклика на дате дека {deck_index} нет — "
-            f"журнал решений построить не на чем"
+            f"step {control_step}: no response at deck date {deck_index} — "
+            f"there is nothing to build the decision log from"
         )
     observed: dict[str, WellObservation] = {}
     for well, state in artifact.schedule.initial_state.items():
@@ -90,8 +87,8 @@ def _observations(
         )
     if not observed:
         raise ValueError(
-            f"шаг {control_step}: ни одна скважина не наблюдается в отклике — "
-            f"совет некому собрать"
+            f"step {control_step}: no well is observed in the response — "
+            f"there is nobody to assemble advice for"
         )
     return observed
 
@@ -148,8 +145,8 @@ def run_hierarchy_steps(
     rows = _rows_by_deck_index(artifact)
     if not artifact.groups.groups:
         raise ValueError(
-            "нарезка артефакта пуста: уровень участка в журнале решений "
-            "не восстановим"
+            "the artifact has no grouping: the group level of the decision log "
+            "cannot be reconstructed"
         )
     collected: list[tuple[PolicyState, HierarchyResult]] = []
     for control_step in range(artifact.schedule.meta.n_control_dates - 1):
@@ -168,18 +165,18 @@ def run_hierarchy_steps(
             )
         except ValueError as error:
             raise ValueError(
-                f"шаг {control_step}: политика не собрала журнал решений "
-                f"({error}) — синтетику вместо него экспортёр не подставляет"
+                f"step {control_step}: the policy did not build a decision log "
+                f"({error}) — the exporter substitutes no synthetic data for it"
             ) from error
         if not result.trace.entries:
             raise ValueError(
-                f"шаг {control_step}: журнал решений пуст — показывать на "
-                f"экране «Совет» нечего"
+                f"step {control_step}: the decision log is empty — there is nothing "
+                f"to show on the Advice screen"
             )
         collected.append((state, result))
     if not collected:
         raise ValueError(
-            "прогон политики не дал ни одного шага: журнал решений пуст"
+            "the policy run produced no steps: the decision log is empty"
         )
     return collected
 

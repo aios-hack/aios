@@ -8,9 +8,8 @@ from backend.contexts.optimization.application.environment import (
     _outage_events,
     _scale_step_injection_to_limit,
 )
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
-    Constraints,
     ControlEvent,
     EventKind,
     FixedDeckEvent,
@@ -20,6 +19,7 @@ from backend.core.contracts import (
     ScheduleMeta,
     WellState,
 )
+from backend.contexts.constraints.domain.constraints import Constraints
 from backend.contexts.policy.domain.state import PolicyState, WellObservation
 
 

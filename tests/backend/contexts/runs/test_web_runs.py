@@ -11,6 +11,7 @@ from unittest.mock import patch
 import pytest
 from backend.interfaces.cli import web
 from backend.contexts.runs.application.web_runs import WebRuns
+from backend.contexts.runs.domain.errors import RunBusyError, RunRequestError
 
 WEB_SOURCE = Path(web.__file__)
 
@@ -23,14 +24,14 @@ def test_search_freezes_constraints_and_rejects_concurrent_run(tmp_path):
         assert saved['injection_limits'] == {'2007': 30000}
         assert run['status'] == 'running'
         thread.return_value.start.assert_called_once()
-        with pytest.raises(RuntimeError):
+        with pytest.raises(RunBusyError):
             jobs.start({'constraints': {}, 'budget': 10})
 
 
 def test_bad_infrastructure_never_starts_job(tmp_path):
     jobs = WebRuns(tmp_path)
     for infrastructure in ({'compensation_min': .8}, {'unknown': 10}, {'water_supply_unlimited': True, 'external_water_m3_per_day': 1}):
-        with pytest.raises(ValueError):
+        with pytest.raises(RunRequestError):
             jobs.start({'constraints': {'infrastructure': infrastructure}})
     assert jobs.list() == []
     assert not jobs.lock.locked()
@@ -39,7 +40,7 @@ def test_bad_infrastructure_never_starts_job(tmp_path):
 def test_verify_rejects_traversal_and_missing_plan(tmp_path):
     jobs = WebRuns(tmp_path)
     for run_id in ('../../escape', 'web-missing'):
-        with pytest.raises(ValueError):
+        with pytest.raises(RunRequestError):
             jobs.start({'mode': 'verify', 'run_id': run_id})
     assert not jobs.lock.locked()
 

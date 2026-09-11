@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import Schedule, ScheduleMeta
-from backend.domain.schedule import parse_schedule
+from backend.contexts.schedule.domain.schedule import Schedule, ScheduleMeta
+from backend.contexts.schedule.domain.lossless import parse_schedule
 from backend.contexts.reservoir.infrastructure.opm_deck import (
     DIAGNOSTIC_MARKER_NAME,
     OpmDeckEmitter,
@@ -27,7 +27,7 @@ from tests.support.backend.environment import missing_reason, model_z_dir
 MODEL_Z = model_z_dir()
 
 pytestmark = pytest.mark.skipif(
-    MODEL_Z is None, reason=missing_reason("каталог Model_Z")
+    MODEL_Z is None, reason=missing_reason("Model_Z directory")
 )
 
 
@@ -102,7 +102,7 @@ def test_diagnostic_deck_carries_fipnum_and_rpr_and_is_marked(tmp_path: Path) ->
     assert marker is not None
     assert marker.name == DIAGNOSTIC_MARKER_NAME
     assert marker.is_file()
-    assert "не идёт в сдачу" in marker.read_text(encoding="utf-8")
+    assert "not for submission" in marker.read_text(encoding="utf-8")
 
     assert artifact.regions_file is not None
     regions_raw = artifact.regions_file.read_bytes()

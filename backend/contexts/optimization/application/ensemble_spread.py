@@ -12,12 +12,9 @@ import math
 from typing import (
     Sequence,
 )
-from backend.core.contracts import (
-    ResponseArtifact,
-    Schedule,
-    canonical_bytes,
-    hash_schedule,
-)
+from backend.contexts.runs.domain.run_result import ResponseArtifact
+from backend.contexts.schedule.domain.schedule import Schedule
+from backend.shared.hashing import canonical_bytes, hash_schedule
 from backend.contexts.surrogate.application.adapter import ResponseAdapter
 from backend.contexts.surrogate.application.ensemble import TrajectoryEnsemble
 from backend.contexts.surrogate.application.model import TrajectorySurrogate
@@ -38,7 +35,7 @@ def _member_outputs(
     members = ensemble_members(model)
     if len(members) < 2:
         raise EnsembleSpreadError(
-            "разброс ансамбля считается по членам, а их меньше двух"
+            "the ensemble spread is computed over members, and there are fewer than two"
         )
     return tuple(member._predict_output(model_input) for member in members)
 
@@ -52,7 +49,7 @@ def spread_bracket(
 ) -> tuple[RawModelOutput, RawModelOutput]:
     if len(outputs) < 2:
         raise EnsembleSpreadError(
-            "крайние члены ансамбля выбираются минимум из двух прогнозов"
+            "the extreme ensemble members are chosen from at least two forecasts"
         )
     ranked = sorted(outputs, key=_total_oil_mass)
     return ranked[0], ranked[-1]
@@ -101,7 +98,7 @@ def ensemble_npv_sigma(
     sigma = abs(npv_high - npv_low) / 2.0
     if not math.isfinite(sigma):
         raise EnsembleSpreadError(
-            "разброс ЧДД по членам ансамбля не конечен: "
+            "the NPV spread across ensemble members is not finite: "
             f"npv_low={npv_low!r}, npv_high={npv_high!r}"
         )
     return sigma

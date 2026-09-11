@@ -32,9 +32,15 @@ def test_every_error_descends_from_the_root(kind: type[AiosError]) -> None:
 
 
 @pytest.mark.parametrize("kind", FAMILY)
+def test_no_error_mixes_in_a_builtin_exception(kind: type[AiosError]) -> None:
+    builtins = {ValueError, LookupError, RuntimeError, KeyError, OSError, TypeError}
+    assert builtins.isdisjoint(set(kind.__mro__))
+
+
+@pytest.mark.parametrize("kind", FAMILY)
 def test_every_error_carries_a_default_code(kind: type[AiosError]) -> None:
     assert kind.default_code
-    assert kind("боль").code == kind.default_code
+    assert kind("pain").code == kind.default_code
 
 
 def test_validation_is_a_domain_error_and_external_is_infrastructure() -> None:
@@ -43,22 +49,22 @@ def test_validation_is_a_domain_error_and_external_is_infrastructure() -> None:
 
 
 def test_explicit_code_wins_over_the_default() -> None:
-    error = ValidationError("кейс отклонён", code="runs.case_rejected", path="case.json")
+    error = ValidationError("case rejected", code="runs.case_rejected", path="case.json")
 
     assert error.code == "runs.case_rejected"
-    assert error.message == "кейс отклонён"
+    assert error.message == "case rejected"
     assert error.details == {"path": "case.json"}
 
 
 def test_as_dict_is_the_wire_shape() -> None:
-    error = NotFoundError("прогона нет", run_id="r-1")
+    error = NotFoundError("there is no such run", run_id="r-1")
 
     assert error.as_dict() == {
         "error": "not_found",
-        "message": "прогона нет",
+        "message": "there is no such run",
         "details": {"run_id": "r-1"},
     }
 
 
 def test_string_form_is_the_message_without_the_code() -> None:
-    assert str(ConflictError("расчёт уже идёт")) == "расчёт уже идёт"
+    assert str(ConflictError("a calculation is already running")) == "a calculation is already running"

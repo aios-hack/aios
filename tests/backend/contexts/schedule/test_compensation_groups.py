@@ -2,19 +2,21 @@ from __future__ import annotations
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.reservoir.domain.response import (
     ActiveControlMode,
-    Availability,
-    Constraints,
-    Groups,
     IntervalResponse,
+    StateAtDate,
+)
+from backend.contexts.schedule.domain.schedule import (
+    Availability,
     OperatingStatus,
     Role,
     Schedule,
     ScheduleMeta,
-    StateAtDate,
     WellState,
 )
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.connectivity.domain.connectivity import Groups
 from backend.contexts.constraints.domain.constraints import (
     COMPENSATION_ENFORCEMENT,
     COMPENSATION_MAX,
@@ -189,7 +191,7 @@ def test_field_scope_produces_no_group_violations() -> None:
     details = compensation_violations(report)
 
     assert details == ()
-    assert not any("участок" in text for text in details)
+    assert not any("group " in text for text in details)
     checks = by_name(report.constraint_checks)
     assert checks[CONSTRAINT_COMPENSATION].status == STATUS_CHECKED
     assert checks[CONSTRAINT_COMPENSATION].n_violations == 0
@@ -209,7 +211,7 @@ def test_group_scope_catches_a_skew_the_field_total_hides() -> None:
     ]
 
     assert len(offenders) == 2 * N_INTERVALS
-    assert all("участок" in item.detail for item in offenders)
+    assert all("group " in item.detail for item in offenders)
     assert {item.control_step for item in offenders} == set(range(N_INTERVALS))
     named = {
         "G1" if "G1" in item.detail else "G2" for item in offenders
@@ -242,8 +244,8 @@ def test_field_and_groups_catches_both_cuts() -> None:
     assert checks[CONSTRAINT_COMPENSATION].n_violations == N_INTERVALS
     assert checks[CONSTRAINT_COMPENSATION_SCOPE].status == STATUS_CHECKED
     assert checks[CONSTRAINT_COMPENSATION_SCOPE].n_violations == 2 * N_INTERVALS
-    assert sum(1 for text in details if "поле целиком" in text) == N_INTERVALS
-    assert sum(1 for text in details if "участок" in text) == 2 * N_INTERVALS
+    assert sum(1 for text in details if "the whole field" in text) == N_INTERVALS
+    assert sum(1 for text in details if "group " in text) == 2 * N_INTERVALS
 
 
 def test_group_scope_without_groups_is_an_error_not_a_skip() -> None:
@@ -289,7 +291,7 @@ def test_zero_group_withdrawal_is_undefined_not_a_fake_ratio() -> None:
     assert len(undefined) == N_INTERVALS
     assert all("G2" in item.detail for item in undefined)
     assert all(item.value == 5.0 for item in undefined)
-    assert all("не определена" in item.detail for item in undefined)
+    assert all("is undefined" in item.detail for item in undefined)
 
 
 def test_group_violations_block_only_under_hard_enforcement() -> None:

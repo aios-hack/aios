@@ -60,7 +60,7 @@ def _integer(environ: Mapping[str, str], name: str, default: int) -> int:
         return int(raw)
     except ValueError as error:
         raise ConfigurationError(
-            f"{name}={raw!r} — не целое число", code="settings.not_an_integer", variable=name
+            f"{name}={raw!r} is not an integer", code="settings.not_an_integer", variable=name
         ) from error
 
 
@@ -72,14 +72,14 @@ def _positive_cap(environ: Mapping[str, str], name: str, default: int) -> int:
         value = int(raw)
     except ValueError as error:
         raise ConfigurationError(
-            f"{name}={raw!r} — потолок неподвижной точки задаётся целым числом",
+            f"{name}={raw!r}: the fixed point cap is given as an integer",
             code="settings.not_an_integer",
             variable=name,
         ) from error
     if value <= 0:
         raise ConfigurationError(
-            f"{name}={value} не положителен: потолок неподвижной точки "
-            f"берётся снаружи, но обязан допускать хотя бы одну итерацию",
+            f"{name}={value} is not positive: the fixed point cap is taken from "
+            f"outside, but it must allow at least one iteration",
             code="settings.not_positive",
             variable=name,
         )
@@ -94,7 +94,7 @@ def _real(environ: Mapping[str, str], name: str, default: float) -> float:
         return float(raw)
     except ValueError as error:
         raise ConfigurationError(
-            f"{name}={raw!r} — не вещественное число", code="settings.not_a_number", variable=name
+            f"{name}={raw!r} is not a real number", code="settings.not_a_number", variable=name
         ) from error
 
 

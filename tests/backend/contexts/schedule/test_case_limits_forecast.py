@@ -7,18 +7,17 @@ from typing import Mapping
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
-    Constraints,
     ControlEvent,
     EventKind,
     OperatingStatus,
     Role,
     Schedule,
     ScheduleMeta,
-    WellOutage,
     WellState,
 )
+from backend.contexts.constraints.domain.constraints import Constraints, WellOutage
 from backend.contexts.schedule.domain.case_limits import (
     CaseLimitsForecastRequired,
     CaseLimitsNotConverged,

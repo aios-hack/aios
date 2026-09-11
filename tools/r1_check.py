@@ -1,12 +1,3 @@
-"""Прогон текущей политики через настоящий OPM с разложением по закачке.
-
-Нужен, чтобы мерить вклад каждой правки R1 по отдельности: θ берётся та же,
-что дала план G7 (`cmaes.json`), меняется только код правила, и разница
-целиком относится к правке.
-
-Запуск: `PYTHONPATH=. python tools/r1_check.py <метка>`.
-"""
-
 from __future__ import annotations
 
 import json
@@ -19,19 +10,20 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from backend.shared.resources import model_z_dir, normatives_xlsx
 
-# `optimizer.search_run` читает sys.argv на импорте (там это точка входа
-# поиска), а сюда приходит текстовая метка прогона. Подменяем argv на время
-# импорта, иначе модуль падает на int() ещё до первой строки нашей логики.
 _ARGV = sys.argv[:]
 sys.argv = sys.argv[:1]
 
-from backend.infrastructure.opm import submit_schedule
+from backend.contexts.simulation.application.submission import submit_schedule
 from backend.contexts.reservoir.infrastructure.opm_deck import OpmDeckEmitter
 from backend.contexts.simulation.infrastructure.runner import deck_hashes, summary_spec_hash
 from backend.contexts.constraints.domain.schema import default_config
-from backend.core.contracts import ArtifactHashes, Constraints, EventKind, Theta
-from backend.core.contracts.hashing import hash_schedule
-from backend.domain.economics import load_normatives, load_response_artifact
+from backend.contexts.constraints.domain.config import ArtifactHashes
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.schedule.domain.schedule import EventKind
+from backend.contexts.policy.domain.policy import Theta
+from backend.shared.hashing import hash_schedule
+from backend.contexts.economics.infrastructure.normatives_io import load_normatives
+from backend.contexts.economics.application.base_case import load_response_artifact
 from backend.contexts.economics.application.base_case import analyze_base_case
 from backend.contexts.optimization.application.environment import (
     load_environment,
@@ -84,8 +76,8 @@ def main() -> int:
     best = max(final.visited, key=lambda item: item.npv)
     schedule = best.schedule
     digest = hash_schedule(schedule)
-    print(f"[{LABEL}] план восстановлен за {time.monotonic() - started:.0f} с, {digest[:12]}…")
-    print(f"[{LABEL}] предсказание суррогата {best.npv / 1e9:.3f} млрд")
+    print(f"[{LABEL}] plan rebuilt in {time.monotonic() - started:.0f} s, {digest[:12]}...")
+    print(f"[{LABEL}] surrogate forecast {best.npv / 1e9:.3f} bln")
 
     ours = injection_by_step(schedule)
     base = injection_by_step(env.base_schedule)
@@ -93,8 +85,8 @@ def main() -> int:
     o = sorted(ours.get(s, 0.0) for s in steps)
     b = sorted(base.get(s, 0.0) for s in steps)
     print(
-        f"[{LABEL}] закачка, медиана на шаг: наша {o[len(o) // 2]:,.0f} против "
-        f"базовой {b[len(b) // 2]:,.0f} м³/сут "
+        f"[{LABEL}] injection, median per step: ours {o[len(o) // 2]:,.0f} against "
+        f"the base {b[len(b) // 2]:,.0f} m3/day "
         f"({100.0 * o[len(o) // 2] / max(1e-9, b[len(b) // 2]):.1f}%)"
     )
 
@@ -118,7 +110,7 @@ def main() -> int:
     )
     work_root = OUT / LABEL
     work_root.mkdir(parents=True, exist_ok=True)
-    print(f"[{LABEL}] звено А пошло", flush=True)
+    print(f"[{LABEL}] link A started", flush=True)
     started = time.monotonic()
     submission = submit_schedule(
         schedule, model_dir, work_root, config, constraints=Constraints(), strict=False
@@ -131,22 +123,22 @@ def main() -> int:
             kind = getattr(violation.kind, "name", None) or str(violation.kind)
             counts[kind] = counts.get(kind, 0) + 1
     npv = submission.final_npv.npv_methodology if submission.final_npv else None
-    print(f"[{LABEL}] статус {submission.opm_run.status}, за {elapsed / 60:.1f} мин")
+    print(f"[{LABEL}] status {submission.opm_run.status}, in {elapsed / 60:.1f} min")
     if npv is not None:
         print(
-            f"[{LABEL}] ЧДД по OPM {npv / 1e9:.3f} млрд "
-            f"({100.0 * (npv - BASE_NPV) / BASE_NPV:+.1f}% к базовому)"
+            f"[{LABEL}] NPV by OPM {npv / 1e9:.3f} bln "
+            f"({100.0 * (npv - BASE_NPV) / BASE_NPV:+.1f}% against the base)"
         )
         analysis = analyze_base_case(
             submission.response, env.deck_dates, env.t0_deck_date_index, normatives, env.policies
         )
         v = analysis.volumes
         print(
-            f"[{LABEL}] натура: нефть {v.oil_mass_t / 1e3:,.1f} тыс. т, "
-            f"жидкость {v.liquid_volume_m3 / 1e3:,.1f}, "
-            f"закачка {v.injection_volume_m3 / 1e3:,.1f} тыс. м³"
+            f"[{LABEL}] volumes: oil {v.oil_mass_t / 1e3:,.1f} thousand t, "
+            f"liquid {v.liquid_volume_m3 / 1e3:,.1f}, "
+            f"injection {v.injection_volume_m3 / 1e3:,.1f} thousand m3"
         )
-    print(f"[{LABEL}] нарушений {sum(counts.values())}: {counts}")
+    print(f"[{LABEL}] violations {sum(counts.values())}: {counts}")
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / f"{LABEL}.json").write_text(
         json.dumps(

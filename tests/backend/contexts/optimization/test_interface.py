@@ -1,8 +1,3 @@
-"""Приёмка задачи 37 (docs/v1/assignments/andrey.md, docs/context/08_contracts.md §6.1):
-
-- оптимизатор не видит ни скважин, ни расписания;
-- ограничение устойчивости не сворачивается в штраф.
-"""
 
 from __future__ import annotations
 
@@ -12,8 +7,8 @@ from typing import get_type_hints
 
 import pytest
 
-from backend.core.contracts import OptimizerResult, Theta
-from backend.application.optimization import Objective, ScenarioOutcome
+from backend.contexts.policy.domain.policy import OptimizerResult, Theta
+from backend.contexts.optimization.domain.interface import Objective, ScenarioOutcome
 from backend.contexts.optimization.domain import interface as _src_interface
 
 
@@ -31,8 +26,6 @@ class _FixedScenario:
 
 
 def test_objective_signature_is_exactly_theta_to_optimizer_result() -> None:
-    """Единственная граница: вход `Theta`, выход `OptimizerResult` — ничего
-    из Schedule/well/FieldState в сигнатуре появиться не может."""
 
     signature = inspect.signature(Objective.__call__)
     params = [name for name in signature.parameters if name != "self"]
@@ -44,9 +37,6 @@ def test_objective_signature_is_exactly_theta_to_optimizer_result() -> None:
 
 
 def test_interface_module_never_references_well_level_types() -> None:
-    """Статическая проверка слепоты: код (не проза докстрок и комментариев,
-    которые вправе цитировать контракт §6.1 целиком) не импортирует и не
-    использует Schedule/FieldState/well."""
 
     import ast
 
@@ -63,12 +53,10 @@ def test_interface_module_never_references_well_level_types() -> None:
             names.add(node.arg)
 
     for forbidden in ("Schedule", "FieldState", "well", "Well"):
-        assert forbidden not in names, f"{forbidden!r} просочился в код интерфейса оптимизатора"
+        assert forbidden not in names, f"{forbidden!r} leaked into the optimizer interface code"
 
 
 def test_scenario_violation_does_not_move_objective() -> None:
-    """Даже катастрофическая просадка на сценарии не трогает `objective` —
-    иначе ограничение устойчивости стало бы штрафом за пределами номинала."""
 
     nominal_value = 1.0e11
 
@@ -77,7 +65,7 @@ def test_scenario_violation_does_not_move_objective() -> None:
 
     catastrophic = _FixedScenario(
         "water_cut_2015",
-        ScenarioOutcome(regret=9.9e12, feasible=False, what="обводнённость > лимита"),
+        ScenarioOutcome(regret=9.9e12, feasible=False, what="watercut > limit"),
     )
 
     objective = Objective(nominal=nominal, battery=(catastrophic,), provenance=lambda theta: {})
@@ -89,7 +77,7 @@ def test_scenario_violation_does_not_move_objective() -> None:
     violation = result.violations_by_scenario[0]
     assert violation.scenario_id == "water_cut_2015"
     assert violation.regret == 9.9e12
-    assert violation.what == "обводнённость > лимита"
+    assert violation.what == "watercut > limit"
 
 
 def test_feasible_true_when_every_scenario_feasible() -> None:
@@ -106,7 +94,6 @@ def test_feasible_true_when_every_scenario_feasible() -> None:
 
 
 def test_only_infeasible_scenarios_are_reported() -> None:
-    """Нарушивший сценарий виден по имени, выполнивший — не засоряет список."""
 
     def nominal(theta: Theta) -> float:
         return 1.0
@@ -138,8 +125,6 @@ def test_provenance_is_passed_through_unchanged() -> None:
 
 
 def test_theta_is_the_only_thing_every_component_receives() -> None:
-    """Ни номинал, ни сценарий, ни provenance не получают ничего, кроме θ —
-    проверяем сигнатуры внедрённых компонентов, а не только доверяем аннотации."""
 
     seen: list[Theta] = []
 

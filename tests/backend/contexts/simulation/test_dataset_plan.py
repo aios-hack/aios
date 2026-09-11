@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.infrastructure.opm import OpmDeckEmitter
+from backend.contexts.reservoir.infrastructure.opm_deck import OpmDeckEmitter
 from backend.contexts.simulation.domain.perturbation_design import (
     DatasetPlanError,
     PerturbationFamily,
@@ -16,8 +16,9 @@ from backend.contexts.simulation.domain.perturbation_design import (
     dataset_base_schedule,
     materialize,
 )
-from backend.core.contracts import EventKind, MAX_LRAT_M3_PER_DAY, Role, Schedule, hash_schedule
-from backend.domain.schedule import validate_static
+from backend.contexts.schedule.domain.schedule import EventKind, MAX_LRAT_M3_PER_DAY, Role, Schedule
+from backend.shared.hashing import hash_schedule
+from backend.contexts.schedule.domain.validate import validate_static
 
 import tests.support.backend.environment as conftest
 
@@ -37,15 +38,10 @@ SMALL = PlanConfig(
 
 @pytest.fixture(scope="module")
 def base() -> Schedule:
-    return dataset_base_schedule(MODEL_Z)
+    return dataset_base_schedule(MODEL_Z, OpmDeckEmitter(MODEL_Z))
 
 
 def test_plan_covers_every_required_event_family_without_any_run(base: Schedule) -> None:
-    """Приёмка §9.1: план покрывает четыре вида, а не только уровни.
-
-    Проверяется на самом плане, без единого обращения к OPM — дешёвая
-    проверка раньше дорогой (§9).
-    """
 
     plan = build_plan(base, seed=SEED, config=SMALL)
 
@@ -62,9 +58,8 @@ def test_plan_covers_every_required_event_family_without_any_run(base: Schedule)
 
 
 def test_plan_rejects_itself_when_a_family_carries_no_perturbation(base: Schedule) -> None:
-    """Вид без единого возмущения не считается покрытым — план не строится."""
 
-    with pytest.raises(DatasetPlanError, match="не покрывает"):
+    with pytest.raises(DatasetPlanError, match="does not cover"):
         build_plan(
             base,
             seed=SEED,
@@ -78,14 +73,12 @@ def test_plan_rejects_itself_when_a_family_carries_no_perturbation(base: Schedul
 
 
 def test_conversion_retiming_stays_forbidden() -> None:
-    """`allow_conversion_retiming = true` запрещён до ответа по §3.11."""
 
     with pytest.raises(DatasetPlanError, match="allow_conversion_retiming"):
         PlanConfig(allow_conversion_retiming=True)
 
 
 def test_plan_is_deterministic_for_the_same_seed(base: Schedule) -> None:
-    """Тот же seed — тот же план до хеша; другой seed — другой план."""
 
     first = build_plan(base, seed=SEED, config=SMALL)
     second = build_plan(base, seed=SEED, config=SMALL)
@@ -97,7 +90,6 @@ def test_plan_is_deterministic_for_the_same_seed(base: Schedule) -> None:
 
 
 def test_materialization_is_deterministic_for_the_same_seed(base: Schedule) -> None:
-    """Расписания сценариев тоже детерминированы: совпадает canonical_schedule_hash."""
 
     first = build_plan(base, seed=SEED, config=SMALL)
     second = build_plan(base, seed=SEED, config=SMALL)
@@ -106,12 +98,10 @@ def test_materialization_is_deterministic_for_the_same_seed(base: Schedule) -> N
     second_hashes = [hash_schedule(materialize(base, spec).schedule) for spec in second]
 
     assert first_hashes == second_hashes
-    # Сценарии не вырождены в одно и то же расписание.
     assert len(set(first_hashes)) == len(first_hashes)
 
 
 def test_baseline_scenario_reproduces_the_base_schedule(base: Schedule) -> None:
-    """Опорный сценарий не возмущает ничего — тот же хеш, что у базы."""
 
     plan = build_plan(base, seed=SEED, config=SMALL)
     (spec,) = plan.by_family(PerturbationFamily.BASELINE)
@@ -120,7 +110,6 @@ def test_baseline_scenario_reproduces_the_base_schedule(base: Schedule) -> None:
 
 
 def test_every_scenario_passes_static_validation(base: Schedule) -> None:
-    """`validate_static == []` до эмита: на невалидный сценарий прогон не тратится."""
 
     plan = build_plan(base, seed=SEED, config=SMALL)
 
@@ -130,7 +119,6 @@ def test_every_scenario_passes_static_validation(base: Schedule) -> None:
 
 
 def test_every_scenario_stays_dense_enough_for_the_emitter(base: Schedule) -> None:
-    """Плотный слой сохраняется: `OpmDeckEmitter` принимает каждый сценарий."""
 
     emitter = OpmDeckEmitter(MODEL_Z)
     plan = build_plan(base, seed=SEED, config=SMALL)
@@ -140,7 +128,6 @@ def test_every_scenario_stays_dense_enough_for_the_emitter(base: Schedule) -> No
 
 
 def test_unreachable_targets_exceed_the_wells_own_history(base: Schedule) -> None:
-    """Недостижимость — уставка выше исторического максимума, а не флаг (§5.4)."""
 
     profile = baseline_profile(base)
     plan = build_plan(base, seed=SEED, config=SMALL)
@@ -155,7 +142,6 @@ def test_unreachable_targets_exceed_the_wells_own_history(base: Schedule) -> Non
 
 
 def test_unreachable_scenarios_report_a_nonzero_fraction(base: Schedule) -> None:
-    """Доля недостижимых уставок — метаданное §9.2, а не ноль по умолчанию."""
 
     plan = build_plan(base, seed=SEED, config=SMALL)
 
@@ -166,7 +152,6 @@ def test_unreachable_scenarios_report_a_nonzero_fraction(base: Schedule) -> None
 
 
 def test_shutdown_scenarios_add_standalone_stops_and_restarts(base: Schedule) -> None:
-    """В базе автономных остановок нет — сценарий обязан их создать (§9.1)."""
 
     plan = build_plan(base, seed=SEED, config=SMALL)
     profile = baseline_profile(base)
@@ -178,8 +163,6 @@ def test_shutdown_scenarios_add_standalone_stops_and_restarts(base: Schedule) ->
         assert shut > base_shut
 
         for window in spec.shutdowns:
-            # Шаг базового перевода из окна исключён: закрыть и тем же шагом
-            # открыть нагнетателем — противоречие, а не сценарий.
             conversion = profile.conversion_steps.get(window.well)
             expected = window.to_step - window.from_step
             if conversion is not None and window.from_step <= conversion < window.to_step:
@@ -201,15 +184,10 @@ def test_shutdown_scenarios_add_standalone_stops_and_restarts(base: Schedule) ->
                     and event.control_step == window.to_step
                     and event.kind is EventKind.OPEN
                 ]
-                assert restart, f"{window.well}: запуска на шаге {window.to_step} нет"
+                assert restart, f"{window.well}: there is no restart at step {window.to_step}"
 
 
 def test_dropped_conversion_keeps_the_well_producing_to_the_end(base: Schedule) -> None:
-    """Снятый перевод — событие, а не дыра в плотном слое.
-
-    Скважина остаётся добывающей до конца горизонта: ни одного `SET_RATE`
-    после снятой даты, и на каждом шаге есть уставка.
-    """
 
     plan = build_plan(base, seed=SEED, config=SMALL)
     profile = baseline_profile(base)
@@ -235,7 +213,6 @@ def test_dropped_conversion_keeps_the_well_producing_to_the_end(base: Schedule) 
 
 
 def test_kept_conversion_keeps_the_base_date(base: Schedule) -> None:
-    """Дата перевода не двигается: `allow_conversion_retiming = false` (§9.1)."""
 
     plan = build_plan(base, seed=SEED, config=SMALL)
     profile = baseline_profile(base)
@@ -255,7 +232,6 @@ def test_kept_conversion_keeps_the_base_date(base: Schedule) -> None:
 
 
 def test_level_scenarios_move_setpoints_without_touching_the_ceiling(base: Schedule) -> None:
-    """LHS двигает уровни, но потолок Методики не пробивается ни разу."""
 
     plan = build_plan(base, seed=SEED, config=SMALL)
     base_values = {
@@ -278,7 +254,6 @@ def test_level_scenarios_move_setpoints_without_touching_the_ceiling(base: Sched
 
 
 def test_level_factors_are_stratified_across_the_configured_window(base: Schedule) -> None:
-    """Латинский гиперкуб: по одному множителю из каждого слоя окна."""
 
     config = PlanConfig(
         n_level_scenarios=1,
@@ -304,7 +279,6 @@ def test_level_factors_are_stratified_across_the_configured_window(base: Schedul
 
 
 def test_fixed_deck_layer_is_never_perturbed(base: Schedule) -> None:
-    """§9.1: возмущается управление, а не программа ввода скважин и перфораций."""
 
     plan = build_plan(base, seed=SEED, config=SMALL)
 
@@ -316,7 +290,6 @@ def test_fixed_deck_layer_is_never_perturbed(base: Schedule) -> None:
 
 
 def test_conversion_wells_never_receive_lrat_after_a_kept_conversion(base: Schedule) -> None:
-    """Роль соблюдается: после сохранённого перевода уставка только SET_RATE."""
 
     plan = build_plan(base, seed=SEED, config=SMALL)
 

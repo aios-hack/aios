@@ -90,21 +90,21 @@ class PreflightReport:
 
 _MESSAGES: dict[PreflightProblem, str] = {
     PreflightProblem.BINARY_MISSING: (
-        "не удалось запустить {binary!r}: исполняемый файл Docker отсутствует "
-        "в PATH. Установите Docker и убедитесь, что клиент доступен из этой оболочки."
+        "could not start {binary!r}: the Docker executable is not on PATH. "
+        "Install Docker and make sure the client is reachable from this shell."
     ),
     PreflightProblem.DAEMON_DOWN: (
-        "Демон Docker не отвечает: {detail}. "
-        "Запустите Docker Desktop или службу docker и повторите."
+        "The Docker daemon is not responding: {detail}. "
+        "Start Docker Desktop or the docker service and try again."
     ),
     PreflightProblem.PERMISSION_DENIED: (
-        "Нет прав на обращение к Docker: {detail}. "
-        "Добавьте пользователя в группу docker (или запустите с нужными правами) "
-        "и заново войдите в сессию."
+        "No permission to reach Docker: {detail}. "
+        "Add the user to the docker group (or run with the required privileges) "
+        "and log in to the session again."
     ),
     PreflightProblem.IMAGE_MISSING: (
-        "Образ OPM {image!r} не найден локально: {detail}. "
-        "Загрузите его командой docker pull {image}."
+        "The OPM image {image!r} was not found locally: {detail}. "
+        "Pull it with docker pull {image}."
     ),
 }
 
@@ -123,7 +123,7 @@ def _classify_daemon_failure(text: str) -> PreflightProblem:
 def _tail(text: str) -> str:
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     if not lines:
-        return "нет ответа от демона"
+        return "no response from the daemon"
     return lines[-1]
 
 
@@ -199,7 +199,7 @@ def docker_preflight(
         timeout_seconds=timeout_seconds,
     )
     if info is None:
-        detail = f"клиент не ответил за {timeout_seconds:g} с"
+        detail = f"the client did not respond within {timeout_seconds:g} s"
         return PreflightReport(
             problem=PreflightProblem.DAEMON_DOWN,
             image=target,
@@ -221,7 +221,7 @@ def docker_preflight(
         return PreflightReport(
             problem=PreflightProblem.OK,
             image=target,
-            message=f"Docker готов, образ {target} не проверялся",
+            message=f"Docker is ready, image {target} was not checked",
             detail=info.stdout.strip(),
         )
 
@@ -230,7 +230,7 @@ def docker_preflight(
         timeout_seconds=timeout_seconds,
     )
     if inspect is None:
-        detail = f"docker image inspect не ответил за {timeout_seconds:g} с"
+        detail = f"docker image inspect did not respond within {timeout_seconds:g} s"
         return PreflightReport(
             problem=PreflightProblem.IMAGE_MISSING,
             image=target,
@@ -265,7 +265,7 @@ def docker_preflight(
     return PreflightReport(
         problem=PreflightProblem.OK,
         image=target,
-        message=f"Docker готов, образ {target} найден локально",
+        message=f"Docker is ready, image {target} was found locally",
         detail=info.stdout.strip(),
         digest=digest,
     )
@@ -321,10 +321,10 @@ def resolve_image_reference(
         return ImageReference(image=report.digest, digest=report.digest, pinned=True)
     if report.ok:
         return ImageReference(
-            image=f"{target} (тег, digest недоступен)", digest=None, pinned=False
+            image=f"{target} (tag, digest unavailable)", digest=None, pinned=False
         )
     return ImageReference(
-        image=f"{target} (тег, digest не получен: {report.problem.value})",
+        image=f"{target} (tag, digest not obtained: {report.problem.value})",
         digest=None,
         pinned=False,
     )

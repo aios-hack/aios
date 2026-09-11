@@ -12,7 +12,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from backend.core.contracts import Groups, Lambda, canonical_bytes
+from backend.contexts.connectivity.domain.connectivity import Groups, Lambda
+from backend.shared.hashing import canonical_bytes
 
 from backend.contexts.connectivity.domain.groups import (
     GroupingParams,
@@ -43,14 +44,14 @@ class GroupsProvenance:
     def __post_init__(self) -> None:
         if self.window_start >= self.window_end:
             raise GroupsProvenanceError(
-                f"окно применимости {self.window_start}..{self.window_end} пусто "
-                f"или вывернуто: артефакт без окна неотличим от артефакта "
-                f"другого окна"
+                f"the applicability window {self.window_start}..{self.window_end} is "
+                f"empty or inverted: an artifact without a window is "
+                f"indistinguishable from an artifact of another window"
             )
         if not self.algorithm:
-            raise GroupsProvenanceError("алгоритм не назван")
+            raise GroupsProvenanceError("the algorithm is not named")
         if not self.algorithm_version:
-            raise GroupsProvenanceError("версия алгоритма не названа")
+            raise GroupsProvenanceError("the algorithm version is not named")
 
     @property
     def params(self) -> GroupingParams:
@@ -69,14 +70,14 @@ class GroupsArtifact:
 
     def __post_init__(self) -> None:
         if not self.fund:
-            raise GroupsArtifactError("фонд артефакта пуст")
+            raise GroupsArtifactError("the artifact well stock is empty")
         for name, value in (
             ("group_hash", self.groups.group_hash),
             ("lambda_hash", self.groups.lambda_hash),
         ):
             if len(value) != HASH_LENGTH or set(value) - HEX_DIGITS:
                 raise GroupsArtifactError(
-                    f"{name} не является SHA-256 в {HASH_LENGTH} hex-символов: "
+                    f"{name} is not a SHA-256 of {HASH_LENGTH} hex characters: "
                     f"{value!r}"
                 )
 
@@ -171,24 +172,24 @@ def dumps(artifact: GroupsArtifact) -> str:
 
 def _require(payload: Mapping[str, Any], key: str) -> Any:
     if key not in payload:
-        raise GroupsArtifactError(f"в артефакте нет поля {key}")
+        raise GroupsArtifactError(f"the artifact has no field {key}")
     return payload[key]
 
 
 def _parse_date(raw: Any, key: str) -> date:
     if not isinstance(raw, str):
-        raise GroupsProvenanceError(f"{key}={raw!r} не строка YYYY-MM-DD")
+        raise GroupsProvenanceError(f"{key}={raw!r} is not a YYYY-MM-DD string")
     try:
         return date.fromisoformat(raw)
     except ValueError as error:
-        raise GroupsProvenanceError(f"{key}={raw!r} не разбирается как дата") from error
+        raise GroupsProvenanceError(f"{key}={raw!r} does not parse as a date") from error
 
 
 def _provenance_from_payload(raw: Any) -> GroupsProvenance:
     if not isinstance(raw, Mapping):
         raise GroupsProvenanceError(
-            "происхождение подано не отображением: окно применимости, seed, "
-            "параметры и версия алгоритма обязаны быть в артефакте"
+            "provenance is not given as a mapping: the applicability window, seed, "
+            "parameters and algorithm version must all be in the artifact"
         )
     missing = {
         "algorithm",
@@ -201,12 +202,13 @@ def _provenance_from_payload(raw: Any) -> GroupsProvenance:
     } - set(raw)
     if missing:
         raise GroupsProvenanceError(
-            f"в происхождении нет {sorted(missing)}: артефакт без окна "
-            f"применимости неотличим от артефакта другого окна"
+            f"provenance is missing {sorted(missing)}: an artifact without an "
+            f"applicability window is indistinguishable from an artifact of "
+            f"another window"
         )
     seed = raw["seed"]
     if isinstance(seed, bool) or not isinstance(seed, int):
-        raise GroupsProvenanceError(f"seed={seed!r} не целый")
+        raise GroupsProvenanceError(f"seed={seed!r} is not an integer")
     return GroupsProvenance(
         window_start=_parse_date(raw["window_start"], "window_start"),
         window_end=_parse_date(raw["window_end"], "window_end"),
@@ -221,19 +223,19 @@ def _provenance_from_payload(raw: Any) -> GroupsProvenance:
 def from_payload(payload: Mapping[str, Any]) -> GroupsArtifact:
     if payload.get("format") != ARTIFACT_FORMAT:
         raise GroupsArtifactError(
-            f"нераспознанный формат артефакта: {payload.get('format')!r}"
+            f"unrecognised artifact format: {payload.get('format')!r}"
         )
     raw_groups = _require(payload, "groups")
     if not isinstance(raw_groups, Mapping) or not raw_groups:
-        raise GroupsArtifactError("нарезка подана не непустым отображением")
+        raise GroupsArtifactError("the grouping is not given as a non-empty mapping")
     groups: dict[str, tuple[str, ...]] = {}
     for group_id, members in raw_groups.items():
         if isinstance(members, str) or not isinstance(members, Sequence):
-            raise GroupsArtifactError(f"участок {group_id} подан не списком скважин")
+            raise GroupsArtifactError(f"group {group_id} is not given as a list of wells")
         groups[str(group_id)] = tuple(sorted(str(well) for well in members))
     raw_fund = _require(payload, "fund")
     if isinstance(raw_fund, str) or not isinstance(raw_fund, Sequence):
-        raise GroupsArtifactError("фонд подан не списком скважин")
+        raise GroupsArtifactError("the well stock is not given as a list of wells")
     artifact = GroupsArtifact(
         groups=Groups(
             groups=groups,
@@ -247,7 +249,7 @@ def from_payload(payload: Mapping[str, Any]) -> GroupsArtifact:
     actual = artifact_hash(artifact)
     if declared is not None and declared != actual:
         raise GroupsArtifactError(
-            f"хеш артефакта не сходится: заявлен {declared!r}, посчитан {actual!r}"
+            f"the artifact hash does not match: declared {declared!r}, computed {actual!r}"
         )
     _check_invariants(artifact)
     return artifact
@@ -256,19 +258,19 @@ def from_payload(payload: Mapping[str, Any]) -> GroupsArtifact:
 def _check_invariants(artifact: GroupsArtifact) -> None:
     for group_id, members in sorted(artifact.groups.groups.items()):
         if not members:
-            raise GroupsArtifactError(f"участок {group_id} пуст")
+            raise GroupsArtifactError(f"group {group_id} is empty")
     covered = {
         well for members in artifact.groups.groups.values() for well in members
     }
     missing = tuple(sorted(set(artifact.fund) - covered))
     if missing:
         raise GroupsArtifactError(
-            f"вне участков осталось {len(missing)} скважин: {missing}"
+            f"{len(missing)} wells are left outside the groups: {missing}"
         )
     stray = tuple(sorted(covered - set(artifact.fund)))
     if stray:
         raise GroupsArtifactError(
-            f"в участках есть скважины вне фонда артефакта: {stray}"
+            f"the groups contain wells outside the artifact well stock: {stray}"
         )
 
 
@@ -276,9 +278,9 @@ def loads(text: str) -> GroupsArtifact:
     try:
         payload = json.loads(text)
     except json.JSONDecodeError as error:
-        raise GroupsArtifactError(f"артефакт не разбирается как JSON — {error}") from error
+        raise GroupsArtifactError(f"the artifact does not parse as JSON — {error}") from error
     if not isinstance(payload, Mapping):
-        raise GroupsArtifactError("корень артефакта не отображение")
+        raise GroupsArtifactError("the artifact root is not a mapping")
     return from_payload(payload)
 
 
@@ -288,7 +290,7 @@ def save(artifact: GroupsArtifact, path: Path) -> None:
 
 def load(path: Path) -> GroupsArtifact:
     if not path.exists():
-        raise GroupsArtifactError(f"артефакт не найден: {path}")
+        raise GroupsArtifactError(f"artifact not found: {path}")
     return loads(path.read_text(encoding="utf-8"))
 
 
@@ -296,15 +298,15 @@ def verify_against_lambda(artifact: GroupsArtifact, influence: Lambda) -> None:
     window = (influence.window_start, influence.window_end)
     if artifact.window != window:
         raise GroupsProvenanceError(
-            f"окно артефакта {artifact.window[0]}..{artifact.window[1]} не совпадает "
-            f"с окном матрицы {window[0]}..{window[1]}: нарезка одного окна не "
-            f"применима к другому"
+            f"the artifact window {artifact.window[0]}..{artifact.window[1]} does "
+            f"not match the matrix window {window[0]}..{window[1]}: a grouping "
+            f"of one window does not apply to another"
         )
     expected = lambda_hash(influence)
     if artifact.groups.lambda_hash != expected:
         raise GroupsProvenanceError(
-            f"артефакт порождён другой матрицей: заявлен {artifact.groups.lambda_hash}, "
-            f"у поданной λ {expected}"
+            f"the artifact came from a different matrix: it declares "
+            f"{artifact.groups.lambda_hash}, the given lambda has {expected}"
         )
     validate_groups(artifact.groups, influence, artifact.fund)
 
@@ -319,13 +321,13 @@ def is_current(artifact: GroupsArtifact) -> bool:
 def require_current(artifact: GroupsArtifact) -> None:
     if artifact.provenance.algorithm != ALGORITHM_NAME:
         raise GroupsProvenanceError(
-            f"артефакт порождён алгоритмом {artifact.provenance.algorithm!r}, "
-            f"текущий — {ALGORITHM_NAME!r}"
+            f"the artifact came from algorithm {artifact.provenance.algorithm!r}, "
+            f"the current one is {ALGORITHM_NAME!r}"
         )
     if artifact.provenance.algorithm_version != ALGORITHM_VERSION:
         raise GroupsProvenanceError(
-            f"артефакт версии {artifact.provenance.algorithm_version}, "
-            f"текущая версия алгоритма {ALGORITHM_VERSION}"
+            f"the artifact is of version {artifact.provenance.algorithm_version}, "
+            f"the current algorithm version is {ALGORITHM_VERSION}"
         )
 
 
@@ -337,9 +339,9 @@ def require_params(artifact: GroupsArtifact, params: GroupingParams) -> None:
     if not matches_params(artifact, params):
         stored = artifact.provenance.params
         raise GroupsProvenanceError(
-            f"артефакт построен с параметрами merge_overlap={stored.merge_overlap}, "
+            f"the artifact was built with merge_overlap={stored.merge_overlap}, "
             f"membership_share={stored.membership_share}, seed={stored.seed}; "
-            f"запрошены merge_overlap={params.merge_overlap}, "
+            f"requested merge_overlap={params.merge_overlap}, "
             f"membership_share={params.membership_share}, seed={params.seed}"
         )
 
@@ -361,8 +363,8 @@ def cache_key(artifact: GroupsArtifact, *parts: str) -> str:
     for part in parts:
         if len(part) != HASH_LENGTH or set(part) - HEX_DIGITS:
             raise GroupsArtifactError(
-                f"часть ключа кеша {part!r} не является SHA-256 в "
-                f"{HASH_LENGTH} hex-символов"
+                f"cache key part {part!r} is not a SHA-256 of "
+                f"{HASH_LENGTH} hex characters"
             )
         digests.append(bytes.fromhex(part))
     return hashlib.sha256(b"".join(digests)).hexdigest()

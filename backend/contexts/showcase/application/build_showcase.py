@@ -1,36 +1,19 @@
 from __future__ import annotations
 
-from backend.contexts.showcase.application.notices import (
-    notice_fields,
-)
-
 import json
 from pathlib import Path
 from typing import Any
 
-from backend.core.contracts import (
-    DEFAULT_NORMATIVES_2007,
-    N_CONTROL_DATES,
-    T0,
-    ChargeInitialEsp,
-    NormativeSet,
-    Policies,
-    QuantizationPolicy,
-    RunArtifact,
-)
+from backend.contexts.runs.domain.run_artifact import RunArtifact
 from backend.contexts.reservoir.domain.response import N_DECK_DATES
-from backend.shared.paths import project_root
-from backend.domain.economics import ESP_CATALOG_2007
-from backend.contexts.policy.domain.agents.registry import DEFAULT_REGISTRY
+from backend.contexts.schedule.domain.schedule import N_CONTROL_DATES, T0
 from backend.contexts.showcase.application.exporters.ablation_view import (
     ablation_meta,
     export_ablation_json,
 )
 from backend.contexts.showcase.infrastructure.artifact_io import dump_bundle
 from backend.contexts.showcase.application.base_artifact import build_base_artifact, real_meta
-from backend.contexts.reservoir.application.deck import load_oil_density_by_well, load_wellheads
 from backend.contexts.showcase.infrastructure.synthetic_artifact import (
-    DEMO_PROVENANCE,
     DEMO_SEED,
     build_demo_artifact,
 )
@@ -43,7 +26,6 @@ from backend.contexts.showcase.application.exporters.maps_view import export_map
 from backend.contexts.showcase.application.exporters.npv_view import export_npv_json
 from backend.contexts.showcase.application.scenarios import (
     ScenarioRobustness,
-    WorstRegret,
     export_scenarios_json,
 )
 from backend.contexts.showcase.application.exporters.timeline import (
@@ -52,102 +34,36 @@ from backend.contexts.showcase.application.exporters.timeline import (
     export_timeline_json,
     export_trace_json,
 )
+from backend.contexts.showcase.application.showcase_meta import (
+    BASE_ID,
+    DEFAULT_OUT_DIR,
+    DEMO_ROBUSTNESS,
+    HIERARCHY_PROVENANCE,
+    WHATIF_ID,
+    _BASE_NORMATIVES,
+    _BASE_POLICIES,
+    _DEFAULT_DENSITY,
+    _oil_densities,
+    confirmed_base_robustness,
+    deck_scale,
+    demo_meta,
+    hierarchy_meta,
+)
+from backend.contexts.showcase.application.showcase_script import (
+    EVENT_HOLD_MS,
+    MORPH_HOLD_MS,
+    OPENING_HOLD_MS,
+    TARGET_TOTAL_MS,
+    build_demo_script,
+    export_demo_script_json,
+    field_events,
+)
 from backend.contexts.reservoir.application.well_geometry import (
     DEFAULT_DECK_PATH,
     build_wells_data,
 )
 from backend.shared.settings import Settings
 from backend.shared.json_io import read_json
-
-DEMO_NOTICE_RU = "Демонстрационные данные, не результат расчёта"
-DEMO_NOTICE_EN = "Demonstration data, not a computed result"
-BASE_ID = "base"
-WHATIF_ID = "whatif-injection-cut"
-DEFAULT_OUT_DIR: Path = project_root() / "frontend" / "public" / "data"
-_DEFAULT_DENSITY = 860.0
-
-
-def _oil_densities(wells: Any) -> dict[str, float]:
-    from backend.shared.resources import model_z_dir
-
-    names = tuple(wells)
-    try:
-        measured = load_oil_density_by_well(names, model_z_dir())
-    except (FileNotFoundError, ValueError, OSError):
-        return {well: _DEFAULT_DENSITY for well in names}
-    return {well: measured.get(well, _DEFAULT_DENSITY) for well in names}
-
-DEMO_ROBUSTNESS: dict[str, ScenarioRobustness] = {
-    BASE_ID: ScenarioRobustness(
-        ood_score=0.18,
-        ood_threshold=0.5,
-        worst_regret=WorstRegret(
-            scenario_id="holdout-outage-and-injection-cap",
-            value_rub=201_000_000.0,
-            part="holdout",
-        ),
-    ),
-    WHATIF_ID: ScenarioRobustness(),
-}
-
-
-def confirmed_base_robustness(
-    npv_rub: float, source_run_id: str
-) -> ScenarioRobustness:
-    measured = DEMO_ROBUSTNESS[BASE_ID]
-    return ScenarioRobustness(
-        ood_score=measured.ood_score,
-        ood_threshold=measured.ood_threshold,
-        worst_regret=measured.worst_regret,
-        final_npv_rub=npv_rub,
-        final_npv_run_id=source_run_id,
-        run_validation_clean=True,
-    )
-
-_BASE_NORMATIVES = NormativeSet(**DEFAULT_NORMATIVES_2007, esp_catalog=ESP_CATALOG_2007)
-_BASE_POLICIES = Policies(
-    charge_initial_esp=ChargeInitialEsp.NOT_CHARGED,
-    quantization_policy=QuantizationPolicy.NONE,
-)
-
-
-def demo_meta(kind: str) -> dict[str, Any]:
-    return {
-        "provenance": DEMO_PROVENANCE,
-        "synthetic": True,
-        "seed": DEMO_SEED,
-        "kind": kind,
-        **notice_fields("showcase.notice.demo"),
-    }
-
-
-HIERARCHY_PROVENANCE = "policy-hierarchy-trace"
-HIERARCHY_NOTICE_RU = (
-    "Настоящий журнал решений: уровни поля, участка и скважины получены прогоном "
-    "политики (policy/hierarchy.run_step) на отклике сценария"
-)
-HIERARCHY_NOTICE_EN = (
-    "Real decision log: field, group and well levels come from a policy run "
-    "(policy/hierarchy.run_step) over the scenario response"
-)
-
-
-def hierarchy_meta(artifact: RunArtifact) -> dict[str, Any]:
-    return {
-        "provenance": HIERARCHY_PROVENANCE,
-        "synthetic": False,
-        "kind": "hierarchy",
-        "lambda_measured": any(
-            weight != 0.0 for row in artifact.lambda_.matrix for weight in row
-        ),
-        "agent_registry": list(DEFAULT_REGISTRY.names()),
-        **notice_fields("showcase.notice.hierarchy"),
-    }
-
-
-def deck_scale(deck_path: str | Path = DEFAULT_DECK_PATH) -> tuple[str, ...]:
-    heads = load_wellheads(deck_path)
-    return tuple(sorted(heads, key=lambda name: (len(name), name)))
 
 
 def _stamp(path: Path, meta: dict[str, Any]) -> None:
@@ -211,140 +127,6 @@ def export_scenario(
     _stamp(ablation_path, meta_by_kind.get("ablation", ablation_meta()))
     written.append(ablation_path)
     return written
-
-
-MORPH_HOLD_MS = 5000
-EVENT_HOLD_MS = 4500
-OPENING_HOLD_MS = 4000
-TARGET_TOTAL_MS = 60_000
-
-
-def _role_and_status(step: dict[str, Any]) -> dict[str, tuple[str, str, str]]:
-    return {
-        row["well"]: (row["role"], row["availability"], row["operating_status"])
-        for row in step["wells"]
-    }
-
-
-def field_events(
-    timeline: dict[str, Any], trace: dict[str, dict[str, list[dict[str, Any]]]]
-) -> list[dict[str, Any]]:
-    steps = timeline["steps"]
-    events: list[dict[str, Any]] = []
-    previous = _role_and_status(steps[0])
-    for step in steps[1:]:
-        current = _role_and_status(step)
-        control_step = step["control_step"]
-        for well in sorted(current, key=lambda name: (len(name), name)):
-            was = previous.get(well)
-            now = current[well]
-            if was is None or was == now:
-                continue
-            if was[1] != now[1] and now[1] == "AVAILABLE":
-                events.append(
-                    {"step": control_step, "type": "COMMISSIONED", "well": well}
-                )
-            if was[0] != now[0]:
-                events.append(
-                    {"step": control_step, "type": "ROLE_CHANGE", "well": well}
-                )
-            if was[2] != now[2] and now[2] == "SHUT":
-                events.append({"step": control_step, "type": "SHUT", "well": well})
-        previous = current
-    for well in sorted(trace, key=lambda name: (len(name), name)):
-        for raw_step in sorted(trace[well], key=int):
-            for record in trace[well][raw_step]:
-                events.append(
-                    {
-                        "step": int(raw_step),
-                        "type": "RULE_FIRED",
-                        "well": well,
-                        "rule": record["rule"],
-                    }
-                )
-    events.sort(key=lambda item: (item["step"], item["type"], item["well"]))
-    return events
-
-
-def _pick_spread(events: list[dict[str, Any]], count: int) -> list[dict[str, Any]]:
-    if not events or count <= 0:
-        return []
-    if len(events) <= count:
-        return list(events)
-    stride = len(events) / count
-    return [events[min(len(events) - 1, int(index * stride))] for index in range(count)]
-
-
-def build_demo_script(
-    timeline: dict[str, Any], trace: dict[str, dict[str, list[dict[str, Any]]]]
-) -> dict[str, Any]:
-    available = field_events(timeline, trace)
-    by_type: dict[str, list[dict[str, Any]]] = {}
-    for event in available:
-        by_type.setdefault(event["type"], []).append(event)
-    frames: list[dict[str, Any]] = [
-        {
-            "step": 0,
-            "scene": "projection",
-            "t": 0,
-            "well": None,
-            "event": None,
-            "hold_ms": OPENING_HOLD_MS,
-        },
-        {
-            "step": 0,
-            "scene": "projection",
-            "t": 1,
-            "well": None,
-            "event": {"type": "MORPH"},
-            "hold_ms": MORPH_HOLD_MS,
-        },
-    ]
-    budget = TARGET_TOTAL_MS - OPENING_HOLD_MS - MORPH_HOLD_MS
-    slots = budget // EVENT_HOLD_MS
-    order = ("COMMISSIONED", "ROLE_CHANGE", "SHUT", "RULE_FIRED")
-    present = [name for name in order if by_type.get(name)]
-    if not present:
-        return {"frames": frames}
-    per_type = max(1, slots // len(present))
-    chosen: list[dict[str, Any]] = []
-    for name in present:
-        chosen.extend(_pick_spread(by_type[name], per_type))
-    chosen.sort(key=lambda item: (item["step"], item["type"], item["well"]))
-    scenes = ("projection", "chronomap")
-    for index, event in enumerate(chosen[:slots]):
-        payload: dict[str, Any] = {"type": event["type"], "well": event["well"]}
-        if "rule" in event:
-            payload["rule"] = event["rule"]
-        frames.append(
-            {
-                "step": event["step"],
-                "scene": scenes[index % len(scenes)],
-                "well": event["well"],
-                "event": payload,
-                "hold_ms": EVENT_HOLD_MS,
-            }
-        )
-    return {"frames": frames, "total_ms": sum(frame["hold_ms"] for frame in frames)}
-
-
-def export_demo_script_json(
-    timeline: dict[str, Any],
-    trace: dict[str, dict[str, list[dict[str, Any]]]],
-    out_path: str | Path,
-) -> Path:
-    out = Path(out_path)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(
-        json.dumps(
-            build_demo_script(timeline, trace),
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-        ),
-        encoding="utf-8",
-    )
-    return out
 
 
 def build_demo(

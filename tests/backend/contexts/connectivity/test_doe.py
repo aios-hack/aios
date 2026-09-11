@@ -4,29 +4,29 @@ from datetime import date
 
 import pytest
 
-from backend.core.contracts import Role
+from backend.contexts.schedule.domain.schedule import Role
 
-from backend.domain.connectivity import (
+from backend.contexts.connectivity.domain.doe import (
     Amplitude,
-    DeckSchedule,
     DoEPlan,
-    FundHistory,
     Level,
-    Window,
     achievability,
-    active_fund_in_window,
     amplitude_from_prior,
-    hadamard,
-    is_hadamard,
-    normalized,
     orthogonality_of,
     plackett_burman,
     plan_runs,
     plans_for_windows,
     realized_matrix,
-    setpoint_changes,
+)
+from backend.contexts.connectivity.infrastructure.deck import DeckSchedule
+from backend.contexts.connectivity.domain.fund import (
+    FundHistory,
+    Window,
+    active_fund_in_window,
     slice_windows,
 )
+from backend.contexts.connectivity.domain.hadamard import hadamard, is_hadamard, normalized
+from backend.contexts.connectivity.domain.setpoints import setpoint_changes
 from backend.contexts.connectivity.domain.fund import ActiveFund
 
 pytestmark = [pytest.mark.slow]
@@ -138,22 +138,6 @@ def test_half_high_half_low_per_run_when_the_design_needs_no_padding(
 
 
 def test_design_is_orthogonal_by_construction(deck: DeckSchedule) -> None:
-    """Обусловленность плана — не 1.0 (исправлено 16.08).
-
-    Столбец-константа матрицы Адамара в план не входит, поэтому недиагональ
-    матрицы Грама равна −1, а не нулю: Gram = `(n_runs + 1)·I − J`. Спектр —
-    `n_runs + 1` кратности `width − 1` и `n_runs + 1 − width` на собственном
-    векторе из единиц, то есть обусловленность
-    `(n_runs + 1) / (n_runs + 1 − width)`: 28 на квадратном плане в 27
-    прогонов и тем ближе к единице, чем больше в плане пустых колонок
-    (28 при width=27, 10.67 при width=29 и 31 прогоне).
-
-    Прежнее ожидание 1.0 закрепляло артефакт степенного метода, который
-    стартовал ровно с вектора `[1…1]` — тот попадал в собственный вектор
-    наименьшего значения, и «наибольшее» находилось равным ему. Полная
-    ортогональность плана по замыслу предъявляется корреляцией колонок
-    (`1 / n_runs`) и полным рангом, а не единичной обусловленностью.
-    """
 
     amp = amplitude(deck)
     for count in (27, 29, 38, 39, 41):
@@ -180,7 +164,7 @@ def test_plan_on_an_empty_fund_is_refused() -> None:
         producers=("P001",),
         commissioned=("P001",),
     )
-    with pytest.raises(ValueError, match="активных нагнетательных нет"):
+    with pytest.raises(ValueError, match="no active injectors"):
         plackett_burman(a_window(), empty, Amplitude(30.0, 5.0, 25.0), seed=SEED)
 
 
@@ -214,7 +198,7 @@ def test_targets_require_the_actual_level_of_every_well(
     deck: DeckSchedule,
 ) -> None:
     plan = a_plan(27, amplitude(deck))
-    with pytest.raises(ValueError, match="текущего уровня"):
+    with pytest.raises(ValueError, match="current injection level"):
         plan.targets(0, {plan.injectors[0]: 40.0})
 
 
@@ -304,7 +288,7 @@ def test_achievability_refuses_a_partial_check(deck: DeckSchedule) -> None:
     plan = a_plan(27, amplitude(deck))
     current = {well: 40.0 for well in plan.injectors}
     targets = [plan.targets(i, current) for i in range(plan.n_runs)]
-    with pytest.raises(ValueError, match="прогонов"):
+    with pytest.raises(ValueError, match="runs"):
         achievability(plan, targets[:-1], targets[:-1], tolerance=0.0)
 
 
@@ -342,5 +326,5 @@ def test_hadamard_matrices_are_orthogonal_for_every_needed_order() -> None:
 
 
 def test_hadamard_of_a_non_multiple_of_four_is_refused() -> None:
-    with pytest.raises(ValueError, match="кратен четырём"):
+    with pytest.raises(ValueError, match="multiple of four"):
         hadamard(6)

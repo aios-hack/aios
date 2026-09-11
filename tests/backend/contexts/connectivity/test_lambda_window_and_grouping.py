@@ -7,8 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import Groups, Lambda, RunArtifact
-from backend.core.paths import data_root
+from backend.contexts.connectivity.domain.connectivity import Groups, Lambda
+from backend.contexts.runs.domain.run_artifact import RunArtifact
+from backend.shared.paths import data_root
 from backend.contexts.connectivity.application.campaign import CampaignError
 from backend.contexts.connectivity.domain.groups import (
     DEFAULT_QUANTILE_GRID,
@@ -59,7 +60,7 @@ def horizon(start: date, end: date) -> tuple[date, ...]:
 
 def real_lambda() -> Lambda:
     if not REAL_LAMBDA.is_file():
-        pytest.skip(f"нет измеренной связности по пути {REAL_LAMBDA}")
+        pytest.skip(f"no measured connectivity at {REAL_LAMBDA}")
     return load_lambda(REAL_LAMBDA)
 
 
@@ -103,7 +104,7 @@ def test_window_outside_the_horizon_is_extrapolation() -> None:
     assert verdict.is_extrapolation
     assert verdict.covered_share == 0.0
     assert verdict.months_after == 200
-    assert "экстраполяция" in verdict.detail
+    assert "extrapolation" in verdict.detail
 
 
 def test_window_covering_the_horizon_is_within_measurement() -> None:
@@ -152,7 +153,7 @@ def test_real_window_on_the_case_horizon_lands_in_the_manifest() -> None:
 
 
 def test_empty_horizon_is_an_error_not_a_verdict() -> None:
-    with pytest.raises(CampaignError, match="горизонт кейса пуст"):
+    with pytest.raises(CampaignError, match="case horizon is empty"):
         window_applicability(lambda_of(), ())
 
 
@@ -205,7 +206,7 @@ def test_graph_without_a_path_still_names_the_matrix() -> None:
 
 
 def test_graph_refuses_to_sign_a_missing_file(tmp_path) -> None:
-    with pytest.raises(FileNotFoundError, match="нет по пути"):
+    with pytest.raises(FileNotFoundError, match="no lambda file at"):
         build_lambda_graph(artifact_with(lambda_of()), tmp_path / "missing.json")
 
 
@@ -242,14 +243,14 @@ def test_weight_threshold_refuses_a_matrix_without_positive_weights() -> None:
         dense_lambda(),
         matrix=tuple(tuple(0.0 for _ in range(4)) for _ in range(4)),
     )
-    with pytest.raises(ValueError, match="положительного веса"):
+    with pytest.raises(ValueError, match="no positive weight"):
         weight_threshold(empty, 0.5)
 
 
 def test_quantile_outside_the_unit_interval_is_refused() -> None:
-    with pytest.raises(ValueError, match="квантиль веса"):
+    with pytest.raises(ValueError, match="weight quantile"):
         GroupingParams(weight_quantile=1.0)
-    with pytest.raises(ValueError, match="квантиль веса"):
+    with pytest.raises(ValueError, match="weight quantile"):
         GroupingParams(weight_quantile=-0.1)
 
 
@@ -290,7 +291,7 @@ def test_real_matrix_stops_being_one_group_at_a_reported_threshold() -> None:
 
 
 def test_sweep_refuses_an_empty_grid() -> None:
-    with pytest.raises(ValueError, match="сетка квантилей пуста"):
+    with pytest.raises(ValueError, match="quantile grid is empty"):
         sweep_quantiles(dense_lambda(), ())
 
 

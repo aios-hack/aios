@@ -38,21 +38,17 @@ import json
 from typing import (
     Mapping,
 )
-from backend.core.contracts import (
-    Schedule,
-    Theta,
-    compensation_policy,
-    hash_schedule,
-)
+from backend.contexts.schedule.domain.schedule import Schedule
+from backend.contexts.policy.domain.policy import Theta
+from backend.contexts.constraints.domain.constraints import compensation_policy
+from backend.shared.hashing import hash_schedule
 from backend.contexts.optimization.application.environment import (
     OutOfDomainScheduleError,
     PhysicallyImpossibleScheduleError,
 )
 from backend.contexts.policy.domain.theta import default_theta
 from backend.contexts.schedule.domain.case_limits import YearlyProduction, apply_case_limits
-from backend.domain.schedule import (
-    validate_static,
-)
+from backend.contexts.schedule.domain.validate import validate_static
 from backend.contexts.schedule.domain.validate_dynamic import (
     FIRST_CONTROL_DECK_DATE_INDEX,
     year_of_step,
@@ -82,7 +78,7 @@ def _search_theta(constraints) -> Theta:
     for name in ("r5_compensation_low", "r5_compensation_high"):
         if bounds[name][0] >= bounds[name][1]:
             raise SearchRunError(
-                f"коридор кейса несовместим с границами {name}: {bounds[name]}"
+                f"the case corridor is incompatible with the bounds of {name}: {bounds[name]}"
             )
     values = dict(base.values)
     for name in ("r5_compensation_low", "r5_compensation_high"):
@@ -166,7 +162,7 @@ def _search_near_baseline(
             static_count = len(static.violations)
             if not static.ok:
                 violations.append({'scenario_id': 'static-contract', 'regret': len(static.violations),
-                                   'what': f'Нарушений условий плана: {len(static.violations)}'})
+                                   'what': f'Schedule condition violations: {len(static.violations)}'})
             else:
                 schedule, evaluated, dynamic, _ = _repair_predicted_water_balance(env, evaluator, schedule)
                 schedule_hash = hash_schedule(schedule)
@@ -186,15 +182,15 @@ def _search_near_baseline(
                 admissible = _physics_admissible(physics)
                 if not static.ok or blocking:
                     violations.append({'scenario_id': 'case-constraints', 'regret': len(blocking) + len(static.violations),
-                                       'what': f'Нарушений ограничений: {len(blocking) + len(static.violations)}'})
+                                       'what': f'Constraint violations: {len(blocking) + len(static.violations)}'})
                 elif not admissible:
                     violations.append({'scenario_id': 'surrogate-physics', 'regret': 1,
-                                       'what': 'Физическая проверка не пройдена или неполна.'})
+                                       'what': 'The physics check did not pass or is incomplete.'})
                 elif ood_score is None or (
                     not env.ood_soft_penalty and ood_score > env.ood_threshold
                 ):
                     violations.append({'scenario_id': 'surrogate-domain', 'regret': 1,
-                                       'what': 'План вне области обучения.'})
+                                       'what': 'The schedule is outside the training domain.'})
                 else:
                     npv = evaluated.npv
                     accepted.append((npv, schedule, index, static_count, blocking_count))
@@ -236,7 +232,7 @@ def _search_near_baseline(
                 ood_exceedances=ood_exceedances,
             )
         )
-        logger.info(f'локальный вариант {index + 1}/{budget}: допустим={not violations}, ЧДД={npv}')
+        logger.info(f'local variant {index + 1}/{budget}: feasible={not violations}, NPV={npv}')
     diagnostics = read_json(SEARCH_DIAGNOSTICS)
     diagnostics['fallback_budget'] = budget
     diagnostics['evaluations'].extend(records)
@@ -246,7 +242,7 @@ def _search_near_baseline(
         encoding='utf-8',
     )
     if not accepted:
-        raise SearchRunError('Ни политика, ни локальные изменения исходного плана не прошли проверки условий и области обучения.')
+        raise SearchRunError('Neither the policy nor local modifications of the source schedule passed the condition and training-domain checks.')
     npv, schedule, index, static_count, blocking_count = max(accepted, key=lambda item: item[0])
     provenance = dict(provenance, search_strategy='lambda-connectivity-transfer',
                       selected_candidate=candidate_notes[index],

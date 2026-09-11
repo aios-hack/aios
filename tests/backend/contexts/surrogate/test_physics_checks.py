@@ -1,9 +1,3 @@
-"""Приёмка S-03: семь физических инвариантов прогноза.
-
-Фикстуры синтетические — они проверяют логику инвариантов, а не качество
-модели, и в метриках не участвуют (CLAUDE.md §4). Числа подобраны так, чтобы
-чистый прогноз проходил все семь, а каждая порча поднимала ровно свой флаг.
-"""
 
 from __future__ import annotations
 
@@ -12,20 +6,20 @@ from datetime import date
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     ControlEvent,
     EventKind,
     FixedDeckEvent,
-    Lambda,
     N_INTERVALS,
     OperatingStatus,
     Role,
     Schedule,
     ScheduleMeta,
     WellState,
-    hash_schedule,
 )
+from backend.contexts.connectivity.domain.connectivity import Lambda
+from backend.shared.hashing import hash_schedule
 from backend.contexts.surrogate.domain.physics_checks import (
     BhpLimits,
     DEFAULT_OIL_DENSITY_T_PER_M3,
@@ -44,13 +38,11 @@ from backend.contexts.surrogate.domain.raw_model_output import (
     RawWellStepPrediction,
 )
 
-_WELLS = ("I", "N", "P")  # нагнетательная, невведённая, добывающая
+_WELLS = ("I", "N", "P")
 _LATE_OPEN_STEP = 50
 _PRODUCER_FLOOR = 50.0
 _INJECTOR_CEILING = 300.0
 
-# Чистый узел: нефти 5 т при 20 м³ жидкости — в объёме это 5.476 м³, то есть
-# обводнённость 0.726, далеко от обеих границ.
 _CLEAN_OIL_MASS = 5.0
 _CLEAN_LIQUID = 20.0
 
@@ -95,7 +87,6 @@ def _schedule(
 
 
 def _node(well: str, step: int, **overrides) -> RawWellStepPrediction:
-    """Чистый узел, физически согласованный с ролью и статусом скважины."""
 
     commissioned = well != "N" or step >= _LATE_OPEN_STEP
     values: dict[str, object] = dict(well=well, control_step=step)
@@ -161,13 +152,11 @@ def _lambda() -> Lambda:
     )
 
 
-# --- инвариант 1: неотрицательность -----------------------------------------
 
 
 def test_negative_channel_is_refused_by_the_type_before_any_check() -> None:
-    """Первый инвариант держит сам контракт, а не проверка поверх него."""
 
-    with pytest.raises(ValueError, match="отрицательно"):
+    with pytest.raises(ValueError, match="is negative"):
         RawWellStepPrediction(
             well="P",
             control_step=0,
@@ -180,7 +169,6 @@ def test_negative_channel_is_refused_by_the_type_before_any_check() -> None:
         )
 
 
-# --- чистый прогноз ----------------------------------------------------------
 
 
 def test_clean_prediction_raises_no_flags() -> None:
@@ -193,7 +181,6 @@ def test_clean_prediction_raises_no_flags() -> None:
 
 
 def test_single_prediction_report_is_never_complete() -> None:
-    """Пять из семи — не «физика проверена», и отчёт это говорит вслух."""
 
     schedule = _schedule()
     report = check_prediction(_raw(schedule), schedule=schedule)
@@ -206,12 +193,10 @@ def test_single_prediction_report_is_never_complete() -> None:
     }
 
 
-# --- инвариант 2: обводнённость ---------------------------------------------
 
 
 def test_watercut_below_zero_is_flagged() -> None:
     schedule = _schedule()
-    # Нефти больше, чем жидкости: 25 т это 27.4 м³ при 20 м³ жидкости.
     poisoned = _node("P", 7, oil_mass_delta=25.0, liquid_volume_delta=_CLEAN_LIQUID)
     report = check_prediction(_raw(schedule, {("P", 7): poisoned}), schedule=schedule)
 
@@ -228,15 +213,13 @@ def test_oil_without_liquid_is_flagged() -> None:
     report = check_prediction(_raw(schedule, {("P", 3): poisoned}), schedule=schedule)
 
     assert report.counts == {Invariant.WATERCUT_RANGE.value: 1}
-    assert "не определена" in report.examples[0].detail
+    assert "is undefined" in report.examples[0].detail
 
 
 def test_watercut_tolerance_absorbs_unit_conversion_noise() -> None:
-    """Перевод массы в объём даёт ~1e-4 в единицах обводнённости — не нарушение."""
 
     schedule = _schedule()
     liquid = 100.0
-    # Обводнённость ровно −5e-4: внутри допуска 1e-3.
     oil_mass = liquid * 1.0005 * DEFAULT_OIL_DENSITY_T_PER_M3
     poisoned = _node("P", 5, oil_mass_delta=oil_mass, liquid_volume_delta=liquid)
     report = check_prediction(_raw(schedule, {("P", 5): poisoned}), schedule=schedule)
@@ -244,7 +227,6 @@ def test_watercut_tolerance_absorbs_unit_conversion_noise() -> None:
     assert report.counts == {}
 
 
-# --- инвариант 4: закрытая и невведённая скважина ----------------------------
 
 
 def test_not_commissioned_well_with_flow_is_flagged() -> None:
@@ -252,12 +234,11 @@ def test_not_commissioned_well_with_flow_is_flagged() -> None:
     poisoned = _node("N", 0, liquid_rate=3.0, liquid_volume_delta=90.0, oil_mass_delta=1.0)
     report = check_prediction(_raw(schedule, {("N", 0): poisoned}), schedule=schedule)
 
-    assert report.counts[Invariant.SHUT_WELL_FLOW.value] == 3  # два объёма и дебит
-    assert all("не введена" in flag.detail for flag in report.examples if flag.invariant is Invariant.SHUT_WELL_FLOW)
+    assert report.counts[Invariant.SHUT_WELL_FLOW.value] == 3
+    assert all("not commissioned" in flag.detail for flag in report.examples if flag.invariant is Invariant.SHUT_WELL_FLOW)
 
 
 def test_commissioned_well_keeps_its_flow() -> None:
-    """После ввода та же скважина течёт легально — проверка не ловит момент ввода."""
 
     schedule = _schedule()
     report = check_prediction(_raw(schedule), schedule=schedule)
@@ -265,7 +246,6 @@ def test_commissioned_well_keeps_its_flow() -> None:
     assert Invariant.SHUT_WELL_FLOW.value not in report.counts
 
 
-# --- инвариант 5: пределы BHP ------------------------------------------------
 
 
 def test_bhp_limits_come_from_the_deck() -> None:
@@ -298,7 +278,6 @@ def test_injector_above_ceiling_is_flagged() -> None:
 
 
 def test_missing_deck_limits_are_skipped_not_passed() -> None:
-    """Дек без пределов — пропущенный инвариант, а не пройденный."""
 
     schedule = _schedule(with_deck_limits=False)
     report = check_prediction(_raw(schedule), schedule=schedule)
@@ -308,7 +287,6 @@ def test_missing_deck_limits_are_skipped_not_passed() -> None:
     assert report.counts == {}
 
 
-# --- differential: идентифицируемость пары ----------------------------------
 
 
 def test_pair_changing_production_is_not_identifiable() -> None:
@@ -345,14 +323,12 @@ def test_unidentifiable_pair_skips_both_differential_invariants() -> None:
     }
 
 
-# --- инвариант 6: отклик на закачку -----------------------------------------
 
 
 def test_injection_up_and_liquid_down_is_flagged() -> None:
     reference_schedule = _schedule()
     candidate_schedule = _schedule(injector_setpoint=16.0)
     reference = _raw(reference_schedule)
-    # Кандидат закачивает больше, а связанная добывающая даёт меньше жидкости.
     candidate = _raw(
         candidate_schedule,
         {
@@ -405,11 +381,9 @@ def test_clean_pair_raises_no_differential_flags() -> None:
     }
 
 
-# --- инвариант 7: материальный баланс ---------------------------------------
 
 
 def test_water_from_nowhere_is_flagged() -> None:
-    """Прирост добытой воды больше прироста закачки — вода взялась ниоткуда."""
 
     reference_schedule = _schedule()
     candidate_schedule = _schedule(injector_setpoint=16.0)
@@ -420,7 +394,6 @@ def test_water_from_nowhere_is_flagged() -> None:
             for step in range(N_INTERVALS)
         }
         | {
-            # Жидкости много больше, нефти столько же: разница — чистая вода.
             ("P", step): _node("P", step, liquid_volume_delta=2_000.0)
             for step in range(N_INTERVALS)
         },
@@ -434,11 +407,10 @@ def test_water_from_nowhere_is_flagged() -> None:
     )
 
     assert report.counts[Invariant.MATERIAL_BALANCE.value] == 1
-    assert report.examples[-1].well == "<поле>"
+    assert report.examples[-1].well == "<field>"
 
 
 def test_material_balance_counts_water_not_liquid() -> None:
-    """Прирост нефти берётся из пласта и балансу закачки не подчиняется."""
 
     reference_schedule = _schedule()
     candidate_schedule = _schedule(injector_setpoint=16.0)
@@ -449,7 +421,6 @@ def test_material_balance_counts_water_not_liquid() -> None:
             for step in range(N_INTERVALS)
         }
         | {
-            # Вся прибавка жидкости — нефть: воды прибавилось ровно ноль.
             ("P", step): _node(
                 "P",
                 step,
@@ -471,18 +442,15 @@ def test_material_balance_counts_water_not_liquid() -> None:
     assert Invariant.MATERIAL_BALANCE.value not in report.counts
 
 
-# --- λ как артефакт ----------------------------------------------------------
 
 
 def test_lambda_column_sums_are_reported_not_enforced() -> None:
-    """CRM-условие Σ_p f[p][i] ≤ 1 к размерной λ неприменимо — только измеряется."""
 
     sums = lambda_column_sums(_lambda())
 
     assert sums == {"I": pytest.approx(0.7)}
 
 
-# --- полный вызов ------------------------------------------------------------
 
 
 def test_check_physics_without_reference_is_incomplete_and_inadmissible() -> None:
@@ -491,7 +459,7 @@ def test_check_physics_without_reference_is_incomplete_and_inadmissible() -> Non
 
     assert report.complete is False
     assert report.admissible is False
-    assert "не передана опора" in report.skipped[Invariant.INJECTION_RESPONSE.value]
+    assert "the reference was not supplied" in report.skipped[Invariant.INJECTION_RESPONSE.value]
 
 
 def test_check_physics_with_reference_covers_all_seven() -> None:
@@ -566,7 +534,6 @@ def test_warning_alone_keeps_candidate_admissible() -> None:
     assert report.admissible is True
 
 
-# --- форма отчёта ------------------------------------------------------------
 
 
 def test_counts_are_complete_while_examples_are_capped() -> None:
@@ -583,12 +550,12 @@ def test_counts_are_complete_while_examples_are_capped() -> None:
 
 
 def test_report_refuses_invariant_both_evaluated_and_skipped() -> None:
-    with pytest.raises(PhysicsCheckError, match="одновременно"):
+    with pytest.raises(PhysicsCheckError, match="simultaneously"):
         PhysicsReport(
             counts={},
             examples=(),
             evaluated=(Invariant.BHP_LIMIT,),
-            skipped={Invariant.BHP_LIMIT.value: "причина"},
+            skipped={Invariant.BHP_LIMIT.value: "reason"},
             n_nodes=1,
             n_wells=1,
         )
@@ -596,7 +563,7 @@ def test_report_refuses_invariant_both_evaluated_and_skipped() -> None:
 
 def test_pair_refuses_identical_schedules() -> None:
     schedule = _schedule()
-    with pytest.raises(PhysicsCheckError, match="одно расписание"):
+    with pytest.raises(PhysicsCheckError, match="one and the same schedule"):
         check_pair(
             _raw(schedule),
             _raw(schedule),
@@ -609,7 +576,7 @@ def test_pair_refuses_identical_schedules() -> None:
 def test_prediction_refuses_foreign_well_axis() -> None:
     schedule = _schedule()
     other = replace(schedule, meta=ScheduleMeta(wells=("I", "N"), provenance="test"))
-    with pytest.raises(PhysicsCheckError, match="ось скважин"):
+    with pytest.raises(PhysicsCheckError, match="wells axis"):
         check_prediction(_raw(schedule), schedule=other)
 
 

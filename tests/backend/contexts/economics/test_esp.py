@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from backend.core.contracts import (
-    ActiveControlMode,
+from backend.contexts.reservoir.domain.response import ActiveControlMode, StateAtDate
+from backend.contexts.constraints.domain.config import (
     ChargeInitialEsp,
     DEFAULT_NORMATIVES_2007,
     NormativeSet,
-    StateAtDate,
 )
-from backend.domain.economics import (
+from backend.contexts.economics.domain.esp import (
     DOWNSIZE_THRESHOLD_M3_PER_DAY,
     ESP_CATALOG_2007,
     EspEventKind,

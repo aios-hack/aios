@@ -1,9 +1,3 @@
-"""Приёмка численного ядра оптимизатора (задача 38).
-
-Собственное разложение — единственное место поиска со своим численным
-методом, и проверяется оно тождеством, а не тем, что CMA-ES куда-то сошёлся:
-сошедшийся поиск при испорченном разложении выглядит точно так же.
-"""
 
 from __future__ import annotations
 
@@ -51,7 +45,6 @@ def test_diagonal_matrix_keeps_its_diagonal_as_spectrum() -> None:
 
 
 def test_dense_symmetric_matrix_reconstructs_exactly() -> None:
-    """A = B·diag(d)·Bᵀ — то самое тождество, ради которого разложение и нужно."""
 
     matrix = [
         [4.0, 1.0, -2.0, 0.5],
@@ -64,8 +57,6 @@ def test_dense_symmetric_matrix_reconstructs_exactly() -> None:
 
 
 def test_eigenvectors_are_orthonormal() -> None:
-    """Ортонормальность `B` несущая: CMA-ES сэмплирует как `B·D·z`, и
-    неортогональный базис молча искривил бы распределение выборки."""
 
     matrix = [
         [4.0, 1.0, -2.0],
@@ -83,7 +74,6 @@ def test_eigenvectors_are_orthonormal() -> None:
 
 
 def test_each_pair_satisfies_the_eigen_equation() -> None:
-    """A·b = λ·b покомпонентно — проверка того, что d и столбцы B не разъехались."""
 
     matrix = [
         [2.0, -1.0, 0.0],
@@ -101,8 +91,6 @@ def test_each_pair_satisfies_the_eigen_equation() -> None:
 
 
 def test_positive_definite_matrix_has_positive_spectrum() -> None:
-    """CMA-ES берёт sqrt(d): отрицательное собственное значение означает
-    потерю положительной определённости, и поиск обязан это заметить."""
 
     matrix = [[2.0, 0.5], [0.5, 1.0]]
     eigenvalues, _ = jacobi_eigen(matrix)
@@ -111,7 +99,6 @@ def test_positive_definite_matrix_has_positive_spectrum() -> None:
 
 
 def test_ten_by_ten_matrix_is_handled() -> None:
-    """Потолок θ — 10 параметров, значит ковариация бывает 10×10."""
 
     size = 10
     matrix = [
@@ -124,8 +111,6 @@ def test_ten_by_ten_matrix_is_handled() -> None:
 
 
 def test_asymmetric_matrix_is_rejected() -> None:
-    """Моков нет: несимметричную матрицу метод не «почти» раскладывает,
-    а отказывается принимать."""
 
     with pytest.raises(ValueError):
         jacobi_eigen([[1.0, 2.0], [3.0, 4.0]])
@@ -142,8 +127,6 @@ def test_empty_matrix_is_rejected() -> None:
 
 
 def test_symmetrize_removes_accumulated_asymmetry() -> None:
-    """Дрейф порядка 1e-17 накапливается в обновлении ковариации; после
-    симметризации матрица снова в классе, где разложение определено."""
 
     drifted = [[1.0, 0.5 + 1e-16], [0.5, 2.0]]
     fixed = symmetrize(drifted)

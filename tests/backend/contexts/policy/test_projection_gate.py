@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import MAX_LRAT_M3_PER_DAY, ControlEvent, EventKind
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind, MAX_LRAT_M3_PER_DAY
 
 from backend.contexts.policy.domain.agents.projection import (
     RATE_KINDS,
@@ -101,8 +101,8 @@ def test_only_the_gate_writes_a_setpoint_into_the_schedule() -> None:
         if _enclosing_function(tree, lineno) != GATE
     ]
     assert not outside, (
-        f"запись в расписание мимо {GATE}: {outside} — уставка обошла "
-        f"проекцию на жёсткие ограничения"
+        f"a write into the schedule bypassing {GATE}: {outside} - the setpoint went around "
+        f"the projection onto the hard constraints"
     )
 
 
@@ -137,8 +137,8 @@ def test_every_writer_of_the_schedule_takes_a_projection() -> None:
     for index, caller in sorted(callers):
         tree = trees[index]
         assert "projection" in _substitutable_names(tree, caller), (
-            f"{caller} пишет в расписание, но проекцию подменить нельзя: "
-            f"шлюз не проверяем"
+            f"{caller} writes into the schedule, but the projection cannot be substituted: "
+            f"the gate is not verifiable"
         )
 
 
@@ -190,19 +190,19 @@ def test_a_status_event_carries_no_setpoint_and_passes_unchanged() -> None:
 
 
 def test_a_negative_cap_is_refused() -> None:
-    with pytest.raises(ValueError, match="отрицательный потолок"):
+    with pytest.raises(ValueError, match="negative setpoint ceiling"):
         HardConstraints(well_cap_m3_per_day={"i1": -1.0})
 
 
 def test_a_non_positive_ceiling_is_refused() -> None:
-    with pytest.raises(ValueError, match="не положителен"):
+    with pytest.raises(ValueError, match="is not positive"):
         HardConstraints(well_cap_m3_per_day={}, lrat_ceiling_m3_per_day=0.0)
 
 
 def test_a_detector_projection_sees_every_event_of_the_dense_layer() -> None:
     search = pytest.importorskip(
         "backend.contexts.optimization.application.environment",
-        reason="сквозной поиск требует torch (extras ml)",
+        reason="end-to-end search requires torch (extras ml)",
     )
     _scale_step_injection_to_limit = search._scale_step_injection_to_limit
     seen: list[ControlEvent] = []

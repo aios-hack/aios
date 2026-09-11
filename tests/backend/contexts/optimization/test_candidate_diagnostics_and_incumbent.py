@@ -14,10 +14,13 @@ from typing import Any, Mapping, Sequence
 
 import pytest
 from backend.contexts.optimization.application import environment as _environment
+from backend.contexts.optimization.application import finalist_selection as _finalist_selection
+from backend.contexts.optimization.infrastructure import diagnostics_journal as _diagnostics_journal
 from backend.contexts.optimization.application import search_use_case as _search_use_case
 from backend.shared.json_io import read_json
 
 RUN_SOURCE = Path(_search_use_case.__file__)
+FINALIST_SOURCE = Path(_finalist_selection.__file__)
 SEARCH_SOURCE = Path(_environment.__file__)
 from backend.contexts.optimization.domain import errors as optimization_errors
 from backend.contexts.optimization.domain import ood_penalty
@@ -68,11 +71,13 @@ def _function_def(module: ast.Module, name: str) -> ast.FunctionDef:
     for node in module.body:
         if isinstance(node, ast.FunctionDef) and node.name == name:
             return node
-    raise AssertionError(f"функция {name} не найдена")
+    raise AssertionError(f"function {name} not found")
 
 
 def _run_namespace() -> dict[str, object]:
     namespace: dict[str, object] = dict(vars(_search_use_case))
+    namespace.update(vars(_finalist_selection))
+    namespace.update(vars(_diagnostics_journal))
     namespace.update(vars(optimization_errors))
     return namespace
 
@@ -268,7 +273,9 @@ def test_a_candidate_that_failed_a_check_never_becomes_incumbent(
 
 
 def test_the_gate_scores_the_repaired_candidate_not_the_pre_repair_one() -> None:
-    source = ast.unparse(_function_def(_context_module_ast(RUN_SOURCE), "run_search"))
+    source = ast.unparse(
+        _function_def(_context_module_ast(FINALIST_SOURCE), "evaluate_finalists")
+    )
 
     assert "incumbent_gate_passed(" in source
     assert "ood_score=evaluated.ood_score" in source
@@ -278,8 +285,8 @@ def test_the_gate_scores_the_repaired_candidate_not_the_pre_repair_one() -> None
 
 
 def test_only_a_gated_candidate_reaches_the_finalist_list() -> None:
-    module = _context_module_ast(RUN_SOURCE)
-    run_search = _function_def(module, "run_search")
+    module = _context_module_ast(FINALIST_SOURCE)
+    run_search = _function_def(module, "evaluate_finalists")
     guarded = next(
         node
         for node in ast.walk(run_search)
@@ -375,7 +382,7 @@ def test_a_missing_diagnostics_file_is_an_error_not_a_silent_skip(
     namespace = _run_namespace()
     namespace["SEARCH_DIAGNOSTICS"] = tmp_path / "absent.json"
 
-    with pytest.raises(namespace["SearchRunError"], match="диагностика поиска"):
+    with pytest.raises(namespace["SearchRunError"], match="search diagnostics"):
         namespace["_write_diagnostics_tail"]([], namespace["IncumbentRegistry"]())
 
 
@@ -390,7 +397,7 @@ def test_diagnostics_join_refuses_to_guess_when_cards_are_missing() -> None:
         ),
     )
 
-    with pytest.raises(namespace["SearchRunError"], match="рассинхронизирована"):
+    with pytest.raises(namespace["SearchRunError"], match="out of sync"):
         namespace["_evaluation_cards"](history, [])
 
 

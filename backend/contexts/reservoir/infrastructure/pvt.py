@@ -29,9 +29,9 @@ def _expand_token(token: str) -> list[str]:
     count = int(match.group(1))
     value = match.group(2)
     if count <= 0:
-        raise PvtError(f"повторитель {token!r}: количество должно быть больше нуля")
+        raise PvtError(f"repeat count {token!r}: the count must be greater than zero")
     if not value:
-        raise PvtError(f"повторитель {token!r}: не указано повторяемое значение")
+        raise PvtError(f"repeat count {token!r}: no repeated value given")
     return [value] * count
 
 
@@ -46,7 +46,7 @@ def _as_float(token: str, keyword: str) -> float:
     try:
         return float(token)
     except ValueError as error:
-        raise PvtError(f"{keyword}: {token!r} не является числом") from error
+        raise PvtError(f"{keyword}: {token!r} is not a number") from error
 
 
 def _keyword_records(
@@ -57,9 +57,9 @@ def _keyword_records(
         index for index, line in enumerate(lines) if _strip_comment(line) == keyword
     ]
     if not starts:
-        raise PvtError(f"{source}: ключевое слово {keyword} отсутствует в деке")
+        raise PvtError(f"{source}: keyword {keyword} is missing from the deck")
     if len(starts) > 1:
-        raise PvtError(f"{source}: ожидался один блок {keyword}, найдено {len(starts)}")
+        raise PvtError(f"{source}: expected one {keyword} block, found {len(starts)}")
     records: list[tuple[float, ...]] = []
     pending: list[str] = []
     for line in lines[starts[0] + 1 :]:
@@ -77,9 +77,9 @@ def _keyword_records(
         records.append(tuple(_as_float(token, keyword) for token in pending))
         pending = []
     if pending:
-        raise PvtError(f"{source}: блок {keyword} не закрыт '/': {pending}")
+        raise PvtError(f"{source}: block {keyword} is not closed with '/': {pending}")
     if not records:
-        raise PvtError(f"{source}: блок {keyword} не содержит записей")
+        raise PvtError(f"{source}: block {keyword} contains no records")
     return records
 
 
@@ -138,7 +138,7 @@ class WaterTable:
 
     def formation_volume_factor_at(self, pressure_bar: float) -> float:
         if pressure_bar < 0.0:
-            raise PvtError(f"PVTW B_w: давление {pressure_bar} бар отрицательно")
+            raise PvtError(f"PVTW B_w: pressure {pressure_bar} bar is negative")
         delta = self.compressibility_per_bar * (
             pressure_bar - self.reference_pressure_bar
         )
@@ -146,7 +146,7 @@ class WaterTable:
 
     def viscosity_at(self, pressure_bar: float) -> float:
         if pressure_bar < 0.0:
-            raise PvtError(f"PVTW mu_w: давление {pressure_bar} бар отрицательно")
+            raise PvtError(f"PVTW mu_w: pressure {pressure_bar} bar is negative")
         delta = self.viscosibility_per_bar * (
             pressure_bar - self.reference_pressure_bar
         )
@@ -189,7 +189,7 @@ class PvtTables:
                 return item
         available = ", ".join(str(item.pvtnum) for item in self.regions)
         raise PvtError(
-            f"{self.source}: PVT-регион {pvtnum} отсутствует; доступны: {available}"
+            f"{self.source}: PVT region {pvtnum} is missing; available: {available}"
         )
 
     def oil_formation_volume_factor(
@@ -207,13 +207,13 @@ def _interpolate(
     xs: tuple[float, ...], ys: tuple[float, ...], x: float, label: str
 ) -> float:
     if not xs:
-        raise PvtError(f"{label}: таблица пуста, интерполировать нечего")
+        raise PvtError(f"{label}: the table is empty, nothing to interpolate")
     if len(xs) != len(ys):
-        raise PvtError(f"{label}: длины столбцов не совпадают ({len(xs)} и {len(ys)})")
+        raise PvtError(f"{label}: column lengths do not match ({len(xs)} and {len(ys)})")
     if x < xs[0] or x > xs[-1]:
         raise PvtError(
-            f"{label}: давление {x} бар вне таблицы {xs[0]}…{xs[-1]} бар; "
-            "экстраполяция не выполняется"
+            f"{label}: pressure {x} bar is outside the table {xs[0]}…{xs[-1]} bar; "
+            "extrapolation is not performed"
         )
     index = bisect_left(xs, x)
     if xs[index] == x:
@@ -221,7 +221,7 @@ def _interpolate(
     left = index - 1
     span = xs[index] - xs[left]
     if span <= 0.0:
-        raise PvtError(f"{label}: давление в таблице не возрастает при {x} бар")
+        raise PvtError(f"{label}: table pressure is not increasing at {x} bar")
     weight = (x - xs[left]) / span
     return ys[left] + weight * (ys[index] - ys[left])
 
@@ -240,7 +240,7 @@ def _parse_oil_tables(text: str, source: Path | str) -> tuple[OilTable, ...]:
         if rs is None:
             return
         if not pressures:
-            raise PvtError(f"{source}: PVTO: ветвь Rs={rs} не содержит точек")
+            raise PvtError(f"{source}: PVTO: branch Rs={rs} contains no points")
         branches.append(
             OilBranch(
                 rs=rs,
@@ -259,7 +259,7 @@ def _parse_oil_tables(text: str, source: Path | str) -> tuple[OilTable, ...]:
         if not values:
             close_branch()
             if not branches:
-                raise PvtError(f"{source}: PVTO: регион не содержит ветвей Rs")
+                raise PvtError(f"{source}: PVTO: region contains no Rs branches")
             tables.append(OilTable(branches=tuple(branches)))
             branches = []
             continue
@@ -269,11 +269,11 @@ def _parse_oil_tables(text: str, source: Path | str) -> tuple[OilTable, ...]:
             values = values[1:]
         elif rs is None:
             raise PvtError(
-                f"{source}: PVTO: точка без объявленного газосодержания Rs: {values}"
+                f"{source}: PVTO: point without a declared gas-oil ratio Rs: {values}"
             )
         if len(values) % 3 != 0:
             raise PvtError(
-                f"{source}: PVTO: запись не кратна тройке (p, B_o, mu_o): {values}"
+                f"{source}: PVTO: record is not a multiple of the triple (p, B_o, mu_o): {values}"
             )
         for offset in range(0, len(values), 3):
             pressures.append(values[offset])
@@ -281,9 +281,9 @@ def _parse_oil_tables(text: str, source: Path | str) -> tuple[OilTable, ...]:
             viscosities.append(values[offset + 2])
     close_branch()
     if branches:
-        raise PvtError(f"{source}: PVTO: последний регион не закрыт пустой записью '/'")
+        raise PvtError(f"{source}: PVTO: the last region is not closed by an empty '/' record")
     if not tables:
-        raise PvtError(f"{source}: PVTO не содержит ни одного региона")
+        raise PvtError(f"{source}: PVTO contains no regions")
     return tuple(tables)
 
 
@@ -293,8 +293,8 @@ def _parse_water_tables(text: str, source: Path | str) -> tuple[WaterTable, ...]
     for values in records:
         if len(values) < 4:
             raise PvtError(
-                f"{source}: PVTW: запись должна содержать не менее четырёх чисел "
-                f"(pref, B_w, c_w, mu_w), получено {len(values)}: {values}"
+                f"{source}: PVTW: record must contain at least four numbers "
+                f"(pref, B_w, c_w, mu_w), got {len(values)}: {values}"
             )
         tables.append(
             WaterTable(
@@ -314,8 +314,8 @@ def _parse_densities(text: str, source: Path | str) -> tuple[Densities, ...]:
     for values in records:
         if len(values) != 3:
             raise PvtError(
-                f"{source}: DENSITY: запись должна содержать три числа "
-                f"(нефть, вода, газ), получено {len(values)}: {values}"
+                f"{source}: DENSITY: record must contain three numbers "
+                f"(oil, water, gas), got {len(values)}: {values}"
             )
         tables.append(
             Densities(
@@ -327,7 +327,7 @@ def _parse_densities(text: str, source: Path | str) -> tuple[Densities, ...]:
     return tuple(tables)
 
 
-def parse_pvt(text: str, source: Path | str = "<текст>") -> PvtTables:
+def parse_pvt(text: str, source: Path | str = "<text>") -> PvtTables:
     oil = _parse_oil_tables(text, source)
     water = _parse_water_tables(text, source)
     density = _parse_densities(text, source)
@@ -335,7 +335,7 @@ def parse_pvt(text: str, source: Path | str = "<текст>") -> PvtTables:
     if len(set(counts.values())) != 1:
         detail = ", ".join(f"{key}={value}" for key, value in counts.items())
         raise PvtError(
-            f"{source}: число PVT-регионов расходится между ключевыми словами: {detail}"
+            f"{source}: the PVT region count differs between keywords: {detail}"
         )
     regions = tuple(
         PvtRegion(pvtnum=index, oil=oil_table, water=water_table, density=density_row)
@@ -349,6 +349,6 @@ def parse_pvt(text: str, source: Path | str = "<текст>") -> PvtTables:
 def load_pvt(model_dir: Path | str) -> PvtTables:
     props_path = Path(model_dir).resolve() / _PROPS_INCLUDE
     if not props_path.is_file():
-        raise FileNotFoundError(f"PVT: файл свойств дека не найден: {props_path}")
+        raise FileNotFoundError(f"PVT: deck properties file not found: {props_path}")
     text = props_path.read_text(encoding="utf-8-sig")
     return parse_pvt(text, props_path)

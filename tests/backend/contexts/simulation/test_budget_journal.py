@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import RunResult, RunStatus
+from backend.contexts.runs.domain.run_result import RunResult, RunStatus
 from backend.contexts.simulation.infrastructure.runner import (
     BUDGET_CASE_ENV,
     BUDGET_INITIATOR_ENV,
@@ -59,7 +59,7 @@ def _working_bash() -> str | None:
 BASH = _working_bash()
 
 requires_bash = pytest.mark.skipif(
-    BASH is None, reason="рабочий bash не найден: синтаксис shell-скрипта не проверить"
+    BASH is None, reason="no working bash was found: the shell script syntax cannot be checked"
 )
 
 

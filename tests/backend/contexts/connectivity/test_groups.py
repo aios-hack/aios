@@ -5,7 +5,8 @@ from datetime import date
 
 import pytest
 
-from backend.core.contracts import Groups, Lambda, Role
+from backend.contexts.connectivity.domain.connectivity import Groups, Lambda
+from backend.contexts.schedule.domain.schedule import Role
 
 from backend.contexts.connectivity.domain.groups import (
     GroupingParams,
@@ -94,7 +95,7 @@ def test_each_planted_block_lands_in_one_group_together() -> None:
         }
         assert any(
             members <= set(group) for group in artifact.groups.values()
-        ), f"блок {block} разрезан между участками"
+        ), f"block {block} is split between groups"
 
 
 def test_number_of_groups_follows_the_data_not_a_literal() -> None:
@@ -326,13 +327,13 @@ def test_a_fund_without_injectors_is_refused_not_guessed() -> None:
     influence = lambda_of(
         producers=("p1", "p2"), injectors=(), matrix=((), ())
     )
-    with pytest.raises(ValueError, match="ни одной нагнетательной"):
+    with pytest.raises(ValueError, match="no injector at all"):
         build_groups(influence)
 
 
 def test_an_empty_fund_is_refused() -> None:
     influence = lambda_of(producers=(), injectors=(), matrix=())
-    with pytest.raises(ValueError, match="фонд пуст"):
+    with pytest.raises(ValueError, match="well stock is empty"):
         build_groups(influence)
 
 
@@ -397,11 +398,11 @@ def test_a_dual_role_well_carries_its_injector_identity() -> None:
 
 
 def test_the_merge_threshold_is_refused_outside_its_range() -> None:
-    with pytest.raises(ValueError, match="порог слияния"):
+    with pytest.raises(ValueError, match="merge threshold"):
         GroupingParams(merge_overlap=0.0)
-    with pytest.raises(ValueError, match="порог слияния"):
+    with pytest.raises(ValueError, match="merge threshold"):
         GroupingParams(merge_overlap=1.5)
-    with pytest.raises(ValueError, match="порог принадлежности"):
+    with pytest.raises(ValueError, match="membership threshold"):
         GroupingParams(membership_share=0.0)
 
 
@@ -433,7 +434,7 @@ def test_validate_catches_a_group_without_an_injector() -> None:
         lambda_hash=lambda_hash(influence),
         group_hash="0" * 64,
     )
-    with pytest.raises(ValueError, match="без нагнетательной"):
+    with pytest.raises(ValueError, match="has no injector"):
         validate_groups(broken, influence, ("p1", "i1"))
 
 
@@ -446,7 +447,7 @@ def test_validate_catches_an_uncovered_well() -> None:
         lambda_hash=lambda_hash(influence),
         group_hash="0" * 64,
     )
-    with pytest.raises(ValueError, match="вне участков"):
+    with pytest.raises(ValueError, match="outside the groups"):
         validate_groups(broken, influence, ("p1", "p2", "i1"))
 
 
@@ -459,7 +460,7 @@ def test_validate_catches_an_empty_group() -> None:
         lambda_hash=lambda_hash(influence),
         group_hash="0" * 64,
     )
-    with pytest.raises(ValueError, match="пуст"):
+    with pytest.raises(ValueError, match="is empty"):
         validate_groups(broken, influence, ("p1", "i1"))
 
 

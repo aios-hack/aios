@@ -7,18 +7,18 @@ from backend.contexts.optimization.application import baseline_search
 from backend.contexts.optimization.application import search_use_case as search
 from datetime import date
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
+    Availability,
     ControlEvent,
     EventKind,
-    Lambda,
-    Availability,
-    Constraints,
     OperatingStatus,
     Role,
     Schedule,
     ScheduleMeta,
     WellState,
 )
+from backend.contexts.connectivity.domain.connectivity import Lambda
+from backend.contexts.constraints.domain.constraints import Constraints
 
 
 def _lambda() -> Lambda:

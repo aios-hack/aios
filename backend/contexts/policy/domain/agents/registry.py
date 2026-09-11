@@ -17,8 +17,8 @@ def rank_of(agent: Agent) -> int:
     rank = getattr(agent, "rank", DEFAULT_RANK)
     if not isinstance(rank, int) or isinstance(rank, bool):
         raise ValueError(
-            f"{getattr(agent, 'name', '<без имени>')}: rank={rank!r} не целое "
-            f"число — порядок вызова не сравним"
+            f"{getattr(agent, 'name', '<unnamed>')}: rank={rank!r} is not an integer "
+            f"number: the invocation order is not comparable"
         )
     return rank
 
@@ -29,28 +29,28 @@ class AgentRegistry:
 
     def __post_init__(self) -> None:
         if not self.agents:
-            raise ValueError("реестр агентов пуст: шаг иерархии некому исполнить")
+            raise ValueError("the agent registry is empty: there is nobody to execute the hierarchy step")
         seen: set[str] = set()
         ranks: dict[tuple[Level, int], str] = {}
         for agent in self.agents:
             if not agent.name:
-                raise ValueError("агент без имени: реестр не адресуем")
+                raise ValueError("an agent without a name: the registry is not addressable")
             if agent.name in seen:
-                raise ValueError(f"имя агента {agent.name} встречается дважды")
+                raise ValueError(f"the agent name {agent.name} occurs twice")
             seen.add(agent.name)
             if not agent.responsibilities:
                 raise ValueError(
-                    f"{agent.name}: агент без описанной ответственности — "
-                    f"назвать его роль на защите будет нечем"
+                    f"{agent.name}: an agent without a described responsibility: "
+                    f"there will be nothing to name its role with when it is defended"
                 )
             if agent.level not in LEVEL_ORDER:
-                raise ValueError(f"{agent.name}: неизвестный уровень {agent.level}")
+                raise ValueError(f"{agent.name}: unknown level {agent.level}")
             slot = (agent.level, rank_of(agent))
             taken = ranks.get(slot)
             if taken is not None:
                 raise ValueError(
-                    f"{agent.name} и {taken} заявили ранг {slot[1]} на уровне "
-                    f"{agent.level.value}: кто кого ограничивает — не определено"
+                    f"{agent.name} and {taken} declared rank {slot[1]} at level "
+                    f"{agent.level.value}: which of them constrains the other is undefined"
                 )
             ranks[slot] = agent.name
 
@@ -61,7 +61,7 @@ class AgentRegistry:
         for agent in self.agents:
             if agent.name == name:
                 return agent
-        raise ValueError(f"агента {name} нет в реестре")
+        raise ValueError(f"agent {name} is not in the registry")
 
     def by_level(self, level: Level) -> tuple[Agent, ...]:
         found = [agent for agent in self.agents if agent.level is level]
@@ -71,8 +71,8 @@ class AgentRegistry:
         found = self.by_level(level)
         if len(found) != 1:
             raise ValueError(
-                f"уровень {level.value} обслуживают {len(found)} агентов: "
-                f"порядок вызова на шаге неоднозначен"
+                f"level {level.value} is served by {len(found)} agents: "
+                f"the invocation order within the step is ambiguous"
             )
         return found[0]
 
@@ -95,8 +95,8 @@ DEFAULT_REGISTRY = AgentRegistry(agents=DEFAULT_AGENTS)
 def with_agents(registry: AgentRegistry, *added: Agent) -> AgentRegistry:
     if not added:
         raise ValueError(
-            "расширение реестра без единого агента: что именно добавляется, "
-            "не объявлено"
+            "extending the registry with not a single agent: what exactly is being added "
+            "is not declared"
         )
     return AgentRegistry(agents=registry.agents + added)
 

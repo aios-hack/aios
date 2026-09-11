@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import Lambda
+from backend.contexts.connectivity.domain.connectivity import Lambda
 from backend.contexts.connectivity.application.campaign import CampaignError
 from backend.contexts.connectivity.domain.measure import (
     ARTIFACT_FORMAT,
@@ -128,7 +128,7 @@ def test_legacy_measured_at_is_not_filled_with_today(tmp_path) -> None:
 
 def test_legacy_artifact_id_check_reports_absence(tmp_path) -> None:
     path = write_legacy(tmp_path / "lambda.json", lambda_of())
-    with pytest.raises(CampaignError, match="artifact_id не записан"):
+    with pytest.raises(CampaignError, match="artifact_id is not recorded"):
         verify_artifact_id(path)
 
 
@@ -156,7 +156,7 @@ def test_round_trip_carries_the_new_fields(tmp_path) -> None:
 
 
 def test_saving_without_run_ids_is_refused(tmp_path) -> None:
-    with pytest.raises(CampaignError, match="без единого идентификатора"):
+    with pytest.raises(CampaignError, match="without a single run identifier"):
         save_lambda(
             report_of(lambda_of()),
             tmp_path / "lambda.json",
@@ -166,7 +166,7 @@ def test_saving_without_run_ids_is_refused(tmp_path) -> None:
 
 
 def test_repeated_run_ids_are_refused(tmp_path) -> None:
-    with pytest.raises(CampaignError, match="повторяются"):
+    with pytest.raises(CampaignError, match="run identifiers repeat"):
         save_lambda(
             report_of(lambda_of()),
             tmp_path / "lambda.json",
@@ -181,16 +181,16 @@ def test_n_runs_disagreeing_with_the_list_is_refused(tmp_path) -> None:
     payload["source_run_ids"] = list(RUN_IDS)
     payload["n_runs"] = 7
     path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-    with pytest.raises(CampaignError, match="расходится со списком"):
+    with pytest.raises(CampaignError, match="disagrees with the list"):
         load_lambda_provenance(path)
 
 
 def test_unreadable_measured_at_is_an_error_not_a_guess(tmp_path) -> None:
     path = tmp_path / "lambda.json"
     payload = legacy_payload(lambda_of())
-    payload["measured_at"] = "когда-то в августе"
+    payload["measured_at"] = "sometime in August"
     path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-    with pytest.raises(CampaignError, match="не читается"):
+    with pytest.raises(CampaignError, match="does not read"):
         load_lambda_provenance(path)
 
 
@@ -237,8 +237,8 @@ def test_artifact_id_survives_the_round_trip(tmp_path) -> None:
 
 
 def test_missing_file_still_raises_instead_of_zero_matrix(tmp_path) -> None:
-    with pytest.raises(CampaignError, match="ещё не отрабатывала"):
-        load_lambda_provenance(tmp_path / "нет-такого.json")
+    with pytest.raises(CampaignError, match="has not run yet"):
+        load_lambda_provenance(tmp_path / "no-such.json")
 
 
 def test_ranks_average_over_ties() -> None:
@@ -272,12 +272,12 @@ def test_spearman_handles_ties_with_averaged_ranks() -> None:
 
 
 def test_spearman_refuses_a_degenerate_series() -> None:
-    with pytest.raises(LambdaCompareError, match="вырожден"):
+    with pytest.raises(LambdaCompareError, match="degenerate"):
         spearman((1.0, 1.0, 1.0), (1.0, 2.0, 3.0))
 
 
 def test_spearman_refuses_a_single_observation() -> None:
-    with pytest.raises(LambdaCompareError, match="определена от двух"):
+    with pytest.raises(LambdaCompareError, match="defined from two"):
         spearman((1.0,), (2.0,))
 
 
@@ -299,7 +299,7 @@ def test_disjoint_matrices_raise_instead_of_a_silent_zero() -> None:
         injectors=("I8", "I9"),
         matrix=((0.3, 0.1), (0.2, 0.7)),
     )
-    with pytest.raises(LambdaCompareError, match="общая подматрица пуста"):
+    with pytest.raises(LambdaCompareError, match="shared submatrix is empty"):
         overlap(left, right, zero_tolerance=0.0)
 
 
@@ -310,7 +310,7 @@ def test_disjoint_injectors_alone_are_enough_to_refuse() -> None:
         injectors=("I8", "I9"),
         matrix=((0.3, 0.1), (0.2, 0.7)),
     )
-    with pytest.raises(LambdaCompareError, match="общая подматрица пуста"):
+    with pytest.raises(LambdaCompareError, match="shared submatrix is empty"):
         overlap(left, right, zero_tolerance=0.0)
 
 
@@ -368,7 +368,7 @@ def test_compare_refuses_two_disjoint_artifacts(tmp_path) -> None:
     right_path = write_legacy(
         tmp_path / "right.json", lambda_of(producers=("P9",), injectors=("I9",), matrix=((0.5,),))
     )
-    with pytest.raises(LambdaCompareError, match="общая подматрица пуста"):
+    with pytest.raises(LambdaCompareError, match="shared submatrix is empty"):
         compare(left_path, right_path, zero_tolerance=0.0)
 
 

@@ -34,12 +34,12 @@ def jacobi_eigen(
 
     size = len(matrix)
     if size == 0:
-        raise ValueError("собственное разложение пустой матрицы не определено")
+        raise ValueError("the eigendecomposition of an empty matrix is undefined")
     for row in matrix:
         if len(row) != size:
-            raise ValueError("матрица не квадратная")
+            raise ValueError("the matrix is not square")
     if not _is_symmetric(matrix, tolerance=1e-9):
-        raise ValueError("метод Якоби определён только для симметричных матриц")
+        raise ValueError("the Jacobi method is defined only for symmetric matrices")
 
     a: Matrix = [list(row) for row in matrix]
     basis = identity(size)

@@ -2,21 +2,13 @@ from __future__ import annotations
 
 from datetime import date
 
-from backend.core.contracts import (
-    Constraints,
-    FinalNpvArtifact,
-    Groups,
-    Lambda,
-    LineItems,
-    NpvTable,
-    Role,
-    Rule,
-    RunArtifact,
-    Schedule,
-    ScheduleMeta,
-    TraceEntry,
-    WellOutage,
-)
+from backend.contexts.constraints.domain.constraints import Constraints, WellOutage
+from backend.contexts.runs.domain.run_result import FinalNpvArtifact
+from backend.contexts.connectivity.domain.connectivity import Groups, Lambda
+from backend.contexts.economics.domain.economics import LineItems, NpvTable
+from backend.contexts.schedule.domain.schedule import Role, Schedule, ScheduleMeta
+from backend.contexts.policy.domain.policy import Rule, TraceEntry
+from backend.contexts.runs.domain.run_artifact import RunArtifact
 
 from backend.contexts.showcase.infrastructure.synthetic_response import interval_rows, state_rows
 from backend.contexts.showcase.infrastructure.synthetic_rng import (

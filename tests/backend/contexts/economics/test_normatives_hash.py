@@ -54,10 +54,10 @@ def test_hash_reads_a_file_larger_than_one_chunk(tmp_path: Path) -> None:
 def test_missing_file_is_refused_with_its_path(tmp_path: Path) -> None:
     missing = tmp_path / "absent.xlsx"
 
-    with pytest.raises(NormativesError, match="не найден"):
+    with pytest.raises(NormativesError, match="not found"):
         normatives_sha256(missing)
 
 
 def test_a_directory_is_not_accepted_as_a_workbook(tmp_path: Path) -> None:
-    with pytest.raises(NormativesError, match="не найден"):
+    with pytest.raises(NormativesError, match="not found"):
         normatives_sha256(tmp_path)

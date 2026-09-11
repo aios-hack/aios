@@ -3,11 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from backend.application.runs import RunProvenance, RunRequest, RunWorkflow
-from backend.core.contracts import Schedule
-from backend.domain.schedule import parse_schedule
+from backend.contexts.runs.application.workflow import RunProvenance, RunRequest, RunWorkflow
+from backend.contexts.schedule.domain.schedule import Schedule
+from backend.contexts.schedule.domain.lossless import parse_schedule
 from backend.contexts.schedule.domain.build import build_schedule
-from backend.presentation.cli import selfcheck
+from backend.interfaces.cli import selfcheck
 
 MONTHS = (
     "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
@@ -20,8 +20,8 @@ CLAIMED_NPV = 11_873_122_324.91
 def test_selfcheck_reports_current_backend_commands(capsys) -> None:
     assert selfcheck.main([]) == 0
     output = capsys.readouterr().out
-    assert "backend.presentation.cli.npv" in output
-    assert "Команды backend" in output
+    assert "backend.interfaces.cli.npv" in output
+    assert "Backend commands" in output
     assert "contracts" not in output
 
 
@@ -105,9 +105,9 @@ def test_a_genuine_submission_package_passes(tmp_path, capsys) -> None:
     assert selfcheck.main(["--submission", str(directory)]) == 0
 
     output = capsys.readouterr().out
-    assert "канонический хеш расписания" in output
-    assert "хеш содержимого файла" in output
-    assert "ПРОВАЛ" not in output
+    assert "canonical schedule hash" in output
+    assert "file content hash" in output
+    assert "FAIL" not in output
 
 
 def test_one_flipped_byte_in_the_include_fails(tmp_path, capsys) -> None:
@@ -121,8 +121,8 @@ def test_one_flipped_byte_in_the_include_fails(tmp_path, capsys) -> None:
     assert selfcheck.main(["--submission", str(directory)]) != 0
 
     output = capsys.readouterr().out
-    assert "ПРОВАЛ" in output
-    assert "Сдавать нельзя" in output
+    assert "FAIL" in output
+    assert "must not be submitted" in output
 
 
 def test_a_single_whitespace_byte_appended_to_the_include_fails(tmp_path) -> None:
@@ -143,7 +143,7 @@ def test_a_tampered_claimed_hash_fails(tmp_path, capsys) -> None:
     assert selfcheck.main(["--submission", str(directory)]) != 0
 
     output = capsys.readouterr().out
-    assert "ПРОВАЛ" in output
+    assert "FAIL" in output
     assert "0" * 64 in output
 
 
@@ -154,9 +154,9 @@ def test_a_missing_claimed_npv_is_a_refusal_not_a_skip(tmp_path, capsys) -> None
     assert selfcheck.main(["--submission", str(directory)]) != 0
 
     output = capsys.readouterr().out
-    assert "ОТКАЗ" in output
+    assert "REFUSED" in output
     assert "claimed_npv.json" in output
-    assert "ОК" not in output
+    assert "OK" not in output
 
 
 def test_an_invalid_claimed_npv_is_a_refusal(tmp_path, capsys) -> None:
@@ -166,7 +166,7 @@ def test_an_invalid_claimed_npv_is_a_refusal(tmp_path, capsys) -> None:
     assert selfcheck.main(["--submission", str(directory)]) != 0
 
     output = capsys.readouterr().out
-    assert "ОТКАЗ" in output
+    assert "REFUSED" in output
 
 
 def test_a_claimed_npv_without_the_hash_fields_is_a_refusal(tmp_path, capsys) -> None:
@@ -178,7 +178,7 @@ def test_a_claimed_npv_without_the_hash_fields_is_a_refusal(tmp_path, capsys) ->
     assert selfcheck.main(["--submission", str(directory)]) != 0
 
     output = capsys.readouterr().out
-    assert "ОТКАЗ" in output
+    assert "REFUSED" in output
     assert "canonical_schedule_hash" in output
 
 
@@ -189,10 +189,10 @@ def test_a_missing_include_is_a_refusal(tmp_path, capsys) -> None:
     assert selfcheck.main(["--submission", str(directory)]) != 0
 
     output = capsys.readouterr().out
-    assert "ОТКАЗ" in output
+    assert "REFUSED" in output
 
 
 def test_a_missing_submission_directory_is_a_refusal(tmp_path, capsys) -> None:
     assert selfcheck.main(["--submission", str(tmp_path / "absent")]) != 0
 
-    assert "ОТКАЗ" in capsys.readouterr().out
+    assert "REFUSED" in capsys.readouterr().out

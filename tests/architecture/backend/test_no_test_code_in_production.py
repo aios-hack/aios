@@ -11,7 +11,6 @@ ALLOWED_STUBS = {
     "backend/contexts/assistant/application/recording_replay.py",
     "backend/contexts/assistant/infrastructure/recordings.py",
     "backend/contexts/assistant/infrastructure/llm/fake_chat.py",
-    "backend/application/jarvis/fixtures.py",
 }
 
 TEST_DIRECTORIES_AWAITING_C01 = {
@@ -44,8 +43,8 @@ def test_no_test_directories_remain_inside_the_production_package() -> None:
     }
 
     assert inside_contexts <= TEST_DIRECTORIES_AWAITING_C01, (
-        "каталоги тестов внутри контекстов переносит C-01, "
-        f"новых быть не должно: {sorted(inside_contexts - TEST_DIRECTORIES_AWAITING_C01)}"
+        "C-01 relocates the test directories inside the contexts, "
+        f"there must be no new ones: {sorted(inside_contexts - TEST_DIRECTORIES_AWAITING_C01)}"
     )
 
 
@@ -57,13 +56,13 @@ def test_no_new_stub_module_appears_in_production() -> None:
     }
 
     assert suspects <= ALLOWED_STUBS, (
-        "тестовые заглушки в боевых пакетах: " f"{sorted(suspects - ALLOWED_STUBS)}"
+        "test stubs in production packages: " f"{sorted(suspects - ALLOWED_STUBS)}"
     )
 
 
 def test_the_allowed_list_has_no_stale_entries() -> None:
     for name in ALLOWED_STUBS:
-        assert Path(name).is_file(), f"{name} больше нет, уберите из списка"
+        assert Path(name).is_file(), f"{name} no longer exists, remove it from the list"
 
 
 def test_production_never_imports_pytest() -> None:
@@ -78,7 +77,7 @@ def test_production_never_imports_pytest() -> None:
                 if (node.module or "").split(".")[0] == "pytest":
                     offenders.append(path.as_posix())
 
-    assert not offenders, f"боевой код импортирует pytest: {sorted(set(offenders))}"
+    assert not offenders, f"production code imports pytest: {sorted(set(offenders))}"
 
 
 def test_production_never_imports_the_test_support_package() -> None:
@@ -92,11 +91,11 @@ def test_production_never_imports_the_test_support_package() -> None:
                 if any(alias.name.startswith("tests") for alias in node.names):
                     offenders.append(path.as_posix())
 
-    assert not offenders, f"боевой код импортирует tests/: {sorted(set(offenders))}"
+    assert not offenders, f"production code imports tests/: {sorted(set(offenders))}"
 
 
 @pytest.mark.parametrize("name", sorted(ALLOWED_STUBS))
 def test_each_allowed_stub_is_reachable_from_a_cli_command(name: str) -> None:
     body = Path(name).read_text(encoding="utf-8")
 
-    assert body.strip(), f"{name} пуст"
+    assert body.strip(), f"{name} is empty"

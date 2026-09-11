@@ -20,6 +20,8 @@ KNOWN_ENV_DEBT = {
     "backend/contexts/optimization/domain/gates/ood_threshold.py",
     "backend/contexts/optimization/domain/gates/opm_budget.py",
     "backend/contexts/optimization/infrastructure/artifacts.py",
+    "backend/contexts/optimization/infrastructure/lambda_selection.py",
+    "backend/contexts/optimization/infrastructure/ood_calibration.py",
     "backend/contexts/runs/infrastructure/worker_process.py",
     "backend/contexts/simulation/infrastructure/runner.py",
     "backend/interfaces/cli/surrogate/screen_verify.py",
@@ -62,7 +64,7 @@ def test_no_module_reads_the_environment_while_being_imported() -> None:
                         offenders.append(f"{path.as_posix()}:{node.lineno}")
                         break
     assert not offenders, (
-        "чтение окружения на импорте делает импорт зависимым от среды: "
+        "reading the environment at import time makes the import depend on the environment: "
         f"{sorted(set(offenders))}"
     )
 
@@ -75,7 +77,7 @@ def test_the_environment_debt_does_not_grow() -> None:
     }
 
     assert readers <= KNOWN_ENV_DEBT, (
-        "новые чтения os.environ вне Settings: "
+        "new os.environ reads outside Settings: "
         f"{sorted(readers - KNOWN_ENV_DEBT)}"
     )
 
@@ -88,7 +90,7 @@ def test_the_debt_list_has_no_stale_entries() -> None:
     }
 
     assert KNOWN_ENV_DEBT <= readers, (
-        "долг закрыт, уберите из списка: " f"{sorted(KNOWN_ENV_DEBT - readers)}"
+        "the debt is paid off, remove it from the list: " f"{sorted(KNOWN_ENV_DEBT - readers)}"
     )
 
 

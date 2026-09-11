@@ -8,17 +8,12 @@ from backend.contexts.surrogate.domain.errors import (
 from datetime import date
 from typing import Sequence
 
-from backend.core.contracts import (
-    IntervalResponse,
-    N_CONTROL_DATES,
-    N_INTERVALS,
-    ResponseArtifact,
-    Schedule,
-    StateAtDate,
-    hash_schedule,
-)
+from backend.contexts.reservoir.domain.response import IntervalResponse, StateAtDate
+from backend.contexts.schedule.domain.schedule import N_CONTROL_DATES, N_INTERVALS, Schedule
+from backend.contexts.runs.domain.run_result import ResponseArtifact
+from backend.shared.hashing import hash_schedule
 from backend.contexts.simulation.infrastructure.response_loader import (
-    _build_well_timelines,
+    build_well_timelines,
     _fallback_control_mode,
 )
 
@@ -39,23 +34,23 @@ class ResponseAdapter:
     ) -> tuple[tuple[StateAtDate, ...], tuple[IntervalResponse, ...]]:
         wells = tuple(schedule.meta.wells)
         if set(schedule.initial_state) != set(wells):
-            raise AdapterError("Schedule.initial_state должен содержать ровно Schedule.meta.wells")
+            raise AdapterError("Schedule.initial_state must contain exactly Schedule.meta.wells")
         if raw.wells != wells:
             raise AdapterError(
-                "RawModelOutput.wells не совпадает с осью Schedule.meta.wells"
+                "RawModelOutput.wells does not match the Schedule.meta.wells axis"
             )
         expected_hash = hash_schedule(schedule)
         if raw.canonical_schedule_hash != expected_hash:
             raise AdapterError(
-                f"RawModelOutput предсказан не под этот Schedule: "
+                f"RawModelOutput was not predicted for this Schedule: "
                 f"{raw.canonical_schedule_hash!r} != {expected_hash!r}"
             )
         if len(control_dates) != N_CONTROL_DATES:
             raise AdapterError(
-                f"control_dates должен содержать {N_CONTROL_DATES} дат, получено {len(control_dates)}"
+                f"control_dates must contain {N_CONTROL_DATES} dates, got {len(control_dates)}"
             )
         if any(right <= left for left, right in zip(control_dates, control_dates[1:])):
-            raise AdapterError("control_dates должны строго возрастать")
+            raise AdapterError("control_dates must be strictly increasing")
         interval_days = tuple(
             (control_dates[k + 1] - control_dates[k]).days for k in range(N_INTERVALS)
         )
@@ -67,11 +62,11 @@ class ResponseAdapter:
             for deck_date_index in range(_HISTORY_HORIZON):
                 if (deck_date_index, well) not in historical_by_key:
                     raise AdapterError(
-                        f"в базовом прогоне нет StateAtDate[{deck_date_index}, {well!r}] — "
-                        "историческая часть неполна"
+                        f"the baseline run has no StateAtDate[{deck_date_index}, {well!r}]: "
+                        "the historical part is incomplete"
                     )
 
-        timelines = _build_well_timelines(schedule)
+        timelines = build_well_timelines(schedule)
         raw_by_key = {(node.well, node.control_step): node for node in raw.nodes}
 
         state_at_date: list[StateAtDate] = []

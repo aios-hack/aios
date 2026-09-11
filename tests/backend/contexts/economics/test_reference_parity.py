@@ -7,22 +7,21 @@ import pytest
 
 from backend.contexts.economics.domain.errors import ParityError
 
-from backend.core.contracts import (
+from backend.contexts.reservoir.domain.response import (
     ActiveControlMode,
+    IntervalResponse,
+    StateAtDate,
+)
+from backend.contexts.constraints.domain.config import (
     ChargeInitialEsp,
     DEFAULT_NORMATIVES_2007,
-    IntervalResponse,
     NormativeSet,
     Policies,
     QuantizationPolicy,
-    StateAtDate,
 )
-from backend.domain.economics import (
-    BalanceSheetInputs,
-    ESP_CATALOG_2007,
-    build_production_ledger,
-    compute_npv_table,
-)
+from backend.contexts.economics.domain.npv import BalanceSheetInputs, compute_npv_table
+from backend.contexts.economics.domain.esp import ESP_CATALOG_2007
+from backend.contexts.economics.domain.ledger import build_production_ledger
 from backend.contexts.economics.application.reference_parity import (
     ParityReport,
     build_reference_records,
@@ -51,7 +50,7 @@ N_HISTORY = 2
 
 pytestmark = pytest.mark.skipif(
     CHDD_PYTHON_DIR is None,
-    reason=missing_reason("эталонный расчётчик CHDD_PYTHON"),
+    reason=missing_reason("CHDD_PYTHON reference calculator"),
 )
 
 
@@ -524,7 +523,7 @@ def load_example_input() -> tuple[
 def test_external_example_input_matches_reference_on_organizer_data() -> None:
     pytest.importorskip(
         "openpyxl",
-        reason="excel_io организаторов читает Пример_исходных_данных.xlsx только через openpyxl",
+        reason="the organizers' excel_io reads Пример_исходных_данных.xlsx only through openpyxl",
     )
     states_by_well, responses_by_well, interval_start_dates, records = (
         load_example_input()

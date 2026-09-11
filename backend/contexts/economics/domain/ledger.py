@@ -8,12 +8,12 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 
-from backend.core.contracts import (
+from backend.contexts.reservoir.domain.response import (
     IntervalResponse,
-    NormativeSet,
     StateAtDate,
     is_excluded_by_negative_rule,
 )
+from backend.contexts.constraints.domain.config import NormativeSet
 
 from backend.contexts.economics.domain.fund import ACTIVE_FUND_STATES, FundState, FundTransition, track_well
 
@@ -33,10 +33,10 @@ class CumulativeSeries:
         }
         if len(lengths) != 1:
             raise LedgerError(
-                f"скважина {self.well}: накопленные ряды разной длины {sorted(lengths)}"
+                f"well {self.well}: cumulative series have differing lengths {sorted(lengths)}"
             )
         if lengths == {0}:
-            raise LedgerError(f"скважина {self.well}: пустой накопленный ряд")
+            raise LedgerError(f"well {self.well}: empty cumulative series")
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,11 +136,11 @@ def interval_responses_from_cumulative(
 ) -> tuple[IntervalResponse, ...]:
     n_deck_dates = len(series.oil_mass_t)
     if n_intervals <= 0:
-        raise LedgerError(f"скважина {series.well}: n_intervals={n_intervals}")
+        raise LedgerError(f"well {series.well}: n_intervals={n_intervals}")
     if n_deck_dates <= n_intervals:
         raise LedgerError(
-            f"скважина {series.well}: дат дека {n_deck_dates} — не больше числа "
-            f"интервалов {n_intervals}, истории нет"
+            f"well {series.well}: deck dates {n_deck_dates} are not more than the "
+            f"interval count {n_intervals}, there is no history"
         )
     oil = raw_diff(series.oil_mass_t)
     liquid = raw_diff(series.liquid_volume_m3)
@@ -164,14 +164,14 @@ def responses_by_well_from_cumulative(
     responses: dict[str, tuple[IntervalResponse, ...]] = {}
     for series in series_by_well:
         if series.well in responses:
-            raise LedgerError(f"скважина {series.well}: накопленный ряд задан дважды")
+            raise LedgerError(f"well {series.well}: the cumulative series is given twice")
         responses[series.well] = interval_responses_from_cumulative(series, n_intervals)
     return responses
 
 
 def interval_years(interval_start_dates: Sequence[date]) -> tuple[int, ...]:
     if not interval_start_dates:
-        raise LedgerError("пустой ряд дат интервалов")
+        raise LedgerError("empty series of interval dates")
     return tuple(moment.year for moment in interval_start_dates)
 
 
@@ -185,8 +185,8 @@ def build_well_ledger(
     n_intervals = len(responses_by_control_step)
     if len(years_by_control_step) != n_intervals:
         raise LedgerError(
-            f"скважина {well}: {len(years_by_control_step)} годов на "
-            f"{n_intervals} интервалов"
+            f"well {well}: {len(years_by_control_step)} years for "
+            f"{n_intervals} intervals"
         )
     track = track_well(well, states_by_deck_step, responses_by_control_step, normatives)
     rows: list[LedgerRow] = []
@@ -224,10 +224,10 @@ def build_production_ledger(
     normatives: NormativeSet,
 ) -> ProductionLedger:
     if not states_by_well:
-        raise LedgerError("пустая ось скважин")
+        raise LedgerError("empty well axis")
     if set(states_by_well) != set(responses_by_well):
         missing = sorted(set(states_by_well) ^ set(responses_by_well))
-        raise LedgerError(f"оси скважин не совпадают: {missing}")
+        raise LedgerError(f"well axes do not match: {missing}")
     years = interval_years(interval_start_dates)
     n_intervals = len(years)
     wells = tuple(sorted(states_by_well))
@@ -236,7 +236,7 @@ def build_production_ledger(
         responses = responses_by_well[well]
         if len(responses) != n_intervals:
             raise LedgerError(
-                f"скважина {well}: {len(responses)} интервалов при {n_intervals} датах"
+                f"well {well}: {len(responses)} intervals against {n_intervals} dates"
             )
         by_well[well] = build_well_ledger(
             well,

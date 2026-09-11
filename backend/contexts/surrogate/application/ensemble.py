@@ -13,7 +13,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from backend.contexts.surrogate.domain.features import SurrogateInput
-from backend.contexts.surrogate.application.model import TrajectorySurrogate, _features
+from backend.contexts.surrogate.application.model import TrajectorySurrogate
+from backend.contexts.surrogate.domain.vectorize import build_features
 from backend.contexts.robustness.domain.ood import ScoredPrediction, score
 from backend.contexts.surrogate.domain.raw_model_output import (
     RawModelOutput,
@@ -33,25 +34,25 @@ class TrajectoryEnsemble:
 
     def __post_init__(self) -> None:
         if not self.models or len(self.models) != len(self.weights):
-            raise TrajectoryEnsembleError("оси models/weights пусты или разошлись")
+            raise TrajectoryEnsembleError("models/weights axes are empty or diverged")
         if len(self.member_paths) != len(self.models):
-            raise TrajectoryEnsembleError("оси member_paths/models разошлись")
+            raise TrajectoryEnsembleError("member_paths/models axes diverged")
         if any(not math.isfinite(value) or value <= 0.0 for value in self.weights):
-            raise TrajectoryEnsembleError("ensemble weights должны быть положительными")
+            raise TrajectoryEnsembleError("ensemble weights must be positive")
         if not math.isclose(math.fsum(self.weights), 1.0, rel_tol=0.0, abs_tol=1e-12):
-            raise TrajectoryEnsembleError("ensemble weights должны суммироваться в единицу")
+            raise TrajectoryEnsembleError("ensemble weights must sum to one")
         first = self.models[0]
         for model in self.models[1:]:
             if model.dataset_hash != first.dataset_hash:
-                raise TrajectoryEnsembleError("members обучены на разных datasets")
+                raise TrajectoryEnsembleError("members were trained on different datasets")
             if model.wells != first.wells:
-                raise TrajectoryEnsembleError("members имеют разные оси wells")
+                raise TrajectoryEnsembleError("members have different wells axes")
             if model.static_feature_names != first.static_feature_names:
-                raise TrajectoryEnsembleError("members имеют разную статику")
+                raise TrajectoryEnsembleError("members have different static features")
             if model.domain != first.domain:
-                raise TrajectoryEnsembleError("members имеют разные OOD domains")
+                raise TrajectoryEnsembleError("members have different OOD domains")
             if model.config.scenario_context != first.config.scenario_context:
-                raise TrajectoryEnsembleError("members имеют разный scenario context")
+                raise TrajectoryEnsembleError("members have a different scenario context")
         object.__setattr__(self, "version", self.version or self._fingerprint())
 
     @property
@@ -81,7 +82,7 @@ class TrajectoryEnsemble:
         ).hexdigest()
 
     def predict(self, candidate: SurrogateInput) -> ScoredPrediction:
-        x, well_index = _features(
+        x, well_index = build_features(
             candidate,
             self.wells,
             scenario_context=self.models[0].config.scenario_context,
@@ -105,7 +106,7 @@ class TrajectoryEnsemble:
                 (row.well, row.control_step) != (first.well, first.control_step)
                 for row in rows[1:]
             ):
-                raise TrajectoryEnsembleError("порядок nodes разошёлся")
+                raise TrajectoryEnsembleError("nodes order diverged")
             averaged = {
                 field: math.fsum(
                     weight * getattr(row, field)
@@ -133,7 +134,7 @@ class TrajectoryEnsemble:
         payload = read_json(source)
         if payload.get("format") != FORMAT:
             raise TrajectoryEnsembleError(
-                f"неизвестный ensemble format: {payload.get('format')}"
+                f"unknown ensemble format: {payload.get('format')}"
             )
         member_paths = tuple(source.parent / item for item in payload["members"])
         ensemble = cls(
@@ -143,7 +144,7 @@ class TrajectoryEnsemble:
             version=str(payload["version"]),
         )
         if ensemble._fingerprint() != ensemble.version:
-            raise TrajectoryEnsembleError("ensemble fingerprint не совпадает")
+            raise TrajectoryEnsembleError("ensemble fingerprint does not match")
         return ensemble
 
     @classmethod

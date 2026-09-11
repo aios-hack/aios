@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from backend.core.contracts import ControlEvent, Rule, Theta
+from backend.contexts.schedule.domain.schedule import ControlEvent
+from backend.contexts.policy.domain.policy import Rule, Theta
 
 from backend.contexts.policy.domain.agents.base import (
     Agent,
@@ -150,8 +151,8 @@ def run_step(
 def _require_level_is_served(agents: tuple[Agent, ...], level: Level) -> None:
     if not agents:
         raise ValueError(
-            f"уровень {level.value} не обслуживает ни один агент: шаг "
-            f"иерархии посчитать нечем"
+            f"level {level.value} is served by no agent: there is nothing to "
+            f"compute the hierarchy step with"
         )
 
 
@@ -181,9 +182,9 @@ def _bounds_of_followers(
     trace.extend(merged.trace)
     if merged.verdict is Verdict.VETO:
         raise ValueError(
-            f"уровень {level.value}: агент наложил вето "
-            f"«{merged.veto_reason}» на весь уровень — распространить его на "
-            f"отдельные решения нечем"
+            f"level {level.value}: an agent vetoed the whole level with "
+            f"'{merged.veto_reason}' - there is nothing to spread it onto "
+            f"individual decisions"
         )
     return merged.bounds
 

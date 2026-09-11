@@ -44,7 +44,7 @@ class IntervalResponse:
     def __post_init__(self) -> None:
         if not (0 <= self.control_step <= N_INTERVALS - 1):
             raise ValueError(
-                f"control_step={self.control_step} вне 0…{N_INTERVALS - 1}"
+                f"control_step={self.control_step} outside 0…{N_INTERVALS - 1}"
             )
 
 
@@ -58,7 +58,7 @@ def is_excluded_by_negative_rule(response: IntervalResponse) -> bool:
 
 def watercut(response: IntervalResponse, oil_density_t_per_m3: float) -> float:
     if response.liquid_volume_delta == 0:
-        raise ValueError("liquid_volume_delta=0: обводнённость не определена")
+        raise ValueError("liquid_volume_delta=0: watercut is undefined")
     return 1 - (response.oil_mass_delta / oil_density_t_per_m3) / response.liquid_volume_delta
 
 

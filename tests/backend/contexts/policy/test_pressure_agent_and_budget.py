@@ -5,28 +5,25 @@ from datetime import date
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     ControlEvent,
     EventKind,
-    IntervalResponse,
     N_INTERVALS,
     OperatingStatus,
-    ResponseArtifact,
     Role,
-    Rule,
     Schedule,
     ScheduleMeta,
     WellState,
 )
+from backend.contexts.reservoir.domain.response import IntervalResponse
+from backend.contexts.runs.domain.run_result import ResponseArtifact
+from backend.contexts.policy.domain.policy import Rule
 
-from backend.domain.policy import (
-    PolicyState,
-    RuleContext,
-    RuleFlags,
-    default_theta,
-    run_step,
-)
+from backend.contexts.policy.domain.state import PolicyState, RuleContext
+from backend.contexts.policy.domain.flags import RuleFlags
+from backend.contexts.policy.domain.theta import default_theta
+from backend.contexts.policy.application.hierarchy import run_step
 from backend.contexts.policy.domain.agents import (
     APPROACH_FRACTION,
     DEFAULT_REGISTRY,
@@ -180,7 +177,7 @@ def test_pressure_agent_joins_the_registry_by_one_line() -> None:
 
 
 def test_two_pressure_agents_on_one_rank_are_refused() -> None:
-    with pytest.raises(ValueError, match="заявили ранг"):
+    with pytest.raises(ValueError, match="declared rank"):
         with_agents(PRESSURE_REGISTRY, PressureAgent(name="PressureAgentTwin"))
 
 
@@ -310,7 +307,7 @@ def test_a_one_sided_corridor_measures_the_margin_from_the_declared_limit() -> N
 
 
 def test_a_corridor_without_a_single_limit_is_refused() -> None:
-    with pytest.raises(ValueError, match="без единого предела"):
+    with pytest.raises(ValueError, match="without a single limit"):
         PressureCorridor(
             value_bar=MID_CORRIDOR_BAR,
             floor_bar=None,
@@ -320,7 +317,7 @@ def test_a_corridor_without_a_single_limit_is_refused() -> None:
 
 
 def test_a_nonpositive_pressure_reading_is_refused() -> None:
-    with pytest.raises(ValueError, match="неположительно"):
+    with pytest.raises(ValueError, match="is not positive"):
         PressureCorridor(
             value_bar=0.0,
             floor_bar=PRESSURE_FLOOR_BAR,
@@ -332,7 +329,7 @@ def test_a_nonpositive_pressure_reading_is_refused() -> None:
 def test_an_empty_pressure_corridor_in_the_context_is_refused(
     context: RuleContext,
 ) -> None:
-    with pytest.raises(ValueError, match="коридор пуст"):
+    with pytest.raises(ValueError, match="the corridor is empty"):
         replace(
             context,
             pressure_floor_bar=PRESSURE_CEILING_BAR,
@@ -343,7 +340,7 @@ def test_an_empty_pressure_corridor_in_the_context_is_refused(
 def test_a_nonpositive_pressure_in_the_context_is_refused(
     context: RuleContext,
 ) -> None:
-    with pytest.raises(ValueError, match="неположительно"):
+    with pytest.raises(ValueError, match="is not positive"):
         replace(context, field_pressure_bar=0.0)
 
 
@@ -382,10 +379,10 @@ def original_interval_produced_water(
     oil_density_t_per_m3: float,
 ) -> float:
     if oil_density_t_per_m3 <= 0.0:
-        raise ValueError("плотность нефти должна быть положительной")
+        raise ValueError("oil density must be positive")
     days = (control_dates[control_step + 1] - control_dates[control_step]).days
     if days <= 0:
-        raise ValueError(f"control_step={control_step}: неположительная длина интервала")
+        raise ValueError(f"control_step={control_step}: non-positive interval length")
     water_volume = 0.0
     for item in response.interval_response:
         if item.control_step != control_step:
@@ -444,21 +441,21 @@ def test_ported_produced_water_matches_the_original(
 
 
 def test_ported_produced_water_refuses_a_nonpositive_density() -> None:
-    with pytest.raises(ValueError, match="плотность нефти"):
+    with pytest.raises(ValueError, match="oil density"):
         interval_produced_water_rate_m3_per_day(
             PRODUCED_WATER_CASES[0], 0, CONTROL_DATES, 0.0
         )
 
 
 def test_ported_produced_water_refuses_a_step_off_the_axis() -> None:
-    with pytest.raises(ValueError, match=r"вне 0"):
+    with pytest.raises(ValueError, match=r"is outside 0"):
         interval_produced_water_rate_m3_per_day(
             PRODUCED_WATER_CASES[0], N_INTERVALS, CONTROL_DATES, OIL_DENSITY_T_PER_M3
         )
 
 
 def test_ported_produced_water_refuses_a_short_date_axis() -> None:
-    with pytest.raises(ValueError, match="правая граница интервала"):
+    with pytest.raises(ValueError, match="the right end of the interval"):
         interval_produced_water_rate_m3_per_day(
             PRODUCED_WATER_CASES[0], 2, CONTROL_DATES, OIL_DENSITY_T_PER_M3
         )

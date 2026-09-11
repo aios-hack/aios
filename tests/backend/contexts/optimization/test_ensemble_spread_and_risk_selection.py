@@ -23,7 +23,7 @@ from backend.contexts.optimization.application.search_use_case import (
     SearchRunError,
     select_finalist,
 )
-from backend.core.contracts import EventKind, N_INTERVALS
+from backend.contexts.schedule.domain.schedule import EventKind, N_INTERVALS
 from backend.contexts.schedule.domain.canonical import canonicalize
 from backend.shared.resources import chdd_python_dir, model_z_dir
 from backend.contexts.surrogate.application.ensemble import TrajectoryEnsemble
@@ -227,7 +227,7 @@ def test_positive_beta_without_sigma_is_an_explicit_error() -> None:
         select_finalist(finalists, 0.5)
 
     assert str(error.value) == MISSING_SIGMA
-    assert "ансамбль" in str(error.value)
+    assert "ensemble" in str(error.value)
 
 
 def test_positive_beta_prefers_the_narrower_spread_at_equal_npv() -> None:

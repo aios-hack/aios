@@ -16,7 +16,8 @@ from backend.contexts.runs.application.run_projection import project_runs
 from backend.contexts.runs.domain.errors import RunBusyError, RunRequestError
 from backend.contexts.runs.infrastructure.job_store import JobStore
 from backend.contexts.runs.infrastructure.worker_process import run_worker
-from backend.core.contracts import compensation_policy, water_supply_policy
+from backend.contexts.constraints.domain.constraints import compensation_policy, water_supply_policy
+from backend.shared.i18n.catalog import translate
 from backend.shared.json_io import read_json
 
 PARAMETERS = frozenset(INFRASTRUCTURE_KEYS)
@@ -28,49 +29,52 @@ RUN_ID_PREFIX = "web-"
 RUN_ID_FORMAT = "web-%Y%m%d-%H%M%S-"
 RUN_ID_SUFFIX_LENGTH = 8
 
-UNKNOWN_MODE = "Неизвестный вид расчёта."
-UNKNOWN_BUDGET = "Выберите 10, 30 или 120 оценок."
-UNSUPPORTED_PARAMETER = "В условиях есть неподдерживаемый параметр инфраструктуры."
-BUSY = "Расчёт уже выполняется. Дождитесь его окончания."
-BAD_RUN_ID = "Некорректный номер прогона."
-NO_PLAN_YET = "Сначала найдите план суррогатом."
-SEARCH_RUNNING = "Поиск плана суррогатом…"
-VERIFY_RUNNING = "Полный расчёт OPM…"
-SEARCH_FAILED = (
-    "Допустимый план не найден или расчёт завершился ошибкой. "
-    "См. причины отклонения ниже."
-)
-VERIFY_FAILED = (
-    "Проверка OPM не завершена. Проверьте доступность Docker и образа OPM."
-)
-SEARCH_DONE = "Прогноз готов. Для подтверждения запустите OPM."
-VERIFY_DONE_SOUND = "OPM завершён. Все проверки пройдены."
-VERIFY_DONE_UNSOUND = "OPM завершён: план не прошёл проверку."
-EXECUTION_FAILED = (
-    "Не удалось завершить расчёт. Подробности сохранены в журнале на сервере."
-)
+UNKNOWN_MODE = "runs.request.unknown_mode"
+UNKNOWN_BUDGET = "runs.request.unknown_budget"
+UNSUPPORTED_PARAMETER = "runs.request.unsupported_parameter"
+BUSY = "runs.status.busy"
+BAD_RUN_ID = "runs.request.bad_run_id"
+NO_PLAN_YET = "runs.request.no_plan_yet"
+SEARCH_RUNNING = "runs.status.searching"
+VERIFY_RUNNING = "runs.status.verifying"
+SEARCH_FAILED = "runs.status.failed_infeasible"
+VERIFY_FAILED = "runs.status.failed_verify"
+SEARCH_DONE = "runs.status.completed_search"
+VERIFY_DONE_SOUND = "runs.status.completed_verify_sound"
+VERIFY_DONE_UNSOUND = "runs.status.completed_verify_unsound"
+EXECUTION_FAILED = "runs.status.failed"
+
+
+def _message(key: str) -> dict[str, str]:
+    return {"message": translate(key), "message_key": key}
 
 
 def validated_mode(payload: Mapping[str, Any]) -> str:
     mode = payload.get("mode", DEFAULT_MODE)
     if mode not in MODES:
-        raise RunRequestError(UNKNOWN_MODE)
+        raise RunRequestError(translate(UNKNOWN_MODE), message_key=UNKNOWN_MODE)
     return str(mode)
 
 
 def validated_budget(payload: Mapping[str, Any]) -> int:
     budget = payload.get("budget", DEFAULT_BUDGET)
     if type(budget) is not int or budget not in BUDGETS:
-        raise RunRequestError(UNKNOWN_BUDGET)
+        raise RunRequestError(translate(UNKNOWN_BUDGET), message_key=UNKNOWN_BUDGET)
     return budget
 
 
 def validated_constraints(payload: Mapping[str, Any]):
-    constraints = constraints_from_json(payload.get("constraints", {}))
+    try:
+        constraints = constraints_from_json(payload.get("constraints", {}))
+    except ValueError as error:
+        raise RunRequestError(str(error)) from error
     if set(constraints.infrastructure) - PARAMETERS:
-        raise RunRequestError(UNSUPPORTED_PARAMETER)
-    water_supply_policy(constraints)
-    compensation_policy(constraints)
+        raise RunRequestError(translate(UNSUPPORTED_PARAMETER), message_key=UNSUPPORTED_PARAMETER)
+    try:
+        water_supply_policy(constraints)
+        compensation_policy(constraints)
+    except ValueError as error:
+        raise RunRequestError(str(error)) from error
     return constraints
 
 
@@ -81,7 +85,7 @@ def validated_run_id(payload: Mapping[str, Any]) -> str:
         or not run_id.startswith(RUN_ID_PREFIX)
         or Path(run_id).name != run_id
     ):
-        raise RunRequestError(BAD_RUN_ID)
+        raise RunRequestError(translate(BAD_RUN_ID), message_key=BAD_RUN_ID)
     return run_id
 
 
@@ -119,7 +123,7 @@ class WebRuns:
         budget = validated_budget(payload)
         constraints = validated_constraints(payload) if mode == "search" else None
         if not self.lock.acquire(blocking=False):
-            raise RunBusyError(BUSY)
+            raise RunBusyError(translate(BUSY), message_key=BUSY)
         try:
             if mode == "search":
                 run_id = new_run_id()
@@ -140,12 +144,12 @@ class WebRuns:
                     not (directory / "manifest.json").is_file()
                     or not (directory / "constraints.json").is_file()
                 ):
-                    raise RunRequestError(NO_PLAN_YET)
+                    raise RunRequestError(translate(NO_PLAN_YET), message_key=NO_PLAN_YET)
                 data = dict(self.store.read(directory))
             data.update(
                 status="running",
                 mode=mode,
-                message=SEARCH_RUNNING if mode == "search" else VERIFY_RUNNING,
+                **_message(SEARCH_RUNNING if mode == "search" else VERIFY_RUNNING),
             )
             self._write(directory, data)
             threading.Thread(
@@ -166,12 +170,12 @@ class WebRuns:
             if failed:
                 data.update(
                     status="failed",
-                    message=SEARCH_FAILED if mode == "search" else VERIFY_FAILED,
+                    **_message(SEARCH_FAILED if mode == "search" else VERIFY_FAILED),
                 )
             else:
-                data.update(status="completed", message=self._done_message(directory, mode))
+                data.update(status="completed", **_message(self._done_message(directory, mode)))
         except Exception:
-            data.update(status="failed", message=EXECUTION_FAILED)
+            data.update(status="failed", **_message(EXECUTION_FAILED))
         finally:
             self._write(directory, data)
             self.lock.release()

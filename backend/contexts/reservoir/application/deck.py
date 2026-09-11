@@ -75,5 +75,5 @@ def load_oil_density_by_well(
             continue
         by_well.setdefault(connection.well, density)
     if not by_well:
-        raise ValueError("плотности нефти по скважинам не восстановлены из дека")
+        raise ValueError("per-well oil densities were not recovered from the deck")
     return by_well

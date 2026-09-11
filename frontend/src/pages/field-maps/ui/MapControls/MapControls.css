@@ -1,43 +1,61 @@
 .map-presets {
   display: inline-flex;
   align-items: center;
+  flex: none;
   gap: var(--space-1);
   margin-inline-start: var(--space-3);
+  padding: var(--space-1);
+  border: var(--border-hairline) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
 }
 
 .map-preset {
-  padding: var(--space-1) var(--space-2);
-  border: var(--border-hairline) solid var(--color-border);
-  border-radius: var(--radius-pill);
+  height: var(--size-control-height);
+  padding: 0 var(--space-3);
+  white-space: nowrap;
+  border: none;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-muted);
-  font-family: inherit;
-  font-size: var(--font-size-xs);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
   cursor: pointer;
   transition:
-    border-color var(--duration-state) var(--ease-out),
+    background var(--duration-state) var(--ease-out),
     color var(--duration-state) var(--ease-out);
 }
 
-.map-preset:hover {
-  color: var(--color-text);
+.map-preset:hover:not([data-active='true']) {
+  color: var(--color-accent);
 }
 
 .map-preset[data-active='true'] {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.map-preset:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
 }
 
 .map-layer {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   min-width: var(--size-map-layer-min);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-hairline) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
 }
 
 .map-layer-label {
   color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
   white-space: nowrap;
 }
 
@@ -47,9 +65,15 @@
 
 .map-layer-value {
   min-width: 2.5ch;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
   color: var(--color-text);
-  font-size: var(--font-size-xs);
-  text-align: right;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--size-control-height);
+  text-align: center;
 }
 
 @media (prefers-reduced-motion: reduce) {

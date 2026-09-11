@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from backend.core.contracts import ActiveControlMode, StateAtDate
+from backend.contexts.reservoir.domain.response import ActiveControlMode, StateAtDate
 from backend.interfaces.cli.surrogate.tools import surrogate_metrics_report as _surrogate_metrics_report
 
 REPORT_SOURCE = Path(_surrogate_metrics_report.__file__)
@@ -34,7 +34,7 @@ def _assignment(module: ast.Module, name: str) -> ast.Assign:
             isinstance(target, ast.Name) and target.id == name for target in node.targets
         ):
             return node
-    raise AssertionError(f"константа {name} не найдена")
+    raise AssertionError(f"constant {name} not found")
 
 
 def _load_report_namespace() -> dict[str, Any]:
@@ -52,7 +52,7 @@ def _load_report_namespace() -> dict[str, Any]:
         if isinstance(node, ast.FunctionDef) and node.name in wanted
     )
     found = {node.name for node in body if isinstance(node, ast.FunctionDef)}
-    assert found == wanted, f"в отчёте нет функций: {sorted(wanted - found)}"
+    assert found == wanted, f"the report is missing functions: {sorted(wanted - found)}"
     namespace: dict[str, Any] = {
         "statistics": statistics,
         "Sequence": Sequence,
@@ -97,7 +97,7 @@ def test_report_source_carries_no_comments_and_no_docstrings() -> None:
         stripped = line.strip()
         if not stripped.startswith("#"):
             continue
-        assert stripped.startswith(("# type:", "# noqa", "# pragma")), f"строка {number}"
+        assert stripped.startswith(("# type:", "# noqa", "# pragma")), f"line {number}"
 
 
 def test_effect_error_matches_hand_computed_numbers() -> None:
@@ -184,7 +184,7 @@ def test_single_scenario_and_empty_sample_raise_instead_of_returning_zero() -> N
     with pytest.raises(MetricsReportError):
         REPORT["_effect_error"]([], [])
     with pytest.raises(MetricsReportError):
-        REPORT["_distribution"]([], "проверка")
+        REPORT["_distribution"]([], "check")
     with pytest.raises(MetricsReportError):
         REPORT["_bhp_channel"]([])
 
@@ -197,7 +197,7 @@ def test_mismatched_lengths_are_an_error() -> None:
 def test_median_and_p95_on_a_known_sample() -> None:
     values = [float(value) for value in range(1, 101)]
 
-    distribution = REPORT["_distribution"](values, "проверка")
+    distribution = REPORT["_distribution"](values, "check")
 
     assert distribution["n"] == 100.0
     assert distribution["median"] == pytest.approx(50.5)
@@ -214,7 +214,7 @@ def test_p95_of_a_short_sample_stays_inside_the_sample() -> None:
 
 
 def test_scaled_distribution_keeps_the_count_unscaled() -> None:
-    scaled = REPORT["_scaled_distribution"]([2.0e6, 4.0e6, 6.0e6], "проверка", 1e6)
+    scaled = REPORT["_scaled_distribution"]([2.0e6, 4.0e6, 6.0e6], "check", 1e6)
 
     assert scaled["n"] == 3.0
     assert scaled["median"] == pytest.approx(4.0)

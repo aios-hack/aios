@@ -4,8 +4,16 @@ import json
 import math
 from pathlib import Path
 
-from backend.core.contracts import ChargeInitialEsp, Policies, QuantizationPolicy
-from backend.domain.economics import analyze_base_case, load_response_artifact, load_normatives
+from backend.contexts.constraints.domain.config import (
+    ChargeInitialEsp,
+    Policies,
+    QuantizationPolicy,
+)
+from backend.contexts.economics.application.base_case import (
+    analyze_base_case,
+    load_response_artifact,
+)
+from backend.contexts.economics.infrastructure.normatives_io import load_normatives
 from backend.contexts.economics.application.base_case import (
     responses_by_well_from_artifact,
     states_by_well_from_artifact,
@@ -15,7 +23,7 @@ from backend.contexts.economics.application.reference_parity import (
     compare_with_reference,
     run_reference,
 )
-from backend.domain.schedule import parse_schedule
+from backend.contexts.schedule.domain.lossless import parse_schedule
 from backend.shared.resources import model_z_dir, chdd_python_dir, normatives_xlsx
 from backend.interfaces.cli.run import load_run_request
 from backend.interfaces.cli.runner import run as run_cli

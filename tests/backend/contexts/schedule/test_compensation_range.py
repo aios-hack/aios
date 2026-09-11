@@ -4,17 +4,19 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
-    Constraints,
-    IntervalResponse,
     OperatingStatus,
     Role,
     Schedule,
     ScheduleMeta,
-    StateAtDate,
-    ActiveControlMode,
     WellState,
+)
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.reservoir.domain.response import (
+    ActiveControlMode,
+    IntervalResponse,
+    StateAtDate,
 )
 from backend.contexts.constraints.domain.constraints import (
     COMPENSATION_ENFORCEMENT,
@@ -152,7 +154,9 @@ def compensation_check(report: DynamicReport):
     for item in report.constraint_checks:
         if item.constraint == CONSTRAINT_COMPENSATION:
             return item
-    raise AssertionError("в отчёте нет записи о коридоре компенсации")
+    raise AssertionError(
+            "the report has no entry for the compensation corridor"
+        )
 
 
 def test_tool_refuses_without_response(tmp_path: Path) -> None:
@@ -340,7 +344,7 @@ def test_missing_factors_report_surface_conditions_explicitly() -> None:
 def test_reservoir_factors_without_density_are_an_error() -> None:
     schedule = make_schedule()
     rows = intervals(liquid=100.0, oil_mass=45.0, injection=120.0)
-    with pytest.raises(ValueError, match="плотность нефти не передана"):
+    with pytest.raises(ValueError, match="oil density was not supplied"):
         validate_dynamic(
             schedule,
             states_for(schedule),
@@ -354,7 +358,7 @@ def test_reservoir_factors_without_density_are_an_error() -> None:
 
 def test_short_reservoir_factors_are_an_error() -> None:
     rows = intervals(liquid=100.0, oil_mass=45.0, injection=120.0)
-    with pytest.raises(ValueError, match="не передана"):
+    with pytest.raises(ValueError, match="was not supplied"):
         report_for(rows, 1.19, 1.21, ((1.2, 1.05),))
 
 
@@ -384,7 +388,7 @@ def test_zero_withdrawal_stays_undefined_in_reservoir_conditions() -> None:
 
 def test_zero_withdrawal_leaves_no_distribution_for_the_tool() -> None:
     rows = intervals(liquid=0.0, oil_mass=0.0, injection=120.0)
-    with pytest.raises(CompensationRangeError, match="не определена нигде"):
+    with pytest.raises(CompensationRangeError, match="is not defined anywhere"):
         compensation_range(rows)
 
 
@@ -399,5 +403,5 @@ def test_control_step_pressures_follow_the_level_axis() -> None:
 
 
 def test_control_step_pressures_refuse_a_short_series() -> None:
-    with pytest.raises(ValueError, match="короче горизонта"):
+    with pytest.raises(ValueError, match="shorter than the horizon"):
         control_step_pressures((1.0, 2.0), 3)

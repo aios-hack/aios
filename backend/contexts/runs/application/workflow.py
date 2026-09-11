@@ -6,23 +6,16 @@ from backend.contexts.runs.domain.errors import (
 
 import json
 import shutil
-from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
-from enum import Enum
+from dataclasses import asdict
 from pathlib import Path
-from typing import Callable, Protocol
+from typing import Callable
 
-from backend.core.contracts import (
-    Constraints,
-    Schedule,
-    SubmissionBundle,
-    canonical_bytes,
-    hash_schedule,
-)
+from backend.contexts.schedule.domain.schedule import Schedule
+from backend.contexts.runs.domain.run_result import SubmissionBundle
+from backend.shared.hashing import canonical_bytes, hash_schedule
 from backend.contexts.runs.infrastructure.provenance import git_commit, opm_image
 from backend.contexts.reservoir.domain.horizon import HORIZON
 from backend.contexts.constraints.infrastructure.constraints_io import (
-    constraints_hash,
     constraints_to_json,
 )
 from backend.contexts.schedule.application.emit import (
@@ -34,153 +27,25 @@ from backend.contexts.reservoir.infrastructure.opm_deck import (
     render_control_period_include,
     render_submission_history,
 )
+from backend.contexts.runs.application.workflow_models import (
+    MANIFEST_FIELDS,
+    MANIFEST_PROVENANCE_FIELDS,
+    SUBMISSION_BUNDLE_FIELDS,
+    RunManifest,
+    RunProvenance,
+    RunRequest,
+    SubmissionReport,
+    Verification,
+    WorkflowStatus,
+)
+from backend.contexts.runs.application.workflow_records import (
+    _bundle_to_json,
+    _constraints_report,
+    _created_at,
+    _provenance_fields,
+    _required_text,
+)
 from backend.shared.json_io import read_json
-
-
-class WorkflowStatus(Enum):
-    SEARCHED = "searched"
-    VERIFIED = "verified"
-    REJECTED = "rejected"
-    READY_TO_SUBMIT = "ready_to_submit"
-
-
-class Verification(Protocol):
-    sound: bool
-    npv_methodology: float | None
-
-
-@dataclass(frozen=True, slots=True)
-class RunProvenance:
-    model_version: str | None = None
-    npv_head_version: str | None = None
-    scenario_ood_version: str | None = None
-    feature_context_sha256: str | None = None
-    constraints_hash: str | None = None
-    deck_hash: str | None = None
-    normatives_sha256: str | None = None
-    opm_image: str | None = None
-    git_commit: str | None = None
-    seed: str | None = None
-    search_strategy: str | None = None
-    policy_equilibrium: str | None = None
-    iterations: int | None = None
-    self_consistent: bool | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class RunRequest:
-    run_id: str
-    schedule: Schedule
-    predicted_npv: float | None = None
-    constraints: Constraints | None = None
-    provenance: RunProvenance = RunProvenance()
-
-
-MANIFEST_PROVENANCE_FIELDS: tuple[str, ...] = (
-    "model_version",
-    "npv_head_version",
-    "scenario_ood_version",
-    "feature_context_sha256",
-    "constraints_hash",
-    "deck_hash",
-    "normatives_sha256",
-    "opm_image",
-    "git_commit",
-    "seed",
-    "search_strategy",
-    "policy_equilibrium",
-    "iterations",
-    "self_consistent",
-)
-
-MANIFEST_FIELDS: tuple[str, ...] = (
-    "run_id",
-    "status",
-    "schedule_hash",
-    "predicted_npv",
-    "verified_npv",
-    "sound",
-) + MANIFEST_PROVENANCE_FIELDS
-
-
-@dataclass(frozen=True, slots=True)
-class RunManifest:
-    run_id: str
-    status: WorkflowStatus
-    schedule_hash: str
-    predicted_npv: float | None
-    verified_npv: float | None
-    sound: bool | None
-    model_version: str | None = None
-    npv_head_version: str | None = None
-    scenario_ood_version: str | None = None
-    feature_context_sha256: str | None = None
-    constraints_hash: str | None = None
-    deck_hash: str | None = None
-    normatives_sha256: str | None = None
-    opm_image: str | None = None
-    git_commit: str | None = None
-    seed: str | None = None
-    search_strategy: str | None = None
-    policy_equilibrium: str | None = None
-    iterations: int | None = None
-    self_consistent: bool | None = None
-
-    @classmethod
-    def from_dict(cls, document: dict[str, object]) -> RunManifest:
-        missing = [
-            name
-            for name in ("run_id", "status", "schedule_hash")
-            if name not in document
-        ]
-        if missing:
-            raise ValueError(
-                "манифест прогона неполон, нет обязательных полей: "
-                + ", ".join(missing)
-            )
-        known = {
-            name: document.get(name)
-            for name in MANIFEST_FIELDS
-            if name != "status"
-        }
-        return cls(status=WorkflowStatus(document["status"]), **known)
-
-    def as_dict(self) -> dict[str, object]:
-        document: dict[str, object] = {
-            "run_id": self.run_id,
-            "status": self.status.value,
-            "schedule_hash": self.schedule_hash,
-            "predicted_npv": self.predicted_npv,
-            "verified_npv": self.verified_npv,
-            "sound": self.sound,
-        }
-        for name in MANIFEST_PROVENANCE_FIELDS:
-            document[name] = getattr(self, name)
-        return document
-
-
-SUBMISSION_BUNDLE_FIELDS: tuple[str, ...] = (
-    "canonical_schedule_hash",
-    "content_hash_submission",
-    "claimed_npv_rub",
-    "source_run_id",
-    "response_hash",
-    "deck_hash",
-    "economics_config_hash",
-    "methodology_version_hash",
-    "constraints_hash",
-    "opm_image",
-    "git_commit",
-    "created_at",
-)
-
-
-@dataclass(frozen=True, slots=True)
-class SubmissionReport:
-    manifest: RunManifest
-    bundle: SubmissionBundle
-    directory: Path
-    schedule_path: Path
 
 
 class RunWorkflow:
@@ -284,21 +149,21 @@ class RunWorkflow:
     def submit(self, run_id: str, model_dir: Path) -> SubmissionReport:
         run_dir = self.runs_root / run_id
         if not run_dir.is_dir():
-            raise SubmissionError(f"прогон {run_id!r} не найден: {run_dir}")
+            raise SubmissionError(f"run {run_id!r} not found: {run_dir}")
         manifest = self._read_manifest(run_dir)
         if manifest.sound is not True:
             raise SubmissionError(
-                f"пакет сдачи не собирается: прогон {run_id!r} не прошёл "
-                f"верификацию, sound={manifest.sound!r}"
+                f"the submission bundle cannot be built: run {run_id!r} did not pass "
+                f"verification, sound={manifest.sound!r}"
             )
         economics = self._read_economics(run_dir)
         claimed_npv = economics.get("npv_methodology")
         if not isinstance(claimed_npv, (int, float)) or isinstance(claimed_npv, bool):
             raise SubmissionError(
-                f"пакет сдачи не собирается: у прогона {run_id!r} нет ЧДД OPM в "
-                f"economics/result.json, заявлять нечего "
-                f"(npv_methodology={claimed_npv!r}); прогноз суррогата не "
-                "подставляется"
+                f"the submission bundle cannot be built: run {run_id!r} has no OPM NPV in "
+                f"economics/result.json, there is nothing to claim "
+                f"(npv_methodology={claimed_npv!r}); the surrogate forecast is not "
+                "substituted for it"
             )
         schedule = self._read_schedule(run_dir)
         emitted = render_control_period_include(schedule, model_dir)
@@ -372,7 +237,7 @@ class RunWorkflow:
     def _read_manifest(run_dir: Path) -> RunManifest:
         path = run_dir / "manifest.json"
         if not path.is_file():
-            raise SubmissionError(f"манифест прогона не найден: {path}")
+            raise SubmissionError(f"run manifest not found: {path}")
         return RunManifest.from_dict(read_json(path))
 
     @staticmethod
@@ -380,19 +245,19 @@ class RunWorkflow:
         path = run_dir / "economics" / "result.json"
         if not path.is_file():
             raise SubmissionError(
-                f"результат экономики не найден: {path}; ЧДД OPM не заявляется "
-                "без него"
+                f"economics result not found: {path}; the OPM NPV is not claimed "
+                "without it"
             )
         document = read_json(path)
         if not isinstance(document, dict):
-            raise SubmissionError(f"результат экономики не объект JSON: {path}")
+            raise SubmissionError(f"economics result is not a JSON object: {path}")
         return document
 
     @staticmethod
     def _read_schedule(run_dir: Path) -> Schedule:
         path = run_dir / "schedule" / "schedule.json"
         if not path.is_file():
-            raise SubmissionError(f"расписание прогона не найдено: {path}")
+            raise SubmissionError(f"run schedule not found: {path}")
         return load_schedule_json(path)
 
     @staticmethod
@@ -453,65 +318,3 @@ class RunWorkflow:
             json.dumps(manifest.as_dict(), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
-
-
-def _provenance_fields(
-    provenance: RunProvenance, constraints: Constraints | None = None
-) -> dict[str, object]:
-    fields = {name: getattr(provenance, name) for name in MANIFEST_PROVENANCE_FIELDS}
-    if constraints is not None:
-        fields["constraints_hash"] = constraints_hash(constraints)
-    return fields
-
-
-def _constraints_report(
-    dynamic_report: object, constraints_hash_value: object
-) -> dict[str, object]:
-    checks = getattr(dynamic_report, "constraint_checks", ())
-    if dynamic_report is None or not checks:
-        reason = (
-            "динамического отчёта нет: OPM не дошёл до разбора отклика, "
-            "поэтому ни одно ограничение кейса не проверялось"
-            if dynamic_report is None
-            else "динамический отчёт собран без записей о применённых "
-            "ограничениях: состав проверок неизвестен"
-        )
-        return {
-            "constraints_hash": constraints_hash_value,
-            "checks": None,
-            "unavailable_reason": (
-                f"{reason}; пустой список проверок здесь читался бы как "
-                "«ограничений нет», а это не так"
-            ),
-        }
-    return {
-        "constraints_hash": constraints_hash_value,
-        "checks": [item.as_dict() for item in checks],
-        "unavailable_reason": None,
-    }
-
-
-def _required_text(value: object, name: str, run_id: str) -> str:
-    if isinstance(value, str) and value.strip():
-        return value
-    raise SubmissionError(
-        f"пакет сдачи не собирается: у прогона {run_id!r} нет {name}, "
-        f"получено {value!r}; подставлять правдоподобное значение запрещено"
-    )
-
-
-def _bundle_to_json(bundle: SubmissionBundle) -> dict[str, object]:
-    return {name: getattr(bundle, name) for name in SUBMISSION_BUNDLE_FIELDS}
-
-
-def _created_at(existing: Path) -> str:
-    if existing.is_file():
-        try:
-            recorded = json.loads(existing.read_text(encoding="utf-8"))
-        except ValueError:
-            recorded = None
-        if isinstance(recorded, dict):
-            stamp = recorded.get("created_at")
-            if isinstance(stamp, str) and stamp.strip():
-                return stamp
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")

@@ -16,10 +16,8 @@ from backend.contexts.schedule.domain.validation.report import (
     FieldSeries,
     RegionSeries,
 )
-from backend.core.contracts import (
-    Constraints,
-    Schedule,
-)
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.schedule.domain.schedule import Schedule
 from backend.contexts.constraints.domain.constraints import (
     PRESSURE_CEILING_BAR,
     PRESSURE_FLOOR_BAR,
@@ -44,13 +42,14 @@ def _pressure_source(constraints: Constraints, limits: FieldPressureLimits) -> s
     parts: list[str] = []
     if limits.floor_bar is not None:
         parts.append(
-            f"пол infrastructure.{PRESSURE_FLOOR_BAR} = {limits.floor_bar} бар, "
+            f"floor infrastructure.{PRESSURE_FLOOR_BAR} = "
+            f"{limits.floor_bar} bar, "
             f"{limit_origin(constraints, PRESSURE_FLOOR_BAR)}"
         )
     if limits.ceiling_bar is not None:
         parts.append(
-            f"потолок infrastructure.{PRESSURE_CEILING_BAR} = "
-            f"{limits.ceiling_bar} бар, "
+            f"ceiling infrastructure.{PRESSURE_CEILING_BAR} = "
+            f"{limits.ceiling_bar} bar, "
             f"{limit_origin(constraints, PRESSURE_CEILING_BAR)}"
         )
     return "; ".join(parts)
@@ -67,36 +66,38 @@ def check_field_pressure(
             _not_set(
                 CONSTRAINT_FIELD_PRESSURE,
                 (
-                    f"ни infrastructure.{PRESSURE_FLOOR_BAR}, ни "
-                    f"infrastructure.{PRESSURE_CEILING_BAR} в кейсе не заданы: "
-                    "пластовое давление не проверялось, предел назначать "
-                    "за организаторов нельзя"
+                    f"neither infrastructure.{PRESSURE_FLOOR_BAR} nor "
+                    f"infrastructure.{PRESSURE_CEILING_BAR} is set in the "
+                    "case: reservoir pressure was not checked, and a limit "
+                    "must not be assigned on behalf of the organizers"
                 ),
             ),
         )
     if field_series is None:
         raise ValueError(
             f"infrastructure.{PRESSURE_FLOOR_BAR}/{PRESSURE_CEILING_BAR} "
-            "заданы, но серия пластового давления не передана: политика "
-            "давления включена, а проверять нечего. Давление известно только "
-            "после прогона OPM, поэтому валидатор обязан получить FPR "
-            "или сообщить об ошибке, а не признать расписание допустимым"
+            "are set, but the reservoir pressure series was not supplied: "
+            "the pressure policy is enabled and there is nothing to check. "
+            "Pressure is known only after an OPM run, so the validator must "
+            "either receive FPR or raise an error, and must not declare the "
+            "schedule admissible"
         )
     pressures = field_series.field_pressure_bar
     if not pressures:
         raise ValueError(
             f"infrastructure.{PRESSURE_FLOOR_BAR}/{PRESSURE_CEILING_BAR} "
-            "заданы, но серия FPR пуста: сравнивать с пределом нечего"
+            "are set, but the FPR series is empty: there is nothing to "
+            "compare against the limit"
         )
     n_intervals = schedule.meta.n_intervals
     required = level_deck_date_index(n_intervals - 1) + 1
     if len(pressures) < required:
         raise ValueError(
-            f"серия FPR короче горизонта: {len(pressures)} значений при "
-            f"необходимых {required} = {FIRST_CONTROL_LEVEL_DECK_DATE_INDEX} + "
-            f"{n_intervals}; уровень давления шага управления "
-            f"{n_intervals - 1} читается по индексу дека "
-            f"{level_deck_date_index(n_intervals - 1)}"
+            f"the FPR series is shorter than the horizon: {len(pressures)} "
+            f"values against the required {required} = "
+            f"{FIRST_CONTROL_LEVEL_DECK_DATE_INDEX} + {n_intervals}; the "
+            f"pressure level of control step {n_intervals - 1} is read at "
+            f"deck date index {level_deck_date_index(n_intervals - 1)}"
         )
     source = _pressure_source(constraints, limits)
     found: list[Violation] = []
@@ -110,8 +111,8 @@ def check_field_pressure(
                     well=None,
                     value=value,
                     detail=(
-                        f"среднее пластовое давление {value:.3f} бар ниже пола "
-                        f"{limits.floor_bar} бар; {source}"
+                        f"average reservoir pressure {value:.3f} bar is "
+                        f"below the floor {limits.floor_bar} bar; {source}"
                     ),
                 )
             )
@@ -123,8 +124,9 @@ def check_field_pressure(
                     well=None,
                     value=value,
                     detail=(
-                        f"среднее пластовое давление {value:.3f} бар выше "
-                        f"потолка {limits.ceiling_bar} бар; {source}"
+                        f"average reservoir pressure {value:.3f} bar is "
+                        f"above the ceiling {limits.ceiling_bar} bar; "
+                        f"{source}"
                     ),
                 )
             )
@@ -133,9 +135,10 @@ def check_field_pressure(
             CONSTRAINT_FIELD_PRESSURE,
             found,
             (
-                f"пластовое давление сверено на {n_intervals} шагах управления "
-                f"по FPR, уровень шага k читается по индексу дека "
-                f"{FIRST_CONTROL_LEVEL_DECK_DATE_INDEX} + k; {source}"
+                f"reservoir pressure checked over {n_intervals} control "
+                f"steps against FPR, the level of step k is read at deck "
+                f"date index {FIRST_CONTROL_LEVEL_DECK_DATE_INDEX} + k; "
+                f"{source}"
             ),
             blocking_kinds=BLOCKING_DYNAMIC_VIOLATION_KINDS,
         ),
@@ -148,14 +151,14 @@ def _region_pressure_source(
     parts: list[str] = []
     if limits.floor_bar is not None:
         parts.append(
-            f"пол infrastructure.{REGION_PRESSURE_FLOOR_BAR} = "
-            f"{limits.floor_bar} бар, "
+            f"floor infrastructure.{REGION_PRESSURE_FLOOR_BAR} = "
+            f"{limits.floor_bar} bar, "
             f"{limit_origin(constraints, REGION_PRESSURE_FLOOR_BAR)}"
         )
     if limits.ceiling_bar is not None:
         parts.append(
-            f"потолок infrastructure.{REGION_PRESSURE_CEILING_BAR} = "
-            f"{limits.ceiling_bar} бар, "
+            f"ceiling infrastructure.{REGION_PRESSURE_CEILING_BAR} = "
+            f"{limits.ceiling_bar} bar, "
             f"{limit_origin(constraints, REGION_PRESSURE_CEILING_BAR)}"
         )
     return "; ".join(parts)
@@ -172,27 +175,29 @@ def check_region_pressure(
             _not_set(
                 CONSTRAINT_REGION_PRESSURE,
                 (
-                    f"ни infrastructure.{REGION_PRESSURE_FLOOR_BAR}, ни "
-                    f"infrastructure.{REGION_PRESSURE_CEILING_BAR} в кейсе "
-                    "не заданы: региональное пластовое давление не "
-                    "проверялось, предел назначать за организаторов нельзя"
+                    f"neither infrastructure.{REGION_PRESSURE_FLOOR_BAR} "
+                    f"nor infrastructure.{REGION_PRESSURE_CEILING_BAR} is "
+                    "set in the case: regional reservoir pressure was not "
+                    "checked, and a limit must not be assigned on behalf of "
+                    "the organizers"
                 ),
             ),
         )
     if region_series is None:
         raise ValueError(
             f"infrastructure.{REGION_PRESSURE_FLOOR_BAR}/"
-            f"{REGION_PRESSURE_CEILING_BAR} заданы, но серии регионального "
-            "давления не переданы: политика включена, а проверять нечего. "
-            "RPR по регионам появляется только в прогоне диагностического "
-            "дека с FIPNUM, поэтому валидатор обязан получить серии или "
-            "сообщить об ошибке, а не признать расписание допустимым"
+            f"{REGION_PRESSURE_CEILING_BAR} are set, but the regional "
+            "pressure series were not supplied: the policy is enabled and "
+            "there is nothing to check. Per-region RPR appears only in a run "
+            "of the diagnostic deck with FIPNUM, so the validator must "
+            "either receive the series or raise an error, and must not "
+            "declare the schedule admissible"
         )
     if not region_series.has_regions:
         raise ValueError(
             f"infrastructure.{REGION_PRESSURE_FLOOR_BAR}/"
-            f"{REGION_PRESSURE_CEILING_BAR} заданы, но серии RPR пусты: "
-            "сравнивать с пределом нечего"
+            f"{REGION_PRESSURE_CEILING_BAR} are set, but the RPR series are "
+            "empty: there is nothing to compare against the limit"
         )
     n_intervals = schedule.meta.n_intervals
     required = level_deck_date_index(n_intervals - 1) + 1
@@ -200,11 +205,11 @@ def check_region_pressure(
         pressures = region_series.region_pressure_bar[region]
         if len(pressures) < required:
             raise ValueError(
-                f"серия RPR региона {region} короче горизонта: "
-                f"{len(pressures)} значений при необходимых {required} = "
-                f"{FIRST_CONTROL_LEVEL_DECK_DATE_INDEX} + {n_intervals}; "
-                f"уровень давления шага управления {n_intervals - 1} "
-                f"читается по индексу дека "
+                f"the RPR series of region {region} is shorter than the "
+                f"horizon: {len(pressures)} values against the required "
+                f"{required} = {FIRST_CONTROL_LEVEL_DECK_DATE_INDEX} + "
+                f"{n_intervals}; the pressure level of control step "
+                f"{n_intervals - 1} is read at deck date index "
                 f"{level_deck_date_index(n_intervals - 1)}"
             )
     source = _region_pressure_source(constraints, limits)
@@ -221,9 +226,9 @@ def check_region_pressure(
                         well=None,
                         value=value,
                         detail=(
-                            f"пластовое давление региона {region} "
-                            f"{value:.3f} бар ниже пола {limits.floor_bar} "
-                            f"бар; {source}"
+                            f"reservoir pressure of region {region} "
+                            f"{value:.3f} bar is below the floor "
+                            f"{limits.floor_bar} bar; {source}"
                         ),
                         region=region,
                     )
@@ -236,9 +241,9 @@ def check_region_pressure(
                         well=None,
                         value=value,
                         detail=(
-                            f"пластовое давление региона {region} "
-                            f"{value:.3f} бар выше потолка "
-                            f"{limits.ceiling_bar} бар; {source}"
+                            f"reservoir pressure of region {region} "
+                            f"{value:.3f} bar is above the ceiling "
+                            f"{limits.ceiling_bar} bar; {source}"
                         ),
                         region=region,
                     )
@@ -248,10 +253,10 @@ def check_region_pressure(
             CONSTRAINT_REGION_PRESSURE,
             found,
             (
-                f"региональное пластовое давление сверено на {n_intervals} "
-                f"шагах управления по RPR регионов "
+                f"regional reservoir pressure checked over {n_intervals} "
+                f"control steps against RPR of regions "
                 f"{', '.join(str(item) for item in region_series.regions)}, "
-                f"уровень шага k читается по индексу дека "
+                f"the level of step k is read at deck date index "
                 f"{FIRST_CONTROL_LEVEL_DECK_DATE_INDEX} + k; {source}"
             ),
             blocking_kinds=BLOCKING_DYNAMIC_VIOLATION_KINDS,

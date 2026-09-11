@@ -9,27 +9,23 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
-from backend.domain.configuration import economics_config_hash
-from backend.core.contracts import (
-    Groups,
-    Config,
-    Constraints,
+from backend.contexts.constraints.domain.schema import economics_config_hash
+from backend.contexts.connectivity.domain.connectivity import Groups
+from backend.contexts.constraints.domain.config import Config
+from backend.contexts.constraints.domain.constraints import Constraints
+from backend.contexts.runs.domain.run_result import (
     FinalNpvArtifact,
     OpmRunArtifact,
     ResponseArtifact,
     RunStatus,
-    Schedule,
-    hash_schedule,
 )
-from backend.domain.economics import methodology_version_hash
+from backend.contexts.schedule.domain.schedule import Schedule
+from backend.shared.hashing import hash_schedule
+from backend.contexts.economics.domain.methodology_hash import methodology_version_hash
 from backend.contexts.economics.application.base_case import analyze_base_case
-from backend.domain.schedule import (
-    DynamicReport,
-    ValidationReport,
-    parse_schedule,
-    validate_dynamic,
-    validate_static,
-)
+from backend.contexts.schedule.domain.validate_dynamic import DynamicReport, validate_dynamic
+from backend.contexts.schedule.domain.validate import ValidationReport, validate_static
+from backend.contexts.schedule.domain.lossless import parse_schedule
 
 from backend.contexts.simulation.infrastructure.cache import CachingOpmRunner, RunCache
 from backend.contexts.reservoir.infrastructure.opm_deck import OpmDeckEmitter
@@ -77,7 +73,7 @@ class SubmissionResult:
     def npv_methodology(self) -> float:
         if not self.sound or self.final_npv is None:
             raise SubmissionTractError(
-                "цепочка сдачи не прошла, заявлять число нечем: "
+                "the submission chain did not pass, there is no number to declare: "
                 + _failure_summary(self)
             )
         return self.final_npv.npv_methodology
@@ -87,15 +83,15 @@ def _failure_summary(result: SubmissionResult) -> str:
     reasons: list[str] = []
     if not result.static_report.ok:
         reasons.append(
-            f"validate_static: {len(result.static_report.violations)} нарушений, "
-            f"первое — {result.static_report.violations[0]}"
+            f"validate_static: {len(result.static_report.violations)} violations, "
+            f"first one — {result.static_report.violations[0]}"
         )
     if result.dynamic_report is None:
-        reasons.append("validate_dynamic не выполнялся: отклик не прочитан")
+        reasons.append("validate_dynamic was not run: the response was not read")
     elif not result.dynamic_report.ok:
         reasons.append(
             f"validate_dynamic: {len(result.dynamic_report.report.violations)} "
-            f"нарушений, первое — {result.dynamic_report.report.violations[0]}"
+            f"violations, first one — {result.dynamic_report.report.violations[0]}"
         )
     reasons.extend(f"{check.name}: {check.detail}" for check in result.failed_identities)
     return "; ".join(reasons)
@@ -155,17 +151,17 @@ def _identities(
             name="run_schedule_hash",
             holds=opm_run.canonical_schedule_hash == recomputed,
             detail=(
-                f"хеш расписания прогона {opm_run.canonical_schedule_hash!r} против "
-                f"пересчитанного на моменте сдачи {recomputed!r} — расписание "
-                f"подменили после последнего прогона"
+                f"the run schedule hash {opm_run.canonical_schedule_hash!r} against "
+                f"the one recomputed at submission time {recomputed!r} — the schedule "
+                f"was substituted after the last run"
             ),
         ),
         IdentityCheck(
             name="run_status_ok",
             holds=opm_run.status is RunStatus.OK,
             detail=(
-                f"status={opm_run.status}: несошедшийся прогон не может быть "
-                f"источником заявленного числа ({opm_run.message})"
+                f"status={opm_run.status}: a run that did not converge cannot be "
+                f"the source of the declared number ({opm_run.message})"
             ),
         ),
     ]
@@ -175,7 +171,7 @@ def _identities(
             IdentityCheck(
                 name="response_source_run_id",
                 holds=False,
-                detail="отклик не прочитан: связывать прогон с откликом нечем",
+                detail="the response was not read: there is nothing to tie the run to a response with",
             )
         )
     else:
@@ -186,7 +182,7 @@ def _identities(
                 detail=(
                     f"ResponseArtifact.source_run_id {response.source_run_id!r} != "
                     f"OpmRunArtifact.run_id {opm_run.run_id!r} — ResponseLoader "
-                    f"прочитал артефакты не того запуска"
+                    f"read the artifacts of the wrong launch"
                 ),
             )
         )
@@ -196,7 +192,7 @@ def _identities(
             IdentityCheck(
                 name=name,
                 holds=False,
-                detail="ЧДД не посчитан: сверять нечего",
+                detail="NPV was not computed: there is nothing to cross-check",
             )
             for name in ("npv_source_provenance", "economics_config_hash", "methodology_version_hash")
         )
@@ -212,9 +208,9 @@ def _identities(
             ),
             detail=(
                 f"FinalNpvArtifact.source_run_id {final_npv.source_run_id!r} / "
-                f"source_response_hash {final_npv.source_response_hash!r} не совпали "
-                f"с прогоном и откликом — в Economics передали отклик другого "
-                f"прогона или подменённый после чтения"
+                f"source_response_hash {final_npv.source_response_hash!r} did not match "
+                f"the run and the response — Economics was given the response of a different "
+                f"run, or one substituted after it was read"
             ),
         )
     )
@@ -224,8 +220,8 @@ def _identities(
             holds=final_npv.economics_config_hash == expected_economics_hash,
             detail=(
                 f"economics_config_hash {final_npv.economics_config_hash!r} != "
-                f"пересчитанного {expected_economics_hash!r} — число посчитали с "
-                f"другими нормативами"
+                f"the recomputed {expected_economics_hash!r} — the number was computed with "
+                f"different normatives"
             ),
         )
     )
@@ -235,8 +231,8 @@ def _identities(
             holds=final_npv.methodology_version_hash == expected_methodology_hash,
             detail=(
                 f"methodology_version_hash {final_npv.methodology_version_hash!r} != "
-                f"пересчитанного {expected_methodology_hash!r} — число посчитали "
-                f"другой версией калькулятора"
+                f"the recomputed {expected_methodology_hash!r} — the number was computed "
+                f"by a different calculator version"
             ),
         )
     )
@@ -258,8 +254,8 @@ def submit_schedule(
     static_report = validate_static(schedule, constraints)
     if not static_report.ok:
         raise SubmissionTractError(
-            f"validate_static(Schedule*) == [] не выполнено: "
-            f"{len(static_report.violations)} нарушений, первое — "
+            f"validate_static(Schedule*) == [] does not hold: "
+            f"{len(static_report.violations)} violations, first one — "
             f"{static_report.violations[0]}"
         )
 
@@ -315,6 +311,6 @@ def submit_schedule(
 
     if strict and not result.sound:
         raise SubmissionTractError(
-            f"звено А §10.5 не пройдено: {_failure_summary(result)}"
+            f"link A §10.5 did not pass: {_failure_summary(result)}"
         )
     return result

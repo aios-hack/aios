@@ -4,7 +4,7 @@ from pathlib import Path
 
 from backend.contexts.simulation.infrastructure.dataset import DatasetGenerator
 from backend.contexts.reservoir.infrastructure.opm_deck import EmittedOpmDeck
-from backend.core.contracts import RunResult, RunStatus
+from backend.contexts.runs.domain.run_result import RunResult, RunStatus
 import pytest
 
 pytestmark = [pytest.mark.slow]

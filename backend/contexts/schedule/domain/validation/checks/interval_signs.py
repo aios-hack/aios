@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import (
     Sequence,
 )
-from backend.core.contracts import (
+from backend.contexts.reservoir.domain.response import (
     IntervalResponse,
     is_excluded_by_negative_rule,
 )
@@ -35,8 +35,8 @@ def check_interval_signs(
                     item.injection_volume_delta,
                 ),
                 detail=(
-                    "отрицательный месячный прирост: накопленные величины "
-                    "симулятора обязаны быть монотонны"
+                    "negative monthly increment: the cumulative quantities "
+                    "of the simulator must be monotonic"
                 ),
             )
         )

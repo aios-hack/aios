@@ -8,13 +8,13 @@ from collections.abc import (
     Mapping,
 )
 from dataclasses import dataclass
-from backend.core.contracts import (
-    ActiveControlMode,
+from backend.contexts.reservoir.domain.response import ActiveControlMode
+from backend.contexts.constraints.domain.constraints import (
     CompensationPolicy,
     Constraints,
-    Role,
     compensation_policy,
 )
+from backend.contexts.schedule.domain.schedule import Role
 from backend.contexts.schedule.domain.validate import (
     ConstraintCheck,
     ValidationReport,

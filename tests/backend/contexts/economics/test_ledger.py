@@ -4,16 +4,14 @@ from datetime import date
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.reservoir.domain.response import (
     ActiveControlMode,
-    DEFAULT_NORMATIVES_2007,
     IntervalResponse,
-    NormativeSet,
     StateAtDate,
 )
-from backend.domain.economics import (
+from backend.contexts.constraints.domain.config import DEFAULT_NORMATIVES_2007, NormativeSet
+from backend.contexts.economics.domain.ledger import (
     CumulativeSeries,
-    FundState,
     LedgerError,
     ProductionLedger,
     build_production_ledger,
@@ -23,6 +21,7 @@ from backend.domain.economics import (
     raw_diff,
     responses_by_well_from_cumulative,
 )
+from backend.contexts.economics.domain.fund import FundState
 
 NORMATIVES = NormativeSet(**DEFAULT_NORMATIVES_2007, esp_catalog=())
 

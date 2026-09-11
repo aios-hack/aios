@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from backend.contexts.optimization.application.search_use_case import _search_theta
-from backend.core.contracts import Constraints
+from backend.contexts.constraints.domain.constraints import Constraints
 
 
 def test_case_compensation_corridor_restricts_r5_search_bounds() -> None:

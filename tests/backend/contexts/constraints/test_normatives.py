@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import DEFAULT_NORMATIVES_2007, NormativeSet
+from backend.contexts.constraints.domain.config import DEFAULT_NORMATIVES_2007, NormativeSet
 
-from backend.domain.configuration import (
+from backend.contexts.constraints.domain.normatives import (
     NORMATIVE_FIELDS,
     NormativeSource,
     NormativesLoader,
@@ -16,8 +16,6 @@ from backend.contexts.constraints.domain.normatives import METHODOLOGY_LOCKED
 
 from tests.support.backend.environment import missing_reason, normatives_xlsx
 
-#: Путь-образец для структурных проверок `NormativeSource`: файл по нему не
-#: читается, проверяется лишь то, что источник отдаёт путь загрузчику как есть.
 XLSX = Path("models") / "CHDD_PYTHON" / "input" / "Нормативы_ЧДД.xlsx"
 
 
@@ -57,21 +55,21 @@ def test_empty_esp_interval_is_rejected() -> None:
             "cost_rub": 1_200_000.0,
         }
     ]
-    with pytest.raises(ValueError, match="пуст"):
+    with pytest.raises(ValueError, match="is empty"):
         normatives_from_mapping(raw)
 
 
 def test_negative_normative_is_rejected() -> None:
     raw = dict(DEFAULT_NORMATIVES_2007)
     raw["opex_oil_rub_per_t"] = -1.0
-    with pytest.raises(ValueError, match="отрицательный норматив"):
+    with pytest.raises(ValueError, match="negative normative"):
         normatives_from_mapping(raw)
 
 
 def test_unknown_normative_is_rejected() -> None:
     raw = dict(DEFAULT_NORMATIVES_2007)
     raw["opex_gas_rub_per_m3"] = 1.0
-    with pytest.raises(ValueError, match="незаявленные нормативы"):
+    with pytest.raises(ValueError, match="undeclared normatives"):
         normatives_from_mapping(raw)
 
 
@@ -81,12 +79,12 @@ def test_methodology_locked_values_are_named() -> None:
 
 
 def test_source_requires_a_content_hash() -> None:
-    with pytest.raises(ValueError, match="без хеша файла"):
+    with pytest.raises(ValueError, match="without a file hash"):
         NormativeSource(path=XLSX, content_hash="")
 
 
 def test_source_rejects_a_truncated_hash() -> None:
-    with pytest.raises(ValueError, match="ожидается 64"):
+    with pytest.raises(ValueError, match="64 expected"):
         NormativeSource(path=XLSX, content_hash="abc")
 
 
@@ -107,5 +105,5 @@ def test_source_delegates_reading_to_the_caller() -> None:
 def test_xlsx_is_the_declared_source_of_values() -> None:
     path = normatives_xlsx()
     if path is None:
-        pytest.skip(missing_reason("файл нормативов Нормативы_ЧДД.xlsx"))
+        pytest.skip(missing_reason("normatives file Нормативы_ЧДД.xlsx"))
     assert path.suffix == ".xlsx"

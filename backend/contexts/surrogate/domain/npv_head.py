@@ -15,10 +15,10 @@ from typing import Literal
 import torch
 from torch import Tensor
 
-from backend.core.contracts import N_INTERVALS
+from backend.contexts.schedule.domain.schedule import N_INTERVALS
 
 from backend.contexts.surrogate.domain.features import SurrogateInput
-from backend.contexts.surrogate.application.model import _features
+from backend.contexts.surrogate.domain.vectorize import build_features
 
 FORMAT = "aios.surrogate-scenario-npv-head.v1"
 BASE_FEATURES = 21
@@ -36,22 +36,22 @@ def scenario_feature_vector(
 ) -> Tensor:
     if x.ndim != 2 or x.shape[1] < BASE_FEATURES:
         raise ScenarioNpvHeadError(
-            f"ожидался x[:, >={BASE_FEATURES}], получено {x.shape}"
+            f"expected x[:, >={BASE_FEATURES}], got {x.shape}"
         )
     if len(x) != N_INTERVALS * n_wells or well_index.shape != (len(x),):
-        raise ScenarioNpvHeadError("scenario tensor не покрывает 224 × wells")
+        raise ScenarioNpvHeadError("the scenario tensor does not cover 224 × wells")
     if n_wells < 1:
-        raise ScenarioNpvHeadError("n_wells должен быть положительным")
+        raise ScenarioNpvHeadError("n_wells must be positive")
     if bool(((well_index < 0) | (well_index >= n_wells)).any()):
-        raise ScenarioNpvHeadError("индекс скважины вышел за допустимый диапазон")
+        raise ScenarioNpvHeadError("the well index is out of the allowed range")
 
     base = x[:, :BASE_FEATURES].to(dtype=torch.float64)
     step_index = torch.round(base[:, 11] * (N_INTERVALS - 1)).to(torch.long)
     if bool(((step_index < 0) | (step_index >= N_INTERVALS)).any()):
-        raise ScenarioNpvHeadError("календарный индекс вышел за 0…223")
+        raise ScenarioNpvHeadError("the calendar index is outside 0…223")
     flat_index = step_index * n_wells + well_index.to(torch.long)
     if len(torch.unique(flat_index)) != len(flat_index):
-        raise ScenarioNpvHeadError("scenario tensor содержит дубли step × well")
+        raise ScenarioNpvHeadError("the scenario tensor contains duplicate step × well entries")
 
     grid = torch.empty(N_INTERVALS * n_wells, BASE_FEATURES, dtype=torch.float64)
     grid[flat_index] = base
@@ -63,7 +63,7 @@ def scenario_feature_vector(
     if feature_set == "global":
         return global_features
     if N_INTERVALS % TEMPORAL_BINS:
-        raise ScenarioNpvHeadError("224 интервала не делятся на temporal bins")
+        raise ScenarioNpvHeadError("224 intervals are not divisible into temporal bins")
     bin_width = N_INTERVALS // TEMPORAL_BINS
     bins = grid.reshape(TEMPORAL_BINS, bin_width * n_wells, BASE_FEATURES)
     temporal = torch.cat(
@@ -73,7 +73,7 @@ def scenario_feature_vector(
         return torch.cat((global_features, temporal))
     if feature_set != "full":
         raise ScenarioNpvHeadError(
-            f"runtime поддерживает deployed feature_set global/temporal/full, получено {feature_set!r}"
+            f"the runtime supports the deployed feature_set global/temporal/full, got {feature_set!r}"
         )
     controls = grid[:, :, :8]
     by_well = torch.cat(
@@ -85,7 +85,7 @@ def scenario_feature_vector(
 def _kernel(left: Tensor, right: Tensor, name: KernelName, gamma: float) -> Tensor:
     width = left.shape[1]
     if right.shape[1] != width:
-        raise ScenarioNpvHeadError("ширина kernel features разошлась")
+        raise ScenarioNpvHeadError("the kernel feature width diverged")
     if name == "linear":
         return left @ right.T / width
     if name == "poly2":
@@ -97,7 +97,7 @@ def _kernel(left: Tensor, right: Tensor, name: KernelName, gamma: float) -> Tens
             - 2.0 * left @ right.T
         ).clamp_min(0.0)
         return torch.exp(-gamma * distance)
-    raise ScenarioNpvHeadError(f"неизвестный kernel={name!r}")
+    raise ScenarioNpvHeadError(f"unknown kernel={name!r}")
 
 
 @dataclass(slots=True)
@@ -124,41 +124,41 @@ class ScenarioNpvHead:
 
     def __post_init__(self) -> None:
         if len(self.static_feature_names) != 3 or not self.wells:
-            raise ScenarioNpvHeadError("оси NPV head неполны")
+            raise ScenarioNpvHeadError("the NPV head axes are incomplete")
         if self.kernel not in {"linear", "poly2", "rbf"}:
-            raise ScenarioNpvHeadError(f"неизвестный kernel={self.kernel!r}")
+            raise ScenarioNpvHeadError(f"unknown kernel={self.kernel!r}")
         if self.feature_set not in {"global", "temporal", "full"}:
-            raise ScenarioNpvHeadError(f"неподдержанный feature_set={self.feature_set!r}")
+            raise ScenarioNpvHeadError(f"unsupported feature_set={self.feature_set!r}")
         if self.gamma <= 0.0 or not math.isfinite(self.gamma):
-            raise ScenarioNpvHeadError("gamma должна быть конечной и положительной")
+            raise ScenarioNpvHeadError("gamma must be finite and positive")
         if self.target_scale_rub <= 0.0 or not math.isfinite(self.target_scale_rub):
-            raise ScenarioNpvHeadError("target scale должна быть положительной")
+            raise ScenarioNpvHeadError("the target scale must be positive")
         if self.calibration_slope <= 0.0 or not math.isfinite(self.calibration_slope):
-            raise ScenarioNpvHeadError("calibration slope должна быть положительной")
+            raise ScenarioNpvHeadError("the calibration slope must be positive")
         if not math.isfinite(self.calibration_intercept_rub):
-            raise ScenarioNpvHeadError("calibration intercept должна быть конечной")
+            raise ScenarioNpvHeadError("the calibration intercept must be finite")
         if self.centers.ndim != 2 or self.dual.shape != (len(self.centers),):
-            raise ScenarioNpvHeadError("оси centers/dual разошлись")
+            raise ScenarioNpvHeadError("the centers/dual axes diverged")
         width = self.centers.shape[1]
         if self.feature_mean.shape != (width,) or self.feature_scale.shape != (width,):
-            raise ScenarioNpvHeadError("оси feature scaler разошлись")
+            raise ScenarioNpvHeadError("the feature scaler axes diverged")
         if not bool((self.feature_scale > 0.0).all()):
-            raise ScenarioNpvHeadError("feature scale должна быть положительной")
+            raise ScenarioNpvHeadError("the feature scale must be positive")
         if not all(
             bool(torch.isfinite(value).all())
             for value in (self.feature_mean, self.feature_scale, self.centers, self.dual)
         ):
-            raise ScenarioNpvHeadError("NPV head содержит нечисловые тензоры")
+            raise ScenarioNpvHeadError("the NPV head contains non-numeric tensors")
         if len(self.centers) < 2:
             raise ScenarioNpvHeadError(
-                "NPV head нужны минимум два training center для domain gate"
+                "the NPV head needs at least two training centers for the domain gate"
             )
         distances = torch.cdist(self.centers, self.centers) / math.sqrt(width)
         distances.fill_diagonal_(math.inf)
         radius = float(distances.amin(dim=1).amax())
         if radius <= 0.0 or not math.isfinite(radius):
             raise ScenarioNpvHeadError(
-                "training centers не задают конечную joint-domain область"
+                "the training centers do not define a finite joint-domain region"
             )
         self._domain_radius_rms = radius
 
@@ -169,7 +169,7 @@ class ScenarioNpvHead:
     def domain_distance_vectors(self, vectors: Tensor) -> Tensor:
         if vectors.ndim != 2 or vectors.shape[1:] != self.feature_mean.shape:
             raise ScenarioNpvHeadError(
-                f"feature vectors {vectors.shape} несовместимы с {self.feature_mean.shape}"
+                f"feature vectors {vectors.shape} are incompatible with {self.feature_mean.shape}"
             )
         standardized = (vectors.to(torch.float64) - self.feature_mean) / self.feature_scale
         return (
@@ -184,7 +184,7 @@ class ScenarioNpvHead:
     def predict_vectors(self, vectors: Tensor) -> Tensor:
         if vectors.ndim != 2 or vectors.shape[1:] != self.feature_mean.shape:
             raise ScenarioNpvHeadError(
-                f"feature vectors {vectors.shape} несовместимы с {self.feature_mean.shape}"
+                f"feature vectors {vectors.shape} are incompatible with {self.feature_mean.shape}"
             )
         standardized = (vectors.to(torch.float64) - self.feature_mean) / self.feature_scale
         raw = self.target_mean_rub + self.target_scale_rub * (
@@ -198,8 +198,8 @@ class ScenarioNpvHead:
 
     def predict_with_domain(self, candidate: SurrogateInput) -> tuple[float, float]:
         if candidate.static_feature_names != self.static_feature_names:
-            raise ScenarioNpvHeadError("статика кандидата не совпадает с NPV head")
-        x, well_index = _features(candidate, self.wells, scenario_context=False)
+            raise ScenarioNpvHeadError("candidate static features do not match the NPV head")
+        x, well_index = build_features(candidate, self.wells, scenario_context=False)
         vector = scenario_feature_vector(
             x, well_index, n_wells=len(self.wells), feature_set=self.feature_set
         )
@@ -239,7 +239,7 @@ class ScenarioNpvHead:
     def load(cls, path: Path | str) -> "ScenarioNpvHead":
         payload = torch.load(Path(path), map_location="cpu", weights_only=False)
         if payload.get("format") != FORMAT:
-            raise ScenarioNpvHeadError(f"неизвестный artifact: {payload.get('format')}")
+            raise ScenarioNpvHeadError(f"unknown artifact: {payload.get('format')}")
         head = cls(
             wells=tuple(payload["wells"]),
             static_feature_names=tuple(payload["static_feature_names"]),
@@ -261,5 +261,5 @@ class ScenarioNpvHead:
             version=str(payload["version"]),
         )
         if head._fingerprint() != head.version:
-            raise ScenarioNpvHeadError("NPV head fingerprint не совпадает")
+            raise ScenarioNpvHeadError("the NPV head fingerprint does not match")
         return head

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Mapping
 
-from backend.core.contracts import ControlEvent, EventKind, Role, Rule, Theta, TraceEntry
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind, Role
+from backend.contexts.policy.domain.policy import Rule, Theta, TraceEntry
 
 from backend.contexts.policy.domain.economics import (
     oil_margin_rub_per_m3_liquid,
@@ -14,7 +15,7 @@ from backend.contexts.policy.domain.theta import read
 
 RULE = Rule.R1
 ADMISSION_CRITERION = (
-    "Вода течёт к тем скважинам, где она превращается в нефть, а не в воду."
+    "Water flows to the wells where it turns into oil rather than into water."
 )
 THETA_NAMES: tuple[str, ...] = ("r1_lag_months",)
 
@@ -24,9 +25,9 @@ def marginal_value_rub_per_m3(
 ) -> tuple[float, dict[str, float]]:
     influence = context.influence
     if influence is None:
-        raise ValueError("R1 требует измеренную λ: без матрицы влияния ценность не считается")
+        raise ValueError("R1 requires a measured λ: without the influence matrix the value is not computed")
     if injector not in influence.injectors:
-        raise ValueError(f"{injector} отсутствует в окне применимости λ")
+        raise ValueError(f"{injector} is absent from the λ applicability window")
     column = influence.injectors.index(injector)
     density = context.oil_density_t_per_m3
     normatives = context.normatives
@@ -69,7 +70,7 @@ def held_target(
     ceiling = float(cap)
     if ceiling < 0.0:
         raise ValueError(
-            f"{well}: отрицательный потолок приёмистости {ceiling} м³/сут"
+            f"{well}: negative injectivity ceiling {ceiling} m3/day"
         )
     return min(target, ceiling)
 
@@ -79,14 +80,14 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
     budget = context.injection_budget_m3_per_day
     if budget is None:
         raise ValueError(
-            "R1 требует лимит закачки от менеджера месторождения: "
-            "распределять нечего, пока фонд воды не выдан"
+            "R1 requires an injection limit from the field manager: "
+            "there is nothing to allocate until the water pool is issued"
         )
     influence = context.influence
     if influence is None:
         raise ValueError(
-            "R1 требует измеренную λ: без матрицы влияния предельная ценность "
-            "закачки не определена"
+            "R1 requires a measured λ: without the influence matrix the marginal value "
+            "of injection is undefined"
         )
     injectors = tuple(
         well for well in state.injectors() if well in influence.injectors

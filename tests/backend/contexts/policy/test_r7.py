@@ -4,18 +4,15 @@ from dataclasses import replace
 
 import pytest
 
-from backend.core.contracts import EventKind, Rule
+from backend.contexts.schedule.domain.schedule import EventKind
+from backend.contexts.policy.domain.policy import Rule
 from backend.contexts.policy.domain.policy import MAX_THETA_PARAMS
 
-from backend.domain.policy import (
-    ADMISSION_CRITERIA,
-    DEFAULT_RULE_FLAGS,
-    IMPLEMENTED_RULES,
-    RuleContext,
-    RuleFlags,
-    WellMemory,
-    apply_all,
-    apply_rule,
+from backend.contexts.policy.domain.rules import ADMISSION_CRITERIA, apply_all, apply_rule
+from backend.contexts.policy.domain.flags import DEFAULT_RULE_FLAGS, IMPLEMENTED_RULES, RuleFlags
+from backend.contexts.policy.domain.state import RuleContext
+from backend.contexts.policy.domain.memory import WellMemory
+from backend.contexts.policy.domain.theta import (
     budget_free,
     budget_used,
     default_theta,
@@ -265,4 +262,4 @@ def test_a_converted_well_is_no_longer_cycled(context: RuleContext) -> None:
 
 
 def test_the_benefit_is_declared_unconfirmed() -> None:
-    assert "не подтверждена" in r7.BENEFIT_UNCONFIRMED
+    assert "not confirmed" in r7.BENEFIT_UNCONFIRMED

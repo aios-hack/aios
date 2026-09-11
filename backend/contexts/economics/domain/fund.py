@@ -4,12 +4,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 
-from backend.core.contracts import (
+from backend.contexts.reservoir.domain.response import (
     IntervalResponse,
-    NormativeSet,
     StateAtDate,
     is_excluded_by_negative_rule,
 )
+from backend.contexts.constraints.domain.config import NormativeSet
 
 
 class FundState(Enum):
@@ -46,8 +46,8 @@ class WellFundTrack:
 def classify_fund_state(state: StateAtDate, seen_active: bool) -> FundState:
     if state.liquid_rate > 0 and state.injection_rate > 0:
         raise ValueError(
-            f"скважина {state.well}, deck_step={state.deck_date_index}: "
-            "одновременно WLPR > 0 и WWIR > 0, роль не определяется"
+            f"well {state.well}, deck_step={state.deck_date_index}: "
+            "WLPR > 0 and WWIR > 0 at the same time, the role is undetermined"
         )
     if state.liquid_rate > 0:
         return FundState.PROD_ACTIVE
@@ -64,16 +64,16 @@ def transition_costs(
     if previous is current:
         return 0.0, 0.0
     if current is FundState.NOT_COMMISSIONED:
-        raise ValueError(f"переход {previous.value} → NOT_COMMISSIONED невозможен")
+        raise ValueError(f"the transition {previous.value} -> NOT_COMMISSIONED is impossible")
     if previous is FundState.NOT_COMMISSIONED:
         if current in ACTIVE_FUND_STATES:
             return normatives.event_cost_rub, 0.0
-        raise ValueError("переход NOT_COMMISSIONED → SHUT невозможен")
+        raise ValueError("the transition NOT_COMMISSIONED -> SHUT is impossible")
     if previous is FundState.PROD_ACTIVE and current is FundState.INJ_ACTIVE:
         return 0.0, normatives.conversion_base_cost_rub
     if previous is FundState.INJ_ACTIVE and current is FundState.PROD_ACTIVE:
         raise ValueError(
-            "переход INJ_ACTIVE → PROD_ACTIVE Методикой не определён"
+            "the transition INJ_ACTIVE -> PROD_ACTIVE is not defined by the Methodology"
         )
     return normatives.event_cost_rub, 0.0
 
@@ -87,33 +87,33 @@ def track_well(
     n_deck_dates = len(states_by_deck_step)
     n_intervals = len(responses_by_control_step)
     if n_intervals == 0:
-        raise ValueError(f"скважина {well}: пустой ряд IntervalResponse")
+        raise ValueError(f"well {well}: empty IntervalResponse series")
     if n_deck_dates <= n_intervals:
         raise ValueError(
-            f"скважина {well}: дат дека {n_deck_dates} — не больше числа "
-            f"интервалов {n_intervals}, истории нет"
+            f"well {well}: deck dates {n_deck_dates} are not more than the "
+            f"interval count {n_intervals}, there is no history"
         )
     for deck_step, state in enumerate(states_by_deck_step):
         if state.well != well:
             raise ValueError(
-                f"скважина {well}: StateAtDate на позиции {deck_step} "
-                f"принадлежит {state.well}"
+                f"well {well}: the StateAtDate at position {deck_step} "
+                f"belongs to {state.well}"
             )
         if state.deck_date_index != deck_step:
             raise ValueError(
-                f"скважина {well}: deck_date_index={state.deck_date_index} "
-                f"на позиции {deck_step}, ряд не плотный"
+                f"well {well}: deck_date_index={state.deck_date_index} "
+                f"at position {deck_step}, the series is not dense"
             )
     for control_step, response in enumerate(responses_by_control_step):
         if response.well != well:
             raise ValueError(
-                f"скважина {well}: IntervalResponse на позиции {control_step} "
-                f"принадлежит {response.well}"
+                f"well {well}: the IntervalResponse at position {control_step} "
+                f"belongs to {response.well}"
             )
         if response.control_step != control_step:
             raise ValueError(
-                f"скважина {well}: control_step={response.control_step} "
-                f"на позиции {control_step}, ряд не плотный"
+                f"well {well}: control_step={response.control_step} "
+                f"at position {control_step}, the series is not dense"
             )
 
     first_interval_end_deck_step = n_deck_dates - n_intervals

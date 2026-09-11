@@ -93,8 +93,8 @@ def base_run_missing_reason() -> str | None:
         return None
     expected = ", ".join(str(path) for path in _base_run_candidates())
     return (
-        f"базовый прогон недоступен: не найден каталог с 'deck/' и 'runs/' ({expected}). "
-        f"Укажите его через {BASE_RUN_ENV_VAR}; поиск не выходит за пределы репозитория."
+        f"the base run is unavailable: no directory with 'deck/' and 'runs/' was found ({expected}). "
+        f"Point to it with {BASE_RUN_ENV_VAR}; the search does not leave the repository."
     )
 
 
@@ -116,9 +116,9 @@ def base_run_output_dir() -> Path | None:
 
 def missing_reason(what: str) -> str:
     return (
-        f"{what} недоступен: данные организаторов не поставляются с кодом. "
-        f"Укажите каталог docs через {DOCS_ROOT_ENV_VAR} "
-        f"или разместите его сиблингом кодовой репы."
+        f"{what} is unavailable: the organizers' data is not shipped with the code. "
+        f"Point to the docs directory with {DOCS_ROOT_ENV_VAR} "
+        f"or place it as a sibling of the code repository."
     )
 
 
@@ -126,7 +126,7 @@ def missing_reason(what: str) -> str:
 def docker_unavailable_reason() -> str | None:
     binary = shutil.which("docker")
     if binary is None:
-        return "Docker не найден в PATH: приёмка требует настоящего OPM Flow в контейнере"
+        return "Docker was not found in PATH: acceptance requires a real OPM Flow in a container"
     try:
         probe = subprocess.run(
             [binary, "info", "--format", "{{.ServerVersion}}"],
@@ -137,11 +137,11 @@ def docker_unavailable_reason() -> str | None:
             timeout=5.0,
         )
     except subprocess.TimeoutExpired:
-        return "демон Docker не ответил за 5 секунд"
+        return "the Docker daemon did not respond within 5 seconds"
     if probe.returncode != 0:
         detail = (probe.stderr.strip() or probe.stdout.strip()).splitlines()
-        tail = detail[-1] if detail else "нет ответа от демона"
-        return f"демон Docker недоступен: {tail}"
+        tail = detail[-1] if detail else "no response from the daemon"
+        return f"the Docker daemon is unavailable: {tail}"
     return None
 
 

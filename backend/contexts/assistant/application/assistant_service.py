@@ -178,8 +178,8 @@ class JarvisService:
     def session_events(self, session_id: str) -> list[dict[str, Any]]:
         if self._disk is None:
             raise SessionDiskError(
-                "хранилище сессий на диске не поднялось: истории показать "
-                "неоткуда"
+                "the on-disk session store did not come up: there is nowhere to show the "
+                "history from"
             )
         return self._disk.events(session_id)
 

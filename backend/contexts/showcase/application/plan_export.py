@@ -10,9 +10,13 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-from backend.core.contracts import RunArtifact, Theta
-from backend.core.contracts.hashing import canonical_bytes, hash_schedule
-from backend.domain.economics import analyze_base_case, load_response_artifact
+from backend.contexts.runs.domain.run_artifact import RunArtifact
+from backend.contexts.policy.domain.policy import Theta
+from backend.shared.hashing import canonical_bytes, hash_schedule
+from backend.contexts.economics.application.base_case import (
+    analyze_base_case,
+    load_response_artifact,
+)
 from backend.contexts.connectivity.domain.groups import GroupingParams, build_groups
 from backend.contexts.connectivity.domain.measure import load_lambda
 from backend.contexts.optimization.application.environment import (
@@ -30,7 +34,8 @@ from backend.contexts.optimization.application.search_use_case import _repair_pr
 from backend.shared.resources import chdd_python_dir, model_z_dir
 from backend.contexts.policy.domain.fixed_point import resolve
 from backend.contexts.policy.domain.theta import default_theta
-from backend.domain.schedule import parse_schedule, validate_static
+from backend.contexts.schedule.domain.lossless import parse_schedule
+from backend.contexts.schedule.domain.validate import validate_static
 from backend.contexts.showcase.infrastructure.artifact_io import dump_bundle
 from backend.contexts.showcase.application.build_showcase import export_scenario
 from backend.contexts.showcase.application.scenarios import (
@@ -84,12 +89,12 @@ def main() -> int:
     if not static.ok:
         raise RuntimeError(static.format())
     actual = hash_schedule(schedule)
-    print(f"восстановлен план: {actual}", flush=True)
+    print(f"plan restored: {actual}", flush=True)
     saved_hash = saved["canonical_schedule_hash"]
     hash_matches = actual == saved_hash
     if not hash_matches:
         raise RuntimeError(
-            f"хеш восстановленного плана {actual} расходится с сохранённым {saved_hash}"
+            f"hash of the restored plan {actual} differs from the saved {saved_hash}"
         )
 
     predicted = prediction.state.response
@@ -167,10 +172,10 @@ def main() -> int:
     for path in written:
         print(path, flush=True)
     print(
-        f"\nЧДД economic head: {prediction.npv / 1e9:.3f} млрд; "
-        f"trajectory-derived ЧДД: {analysis.npv_methodology / 1e9:.3f} млрд; "
-        f"OOD={prediction.ood_score}; событий {len(schedule.control_events)}, "
-        f"самосогласовано: {result.self_consistent}",
+        f"\neconomic head NPV: {prediction.npv / 1e9:.3f} bn; "
+        f"trajectory-derived NPV: {analysis.npv_methodology / 1e9:.3f} bn; "
+        f"OOD={prediction.ood_score}; events {len(schedule.control_events)}, "
+        f"self-consistent: {result.self_consistent}",
         flush=True,
     )
     return 0

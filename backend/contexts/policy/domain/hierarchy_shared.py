@@ -3,11 +3,8 @@ from __future__ import annotations
 from typing import (
     Sequence,
 )
-from backend.core.contracts import (
-    ControlEvent,
-    EventKind,
-    Groups,
-)
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind
+from backend.contexts.connectivity.domain.connectivity import Groups
 from backend.contexts.policy.domain.state import (
     PolicyState,
     WellObservation,

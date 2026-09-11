@@ -1,4 +1,3 @@
-"""Guard the one-way dependency direction of the new backend package."""
 
 from __future__ import annotations
 
@@ -8,31 +7,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2] / "backend"
 
-# These are legacy executable modules still being reached through their old
-# ``python -m`` paths.  Their orchestration code will move behind the new CLI;
-# the business functions in the same files remain domain code for now.
-LEGACY_WORKFLOW_MODULES: set[str] = set()
-
-COMPATIBILITY_SHIMS: set[str] = set()
-
-FORBIDDEN: dict[str, tuple[str, ...]] = {
-    "core": (
-        "backend.domain",
-        "backend.ml",
-        "backend.infrastructure",
-        "backend.application",
-        "backend.presentation",
-    ),
-    "domain": (
-        "backend.ml",
-        "backend.infrastructure",
-        "backend.application",
-        "backend.presentation",
-    ),
-    "ml": ("backend.application", "backend.presentation"),
-    "infrastructure": ("backend.application", "backend.presentation"),
-    "application": ("backend.presentation",),
-}
+REMOVED_PACKAGES: tuple[str, ...] = (
+    "backend.application",
+    "backend.core",
+    "backend.domain",
+    "backend.infrastructure",
+    "backend.ml",
+    "backend.presentation",
+)
 
 
 def imported_modules(path: Path) -> set[str]:
@@ -46,23 +28,34 @@ def imported_modules(path: Path) -> set[str]:
     return modules
 
 
-def test_backend_layers_only_depend_downward() -> None:
+def test_removed_legacy_packages_are_gone() -> None:
+    assert ROOT.is_dir(), f"backend package directory is missing: {ROOT}"
+    present = sorted(
+        name.split(".", 1)[1]
+        for name in REMOVED_PACKAGES
+        if (ROOT / name.split(".", 1)[1]).is_dir()
+    )
+    assert not present, f"legacy shim packages still on disk: {present}"
+
+
+def test_no_module_imports_a_removed_legacy_package() -> None:
     assert ROOT.is_dir(), f"backend package directory is missing: {ROOT}"
     assert any(ROOT.rglob("*.py")), f"backend package directory is empty: {ROOT}"
-    for layer, forbidden in FORBIDDEN.items():
-        for path in (ROOT / layer).rglob("*.py"):
-            if "tests" in path.parts:
-                continue
-            relative = str(path.relative_to(ROOT))
-            if relative in LEGACY_WORKFLOW_MODULES | COMPATIBILITY_SHIMS:
-                continue
-            imports = imported_modules(path)
-            bad = sorted(
-                module
-                for module in imports
-                if any(module == prefix or module.startswith(prefix + ".") for prefix in forbidden)
+    offenders: list[str] = []
+    for path in ROOT.rglob("*.py"):
+        if "tests" in path.parts:
+            continue
+        bad = sorted(
+            module
+            for module in imported_modules(path)
+            if any(
+                module == prefix or module.startswith(prefix + ".")
+                for prefix in REMOVED_PACKAGES
             )
-            assert not bad, f"{path.relative_to(ROOT)} imports higher layer: {bad}"
+        )
+        if bad:
+            offenders.append(f"{path.relative_to(ROOT)}: {bad}")
+    assert not offenders, f"imports of removed packages: {offenders}"
 
 
 def test_production_code_does_not_import_test_configuration() -> None:

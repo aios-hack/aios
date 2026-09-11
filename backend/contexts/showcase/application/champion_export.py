@@ -9,11 +9,15 @@ from pathlib import Path
 
 from backend.contexts.optimization.application.verification_run import LAMBDA, _load_constraints
 from backend.contexts.optimization.application.opm_active_calibration import WaterFamilyNpvCalibration
-from backend.core.contracts import FinalNpvArtifact, RunArtifact
+from backend.contexts.runs.domain.run_result import FinalNpvArtifact
+from backend.contexts.runs.domain.run_artifact import RunArtifact
 from backend.contexts.connectivity.domain.groups import GroupingParams, build_groups
 from backend.contexts.connectivity.domain.measure import load_lambda
-from backend.domain.economics import analyze_base_case, load_response_artifact
-from backend.domain.schedule import parse_schedule
+from backend.contexts.economics.application.base_case import (
+    analyze_base_case,
+    load_response_artifact,
+)
+from backend.contexts.schedule.domain.lossless import parse_schedule
 from backend.shared.resources import chdd_python_dir, model_z_dir
 from backend.contexts.showcase.infrastructure.artifact_io import dump_bundle, load_schedule_json
 from backend.contexts.showcase.application.build_showcase import (
@@ -170,8 +174,8 @@ def main() -> int:
         print(path)
     print(
         f"champion {champion['canonical_schedule_hash'][:12]}: "
-        f"OPM={champion['opm_npv_rub'] / 1e9:.3f} млрд, "
-        f"raw={champion['raw_surrogate_npv_rub'] / 1e9:.3f} млрд, "
+        f"OPM={champion['opm_npv_rub'] / 1e9:.3f} bn, "
+        f"raw={champion['raw_surrogate_npv_rub'] / 1e9:.3f} bn, "
         f"OOD={champion['economic_ood_score']:.3f}"
     )
     return 0

@@ -8,9 +8,9 @@ from backend.contexts.optimization.domain.observed_repair import (
     repair_from_observation,
     production_from_observation,
 )
-from backend.core.contracts import EventKind, FixedDeckEvent
+from backend.contexts.schedule.domain.schedule import EventKind, FixedDeckEvent
 from backend.contexts.reservoir.domain.horizon import HORIZON
-from backend.domain.schedule import parse_schedule
+from backend.contexts.schedule.domain.lossless import parse_schedule
 from tests.backend.contexts.runs.test_run_workflow import (
     historical_schedule,
     historical_model_dir,

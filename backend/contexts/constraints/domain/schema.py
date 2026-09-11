@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass, fields
 
-from backend.core.contracts import (
+from backend.contexts.constraints.domain.config import (
     ArtifactHashes,
     Budgets,
     ChargeInitialEsp,
@@ -11,9 +11,9 @@ from backend.core.contracts import (
     NormativeSet,
     Policies,
     QuantizationPolicy,
-    Rule,
-    canonical_bytes,
 )
+from backend.contexts.policy.domain.policy import Rule
+from backend.shared.hashing import canonical_bytes
 
 from backend.contexts.policy.domain.flags import DEFAULT_RULE_FLAGS
 from backend.contexts.policy.domain.theta import default_theta
@@ -43,12 +43,12 @@ class ConnectivityMeasurementParams:
     def __post_init__(self) -> None:
         if not 0.0 < self.injection_shortfall_tolerance < 1.0:
             raise ValueError(
-                f"допуск недобора приёмистости — доля в (0, 1), получено "
+                f"the injectivity shortfall tolerance is a fraction in (0, 1), got "
                 f"{self.injection_shortfall_tolerance}"
             )
         if not 0.0 < self.separation_floor_share < 1.0:
             raise ValueError(
-                f"порог разделения — доля шага амплитуды в (0, 1), получено "
+                f"the separation threshold is a fraction of the amplitude step in (0, 1), got "
                 f"{self.separation_floor_share}"
             )
 
@@ -64,15 +64,15 @@ _HASH_FIELDS: tuple[str, ...] = tuple(f.name for f in fields(ArtifactHashes))
 def seed_for(config: Config, component: str) -> int:
     if component != GLOBAL_SEED_KEY and component not in COMPONENT_SEEDS:
         raise ValueError(
-            f"{component} не заявлен в реестре компонентов: seed берётся "
-            f"только из конфига, а не назначается на месте"
+            f"{component} is not declared in the component registry: the seed is "
+            f"taken only from the config, never assigned on the spot"
         )
     if component in config.seeds:
         return config.seeds[component]
     if GLOBAL_SEED_KEY not in config.seeds:
         raise ValueError(
-            f"ни {component}, ни {GLOBAL_SEED_KEY} нет в конфиге: "
-            f"неконтролируемых случайных параметров быть не должно"
+            f"neither {component} nor {GLOBAL_SEED_KEY} is in the config: there "
+            f"must be no uncontrolled random parameters"
         )
     return config.seeds[GLOBAL_SEED_KEY]
 
@@ -116,32 +116,32 @@ def default_config(
 def validate(config: Config) -> None:
     if GLOBAL_SEED_KEY not in config.seeds:
         raise ValueError(
-            f"в конфиге нет seed «{GLOBAL_SEED_KEY}»: требование сдачи — "
-            f"зафиксированный seed без неконтролируемых случайных параметров"
+            f"the config has no seed {GLOBAL_SEED_KEY!r}: submission requires a "
+            f"fixed seed with no uncontrolled random parameters"
         )
     for name, seed in config.seeds.items():
         if name != GLOBAL_SEED_KEY and name not in COMPONENT_SEEDS:
-            raise ValueError(f"seed незаявленного компонента: {name}")
+            raise ValueError(f"seed of an undeclared component: {name}")
         if not isinstance(seed, int) or isinstance(seed, bool):
-            raise ValueError(f"seed {name}={seed!r} не целый")
+            raise ValueError(f"seed {name}={seed!r} is not an integer")
     missing_rules = set(Rule) - set(config.rules)
     if missing_rules:
         raise ValueError(
-            f"флаги правил заданы не для всех: "
+            f"rule flags are not given for all rules: "
             f"{sorted(r.value for r in missing_rules)}"
         )
     for name in _HASH_FIELDS:
         value = getattr(config.hashes, name)
         if not value:
             raise ValueError(
-                f"{name} пуст: хеши всех артефактов обязаны лежать в конфиге"
+                f"{name} is empty: the hashes of every artifact must be in the config"
             )
         if len(value) != 64:
-            raise ValueError(f"{name}: хеш длиной {len(value)}, ожидается 64")
+            raise ValueError(f"{name}: hash of length {len(value)}, 64 expected")
     if config.budgets.runs_per_verification_round <= 0:
-        raise ValueError("бюджет прогонов на раунд верификации не положителен")
+        raise ValueError("the run budget per verification round is not positive")
     if config.budgets.fixed_point_iteration_cap <= 0:
-        raise ValueError("потолок итераций неподвижной точки не положителен")
+        raise ValueError("the fixed point iteration cap is not positive")
 
 
 def _hashable_payload(config: Config) -> dict[str, object]:

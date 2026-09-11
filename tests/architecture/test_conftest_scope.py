@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 import tests.support.backend.environment as conftest
-from backend.core.paths import project_root
+from backend.shared.paths import project_root
 
 
 def test_repo_root_is_the_directory_with_pyproject() -> None:

@@ -8,7 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import ControlEvent, EventKind, Lambda, Schedule
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind, Schedule
+from backend.contexts.connectivity.domain.connectivity import Lambda
 from backend.contexts.schedule.domain.schedule import (
     Availability,
     OperatingStatus,
@@ -52,7 +53,7 @@ def _write_lambda(path: Path) -> None:
 def _selection_document(lambda_path: str, **candidate: object) -> dict[str, object]:
     entry: dict[str, object] = {
         "path": lambda_path,
-        "rationale": "выбрана как выгрузка из контекста признаков модели",
+        "rationale": "selected as an export from the model feature context",
     }
     entry.update(candidate)
     return {
@@ -90,7 +91,7 @@ def test_selection_records_rationale_in_provenance(tmp_path) -> None:
     selection = tmp_path / "selection.json"
     document = _selection_document(str(lambda_path))
     document["candidates"]["feature-context-export"]["rationale"] = (
-        "λ выгружена из того же контекста признаков, на котором обучены веса"
+        "lambda was exported from the same feature context the weights were trained on"
     )
     selection.write_text(json.dumps(document), encoding="utf-8")
 
@@ -101,7 +102,7 @@ def test_selection_records_rationale_in_provenance(tmp_path) -> None:
     assert provenance["lambda_path"] == str(lambda_path)
     assert provenance["lambda_selection"] == "feature-context-export"
     assert provenance["lambda_selection_origin"] == "selection-config"
-    assert "контекста признаков" in provenance["lambda_selection_rationale"]
+    assert "feature context" in provenance["lambda_selection_rationale"]
 
 
 def test_candidate_without_rationale_is_refused(tmp_path) -> None:
@@ -112,12 +113,12 @@ def test_candidate_without_rationale_is_refused(tmp_path) -> None:
     document["candidates"]["feature-context-export"].pop("rationale")
     selection.write_text(json.dumps(document), encoding="utf-8")
 
-    with pytest.raises(RuntimeArtifactError, match="без обоснования"):
+    with pytest.raises(RuntimeArtifactError, match="without a rationale"):
         resolve_lambda_selection(_environment(tmp_path, selection))
 
 
 def test_missing_selection_config_is_an_error_not_a_default(tmp_path) -> None:
-    with pytest.raises(RuntimeArtifactError, match="конфигурации выбора"):
+    with pytest.raises(RuntimeArtifactError, match="selection configuration"):
         resolve_lambda_selection(_environment(tmp_path, None))
 
 
@@ -160,7 +161,7 @@ def test_lambda_desynchronised_from_feature_context_is_refused(tmp_path) -> None
         encoding="utf-8",
     )
 
-    with pytest.raises(RuntimeArtifactError, match="разошлись"):
+    with pytest.raises(RuntimeArtifactError, match="diverged"):
         resolve_lambda_selection(
             _environment(tmp_path, selection), feature_context=context
         )
@@ -181,7 +182,7 @@ def test_environment_override_is_marked_as_unverified(tmp_path) -> None:
 
 def test_repository_selection_names_the_feature_context_export() -> None:
     if not REPO_SELECTION.is_file() or not REPO_LAMBDA.is_file():
-        pytest.skip("в рабочей копии нет конфигурации выбора λ или самой λ")
+        pytest.skip("the working copy has no lambda selection configuration or lambda itself")
     document = json.loads(REPO_SELECTION.read_text(encoding="utf-8"))
 
     assert document["format"] == LAMBDA_SELECTION_FORMAT
@@ -316,7 +317,7 @@ def test_ranking_follows_connectivity_when_it_contradicts_well_order() -> None:
 def test_lambda_without_injectors_is_refused_not_replaced_by_index_sweep() -> None:
     empty = replace(_lambda(STRENGTHS), injectors=(), matrix=((), ()))
 
-    with pytest.raises(ConnectivitySearchError, match="ни одной нагнетательной"):
+    with pytest.raises(ConnectivitySearchError, match="contains no injector"):
         _lambda_connectivity(empty)
 
 
@@ -324,7 +325,7 @@ def test_single_active_injector_is_refused() -> None:
     lambda_ = _lambda(STRENGTHS)
     schedule = _schedule({"I1": 400.0, "I2": 0.0, "I3": 0.0, "I4": 0.0, "I5": 0.0, "I6": 0.0})
 
-    with pytest.raises(ConnectivitySearchError, match="не между кем"):
+    with pytest.raises(ConnectivitySearchError, match="nobody to redistribute"):
         _injection_transfer_plan(lambda_, schedule, budget=4)
 
 
@@ -333,7 +334,7 @@ def _holdout_document(hashes: list[str], **overrides: object) -> dict[str, objec
         "format": HOLDOUT_FORMAT,
         "populated": bool(hashes),
         "canonical_schedule_hashes": hashes,
-        "unpopulated_reason": "пригодных прогонов OPM на диске нет",
+        "unpopulated_reason": "there are no suitable OPM runs on disk",
     }
     document.update(overrides)
     return document
@@ -349,8 +350,8 @@ def test_training_on_holdout_is_an_error(tmp_path) -> None:
     frozen = "a" * 64
     holdout = load_frozen_holdout(_holdout_file(tmp_path, _holdout_document([frozen])))
 
-    with pytest.raises(FrozenHoldoutError, match="замороженного holdout"):
-        assert_holdout_excluded(holdout, [frozen, "b" * 64], "обучающая выборка")
+    with pytest.raises(FrozenHoldoutError, match="schedules of the frozen holdout"):
+        assert_holdout_excluded(holdout, [frozen, "b" * 64], "training set")
 
 
 def test_disjoint_training_set_passes(tmp_path) -> None:
@@ -358,7 +359,7 @@ def test_disjoint_training_set_passes(tmp_path) -> None:
         _holdout_file(tmp_path, _holdout_document(["a" * 64]))
     )
 
-    assert_holdout_excluded(holdout, ["b" * 64, "c" * 64], "обучающая выборка")
+    assert_holdout_excluded(holdout, ["b" * 64, "c" * 64], "training set")
 
 
 def test_empty_holdout_is_valid_and_marked_unpopulated(tmp_path) -> None:
@@ -376,19 +377,19 @@ def test_empty_holdout_without_reason_is_refused(tmp_path) -> None:
     document = _holdout_document([])
     document.pop("unpopulated_reason")
 
-    with pytest.raises(FrozenHoldoutError, match="почему"):
+    with pytest.raises(FrozenHoldoutError, match="must explain why"):
         load_frozen_holdout(_holdout_file(tmp_path, document))
 
 
 def test_populated_flag_must_agree_with_the_list(tmp_path) -> None:
     document = _holdout_document(["a" * 64], populated=False)
 
-    with pytest.raises(FrozenHoldoutError, match="расходится"):
+    with pytest.raises(FrozenHoldoutError, match="diverges from"):
         load_frozen_holdout(_holdout_file(tmp_path, document))
 
 
 def test_missing_holdout_file_is_an_error(tmp_path) -> None:
-    with pytest.raises(FrozenHoldoutError, match="замороженного holdout нет"):
+    with pytest.raises(FrozenHoldoutError, match="there is no frozen holdout"):
         load_frozen_holdout(tmp_path / "absent.json")
 
 
@@ -401,7 +402,7 @@ def test_non_hash_entry_is_refused(tmp_path) -> None:
 
 def test_repository_holdout_is_valid_and_declared_unpopulated() -> None:
     if not DEFAULT_HOLDOUT.is_file():
-        pytest.skip("в рабочей копии нет замороженного holdout")
+        pytest.skip("the working copy has no frozen holdout")
     holdout = load_frozen_holdout(DEFAULT_HOLDOUT)
 
     assert holdout.populated is False
@@ -411,7 +412,7 @@ def test_repository_holdout_is_valid_and_declared_unpopulated() -> None:
 
 def test_lambda_lag_is_zero_so_feature_shift_changes_nothing() -> None:
     if not REPO_LAMBDA.is_file():
-        pytest.skip("в рабочей копии нет измеренной λ")
+        pytest.skip("the working copy has no measured lambda")
     exported = json.loads(REPO_LAMBDA.read_text(encoding="utf-8"))
 
     assert exported["lag_months"] == 0

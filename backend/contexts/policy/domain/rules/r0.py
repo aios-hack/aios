@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from backend.core.contracts import ControlEvent, EventKind, Role, Rule, Theta, TraceEntry
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind, Role
+from backend.contexts.policy.domain.policy import Rule, Theta, TraceEntry
 
 from backend.contexts.policy.domain.economics import (
     annual_margin_rub,
@@ -11,7 +12,7 @@ from backend.contexts.policy.domain.rules.base import RuleOutcome
 from backend.contexts.policy.domain.state import PolicyState, RuleContext
 
 RULE = Rule.R0
-ADMISSION_CRITERION = "Держим скважину, пока она отбивает своё содержание."
+ADMISSION_CRITERION = "Keep a well running while it earns back its own upkeep."
 THETA_NAMES: tuple[str, ...] = ()
 
 

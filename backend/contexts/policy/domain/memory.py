@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import Mapping
 
-from backend.core.contracts import EspCatalogEntry, Role
+from backend.contexts.constraints.domain.config import EspCatalogEntry
+from backend.contexts.schedule.domain.schedule import Role
 
 NO_EVENT = -1
 
@@ -19,9 +20,9 @@ class WellMemory:
 
     def __post_init__(self) -> None:
         if self.months_in_loss < 0 or self.months_in_profit < 0:
-            raise ValueError("счётчик месяцев отрицателен")
+            raise ValueError("the month counter is negative")
         if self.esp_nominal_m3_per_day < 0.0:
-            raise ValueError("типоразмер ЭЦН отрицателен")
+            raise ValueError("the ESP size is negative")
 
     def steps_since_switch(self, control_step: int) -> int | None:
         if self.last_switch_step == NO_EVENT:
@@ -49,8 +50,8 @@ class WellMemory:
     def with_esp(self, nominal_m3_per_day: float) -> "WellMemory":
         if nominal_m3_per_day < self.esp_nominal_m3_per_day:
             raise ValueError(
-                f"типоразмер ЭЦН не понижается: {self.esp_nominal_m3_per_day} "
-                f"→ {nominal_m3_per_day}; храповик необратим"
+                f"the ESP size does not step down: {self.esp_nominal_m3_per_day} "
+                f"→ {nominal_m3_per_day}; the ratchet is irreversible"
             )
         return replace(self, esp_nominal_m3_per_day=nominal_m3_per_day)
 
@@ -83,8 +84,8 @@ def esp_size_for(
 ) -> EspCatalogEntry:
     if not catalog:
         raise ValueError(
-            "каталог ЭЦН пуст: типоразмер выводится из каталога нормативов, "
-            "а не назначается числом в правиле"
+            "the ESP catalogue is empty: the size is derived from the normatives catalogue "
+            "rather than assigned as a number inside the rule"
         )
     for entry in sorted(catalog, key=lambda e: e.nominal):
         if entry.interval_low <= liquid_rate_m3_per_day <= entry.interval_high:

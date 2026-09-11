@@ -28,11 +28,11 @@ def utf16_code_units(text: str) -> tuple[int, ...]:
 
 def ecmascript_number(value: float | int) -> str:
     if isinstance(value, bool):
-        raise CanonicalizationError("булево не является числом JCS")
+        raise CanonicalizationError("a boolean is not a JCS number")
     if isinstance(value, int):
         return str(value)
     if math.isnan(value) or math.isinf(value):
-        raise CanonicalizationError(f"JCS не сериализует {value}")
+        raise CanonicalizationError(f"JCS does not serialize {value}")
     if value == 0.0:
         return "0"
     if value < 0:
@@ -84,7 +84,7 @@ def _key_text(key: Any) -> str:
     if isinstance(key, Decimal):
         return ecmascript_number(float(key))
     raise CanonicalizationError(
-        f"ключ типа {type(key).__name__} не сериализуется в JCS"
+        f"a key of type {type(key).__name__} is not serializable to JCS"
     )
 
 
@@ -107,14 +107,14 @@ def _jsonable(value: Any) -> Any:
             name = _key_text(key)
             if name in items:
                 raise CanonicalizationError(
-                    f"ключи {key!r} и другой ключ дают одно имя {name!r}: "
-                    "канонизация была бы неоднозначной"
+                    f"key {key!r} and another key produce the same name {name!r}: "
+                    "canonicalization would be ambiguous"
                 )
             items[name] = _jsonable(item)
         return items
     if isinstance(value, (list, tuple)):
         return [_jsonable(item) for item in value]
-    raise CanonicalizationError(f"тип {type(value).__name__} не сериализуется в JCS")
+    raise CanonicalizationError(f"type {type(value).__name__} is not serializable to JCS")
 
 
 def _serialize(value: Any) -> str:
@@ -131,7 +131,7 @@ def _serialize(value: Any) -> str:
     if isinstance(value, dict):
         names = sorted(value, key=utf16_code_units)
         return "{" + ",".join(f"{_escape(name)}:{_serialize(value[name])}" for name in names) + "}"
-    raise CanonicalizationError(f"тип {type(value).__name__} не сериализуется в JCS")
+    raise CanonicalizationError(f"type {type(value).__name__} is not serializable to JCS")
 
 
 def canonical_bytes(value: Any) -> bytes:

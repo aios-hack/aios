@@ -86,18 +86,15 @@ from pathlib import Path
 from types import MappingProxyType
 
 from backend.contexts.constraints.domain.schema import default_policies
-from backend.core.contracts import (
+from backend.contexts.constraints.domain.constraints import (
     Constraints,
-    Groups,
-    Lambda,
-    ResponseArtifact,
-    Role,
-    Schedule,
-    canonical_bytes,
     compensation_policy,
-    hash_schedule,
     water_supply_policy,
 )
+from backend.contexts.connectivity.domain.connectivity import Groups, Lambda
+from backend.contexts.runs.domain.run_result import ResponseArtifact
+from backend.contexts.schedule.domain.schedule import Role, Schedule
+from backend.shared.hashing import canonical_bytes, hash_schedule
 from backend.contexts.connectivity.domain.groups import (
     GroupingParams,
     build_groups,
@@ -105,13 +102,12 @@ from backend.contexts.connectivity.domain.groups import (
     lambda_hash,
 )
 from backend.contexts.connectivity.domain.measure import load_lambda
-from backend.domain.economics import (
-    load_normatives,
-    load_response_artifact,
-)
+from backend.contexts.economics.infrastructure.normatives_io import load_normatives
+from backend.contexts.economics.application.base_case import load_response_artifact
 from backend.contexts.policy.domain.fixed_point import Evaluation
 from backend.contexts.policy.domain.flags import DEFAULT_RULE_FLAGS, RuleFlags
-from backend.domain.schedule import build_schedule, parse_schedule
+from backend.contexts.schedule.domain.build import build_schedule
+from backend.contexts.schedule.domain.lossless import parse_schedule
 from backend.contexts.schedule.domain.canonical import canonicalize
 from backend.contexts.surrogate.application.adapter import ResponseAdapter
 from backend.contexts.surrogate.application.ensemble import TrajectoryEnsemble
@@ -119,6 +115,7 @@ from backend.contexts.surrogate.domain.features import ScheduleFeatureizer
 from backend.contexts.surrogate.application.model import TrajectorySurrogate
 from backend.contexts.surrogate.infrastructure.model_z_context import ModelZFeatureArtifact
 from backend.contexts.surrogate.domain.npv_head import ScenarioNpvHead
+from backend.shared.errors import DomainError
 
 
 from backend.contexts.reservoir.domain.horizon import HORIZON
@@ -167,13 +164,13 @@ def _build_reference(
             lambda_edges=(),
         )
         reference_response = model.predict(model_input).output
-    except (ValueError, AttributeError, TypeError) as error:
-        return None, None, f"absent: прогноз суррогата на опоре не построен: {error}"
+    except (DomainError, ValueError, AttributeError, TypeError) as error:
+        return None, None, f"absent: the surrogate forecast on the reference was not built: {error}"
     if reference_response.canonical_schedule_hash != hash_schedule(reference_schedule):
         return (
             None,
             None,
-            "absent: прогноз опоры привязан к другому расписанию",
+            "absent: the reference forecast is bound to a different schedule",
         )
     return (
         reference_schedule,
@@ -206,11 +203,12 @@ def load_environment(
     water_supply_policy(case_constraints)
     compensation_policy(case_constraints)
     if ood_threshold < 0.0:
-        raise ScheduleSearchError("OOD threshold не может быть отрицательным")
+        raise ScheduleSearchError("OOD threshold must not be negative")
     if ood_soft_penalty and ood_penalty_per_unit <= 0.0:
         raise ScheduleSearchError(
-            f"мягкий штраф включён, а ставка {ood_penalty_per_unit} не положительна: "
-            "штраф, не наказывающий за выход, ничем не отличается от снятой охраны"
+            f"the soft penalty is enabled but the rate {ood_penalty_per_unit} is not positive: "
+            "a penalty that does not punish leaving the domain is no different "
+            "from removing the guard entirely"
         )
     raw = (Path(model_dir) / _SCHEDULE_INCLUDE).read_bytes()
     parsed = parse_schedule(raw)
@@ -222,12 +220,12 @@ def load_environment(
     expected_dates = tuple(parsed.dates[parsed.t0_deck_date_index:])
     if tuple(feature_context.context.control_dates) != expected_dates:
         raise ScheduleSearchError(
-            "Период весов не совпадает с периодом дека: нужны совместимые "
-            "веса/контекст для нового кейса; изменение AIOS_HORIZON_PATH "
-            "само по себе не переносит суррогат на другой период"
+            "The weights period does not match the deck period: compatible "
+            "weights/context are needed for the new case; changing AIOS_HORIZON_PATH "
+            "on its own does not carry the surrogate over to another period"
         )
     if len(parsed.dates) != HORIZON.n_deck_dates or parsed.t0_deck_date_index != HORIZON.history_offset:
-        raise ScheduleSearchError("Размеры дека не совпадают с AIOS_HORIZON_PATH")
+        raise ScheduleSearchError("The deck dimensions do not match AIOS_HORIZON_PATH")
     model = (
         TrajectoryEnsemble.load(checkpoint_path)
         if Path(checkpoint_path).suffix == ".json"

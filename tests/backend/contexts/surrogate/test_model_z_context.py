@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from backend.core.contracts import (  # noqa: E402
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     ControlEvent,
     EventKind,

@@ -4,13 +4,12 @@ from datetime import date
 
 import pytest
 
-from backend.domain.connectivity import (
+from backend.contexts.connectivity.domain.estimator import (
     Batch,
     DriveMatrix,
     LagScan,
     LaggedObservations,
     ProducerObservation,
-    Window,
     best_lag,
     estimate_lambda,
     least_squares,
@@ -18,7 +17,8 @@ from backend.domain.connectivity import (
     scan_lag,
     stability_between,
 )
-from backend.core.contracts import Lambda
+from backend.contexts.connectivity.domain.fund import Window
+from backend.contexts.connectivity.domain.connectivity import Lambda
 
 INJECTORS = ("I1", "I2", "I3")
 PRODUCERS = ("P1", "P2")
@@ -71,7 +71,6 @@ def observations_for(
 
 
 def test_regression_runs_on_realised_delta_wwir_not_the_planned_levels() -> None:
-    """§8.2: колонка недобравшей скважины заполняется фактом, а не проектным уровнем."""
 
     actual_by_run = (
         {"I1": 36.0, "I2": 24.0, "I3": 24.0},
@@ -84,12 +83,11 @@ def test_regression_runs_on_realised_delta_wwir_not_the_planned_levels() -> None
 
 
 def test_missing_actual_injectivity_is_refused_not_substituted() -> None:
-    with pytest.raises(ValueError, match="фактические ΔWWIR"):
+    with pytest.raises(ValueError, match="actual ΔWWIR"):
         realized_drive(INJECTORS, ({"I1": 36.0, "I2": 24.0},), BASELINE)
 
 
 def test_lag_is_chosen_by_the_maximum_r_squared() -> None:
-    """Приёмка 28: лаг подбирается перебором по сетке, по максимуму R²."""
 
     drive = a_drive()
     by_lag = {
@@ -124,7 +122,6 @@ def test_least_squares_recovers_known_sensitivities() -> None:
 
 
 def test_rank_and_condition_number_come_back_with_the_estimate() -> None:
-    """Приёмка 28: ортогональность после предела 300 бар предъявляется числом."""
 
     drive = a_drive()
     diagnostics = drive.diagnostics()
@@ -142,7 +139,6 @@ def test_rank_and_condition_number_come_back_with_the_estimate() -> None:
 
 
 def test_stability_is_measured_by_two_independent_batches() -> None:
-    """Приёмка 28: устойчивость меряется ДВУМЯ партиями, не проверяется постфактум."""
 
     first = a_drive(seed=0)
     second = a_drive(seed=3)
@@ -165,7 +161,7 @@ def test_stability_is_measured_by_two_independent_batches() -> None:
 def test_a_single_batch_cannot_produce_a_lambda() -> None:
     drive = a_drive()
     single = (Batch(drive=drive, observations=observations_for(drive, 2)),)
-    with pytest.raises(ValueError, match="ДВУМЯ"):
+    with pytest.raises(ValueError, match="TWO independent"):
         estimate_lambda(
             window=WINDOW,
             producers=PRODUCERS,
@@ -205,7 +201,6 @@ def test_noisy_second_batch_lowers_the_reported_stability() -> None:
 
 
 def test_lambda_carries_its_window_of_applicability() -> None:
-    """Приёмка 28 и §8.1.1: матрица несёт окно, фонд и лаг, к которым относится."""
 
     first = a_drive(seed=0)
     second = a_drive(seed=2)
@@ -256,7 +251,6 @@ def test_estimated_matrix_matches_the_planted_sensitivities() -> None:
 
 
 def test_lambda_is_not_constrained_to_sum_to_one() -> None:
-    """§8.2: λ — размерные чувствительности, Σ ≤ 1 к ним неприменимо."""
 
     first = a_drive(seed=0)
     second = a_drive(seed=5)
@@ -279,7 +273,7 @@ def test_batches_on_a_different_fund_are_refused() -> None:
     first = a_drive(seed=0)
     other = DriveMatrix(injectors=("I1", "I2"), rows=((6.0, -6.0), (-6.0, 6.0)))
     observations = observations_for(first, 2)
-    with pytest.raises(ValueError, match="другом фонде"):
+    with pytest.raises(ValueError, match="different set of injectors"):
         estimate_lambda(
             window=WINDOW,
             producers=PRODUCERS,
@@ -297,7 +291,7 @@ def test_batches_on_a_different_fund_are_refused() -> None:
 def test_batches_observed_at_a_different_lag_are_refused() -> None:
     first = a_drive(seed=0)
     second = a_drive(seed=2)
-    with pytest.raises(ValueError, match="лаге"):
+    with pytest.raises(ValueError, match="lag"):
         estimate_lambda(
             window=WINDOW,
             producers=PRODUCERS,
@@ -313,13 +307,6 @@ def test_batches_observed_at_a_different_lag_are_refused() -> None:
 
 
 def test_high_r_squared_does_not_mean_separated_effects() -> None:
-    """Ловушка предела 300 бар: недобравшая скважина делает колонки почти
-
-    коллинеарными. Подгонка при этом остаётся идеальной (R² = 1.0), а
-    отдельные λ разъезжаются — 2.0 и 0.5 размазываются в почти равные числа.
-    Ровно поэтому §8.2 требует возвращать ранг и обусловленность вместе с
-    оценкой: по одному R² эту порчу не видно.
-    """
 
     rows = ((6.0, 5.9, -6.0), (-6.0, -5.9, -6.0), (-6.0, -5.9, 6.0), (6.0, 5.9, 6.0))
     drive = DriveMatrix(injectors=INJECTORS, rows=rows)
@@ -336,17 +323,6 @@ def test_high_r_squared_does_not_mean_separated_effects() -> None:
 
 
 def test_regression_on_facts_survives_a_well_pinned_at_the_pressure_limit() -> None:
-    """Скважина на 300 бар почти не двигается — регрессия на ФАКТ это переживает.
-
-    Вторая партия построена так, что I1 реализует 0.2 м³/сут вместо 6.0
-    (ровно поведение скважины 17 Model_Z, стоящей на пределе давления все
-    12 месяцев). Поскольку регрессия идёт на фактические ΔWWIR, а не на
-    проектные уровни плана, λ восстанавливается точно; порча видна там, где
-    ей и положено — в числе обусловленности, оно растёт с 1.0 до 2.0.
-
-    Регрессия на проектные уровни в этом месте дала бы неверные λ молча:
-    план обещал ±6.0 у всех, а реализовались другие воздействия.
-    """
 
     healthy = a_drive()
     starved = DriveMatrix(
@@ -389,5 +365,5 @@ def test_regression_on_facts_survives_a_well_pinned_at_the_pressure_limit() -> N
 
 def test_degenerate_batch_pair_has_no_defined_stability() -> None:
     flat = ((0.0, 0.0), (0.0, 0.0))
-    with pytest.raises(ValueError, match="устойчивость не определена"):
+    with pytest.raises(ValueError, match="stability is undefined"):
         stability_between(flat, flat)

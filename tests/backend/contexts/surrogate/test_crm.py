@@ -6,8 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.contracts import IntervalResponse, N_INTERVALS, RunResult, RunStatus
-from backend.domain.schedule import load_schedule
+from backend.contexts.reservoir.domain.response import IntervalResponse
+from backend.contexts.schedule.domain.schedule import N_INTERVALS
+from backend.contexts.runs.domain.run_result import RunResult, RunStatus
+from backend.contexts.schedule.domain.build import load_schedule
 from backend.contexts.surrogate.domain.crm import (
     BaselineComparison,
     CrmBaseline,
@@ -215,7 +217,11 @@ def _load_real_response():
     deck = base_run_dir() / "deck"
     if not (deck / "Model_Z_sch.inc").is_file():
         return None
-    from backend.infrastructure.opm import ResponseLoader, build_summary_plan, load_density_by_pvtnum
+    from backend.contexts.simulation.infrastructure.response_loader import (
+        ResponseLoader,
+        load_density_by_pvtnum,
+    )
+    from backend.contexts.reservoir.infrastructure.summary import build_summary_plan
 
     schedule = load_schedule(deck / "Model_Z_sch.inc")
     plan = build_summary_plan(deck, sorted(schedule.meta.wells))
@@ -237,7 +243,7 @@ REAL_RESPONSE = _load_real_response()
 
 real_response = pytest.mark.skipif(
     REAL_RESPONSE is None,
-    reason=missing_reason("сохранённый отклик настоящего прогона OPM"),
+    reason=missing_reason("a stored response from a real OPM run"),
 )
 
 REAL_TRAIN_INTERVALS = 168

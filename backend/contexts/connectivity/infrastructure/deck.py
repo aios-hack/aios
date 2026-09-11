@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-from backend.core.contracts import OperatingStatus, Role
+from backend.contexts.connectivity.domain.deck_schedule import DeckSchedule, DeckWellRecord
+from backend.contexts.schedule.domain.schedule import OperatingStatus, Role
+
+__all__ = ["DeckSchedule", "DeckWellRecord", "parse_deck_schedule"]
 
 MONTHS: dict[str, int] = {
     "JAN": 1,
@@ -34,57 +36,12 @@ _INJ_STATUS_FIELD = 2
 _INJ_RATE_FIELD = 4
 
 
-@dataclass(frozen=True, slots=True)
-class DeckWellRecord:
-    deck_date_index: int
-    well: str
-    role: Role
-    operating_status: OperatingStatus
-    setpoint_m3_per_day: float
-
-
-@dataclass(frozen=True, slots=True)
-class DeckSchedule:
-    dates: tuple[date, ...]
-    wells: tuple[str, ...]
-    records: tuple[DeckWellRecord, ...]
-
-    def __post_init__(self) -> None:
-        if not self.dates:
-            raise ValueError("в деке нет ни одной DATES")
-        if sorted(self.dates) != list(self.dates):
-            raise ValueError("DATES дека не монотонны")
-        if not self.wells:
-            raise ValueError("в деке нет WELSPECS")
-        declared = set(self.wells)
-        unknown = {r.well for r in self.records} - declared
-        if unknown:
-            raise ValueError(f"скважины вне WELSPECS: {sorted(unknown)}")
-
-    def date_index(self, when: date) -> int:
-        low, high = 0, len(self.dates)
-        while low < high:
-            middle = (low + high) // 2
-            if self.dates[middle] <= when:
-                low = middle + 1
-            else:
-                high = middle
-        if low == 0:
-            raise ValueError(
-                f"{when} раньше первой даты дека {self.dates[0]}: "
-                f"состояния фонда на эту дату не существует"
-            )
-        return low - 1
-
-    def records_at(self, deck_date_index: int) -> tuple[DeckWellRecord, ...]:
-        return tuple(r for r in self.records if r.deck_date_index == deck_date_index)
-
 
 def _parse_date(line: str) -> date:
     day, month, year = line.strip().strip("/").split()
     key = month.upper()
     if key not in MONTHS:
-        raise ValueError(f"нераспознанный месяц в DATES: {month}")
+        raise ValueError(f"unrecognised month in DATES: {month}")
     return date(int(year), MONTHS[key], int(day))
 
 
@@ -95,7 +52,7 @@ def _fields(row: str) -> list[str]:
 def _well_of(row: str) -> str:
     parts = row.split("'")
     if len(parts) < 3:
-        raise ValueError(f"строка без идентификатора скважины: {row}")
+        raise ValueError(f"a row without a well identifier: {row}")
     return parts[1]
 
 
@@ -127,7 +84,7 @@ def _record(
         rate_token = parts[_INJ_RATE_FIELD]
         role = Role.INJ
     if status_token not in _STATUS:
-        raise ValueError(f"{keyword}: нераспознанный статус {status_token}")
+        raise ValueError(f"{keyword}: unrecognised status {status_token}")
     setpoint = 0.0 if rate_token.endswith("*") else float(rate_token)
     return DeckWellRecord(
         deck_date_index=deck_date_index,
@@ -155,7 +112,7 @@ def parse_deck_schedule(path: Path) -> DeckSchedule:
             wells.extend(_well_of(row) for row in rows)
         elif token in _ROLE_KEYWORDS:
             if deck_date_index < 0:
-                raise ValueError(f"{token} до первой DATES: шкала дека не определена")
+                raise ValueError(f"{token} precedes the first DATES: the deck time axis is undefined")
             rows, cursor = _block_rows(lines, cursor + 1)
             records.extend(_record(token, deck_date_index, row) for row in rows)
         cursor += 1

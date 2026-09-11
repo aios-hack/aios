@@ -4,25 +4,21 @@ from dataclasses import replace
 
 import pytest
 
-from backend.core.contracts import (
-    MAX_LRAT_M3_PER_DAY,
-    Constraints,
+from backend.contexts.schedule.domain.schedule import (
     ControlEvent,
     EventKind,
+    MAX_LRAT_M3_PER_DAY,
     Role,
-    Rule,
-    WellOutage,
 )
+from backend.contexts.constraints.domain.constraints import Constraints, WellOutage
+from backend.contexts.policy.domain.policy import Rule
 
-from backend.domain.policy import (
+from backend.contexts.policy.application.hierarchy import (
     FIELD_AGENT,
     HierarchyTrace,
     Level,
-    RuleContext,
-    RuleFlags,
     allocate_field,
     decide_group,
-    default_theta,
     execute_well,
     field_limit_from_constraints,
     group_demand_rub_per_m3,
@@ -33,6 +29,9 @@ from backend.domain.policy import (
     run_step,
     wells_without_group,
 )
+from backend.contexts.policy.domain.state import RuleContext
+from backend.contexts.policy.domain.flags import RuleFlags
+from backend.contexts.policy.domain.theta import default_theta
 from tests.backend.contexts.policy.conftest import (
     groups_of,
     influence_of,
@@ -123,13 +122,13 @@ def test_field_limit_of_zero_gives_every_group_zero(context: RuleContext) -> Non
 
 def test_field_manager_refuses_a_negative_limit(context: RuleContext) -> None:
     scoped = two_group_context(context)
-    with pytest.raises(ValueError, match="отрицательный лимит поля"):
+    with pytest.raises(ValueError, match="negative field limit"):
         allocate_field(two_group_state(), scoped, only_r1_flags(), -1.0)
 
 
 def test_field_manager_refuses_to_work_without_groups(context: RuleContext) -> None:
     scoped = replace(two_group_context(context), groups=None)
-    with pytest.raises(ValueError, match="без Groups"):
+    with pytest.raises(ValueError, match="without Groups"):
         allocate_field(
             two_group_state(), scoped, only_r1_flags(), FIELD_LIMIT_M3_PER_DAY
         )
@@ -137,7 +136,7 @@ def test_field_manager_refuses_to_work_without_groups(context: RuleContext) -> N
 
 def test_field_manager_refuses_to_work_without_a_limit(context: RuleContext) -> None:
     scoped = replace(two_group_context(context), injection_budget_m3_per_day=None)
-    with pytest.raises(ValueError, match="лимит поля не задан"):
+    with pytest.raises(ValueError, match="the field limit is not set"):
         allocate_field(two_group_state(), scoped, only_r1_flags())
 
 
@@ -146,7 +145,7 @@ def test_field_manager_has_no_formula_of_its_own_when_r1_is_off(
 ) -> None:
     scoped = two_group_context(context)
     flags = RuleFlags(enabled={rule: False for rule in Rule})
-    with pytest.raises(ValueError, match="менеджер месторождения своей формулы"):
+    with pytest.raises(ValueError, match="the field manager has no formula of its own"):
         allocate_field(
             two_group_state(), scoped, flags, FIELD_LIMIT_M3_PER_DAY
         )
@@ -154,7 +153,7 @@ def test_field_manager_has_no_formula_of_its_own_when_r1_is_off(
 
 def test_field_manager_refuses_to_split_without_lambda(context: RuleContext) -> None:
     scoped = replace(two_group_context(context), influence=None)
-    with pytest.raises(ValueError, match="требует измеренную λ"):
+    with pytest.raises(ValueError, match="requires a measured"):
         allocate_field(
             two_group_state(), scoped, only_r1_flags(), FIELD_LIMIT_M3_PER_DAY
         )
@@ -234,10 +233,6 @@ def test_group_agent_scales_down_a_request_above_its_limit(
         group_injection_m3_per_day={GROUP_A: 550.0},
         group_offtake_m3_per_day={GROUP_A: 60.0},
         memory=memory_of(),
-        # i9 вне окна λ и держит базовую уставку: ценность её закачки
-        # неизвестна, но обнулять скважину из-за отсутствия замера нельзя.
-        # Именно этот удержанный уровень и делает запрос участка выше лимита,
-        # то есть проверяет ровно то, ради чего тест написан.
         baseline_injection_m3_per_day={"i9": 400.0},
     )
     flags = only_r1_flags()
@@ -272,7 +267,7 @@ def test_group_limit_rejects_a_request_it_cannot_satisfy(
         share_of_field=0.5,
         demand_rub_per_m3=1.0,
     )
-    with pytest.raises(ValueError, match="запросил"):
+    with pytest.raises(ValueError, match="requested"):
         GroupDecision(
             group_id=GROUP_A,
             limit=limit,
@@ -360,7 +355,7 @@ def test_executor_refuses_a_well_it_cannot_see(context: RuleContext) -> None:
     event = ControlEvent(
         control_step=0, well="ghost", kind=EventKind.SET_RATE, value=1.0
     )
-    with pytest.raises(ValueError, match="не видит состояния скважины"):
+    with pytest.raises(ValueError, match="does not see the well state"):
         execute_well(state, context, event, Rule.R1, agent="ghost")
 
 
@@ -371,7 +366,7 @@ def test_executor_refuses_a_non_positive_quantization_step(
     event = ControlEvent(
         control_step=0, well="i1", kind=EventKind.SET_RATE, value=10.0
     )
-    with pytest.raises(ValueError, match="шаг квантования"):
+    with pytest.raises(ValueError, match="quantisation step"):
         execute_well(
             state, context, event, Rule.R1, agent="i1", setpoint_step_m3_per_day=0.0
         )
@@ -449,7 +444,7 @@ def test_a_rule_switched_off_cannot_leave_a_record_at_any_level(
     context: RuleContext,
 ) -> None:
     from backend.contexts.policy.application.hierarchy import LeveledTraceEntry
-    from backend.core.contracts import TraceEntry
+    from backend.contexts.policy.domain.policy import TraceEntry
 
     flags = only_r1_flags()
     entry = LeveledTraceEntry(
@@ -463,15 +458,15 @@ def test_a_rule_switched_off_cannot_leave_a_record_at_any_level(
             decision="SHUT",
         ),
     )
-    with pytest.raises(ValueError, match="выключено флагом"):
+    with pytest.raises(ValueError, match="disabled by a flag"):
         HierarchyTrace(entries=(entry,), flags=flags)
 
 
 def test_leveled_entry_without_numbers_is_refused() -> None:
     from backend.contexts.policy.application.hierarchy import LeveledTraceEntry
-    from backend.core.contracts import TraceEntry
+    from backend.contexts.policy.domain.policy import TraceEntry
 
-    with pytest.raises(ValueError, match="без чисел входа"):
+    with pytest.raises(ValueError, match="without input numbers"):
         LeveledTraceEntry(
             level=Level.FIELD,
             agent=FIELD_AGENT,
@@ -592,7 +587,7 @@ def test_field_limit_comes_from_constraints_not_from_the_manager(
         constraints=Constraints(injection_limits={year: FIELD_LIMIT_M3_PER_DAY}),
     )
     assert field_limit_from_constraints(scoped, year) == FIELD_LIMIT_M3_PER_DAY
-    with pytest.raises(ValueError, match="не назначает доступную воду сам"):
+    with pytest.raises(ValueError, match="does not assign the available water itself"):
         field_limit_from_constraints(scoped, year + 1)
 
 

@@ -66,8 +66,8 @@ def read_opm_budget(
 ) -> tuple[int, float | None, int]:
     if since_line < 0:
         raise OpmBudgetError(
-            f"since_line={since_line} отрицателен: журнал бюджета OPM читается "
-            "с начала или с записанной отметки"
+            f"since_line={since_line} is negative: the OPM budget journal is read "
+            "from the start or from a recorded mark"
         )
     if not path.is_file():
         return 0, None, since_line
@@ -75,7 +75,7 @@ def read_opm_budget(
         lines = path.read_text(encoding="utf-8").splitlines()
     except OSError as error:
         raise OpmBudgetError(
-            f"журнал бюджета OPM {path} не читается: {error}"
+            f"OPM budget journal {path} is not readable: {error}"
         ) from error
     runs = 0
     seconds = 0.0
@@ -87,11 +87,11 @@ def read_opm_budget(
             entry = json.loads(raw)
         except ValueError as error:
             raise OpmBudgetError(
-                f"{path}, строка {number + 1}: запись журнала не разбирается — {error}"
+                f"{path}, line {number + 1}: the journal entry cannot be parsed — {error}"
             ) from error
         if not isinstance(entry, dict) or "run_id" not in entry:
             raise OpmBudgetError(
-                f"{path}, строка {number + 1}: запись без run_id — прогон не опознан"
+                f"{path}, line {number + 1}: entry without run_id — the run is not identified"
             )
         runs += 1
         wallclock = entry.get("wallclock_seconds")
@@ -108,7 +108,7 @@ def _journal_line_count(path: Path) -> int:
         return len(path.read_text(encoding="utf-8").splitlines())
     except OSError as error:
         raise OpmBudgetError(
-            f"журнал бюджета OPM {path} не читается: {error}"
+            f"OPM budget journal {path} is not readable: {error}"
         ) from error
 
 
@@ -124,8 +124,9 @@ def close_run_clock(evaluations: int) -> RunBudget:
     started = RUN_CLOCK["started"]
     if journal is None or started is None:
         raise OpmBudgetError(
-            "учёт бюджета прогона не начат: измерить время и число прогонов OPM "
-            "не по чему — вызовите start_run_clock перед поиском"
+            "run budget accounting was not started: there is nothing to measure the "
+            "time and the number of OPM runs from — call start_run_clock before "
+            "the search"
         )
     return measure_run_budget(
         journal, int(RUN_CLOCK["mark"]), time.monotonic() - started, evaluations

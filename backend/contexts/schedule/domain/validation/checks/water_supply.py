@@ -14,12 +14,9 @@ from calendar import monthrange
 from collections.abc import (
     Sequence,
 )
-from backend.core.contracts import (
-    Constraints,
-    IntervalResponse,
-    Schedule,
-    water_supply_policy,
-)
+from backend.contexts.constraints.domain.constraints import Constraints, water_supply_policy
+from backend.contexts.reservoir.domain.response import IntervalResponse
+from backend.contexts.schedule.domain.schedule import Schedule
 from backend.contexts.constraints.domain.constraints import (
     EXTERNAL_WATER_M3_PER_DAY,
     WATER_REINJECTION_FRACTION,
@@ -60,9 +57,9 @@ def _check_water_supply(
                 blocking=False,
                 enforcement=None,
                 detail=(
-                    f"infrastructure.{WATER_SUPPLY_UNLIMITED} = true: кейс "
-                    "объявил источник воды неограниченным, материальный баланс "
-                    "воды снят явно, а не пропущен"
+                    f"infrastructure.{WATER_SUPPLY_UNLIMITED} = true: the "
+                    "case declared the water source unlimited, the water "
+                    "material balance was lifted explicitly, not skipped"
                 ),
             ),
         )
@@ -71,17 +68,17 @@ def _check_water_supply(
             _not_set(
                 CONSTRAINT_WATER_SUPPLY,
                 (
-                    f"ни {WATER_REINJECTION_FRACTION}, ни "
-                    f"{WATER_REINJECTION_LAG_STEPS}, ни "
-                    f"{EXTERNAL_WATER_M3_PER_DAY} в infrastructure не заданы: "
-                    "материальный баланс воды не проверялся"
+                    f"neither {WATER_REINJECTION_FRACTION} nor "
+                    f"{WATER_REINJECTION_LAG_STEPS} nor "
+                    f"{EXTERNAL_WATER_M3_PER_DAY} is set in infrastructure: "
+                    "the water material balance was not checked"
                 ),
             ),
         )
     if oil_density_t_per_m3 is None or oil_density_t_per_m3 <= 0.0:
         raise ValueError(
-            "water_reinjection_fraction задан, но положительная плотность "
-            "нефти не передана: объём добытой воды не определён"
+            "water_reinjection_fraction is set, but a positive oil density "
+            "was not supplied: the volume of produced water is undefined"
         )
 
     totals: dict[int, tuple[float, float, float]] = {}
@@ -116,12 +113,12 @@ def _check_water_supply(
                 well=None,
                 value=injection,
                 detail=(
-                    f"закачано {injection:.3f} м³ при доступном материальном "
-                    f"балансе воды {available:.3f} м³; источник: "
-                    f"{policy.reinjection_fraction} × добытая вода шага "
-                    f"{source_step} + {policy.external_water_m3_per_day} м³/сут; "
-                    f"предел infrastructure.{WATER_REINJECTION_FRACTION}, "
-                    f"{origin}"
+                    f"injected {injection:.3f} m3 against the available "
+                    f"water material balance {available:.3f} m3; source: "
+                    f"{policy.reinjection_fraction} x produced water of step "
+                    f"{source_step} + {policy.external_water_m3_per_day} "
+                    f"m3/day; limit "
+                    f"infrastructure.{WATER_REINJECTION_FRACTION}, {origin}"
                 ),
             )
         )
@@ -130,10 +127,11 @@ def _check_water_supply(
             CONSTRAINT_WATER_SUPPLY,
             found,
             (
-                f"доля возврата {policy.reinjection_fraction}, лаг "
-                f"{policy.lag_steps} шагов, внешний приток "
-                f"{policy.external_water_m3_per_day} м³/сут: закачка сверена "
-                f"с балансом воды на {schedule.meta.n_intervals} шагах"
+                f"reinjection fraction {policy.reinjection_fraction}, lag "
+                f"{policy.lag_steps} steps, external inflow "
+                f"{policy.external_water_m3_per_day} m3/day: injection "
+                f"checked against the water balance on "
+                f"{schedule.meta.n_intervals} steps"
             ),
             blocking_kinds=BLOCKING_DYNAMIC_VIOLATION_KINDS,
         ),

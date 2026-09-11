@@ -32,8 +32,8 @@ PARTIAL_REPORT: dict[str, object] = {
         "BHP_LIMIT",
     ],
     "skipped": {
-        "INJECTION_RESPONSE": "нет опорного прогноза",
-        "MATERIAL_BALANCE": "нет опорного прогноза",
+        "INJECTION_RESPONSE": "no reference forecast",
+        "MATERIAL_BALANCE": "no reference forecast",
     },
     "counts": {"BHP_LIMIT": 3},
 }
@@ -60,8 +60,8 @@ def test_partial_report_is_not_complete_and_lists_reasons() -> None:
     assert document["admissible"] is False
     reasons = {item["invariant"]: item["reason"] for item in document["skipped"]}
     assert reasons == {
-        "INJECTION_RESPONSE": "нет опорного прогноза",
-        "MATERIAL_BALANCE": "нет опорного прогноза",
+        "INJECTION_RESPONSE": "no reference forecast",
+        "MATERIAL_BALANCE": "no reference forecast",
     }
 
 
@@ -125,7 +125,7 @@ def test_unknown_invariant_is_rejected() -> None:
 def test_invariant_cannot_be_evaluated_and_skipped_at_once() -> None:
     with pytest.raises(ValueError):
         ScenarioPhysics(
-            evaluated=("BHP_LIMIT",), skipped=(("BHP_LIMIT", "нет данных"),)
+            evaluated=("BHP_LIMIT",), skipped=(("BHP_LIMIT", "no data"),)
         )
 
 

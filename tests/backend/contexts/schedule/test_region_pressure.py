@@ -2,18 +2,20 @@ from __future__ import annotations
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.reservoir.domain.response import (
     ActiveControlMode,
-    Availability,
-    Constraints,
     IntervalResponse,
+    StateAtDate,
+)
+from backend.contexts.schedule.domain.schedule import (
+    Availability,
     OperatingStatus,
     Role,
     Schedule,
     ScheduleMeta,
-    StateAtDate,
     WellState,
 )
+from backend.contexts.constraints.domain.constraints import Constraints
 from backend.contexts.constraints.domain.constraints import (
     REGION_PRESSURE_CEILING_BAR,
     REGION_PRESSURE_FLOOR_BAR,
@@ -183,8 +185,8 @@ def test_region_pressure_below_the_floor_names_the_region() -> None:
     assert below[0].region == 3
     assert below[0].control_step == 1
     assert below[0].value == pytest.approx(95.0)
-    assert "региона 3" in below[0].detail
-    assert "регион 3" in str(below[0])
+    assert "region 3" in below[0].detail
+    assert "region 3" in str(below[0])
 
 
 def test_region_pressure_above_the_ceiling_names_the_region() -> None:
@@ -243,13 +245,13 @@ def test_limits_set_without_a_series_is_an_error_not_a_silent_skip() -> None:
 
     message = str(error.value)
     assert REGION_PRESSURE_FLOOR_BAR in message
-    assert "не переданы" in message
+    assert "were not supplied" in message
 
 
 def test_limits_set_with_an_empty_series_is_an_error() -> None:
     with pytest.raises(ValueError) as error:
         report_for(region_case(floor=100.0), RegionSeries(region_pressure_bar={}))
-    assert "пусты" in str(error.value)
+    assert "are empty" in str(error.value)
 
 
 def test_series_shorter_than_the_horizon_is_an_error_naming_the_region() -> None:
@@ -265,8 +267,8 @@ def test_series_shorter_than_the_horizon_is_an_error_naming_the_region() -> None
         report_for(region_case(floor=100.0), short)
 
     message = str(error.value)
-    assert "короче горизонта" in message
-    assert "региона 4" in message
+    assert "shorter than the horizon" in message
+    assert "region 4" in message
 
 
 def test_every_region_is_compared_on_every_control_step() -> None:
@@ -323,4 +325,4 @@ def test_no_default_is_invented_for_either_limit() -> None:
 def test_an_empty_region_corridor_is_rejected() -> None:
     with pytest.raises(ValueError) as error:
         region_pressure_limits(region_case(floor=200.0, ceiling=150.0))
-    assert "коридор" in str(error.value)
+    assert "corridor" in str(error.value)

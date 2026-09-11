@@ -19,10 +19,8 @@ from dataclasses import (
 from typing import (
     Sequence,
 )
-from backend.core.contracts import (
-    Schedule,
-    Theta,
-)
+from backend.contexts.schedule.domain.schedule import Schedule
+from backend.contexts.policy.domain.policy import Theta
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,12 +50,12 @@ def _risk_adjusted_npv(npv: float, sigma: float | None, beta: float) -> float:
 def select_finalist(finalists: Sequence[tuple], beta: float):
     if not finalists:
         raise SearchRunError(
-            "отбор финалистов вызван на пустом наборе: выбирать не из чего"
+            "finalist selection was called on an empty set: there is nothing to choose from"
         )
     if beta < 0.0:
         raise SearchRunError(
-            f"коэффициент неприятия риска β={beta} отрицателен: штраф за "
-            f"разброс не может быть премией"
+            f"risk aversion coefficient β={beta} is negative: a penalty for spread "
+            f"cannot be a bonus"
         )
     if beta > 0.0 and any(item[7] is None for item in finalists):
         raise SearchRunError(MISSING_SIGMA)

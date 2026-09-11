@@ -7,7 +7,8 @@ import os
 from pathlib import Path
 from typing import Sequence
 
-from backend.core.contracts import RunResult, RunStatus, Schedule
+from backend.contexts.runs.domain.run_result import RunResult, RunStatus
+from backend.contexts.schedule.domain.schedule import Schedule
 
 from backend.contexts.reservoir.infrastructure.opm_deck import EmittedOpmDeck
 from backend.contexts.simulation.infrastructure.runner import OpmRunner, OpmRunnerError, deck_hashes

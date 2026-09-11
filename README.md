@@ -1,9 +1,9 @@
 # AIOS — трек 2
 
-Подготовка к финалу, период AIOS и поиск проверенного лидера: [FINAL_RUNBOOK.md](FINAL_RUNBOOK.md).
+Подготовка к финалу, период AIOS и поиск проверенного лидера: [FINAL_RUNBOOK.md](../docs/FINAL_RUNBOOK.md).
 
 
-Документ для защиты: [суррогат, обучение, технологии, метрики и запуск](SURROGATE_DEFENSE.md). Статус исправлений: [релиз 06.09.2026](RELEASE_SURROGATE_20260906.md).
+Документ для защиты: [суррогат, обучение, технологии, метрики и запуск](../docs/SURROGATE_DEFENSE.md). Статус исправлений: [релиз 06.09.2026](../docs/RELEASE_SURROGATE_20260906.md).
 Мультиагентная система управления фондом скважин Model_Z. Она строит расписание
 `well_schedule.inc`, проверяет его на ограничениях и считает ЧДД по эталонной методике
 организаторов.
@@ -19,7 +19,7 @@ python3 -m venv .venv
 Первая команда, которую стоит выполнить после установки, — проверка окружения:
 
 ```bash
-.venv/bin/python -m backend.presentation.cli.selfcheck
+aios selfcheck
 ```
 
 Она печатает, что нашлось на этой машине: каталог данных организаторов, дек `Model_Z_sch.inc`,
@@ -44,17 +44,17 @@ Docker-сборка и состав сервисов описаны в `Dockerfi
 
 Ни веса, ни датасеты, ни выгрузки прогонов, ни данные организаторов в git не хранятся. Поэтому
 свежий клон **неполон по замыслу**, и команды делятся на три группы. Проверить состояние —
-`ls data/` и `python -m backend.presentation.cli.selfcheck`.
+`ls data/` и `aios selfcheck`.
 
 ### Работает после `pip install -e '.[dev,ml]'`
 
 | Команда | Что даёт |
 |---|---|
 | `pytest -q` | весь набор тестов; те, что требуют данных организаторов и Docker, помечаются skip, а не падают |
-| `python -m backend.presentation.cli.selfcheck` | состояние окружения |
-| `python -m backend.presentation.cli.selfcheck --submission <каталог>` | сверка готового пакета сдачи с заявленными хешами |
-| `python -m backend.presentation.cli.web` | веб-интерфейс на готовой витрине |
-| `python -m backend.presentation.cli.jarvis` | сервис Джарвиса (без ключа — демо-режим на фикстурах) |
+| `aios selfcheck` | состояние окружения |
+| `aios selfcheck --submission <каталог>` | сверка готового пакета сдачи с заявленными хешами |
+| `aios web` | веб-интерфейс на готовой витрине |
+| `aios jarvis` | сервис Джарвиса (без ключа — демо-режим на фикстурах) |
 
 Витрина `frontend/public/data/` собрана заранее и лежит в git — интерфейс и Джарвис работают
 без единого прогона OPM.
@@ -66,8 +66,8 @@ Docker-сборка и состав сервисов описаны в `Dockerfi
 
 | Команда | Что даёт |
 |---|---|
-| `python -m backend.presentation.cli.npv` | расчёт ЧДД по методике и сверка с эталонным расчётчиком |
-| `python -m backend.presentation.cli.emit` | эмит `well_schedule.inc` из дека |
+| `aios npv` | расчёт ЧДД по методике и сверка с эталонным расчётчиком |
+| `aios emit` | эмит `well_schedule.inc` из дека |
 | `run verify --run-id <id>` | верификация сохранённого расписания настоящим OPM (нужен ещё Docker) |
 | `run submit --run-id <id>` | сборка пакета сдачи из верифицированного прогона |
 | `scripts/cold_repeat.sh --run-id <id>` | холодный повтор из чистого клона |
@@ -76,46 +76,45 @@ Docker-сборка и состав сервисов описаны в `Dockerfi
 
 | Команда | Что нужно дополнительно |
 |---|---|
-| `run search --run-id <id>` | веса, отклик базового прогона (по умолчанию data/base_case/response.json) и матрица λ (data/lambda-window-2007/lambda.json) |
+| `run search --run-id <id>` | веса, отклик базового прогона (по умолчанию `data/base_case/response.json`) и матрица λ (`data/lambda-window-2007/lambda.json`) |
 | `run compare --run-id <id>` | веса: по ним строится оценщик отбора для проекции базы |
-| `python -m backend.presentation.cli.surrogate_check` | веса |
+| `aios surrogate-check` | веса |
 
-Веса разрешаются `backend/application/optimization/runtime_artifacts.py`: по умолчанию
-берётся указатель data/surrogate-production.json либо каталог `data/model-production/`;
+Веса разрешаются `backend/contexts/optimization/infrastructure/artifacts.py`: по умолчанию
+берётся указатель `data/surrogate-production.json` либо каталог data/model-production/;
 пути переопределяются переменными `AIOS_SURROGATE_MANIFEST`, `AIOS_SURROGATE_BUNDLE`,
 `AIOS_CHECKPOINT_PATH`. Состав и хеши зафиксированного пакета —
-в [RELEASE_SURROGATE_20260906.md](RELEASE_SURROGATE_20260906.md).
+в [RELEASE_SURROGATE_20260906.md](../docs/RELEASE_SURROGATE_20260906.md).
 
-> Пути в этом разделе намеренно написаны без обратных кавычек: этих файлов на машине
-> разработки нет, а тест `tests/architecture/test_markdown_links.py` требует, чтобы
-> каждый путь в кавычках существовал на диске.
+> Тест `tests/architecture/test_markdown_links.py` требует, чтобы каждый путь в обратных
+> кавычках существовал на диске. Путь, которого на машине разработки нет, пишется без них.
 
-### Состояние машины разработки на 09.09
+### Состояние машины разработки на 11.09
 
-Проверено командой `ls data/`:
+Проверено командой `ls data/` и импортом пакетов:
 
-- в `data/` лежит **только `base_run/`**;
-- **нет** отклика базового прогона (data/base_case/response.json) — значит, `run search`
-  и `run compare` здесь не запускаются;
-- **нет** каталога data/lambda-window-2007/ — значит, артефакта lambda.json на диске нет;
-  числа λ в документах измерены раньше и приведены по витрине;
-- **нет** production-весов: ни указателя data/surrogate-production.json, ни каталога
-  data/model-production/, ни data/releases/;
-- `numpy` и `torch` не установлены (ставятся отдельно: `pip install -e '.[ml]'` или
+- отклик базового прогона **есть** — `data/base_case/response.json`;
+- матрица λ **есть** — `data/lambda-window-2007/lambda.json`;
+- указатель production-весов **есть** — `data/surrogate-production.json`; сами веса лежат
+  в `data/model-night-20260826-v2/`. Каталогов `data/model-production/` и `data/releases/`
+  нет — указатель ведёт не на них, и это нормальный вариант разрешения;
+- `numpy` и `torch` установлены в `.venv` (если их нет: `pip install -e '.[ml]'` либо
   `pip install -r requirements-ml.txt`);
 - данные организаторов **есть** — в `../docs`;
 - фронт собран, `frontend/dist/` на месте.
 
-Отсюда прямое следствие: **собранного пакета сдачи на этой машине нет**, и `out/runs/` пуст.
-Механизм пакета есть и покрыт тестами, но заявленного числа без весов и `base_case` не получить.
+Значит, `run search` и `run compare` на этой машине запускаются: и веса, и отклик базового
+прогона, и λ на диске. Чего нет — это результатов: каталог `out/` пуст, собранного пакета
+сдачи нет. Он появляется только после `aios run submit`, и заявленное число берётся из
+проверенного прогона OPM, а не из прогноза быстрой модели.
 
 ## Расчёт и сдача
 
 ```bash
-.venv/bin/python -m backend.presentation.cli.run search  --run-id <id>
-.venv/bin/python -m backend.presentation.cli.run verify  --run-id <id>
-.venv/bin/python -m backend.presentation.cli.run submit  --run-id <id>
-.venv/bin/python -m backend.presentation.cli.selfcheck --submission out/runs/<id>/submission
+aios run search  --run-id <id>
+aios run verify  --run-id <id>
+aios run submit  --run-id <id>
+aios selfcheck --submission out/runs/<id>/submission
 ```
 
 Статусы прогона идут строго по цепочке `searched` → `verified` (либо `rejected`, если проверка
@@ -131,13 +130,13 @@ Docker-сборка и состав сервисов описаны в `Dockerfi
 Ещё две команды рядом:
 
 ```bash
-.venv/bin/python -m backend.presentation.cli.run compare --run-id <id>   # comparison.json: база против кандидата
+aios run compare --run-id <id>   # comparison.json: база против кандидата
 bash scripts/cold_repeat.sh --run-id <id>                                 # холодный повтор из чистого клона
 ```
 
 Пошаговая инструкция со всеми аргументами и разбором отказов —
-в [SUBMISSION.md](SUBMISSION.md). Одностраничная карточка ответов — в [ANSWERS.md](ANSWERS.md).
-Подробности и границы применимости — в [FAQ.md](FAQ.md) §10.
+в [SUBMISSION.md](../docs/SUBMISSION.md). Одностраничная карточка ответов — в [ANSWERS.md](../docs/ANSWERS.md).
+Подробности и границы применимости — в [FAQ.md](../docs/FAQ.md) §10.
 
 ## Переменные окружения
 
@@ -182,13 +181,13 @@ bash scripts/cold_repeat.sh --run-id <id>                                 # хо
 
 Визуальный ассистент консоли: вопрос на естественном языке — сцена из карточек с настоящими
 числами из витрины. Отдельный процесс и отдельный сервис compose, порт 8010, HTTP и SSE на
-stdlib. Замысел и контракт — в [JARVIS.md](JARVIS.md).
+stdlib. Замысел и контракт — в [JARVIS.md](../docs/JARVIS.md).
 
 Локально:
 
 ```bash
 export OPENROUTER_API_KEY=sk-or-...
-python -m backend.presentation.cli.jarvis --port 8010
+aios jarvis --port 8010
 curl -s http://localhost:8010/api/jarvis/health
 ```
 
@@ -234,21 +233,37 @@ OPENROUTER_API_KEY=sk-or-... docker compose up jarvis web
 Что из этого есть на конкретной машине — см. раздел
 [«Что работает из коробки»](#что-работает-из-коробки-а-что-требует-внешних-артефактов) выше.
 Датасет из 700 прогонов и пакет production-весов ставятся отдельно; состав и хеши перечислены
-в [RELEASE_SURROGATE_20260906.md](RELEASE_SURROGATE_20260906.md).
+в [RELEASE_SURROGATE_20260906.md](../docs/RELEASE_SURROGATE_20260906.md).
 
 ## Документы
 
+В корне этого репозитория лежат четыре документа; остальные переехали 11.09 в соседний
+репозиторий документации `../docs/` — на состав корпуса Джарвиса это не влияет, его индекс
+обходит оба каталога.
+
+### В корне кода
+
+| Документ | Что в нём |
+|---|---|
+| [README.md](README.md) | как войти в проект: запуск, окружение, структура |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | слои `backend/`, границы и правила зависимостей |
+| [CLAUDE.md](CLAUDE.md) | правила для агентов |
+| LICENSE | лицензия |
+
+### В репозитории документации `../docs/`
+
 | Документ | Что в нём | Статус |
 |---|---|---|
-| [SUBMISSION.md](SUBMISSION.md) | пакет сдачи: состав, сборка, проверка, что делать при расхождении | живой |
-| [ANSWERS.md](ANSWERS.md) | одностраничная карточка ответов жюри со ссылками на код | живой |
-| [SURROGATE_DEFENSE.md](SURROGATE_DEFENSE.md) | устройство суррогата, метрики, область применимости, инструкция запуска | **живой**, источник истины по модели |
-| [RELEASE_SURROGATE_20260906.md](RELEASE_SURROGATE_20260906.md) | состав релиза, версии и хеши зафиксированных весов, результаты прогонов тестов | живой |
-| [FAQ.md](FAQ.md) | ответы на технические вопросы защиты с путями к коду | живой |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | слои `backend/`, границы и правила зависимостей | живой |
-| [JARVIS.md](JARVIS.md) | замысел и контракт визуального ассистента | живой |
-| [UNSEEN_CASE_2017.md](UNSEEN_CASE_2017.md) | прогон на закрытом кейсе | живой |
-| [SURROGATE_HANDOFF.md](SURROGATE_HANDOFF.md) | журнал первого обучения 20.08: замеры генерации датасета, разбор упавших запусков, базовая линия CRM | **исторический**, текущее состояние модели описывает `SURROGATE_DEFENSE.md` |
+| [SUBMISSION.md](../docs/SUBMISSION.md) | пакет сдачи: состав, сборка, проверка, что делать при расхождении | живой |
+| [ANSWERS.md](../docs/ANSWERS.md) | одностраничная карточка ответов жюри со ссылками на код | живой |
+| [SURROGATE_DEFENSE.md](../docs/SURROGATE_DEFENSE.md) | устройство суррогата, метрики, область применимости, инструкция запуска | **живой**, источник истины по модели |
+| [RELEASE_SURROGATE_20260906.md](../docs/RELEASE_SURROGATE_20260906.md) | состав релиза, версии и хеши зафиксированных весов, результаты прогонов тестов | живой |
+| [FAQ.md](../docs/FAQ.md) | ответы на технические вопросы защиты с путями к коду | живой |
+| [JARVIS.md](../docs/JARVIS.md) | замысел и контракт визуального ассистента | живой |
+| [JARVIS_V2.md](../docs/JARVIS_V2.md) | вторая редакция ассистента | живой |
+| [FINAL_RUNBOOK.md](../docs/FINAL_RUNBOOK.md) | подготовка к финалу и поиск проверенного лидера | живой |
+| [UNSEEN_CASE_2017.md](../docs/UNSEEN_CASE_2017.md) | прогон на закрытом кейсе | живой |
+| [SURROGATE_HANDOFF.md](../docs/SURROGATE_HANDOFF.md) | журнал первого обучения 20.08: замеры генерации датасета, разбор упавших запусков, базовая линия CRM | **исторический**, текущее состояние модели описывает `SURROGATE_DEFENSE.md` |
 
 История исследований и устаревшие handoff-документы сохранены в теге
 `docs-before-minimal-2026-08-23`; рабочей инструкцией они не являются.
@@ -261,4 +276,4 @@ OPENROUTER_API_KEY=sk-or-... docker compose up jarvis web
 python3 scripts/install_surrogate_runtime.py
 ```
 
-Состав, зависимости и запуск: [инструкция](artifacts/surrogate-20260906/README.md).
+Состав пакета описан в `artifacts/surrogate-20260906/manifest.json`, сам рантайм — в `runtime.tar.gz` рядом.

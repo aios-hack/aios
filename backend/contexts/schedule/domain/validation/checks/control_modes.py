@@ -11,12 +11,8 @@ from backend.contexts.schedule.domain.validation.report import (
 from collections.abc import (
     Sequence,
 )
-from backend.core.contracts import (
-    ActiveControlMode,
-    Role,
-    Schedule,
-    StateAtDate,
-)
+from backend.contexts.reservoir.domain.response import ActiveControlMode, StateAtDate
+from backend.contexts.schedule.domain.schedule import Role, Schedule
 from backend.contexts.schedule.domain.validate import (
     Violation,
     ViolationKind,
@@ -47,8 +43,9 @@ def check_control_modes(
                     well=well,
                     value=None,
                     detail=(
-                        "active_control_mode = UNKNOWN: режим контроля не "
-                        "предъявлен, недостижимость цели необъяснима"
+                        "active_control_mode = UNKNOWN: the control mode "
+                        "was not presented, the failure to reach the target "
+                        "is unexplainable"
                     ),
                 )
             )
@@ -62,8 +59,8 @@ def check_control_modes(
                         well=well,
                         value=None,
                         detail=(
-                            f"расписание держит скважину невведённой, отклик даёт "
-                            f"{mode.value}"
+                            f"the schedule keeps the well not commissioned, "
+                            f"the response gives {mode.value}"
                         ),
                     )
                 )
@@ -76,8 +73,8 @@ def check_control_modes(
                     well=well,
                     value=None,
                     detail=(
-                        "отклик даёт NOT_COMMISSIONED для скважины, введённой "
-                        "по расписанию"
+                        "the response gives NOT_COMMISSIONED for a well "
+                        "commissioned by the schedule"
                     ),
                 )
             )
@@ -96,8 +93,9 @@ def check_control_modes(
                         well=well,
                         value=actual / target.setpoint,
                         detail=(
-                            "режим BHP_LIMITED при достигнутой цели: предел по "
-                            "давлению заявлен, а недобора нет"
+                            "BHP_LIMITED mode while the target is reached: "
+                            "a pressure limit is claimed, but there is no "
+                            "shortfall"
                         ),
                     )
                 )

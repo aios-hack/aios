@@ -1,11 +1,10 @@
-"""Synthetic identities only: label alignment and split/provenance contracts."""
 import hashlib
 from copy import deepcopy
 
 import pytest
 import torch
 
-from backend.core.contracts import canonical_bytes
+from backend.shared.hashing import canonical_bytes
 from backend.contexts.surrogate.domain.npv_target import (
     TARGET_PROVENANCE_FORMAT,
     TARGET_SOURCE_FILES,

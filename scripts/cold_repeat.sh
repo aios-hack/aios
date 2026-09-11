@@ -85,7 +85,7 @@ SOURCE_RUN_DIR="$RUNS_ROOT/$RUN_ID"
 
 [ -n "$SUBMISSION_DIR" ] || SUBMISSION_DIR="$SOURCE_RUN_DIR/submission"
 CLAIMED_JSON="$SUBMISSION_DIR/claimed_npv.json"
-[ -f "$CLAIMED_JSON" ] || die "пакет сдачи неполон: нет $CLAIMED_JSON. Соберите его командой \`python -m backend.presentation.cli.run submit --run-id $RUN_ID\`"
+[ -f "$CLAIMED_JSON" ] || die "пакет сдачи неполон: нет $CLAIMED_JSON. Соберите его командой aios run submit --run-id $RUN_ID\`"
 
 if [ -z "$DOCS_ROOT" ]; then
     if [ -n "${AIOS_DOCS_ROOT:-}" ]; then
@@ -195,7 +195,7 @@ echo "== verify на чистом клоне (настоящий OPM Flow, 10-20
     AIOS_DOCS_ROOT="$DOCS_ROOT" \
     AIOS_OUT_DIR="$WORKDIR/out" \
     AIOS_RUN_INITIATOR="cli" \
-    "$VENV_PYTHON" -m backend.presentation.cli.run verify \
+    aios run verify \
         --run-id "$RUN_ID" \
         --runs-root "$COLD_RUNS_ROOT"
 )
@@ -269,7 +269,7 @@ set +e
     cd "$CLONE_DIR"
     AIOS_PROJECT_ROOT="$CLONE_DIR" \
     AIOS_DOCS_ROOT="$DOCS_ROOT" \
-    "$VENV_PYTHON" -m backend.presentation.cli.selfcheck --submission "$SUBMISSION_DIR"
+    aios selfcheck --submission "$SUBMISSION_DIR"
 )
 SELFCHECK_STATUS=$?
 set -e

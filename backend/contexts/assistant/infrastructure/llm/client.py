@@ -18,8 +18,8 @@ class LlmClient:
         key = api_key if api_key is not None else os.environ.get("ANTHROPIC_API_KEY")
         if not key:
             raise RuntimeError(
-                "ANTHROPIC_API_KEY не задан: LLM-клиент не работает без ключа, "
-                "заглушек в проекте нет. Экспортируйте ключ или передайте api_key."
+                "ANTHROPIC_API_KEY is not set: the LLM client does not work without a key, "
+                "and the project carries no stubs. Export the key or pass api_key."
             )
         self.model = model
         self.max_tokens = max_tokens
@@ -32,8 +32,8 @@ class LlmClient:
             messages=[{"role": "user", "content": prompt}],
         )
         if response.stop_reason == "refusal":
-            raise RuntimeError("модель отклонила запрос: stop_reason=refusal")
+            raise RuntimeError("the model refused the request: stop_reason=refusal")
         parts = [block.text for block in response.content if block.type == "text"]
         if not parts:
-            raise RuntimeError("модель не вернула текстовых блоков")
+            raise RuntimeError("the model returned no text blocks")
         return "".join(parts)

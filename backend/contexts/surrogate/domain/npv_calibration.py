@@ -28,26 +28,26 @@ class NpvCalibration:
     def __post_init__(self) -> None:
         if self.format != FORMAT:
             raise NpvCalibrationError(
-                f"формат калибровки {self.format!r}, ожидался {FORMAT!r}"
+                f"calibration format {self.format!r}, expected {FORMAT!r}"
             )
         if not math.isfinite(self.intercept_rub) or not math.isfinite(self.slope):
-            raise NpvCalibrationError("коэффициенты калибровки должны быть конечными")
+            raise NpvCalibrationError("calibration coefficients must be finite")
         if self.slope <= 0.0:
             raise NpvCalibrationError(
-                "наклон калибровки должен быть положительным: отрицательный "
-                "наклон переворачивает ранжирование ЧДД"
+                "the calibration slope must be positive: a negative "
+                "slope inverts the NPV ranking"
             )
         if not self.model_version:
-            raise NpvCalibrationError("калибровка не содержит model_version")
+            raise NpvCalibrationError("the calibration contains no model_version")
         if self.fitted_on != "validation":
             raise NpvCalibrationError(
-                "production-калибровка обязана подбираться на validation split"
+                "a production calibration must be fitted on the validation split"
             )
 
     def apply(self, raw_npv_rub: float) -> float:
         value = float(raw_npv_rub)
         if not math.isfinite(value):
-            raise NpvCalibrationError("калибруемый ЧДД должен быть конечным")
+            raise NpvCalibrationError("the NPV being calibrated must be finite")
         return self.intercept_rub + self.slope * value
 
     def save(self, path: Path) -> Path:
@@ -67,7 +67,7 @@ class NpvCalibration:
         calibration = cls(**payload)
         if model_version is not None and calibration.model_version != model_version:
             raise NpvCalibrationError(
-                "калибровка относится к другой модели: "
+                "the calibration belongs to a different model: "
                 f"{calibration.model_version} != {model_version}"
             )
         return calibration
@@ -80,16 +80,16 @@ def fit_npv_calibration(
     model_version: str,
 ) -> NpvCalibration:
     if len(actual_npv_rub) != len(predicted_npv_rub) or len(actual_npv_rub) < 2:
-        raise NpvCalibrationError("калибровка требует хотя бы две пары ЧДД")
+        raise NpvCalibrationError("calibration requires at least two NPV pairs")
     actual = tuple(float(value) for value in actual_npv_rub)
     predicted = tuple(float(value) for value in predicted_npv_rub)
     if not all(math.isfinite(value) for value in actual + predicted):
-        raise NpvCalibrationError("калибровка получила нечисловой ЧДД")
+        raise NpvCalibrationError("the calibration received a non-numeric NPV")
     predicted_mean = mean(predicted)
     actual_mean = mean(actual)
     variance = math.fsum((value - predicted_mean) ** 2 for value in predicted)
     if variance <= 0.0:
-        raise NpvCalibrationError("предсказания вырождены: разброс ЧДД нулевой")
+        raise NpvCalibrationError("the predictions are degenerate: the NPV spread is zero")
     slope = math.fsum(
         (prediction - predicted_mean) * (fact - actual_mean)
         for prediction, fact in zip(predicted, actual)
@@ -107,7 +107,7 @@ def calibration_metrics(
     calibration: NpvCalibration,
 ) -> dict[str, float]:
     if len(actual_npv_rub) != len(predicted_npv_rub) or not actual_npv_rub:
-        raise NpvCalibrationError("метрики калибровки требуют парные непустые ЧДД")
+        raise NpvCalibrationError("calibration metrics require paired non-empty NPVs")
     actual = tuple(float(value) for value in actual_npv_rub)
     raw = tuple(float(value) for value in predicted_npv_rub)
     calibrated = tuple(calibration.apply(value) for value in raw)

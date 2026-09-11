@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from backend.infrastructure.opm import OpmDeckEmitter, OpmRunner, deck_hashes
+from backend.contexts.reservoir.infrastructure.opm_deck import OpmDeckEmitter
+from backend.contexts.simulation.infrastructure.runner import OpmRunner, deck_hashes
 from backend.contexts.simulation.infrastructure.runner import (
     OPM_USER_ENV,
     _ITERATION_LIMIT_MARKER,
@@ -16,8 +17,10 @@ from backend.contexts.simulation.infrastructure.runner import (
     mount_path,
     summary_spec_hash,
 )
-from backend.core.contracts import RunStatus, Schedule, ScheduleMeta, SummarySpec, hash_schedule
-from backend.domain.schedule import parse_schedule
+from backend.contexts.runs.domain.run_result import RunStatus, SummarySpec
+from backend.contexts.schedule.domain.schedule import Schedule, ScheduleMeta
+from backend.shared.hashing import hash_schedule
+from backend.contexts.schedule.domain.lossless import parse_schedule
 
 
 from tests.support.backend.environment import (
@@ -31,19 +34,12 @@ pytestmark = [pytest.mark.slow, pytest.mark.opm]
 
 DECKS = DECKS_ROOT
 
-# Через conftest, а не через parents[3]: сиблинг-раскладка `../docs` — не
-# единственная, docs бывает склонирован и внутрь рабочей копии, и задан
-# переменной AIOS_DOCS_ROOT. Ровно этот хардкод интеграция уже снимала в ui.
 MODEL_Z = model_z_dir()
 
-# Скипается только то, что действительно смотрит в дек: остальным тестам
-# файла хватает своих минимальных деков из DECKS.
 requires_model_z = pytest.mark.skipif(
-    MODEL_Z is None, reason=missing_reason("каталог Model_Z")
+    MODEL_Z is None, reason=missing_reason("Model_Z directory")
 )
 
-# Плейсхолдеры ключа: задача 4 отвечает за то, что RunResult донёс их без
-# искажения, а не за их вычисление из Model_Z — это проверяется отдельно.
 KEY = {
     "deck_hash": "d" * 64,
     "canonical_schedule_hash": "c" * 64,
@@ -51,15 +47,9 @@ KEY = {
 }
 
 
-# Раньше проверка стояла autouse-фикстурой и требовала лишь `docker` в PATH.
-# Клиент есть и при остановленном демоне, поэтому такая проверка пропускала
-# вперёд прогоны, отказывавшие статусом FAILED, — приёмка читала это как
-# дефект Runner'а. Теперь доступность демона проверяется по-настоящему, а
-# метка ставится точечно: разбор маркеров лога и обработка отказов запуска
-# симулятора не требуют и работают без Docker.
 requires_real_flow = pytest.mark.skipif(
     docker_unavailable_reason() is not None,
-    reason=f"приёмка задачи 4 требует настоящий OPM Flow; {docker_unavailable_reason()}",
+    reason=f"acceptance of task 4 requires a real OPM Flow; {docker_unavailable_reason()}",
 )
 
 
@@ -101,9 +91,8 @@ def test_non_converging_real_run_is_not_converged_without_raising(tmp_path: Path
         **KEY,
     )
 
-    # Flow здесь завершается кодом 0: несходимость видна только в логе.
     assert result.status is RunStatus.NOT_CONVERGED, result.message
-    assert "не сошёлся" in result.message
+    assert "did not converge" in result.message
     assert any(marker in result.message for marker in _NOT_CONVERGED_MARKERS)
     assert result.artifacts
 
@@ -133,7 +122,7 @@ def test_missing_deck_is_failed_not_exception(tmp_path: Path) -> None:
     result = runner.run_data_file(tmp_path / "no-such-deck.DATA", **KEY)
 
     assert result.status is RunStatus.FAILED
-    assert "дек не найден" in result.message
+    assert "deck not found" in result.message
 
 
 def test_unavailable_docker_is_failed_not_subprocess_exception(tmp_path: Path) -> None:
@@ -141,7 +130,7 @@ def test_unavailable_docker_is_failed_not_subprocess_exception(tmp_path: Path) -
     result = runner.run_data_file(DECKS / "MINI.DATA", **KEY)
 
     assert result.status is RunStatus.FAILED
-    assert "не удалось запустить" in result.message
+    assert "could not start" in result.message
 
 
 @requires_real_flow
@@ -150,7 +139,7 @@ def test_timeout_is_failed_and_does_not_leak_a_container(tmp_path: Path) -> None
     result = runner.run_data_file(DECKS / "MINI.DATA", **KEY)
 
     assert result.status is RunStatus.FAILED
-    assert "не уложился" in result.message
+    assert "did not fit into" in result.message
     assert result.run_id in result.message
 
 
@@ -172,7 +161,6 @@ def test_two_runs_use_separate_working_directories(tmp_path: Path) -> None:
 
 
 def test_recoverable_linear_solver_messages_are_not_non_convergence(tmp_path: Path) -> None:
-    """Срезанный шаг — не отказ прогона: успешный Flow тоже это печатает."""
 
     log = tmp_path / "flow.log"
     log.write_text("\n".join(_RECOVERABLE_MARKERS) + "\n")
@@ -181,11 +169,6 @@ def test_recoverable_linear_solver_messages_are_not_non_convergence(tmp_path: Pa
 
 
 def test_iteration_limit_followed_by_chop_is_not_a_failure(tmp_path: Path) -> None:
-    """Настоящий Model_Z 16.08: маркер встретился раз, Flow пересчитал шаг
-
-    меньшим таймшагом и досчитал все 371 report step без дальнейших сбоев —
-    не отказ прогона (§4.7 базы знаний).
-    """
 
     log = tmp_path / "flow.log"
     log.write_text(
@@ -199,7 +182,6 @@ def test_iteration_limit_followed_by_chop_is_not_a_failure(tmp_path: Path) -> No
 
 
 def test_iteration_limit_without_chop_is_a_failure(tmp_path: Path) -> None:
-    """Тот же маркер без пересчёта следом — Flow действительно снял прогон."""
 
     log = tmp_path / "flow.log"
     log.write_text(
@@ -214,12 +196,6 @@ def test_iteration_limit_without_chop_is_a_failure(tmp_path: Path) -> None:
 @requires_model_z
 @requires_real_flow
 def test_runs_emitted_model_z_deck_through_real_flow(tmp_path: Path) -> None:
-    """Путь `run(EmittedOpmDeck)` целиком, на настоящей Model_Z.
-
-    Прогон в режиме разбора: полный расчёт Model_Z занимает неизвестное
-    время и замеряется задачей 7, а здесь проверяется, что Runner монтирует
-    эмитированный дек, доносит ключ и возвращает OK на настоящем Flow.
-    """
 
     emitter = OpmDeckEmitter(MODEL_Z)
     schedule = _baseline_schedule(emitter)
@@ -249,23 +225,15 @@ def test_deck_hashes_bind_static_deck_schedule_and_summary_spec(tmp_path: Path) 
 
     assert hashes.canonical_schedule_hash == hash_schedule(schedule)
     assert hashes.summary_hash == summary_spec_hash(SummarySpec())
-    # Статика — не весь дек: content_hash_opm накрывает и управляющий слой.
     assert hashes.deck_hash != deck.content_hash_opm
     assert len(hashes.deck_hash) == 64
 
 
-# --- Владелец файлов прогона -----------------------------------------------
-#
-# Образ opmreleases работает под uid 1001 (opm), каталог прогона создаёт хост.
-# Совпадение uid — свойство одной машины, а не инварианта, и его расхождение
-# отказывает не как отказ прав: Flow валится на «Failed to create valid
-# EclipseState object», а настоящая причина уходит в .PRT, который он не смог
-# открыть. Ниже — приёмка того, что uid хоста передаётся всегда.
 
 
 @pytest.mark.skipif(
     not hasattr(os, "getuid"),
-    reason="uid/gid — понятие POSIX: на Windows их нет ни у хоста, ни у тома",
+    reason="uid/gid is a POSIX notion: on Windows neither the host nor the volume has them",
 )
 def test_container_runs_as_the_host_user_by_default(tmp_path: Path) -> None:
     runner = OpmRunner(tmp_path / "runs")
@@ -281,11 +249,6 @@ def test_container_runs_as_the_host_user_by_default(tmp_path: Path) -> None:
 def test_without_posix_uid_the_image_default_user_is_kept(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Windows-хост: uid передавать нечего, и навязывать `--user` нельзя.
-
-    Отображение владельца тома делает сам Docker Desktop, а строка вида
-    `--user 0:0` только сломала бы то, что там уже работает.
-    """
 
     monkeypatch.delattr(os, "getuid", raising=False)
     monkeypatch.delattr(os, "getgid", raising=False)
@@ -313,8 +276,6 @@ def test_run_as_user_is_overridable_from_the_environment(
 def test_empty_override_restores_the_image_default_user(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Пустая переменная — способ отдать выбор образу: в rootless-docker и
-    podman отображение уже сделано демоном, и навязывать --user там вредно."""
 
     monkeypatch.setenv(OPM_USER_ENV, "")
     runner = OpmRunner(tmp_path / "runs")
@@ -325,17 +286,8 @@ def test_empty_override_restores_the_image_default_user(
     assert "--user" not in command
 
 
-# Регрессия на сам дефект — уже существующий
-# `test_broken_deck_is_failed_without_raising`: он требует «Unknown keyword» в
-# сообщении, и до этой правки получал «Failed opening file /out/BROKEN.PRT for
-# StreamLog» — текст ошибки разбора оставался в файле, который Flow не смог
-# создать. Отдельный тест на то же самое здесь был бы копией.
 
 
-# Регрессия на `docker: invalid spec: \\?\W:\...\decks\levels-0002:/deck:ro:
-# too many colons` из manifest.jsonl набора dataset-main. `Path.resolve()` на
-# Windows возвращает путь с extended-length префиксом, а докер разбирает
-# спецификацию тома по двоеточиям и на таком пути отказывает.
 
 EXTENDED_PREFIX = "\\\\?\\"
 PLAIN_DECK = "W:\\Projects\\hacks\\aios\\data\\dataset-main\\decks\\levels-0002"
@@ -382,8 +334,6 @@ def test_volume_arguments_never_carry_the_extended_length_prefix(tmp_path: Path)
 
 
 def test_a_resolved_work_root_produces_a_mount_docker_can_parse(tmp_path: Path) -> None:
-    """`OpmRunner` резолвит `work_root` в конструкторе — именно там на Windows
-    и появлялся префикс, который затем уезжал в `-v`."""
 
     runner = OpmRunner(tmp_path / "runs")
     command = runner._command(

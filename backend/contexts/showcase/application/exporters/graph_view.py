@@ -6,7 +6,8 @@ import math
 from pathlib import Path
 from typing import Any
 
-from backend.core.contracts import Groups, Lambda, RunArtifact
+from backend.contexts.connectivity.domain.connectivity import Groups, Lambda
+from backend.contexts.runs.domain.run_artifact import RunArtifact
 from backend.contexts.connectivity.domain.groups import lambda_hash
 
 LAYOUT_SEED: int = 20070101
@@ -154,8 +155,8 @@ def file_sha256(path: str | Path) -> str:
     resolved = Path(path)
     if not resolved.is_file():
         raise FileNotFoundError(
-            f"файла λ нет по пути {resolved}: витрина не может подписать "
-            f"граф хешем несуществующего артефакта"
+            f"no lambda file at {resolved}: the showcase cannot sign the "
+            f"graph with the hash of an artifact that does not exist"
         )
     return hashlib.sha256(resolved.read_bytes()).hexdigest()
 

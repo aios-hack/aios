@@ -1,10 +1,3 @@
-"""Freeze an unseen-case prediction before OPM, then report temporal errors.
-
-Usage: python scripts/audit_unseen_run.py --run-dir out/web-runs/<id>
-       python scripts/audit_unseen_run.py --run-dir out/web-runs/<id> --report
-The report never fits or changes a model. Paths describe the current locked
-production training population, including the economic head's augmentations.
-"""
 from __future__ import annotations
 import argparse
 from collections import defaultdict
@@ -35,8 +28,8 @@ def lock(root):
     )
     from backend.contexts.constraints.infrastructure.constraints_io import constraints_from_json
     from backend.contexts.schedule.infrastructure.json_io import load_schedule_json
-    from backend.core.contracts import hash_schedule
-    from backend.domain.economics import save_response_artifact
+    from backend.shared.hashing import hash_schedule
+    from backend.contexts.economics.application.base_case import save_response_artifact
     from backend.shared.resources import model_z_dir, normatives_xlsx
     manifest = json.loads((root / 'manifest.json').read_text())
     if manifest['verified_npv'] is not None or list(root.glob('opm/runs/*/command.txt')):
@@ -85,7 +78,7 @@ def lock(root):
 
 
 def report(root, reference=None):
-    from backend.domain.economics import load_response_artifact
+    from backend.contexts.economics.application.base_case import load_response_artifact
     protocol = json.loads((root / 'unseen-protocol.json').read_text())
     if sha(root / 'prediction/response.json') != protocol['prediction_response_sha256']:
         raise RuntimeError('Frozen prediction was changed.')

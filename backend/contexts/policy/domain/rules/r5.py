@@ -1,28 +1,22 @@
 from __future__ import annotations
 
-from backend.core.contracts import (
-    ControlEvent,
-    EventKind,
-    Role,
-    Rule,
-    Theta,
-    TraceEntry,
-    compensation_policy,
-)
+from backend.contexts.schedule.domain.schedule import ControlEvent, EventKind, Role
+from backend.contexts.policy.domain.policy import Rule, Theta, TraceEntry
+from backend.contexts.constraints.domain.constraints import compensation_policy
 
 from backend.contexts.policy.domain.rules.base import RuleOutcome
 from backend.contexts.policy.domain.state import PolicyState, RuleContext
 from backend.contexts.policy.domain.theta import read
 
 RULE = Rule.R5
-ADMISSION_CRITERION = "Держим компенсацию участка в коридоре."
+ADMISSION_CRITERION = "Keep the group compensation inside the corridor."
 THETA_NAMES: tuple[str, ...] = ("r5_compensation_low", "r5_compensation_high")
 
 
 def compensation(injection_m3_per_day: float, offtake_m3_per_day: float) -> float:
     if offtake_m3_per_day <= 0.0:
         raise ValueError(
-            "компенсация не определена при нулевом отборе участка"
+            "compensation is undefined at zero group offtake"
         )
     return injection_m3_per_day / offtake_m3_per_day
 
@@ -60,15 +54,15 @@ def corridor_bounds(
     maximum = policy.maximum
     if minimum is None or maximum is None:
         raise ValueError(
-            "коридор компенсации объявлен обязательным, но границы кейса "
-            "не заданы: сузить θ не по чему"
+            "the compensation corridor is declared mandatory, but the case bounds "
+            "are not set: there is nothing to narrow θ against"
         )
     bounded_low = min(max(low, minimum), maximum)
     bounded_high = min(max(high, minimum), maximum)
     if bounded_low > bounded_high:
         raise ValueError(
-            f"коридор кейса {minimum}..{maximum} несовместим с θ "
-            f"{low}..{high}: пересечение пусто"
+            f"the case corridor {minimum}..{maximum} is incompatible with θ "
+            f"{low}..{high}: the intersection is empty"
         )
     return bounded_low, bounded_high, True
 
@@ -78,14 +72,14 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
     theta_high = read(theta, "r5_compensation_high")
     if theta_low > theta_high:
         raise ValueError(
-            f"коридор компенсации пуст: нижняя граница {theta_low} выше "
-            f"верхней {theta_high}"
+            f"the compensation corridor is empty: the lower bound {theta_low} is above "
+            f"the upper bound {theta_high}"
         )
     low, high, enforced = corridor_bounds(context, theta_low, theta_high)
     if context.groups is None:
         raise ValueError(
-            "R5 требует нарезку на участки: компенсация — величина участка, "
-            "а не отдельной скважины"
+            "R5 requires a grouping: compensation is a group quantity, "
+            "not a quantity of a single well"
         )
     decisions: list[ControlEvent] = []
     trace: list[TraceEntry] = []
@@ -94,8 +88,8 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
         offtake = context.group_offtake_m3_per_day.get(group_id)
         if injection is None or offtake is None:
             raise ValueError(
-                f"участок {group_id}: нет закачки или отбора, коридор "
-                f"компенсации не проверяется"
+                f"group {group_id}: no injection or offtake, so the compensation "
+                f"corridor is not checked"
             )
         if offtake <= 0.0:
             continue

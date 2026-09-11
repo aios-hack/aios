@@ -48,7 +48,7 @@ class SummarySpec:
         for field, actual, required in expected:
             if actual != required:
                 raise ValueError(
-                    f"SummarySpec.{field}: ожидалось {required!r}, получено {actual!r}"
+                    f"SummarySpec.{field}: expected {required!r}, got {actual!r}"
                 )
 
 
@@ -99,9 +99,9 @@ class FinalNpvArtifact:
     def __post_init__(self) -> None:
         if self.npv_methodology != self.npv_table.npv_methodology:
             raise ValueError(
-                "FinalNpvArtifact.npv_methodology разошлось с "
-                "npv_table.npv_methodology — заявляется число не из этого "
-                "разложения"
+                "FinalNpvArtifact.npv_methodology disagrees with "
+                "npv_table.npv_methodology — the claimed number does not come "
+                "from this breakdown"
             )
 
 
@@ -147,16 +147,16 @@ class SubmissionBundle:
             value = getattr(self, name)
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(
-                    f"SubmissionBundle.{name}: обязательное поле — непустая "
-                    f"строка, получено {value!r}"
+                    f"SubmissionBundle.{name}: required field must be a non-empty "
+                    f"string, got {value!r}"
                 )
         if self.claimed_npv_rub != self.claimed_npv_rub:
             raise ValueError(
-                "SubmissionBundle.claimed_npv_rub: NaN не допускается — "
-                "заявляемое число обязано быть определено"
+                "SubmissionBundle.claimed_npv_rub: NaN is not allowed — the claimed "
+                "number must be defined"
             )
         if self.claimed_npv_rub <= 0.0:
             raise ValueError(
-                "SubmissionBundle.claimed_npv_rub: заявляемый ЧДД обязан быть "
-                f"строго положительным, получено {self.claimed_npv_rub}"
+                "SubmissionBundle.claimed_npv_rub: the claimed NPV must be strictly "
+                f"positive, got {self.claimed_npv_rub}"
             )

@@ -41,15 +41,6 @@ ${SPHERE_BOLTS}
 const int LAYERS = 5;
 const float SHELL = 0.86;
 
-float ringMask(vec2 uv, float radius) {
-  vec2 q = vec2(uv.x, (uv.y + 0.86) * 6.5);
-  float d = abs(length(q) - radius);
-  float band = 1.0 - smoothstep(0.0, 0.09, d);
-  float angle = atan(q.y, q.x);
-  float gaps = smoothstep(0.2, 0.9, abs(sin(angle * 3.0)));
-  return band * mix(0.2, 1.0, gaps);
-}
-
 void main() {
   vec2 uv = v_uv;
   float squeeze = 1.0 + u_breath * 0.012 - u_audio * 0.05 + u_burst * 0.14;
@@ -146,11 +137,6 @@ void main() {
   float shock = u_burst * exp(-pow((r - u_burst * 1.9) * 4.2, 2.0));
   accum += u_rim * shock * 2.2;
   density += shock;
-
-  float ringWidth = mix(0.35 + 0.09 * u_breath, 0.5, light);
-  float ring = ringMask(p, 1.06) * ringWidth * (1.0 - u_burst);
-  accum += mix(u_rim, u_shadow, light) * ring;
-  density += ring * 0.55;
 
   accum = mix(accum, vec3(dot(accum, vec3(0.35, 0.28, 0.28))) + vec3(0.65, 0.13, 0.09) * u_error, u_error * 0.72);
 

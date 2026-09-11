@@ -65,29 +65,29 @@ def package(manifest: Path, destination: Path) -> Path:
 
 def render_verdict(verdict: BundleVerdict, show_extra: bool = False) -> str:
     lines = [
-        f"пакет: {verdict.root}",
-        f"опись: {verdict.reference} ({verdict.reference_format})",
-        f"сверено файлов: {len(verdict.files)}",
+        f"bundle: {verdict.root}",
+        f"inventory: {verdict.reference} ({verdict.reference_format})",
+        f"files checked: {len(verdict.files)}",
     ]
     for item in verdict.mismatched:
         if item.status == "missing":
-            lines.append(f"ОТСУТСТВУЕТ {item.path}: ожидался {item.expected_sha256}")
+            lines.append(f"MISSING {item.path}: expected {item.expected_sha256}")
         else:
             lines.append(
-                f"РАСХОЖДЕНИЕ {item.path}: ожидался {item.expected_sha256}, "
-                f"получен {item.actual_sha256}"
+                f"MISMATCH {item.path}: expected {item.expected_sha256}, "
+                f"got {item.actual_sha256}"
             )
     if verdict.extra_files:
         lines.append(
-            f"файлов вне описи: {len(verdict.extra_files)} "
-            "(на вердикт о целостности не влияют)"
+            f"files outside the inventory: {len(verdict.extra_files)} "
+            "(they do not affect the integrity verdict)"
         )
         if show_extra:
-            lines.extend(f"  вне описи: {name}" for name in verdict.extra_files)
+            lines.extend(f"  outside the inventory: {name}" for name in verdict.extra_files)
     lines.append(
-        "вердикт: пакет цел"
+        "verdict: the bundle is intact"
         if verdict.ok
-        else f"вердикт: пакет испорчен, расхождений {len(verdict.mismatched)}"
+        else f"verdict: the bundle is corrupted, {len(verdict.mismatched)} mismatches"
     )
     return "\n".join(lines) + "\n"
 
@@ -121,8 +121,8 @@ def verify(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Упаковка проверенных production-весов и сверка уже установленного "
-            "пакета с описью контрольных сумм"
+            "Package verified production weights and check an already installed "
+            "bundle against the checksum inventory"
         )
     )
     commands = parser.add_subparsers(dest="command", required=True)
@@ -148,7 +148,7 @@ def main(argv: list[str] | None = None) -> int:
             args.root, args.reference, args.output, args.json, args.show_extra
         )
     except RuntimeArtifactError as error:
-        print(f"сверка не выполнена: {error}", file=sys.stderr)
+        print(f"the check was not performed: {error}", file=sys.stderr)
         return 2
 
 

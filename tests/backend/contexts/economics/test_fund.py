@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from backend.core.contracts import (
+from backend.contexts.reservoir.domain.response import (
     ActiveControlMode,
-    DEFAULT_NORMATIVES_2007,
     IntervalResponse,
-    NormativeSet,
     StateAtDate,
 )
-from backend.domain.economics import (
+from backend.contexts.constraints.domain.config import DEFAULT_NORMATIVES_2007, NormativeSet
+from backend.contexts.economics.domain.fund import (
     FundState,
     classify_fund_state,
     track_well,

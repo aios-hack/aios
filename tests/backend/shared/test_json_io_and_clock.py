@@ -37,7 +37,7 @@ def test_write_json_creates_parents_and_replaces_atomically(tmp_path: Path) -> N
 
 def test_read_json_names_the_file_when_it_is_malformed(tmp_path: Path) -> None:
     broken = tmp_path / "broken.json"
-    broken.write_text("{не json", encoding="utf-8")
+    broken.write_text("{not json", encoding="utf-8")
 
     with pytest.raises(ValidationError) as error:
         read_json(broken)

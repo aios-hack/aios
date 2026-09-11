@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from backend.core.contracts import Constraints, WellOutage
+from backend.contexts.constraints.domain.constraints import Constraints, WellOutage
 
-from backend.domain.robustness import (
+from backend.contexts.robustness.domain.perturbation import (
     InfrastructureLimit,
     InjectionCap,
     KIND_SOURCE,
@@ -36,12 +36,12 @@ def test_wells_out_appends_outages_without_touching_the_base() -> None:
 
 
 def test_wells_out_rejects_an_empty_window() -> None:
-    with pytest.raises(ValueError, match="пустое окно"):
+    with pytest.raises(ValueError, match="empty unavailability window"):
         WellsOut(wells=("P1",), control_step_from=5, control_step_to=5)
 
 
 def test_wells_out_rejects_no_wells() -> None:
-    with pytest.raises(ValueError, match="без скважин"):
+    with pytest.raises(ValueError, match="without wells"):
         WellsOut(wells=(), control_step_from=0, control_step_to=1)
 
 
@@ -68,23 +68,23 @@ def test_production_floor_only_raises() -> None:
 
 
 def test_watercut_cap_rejects_a_share_outside_the_unit_interval() -> None:
-    with pytest.raises(ValueError, match="вне"):
+    with pytest.raises(ValueError, match="is outside"):
         WatercutCap(limits_by_year={2010: 1.5})
 
 
 def test_negative_limit_is_rejected() -> None:
-    with pytest.raises(ValueError, match="отрицателен"):
+    with pytest.raises(ValueError, match="is negative"):
         InjectionCap(limits_by_year={2010: -1.0})
 
 
 def test_empty_limit_mapping_is_rejected() -> None:
-    with pytest.raises(ValueError, match="без единого года"):
+    with pytest.raises(ValueError, match="without a single year"):
         LiquidCap(limits_by_year={})
 
 
 def test_infrastructure_limit_refuses_to_overwrite_an_existing_key() -> None:
     base = Constraints(infrastructure={"pipeline_liquid_m3_per_day": 100.0})
-    with pytest.raises(ValueError, match="уже заняты"):
+    with pytest.raises(ValueError, match="already taken"):
         InfrastructureLimit(
             entries={"pipeline_liquid_m3_per_day": 50.0}
         ).apply(base)

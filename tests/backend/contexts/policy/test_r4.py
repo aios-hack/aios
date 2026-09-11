@@ -4,17 +4,14 @@ from dataclasses import replace
 
 import pytest
 
-from backend.core.contracts import EventKind, Rule
+from backend.contexts.schedule.domain.schedule import EventKind
+from backend.contexts.policy.domain.policy import Rule
 
-from backend.domain.policy import (
-    RuleContext,
-    RuleFlags,
-    WellMemory,
-    apply_rule,
-    default_theta,
-    esp_size_for,
-    esp_upgrade_cost_rub,
-)
+from backend.contexts.policy.domain.state import RuleContext
+from backend.contexts.policy.domain.flags import RuleFlags
+from backend.contexts.policy.domain.memory import WellMemory, esp_size_for, esp_upgrade_cost_rub
+from backend.contexts.policy.domain.rules import apply_rule
+from backend.contexts.policy.domain.theta import default_theta
 from backend.contexts.policy.domain.rules import r4
 from tests.backend.contexts.policy.conftest import ESP_CATALOG, memory_of, producer, state_of
 
@@ -39,14 +36,14 @@ def test_r4_spends_no_theta() -> None:
 def test_esp_size_comes_from_the_catalog_not_from_a_literal() -> None:
     assert esp_size_for(ESP_CATALOG, 30.0).nominal == 45.0
     assert esp_size_for(ESP_CATALOG, 100.0).nominal == 125.0
-    with pytest.raises(ValueError, match="каталог"):
+    with pytest.raises(ValueError, match="catalogue"):
         esp_size_for((), 30.0)
 
 
 def test_the_ratchet_never_lets_the_size_go_down() -> None:
     installed = WellMemory(esp_nominal_m3_per_day=80.0)
     assert installed.with_esp(125.0).esp_nominal_m3_per_day == 125.0
-    with pytest.raises(ValueError, match="не понижается"):
+    with pytest.raises(ValueError, match="does not step down"):
         installed.with_esp(45.0)
 
 

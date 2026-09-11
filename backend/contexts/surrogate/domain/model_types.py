@@ -20,9 +20,7 @@ import torch
 from torch import (
     Tensor,
 )
-from backend.core.contracts import (
-    ResponseArtifact,
-)
+from backend.contexts.runs.domain.run_result import ResponseArtifact
 from backend.contexts.surrogate.domain.features import (
     SurrogateInput,
 )
@@ -95,55 +93,55 @@ class ModelConfig:
 
     def __post_init__(self) -> None:
         if self.hidden_width < 1 or self.hidden_layers < 1:
-            raise SurrogateModelError("hidden_width/hidden_layers должны быть положительными")
+            raise SurrogateModelError("hidden_width/hidden_layers must be positive")
         if self.well_embedding_dim < 1:
-            raise SurrogateModelError("well_embedding_dim должен быть положительным")
+            raise SurrogateModelError("well_embedding_dim must be positive")
         if not (0.0 <= self.dropout < 1.0):
-            raise SurrogateModelError("dropout должен лежать в [0, 1)")
+            raise SurrogateModelError("dropout must lie in [0, 1)")
         if self.learning_rate <= 0.0 or self.weight_decay < 0.0:
-            raise SurrogateModelError("learning_rate/weight_decay заданы неверно")
+            raise SurrogateModelError("learning_rate/weight_decay are set incorrectly")
         if self.batch_size < 1 or self.max_epochs < 1 or self.patience < 1:
-            raise SurrogateModelError("batch_size/max_epochs/patience должны быть положительными")
+            raise SurrogateModelError("batch_size/max_epochs/patience must be positive")
         object.__setattr__(self, "money_rub_per_unit", tuple(self.money_rub_per_unit))
         if self.money_rub_per_unit and len(self.money_rub_per_unit) != len(TARGET_NAMES):
             raise SurrogateModelError(
-                f"money_rub_per_unit должен покрывать все {len(TARGET_NAMES)} целей"
+                f"money_rub_per_unit must cover all {len(TARGET_NAMES)} targets"
             )
         if any(not math.isfinite(value) for value in self.money_rub_per_unit):
-            raise SurrogateModelError("money_rub_per_unit содержит нечисловой коэффициент")
+            raise SurrogateModelError("money_rub_per_unit contains a non-numeric coefficient")
         if not 0.0 <= self.money_weight_alpha <= 1.0:
-            raise SurrogateModelError("money_weight_alpha должен лежать в [0, 1]")
+            raise SurrogateModelError("money_weight_alpha must lie in [0, 1]")
         if self.money_weight_cap < 1.0:
-            raise SurrogateModelError("money_weight_cap должен быть не меньше 1")
+            raise SurrogateModelError("money_weight_cap must be at least 1")
         if self.lr_schedule not in _LR_SCHEDULES:
-            raise SurrogateModelError(f"lr_schedule: {' или '.join(_LR_SCHEDULES)}")
+            raise SurrogateModelError(f"lr_schedule: {' or '.join(_LR_SCHEDULES)}")
         if self.select_by not in _SELECTION_CRITERIA:
             raise SurrogateModelError(f"select_by: {', '.join(_SELECTION_CRITERIA)}")
         if self.target_parameterization not in TARGET_PARAMETERIZATIONS:
             raise SurrogateModelError(
-                f"target_parameterization: {' или '.join(TARGET_PARAMETERIZATIONS)}"
+                f"target_parameterization: {' or '.join(TARGET_PARAMETERIZATIONS)}"
             )
         if not self.oil_density_t_per_m3 > 0.0:
-            raise SurrogateModelError("oil_density_t_per_m3 должна быть положительной")
+            raise SurrogateModelError("oil_density_t_per_m3 must be positive")
         if self.loss not in _LOSSES:
             raise SurrogateModelError(f"loss: {', '.join(_LOSSES)}")
         if self.scenario_context not in _SCENARIO_CONTEXTS:
             raise SurrogateModelError(
-                "scenario_context: False, True, 'mean' или 'rich'"
+                "scenario_context: False, True, 'mean' or 'rich'"
             )
         if self.ranking_loss_weight < 0.0:
-            raise SurrogateModelError("ranking_loss_weight не может быть отрицательным")
+            raise SurrogateModelError("ranking_loss_weight cannot be negative")
         if self.ranking_scenarios_per_batch < 2:
             raise SurrogateModelError(
-                "ranking_scenarios_per_batch должен быть не меньше двух: "
-                "попарное сравнение требует пары"
+                "ranking_scenarios_per_batch must be at least two: "
+                "a pairwise comparison requires a pair"
             )
         if self.ranking_nodes_per_scenario < 1:
             raise SurrogateModelError(
-                "ranking_nodes_per_scenario должен быть положительным"
+                "ranking_nodes_per_scenario must be positive"
             )
         if not self.huber_delta > 0.0:
-            raise SurrogateModelError("huber_delta должна быть положительной")
+            raise SurrogateModelError("huber_delta must be positive")
 
 
 @dataclass(frozen=True, slots=True)
@@ -154,7 +152,7 @@ class Standardizer:
     @classmethod
     def fit(cls, values: Tensor) -> "Standardizer":
         if values.ndim != 2 or values.shape[0] == 0:
-            raise SurrogateModelError("standardizer требует непустую матрицу")
+            raise SurrogateModelError("standardizer requires a non-empty matrix")
         mean = values.mean(dim=0)
         scale = values.std(dim=0, unbiased=False)
         scale = torch.where(scale > 1e-8, scale, torch.ones_like(scale))

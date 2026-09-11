@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from backend.core.contracts import ControlEvent, Rule
+from backend.contexts.schedule.domain.schedule import ControlEvent
+from backend.contexts.policy.domain.policy import Rule
 
 from backend.contexts.policy.domain.agents.base import Proposal
 from backend.contexts.policy.domain.levels import Level, LeveledTraceEntry, execute_well
@@ -16,9 +17,9 @@ class WellExecutor:
     name: str = WELL_EXECUTOR
     level: Level = Level.WELL
     responsibilities: tuple[str, ...] = (
-        "квантует уставку шагом задатчика и не выпускает отрицательных значений",
-        "держит потолок дебита жидкости Методики для SET_LRAT",
-        "накладывает вето на решение, попавшее внутрь простоя скважины",
+        "quantises the setpoint by the controller step and never emits negative values",
+        "holds the liquid rate ceiling of the Methodology for SET_LRAT",
+        "vetoes a decision that falls inside a well downtime window",
     )
 
     def trace_agent_for(self, event: ControlEvent) -> str:
@@ -51,8 +52,8 @@ class WellExecutor:
     ) -> Proposal:
         if event is None or rule is None:
             raise ValueError(
-                f"{self.name}: исполнитель не изобретает решений, ему подают "
-                f"событие и правило, которое его породило"
+                f"{self.name}: the executor does not invent decisions; it is handed "
+                f"an event and the rule that produced it"
             )
         applied, entry = self.execute(
             state, context, event, rule, setpoint_step_m3_per_day
