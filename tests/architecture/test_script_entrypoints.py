@@ -10,7 +10,7 @@ SCRIPT_DIRECTORIES: tuple[str, ...] = ("tools", "scripts")
 
 def discovered_scripts() -> tuple[Path, ...]:
     root = project_root()
-    found: list[Path] = [Path("build_dataset.py")]
+    found: list[Path] = []
     for directory in SCRIPT_DIRECTORIES:
         base = root / directory
         if not base.is_dir():

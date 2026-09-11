@@ -245,8 +245,7 @@ OPENROUTER_API_KEY=sk-or-... docker compose up jarvis web
 |---|---|
 | [README.md](README.md) | как войти в проект: запуск, окружение, структура |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | слои `backend/`, границы и правила зависимостей |
-| [SUBMISSION.md](SUBMISSION.md) | сдача: архитектура, устройство суррогата, сквозной прогон, ограничения |
-| [FAQ.md](FAQ.md) | подробные ответы по решению: методология, замеры, перенос на реальный объект |
+| [ARCHITECTURE_DIAGRAM.md](ARCHITECTURE_DIAGRAM.md) | схемы: контексты, сквозной прогон, гейты, агенты, развёртывание |
 | LICENSE | лицензия |
 
 ### В репозитории документации `../docs/`
