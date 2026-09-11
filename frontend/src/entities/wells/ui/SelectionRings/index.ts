@@ -1,0 +1,1 @@
+export { GROUP_GAP, MAX_NEIGHBOUR_OPACITY, MAX_STROKE, MIN_NEIGHBOUR_OPACITY, MIN_STROKE, NEIGHBOUR_GAP, SELECT_GAP, STROKE_SHARE, SelectionRings, neighbourOpacity, ringStroke } from './SelectionRings';

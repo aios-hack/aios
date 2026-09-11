@@ -9,8 +9,8 @@ import pytest
 
 from backend.core.contracts import Groups, Lambda, RunArtifact
 from backend.core.paths import data_root
-from backend.domain.connectivity.campaign import CampaignError
-from backend.domain.connectivity.groups import (
+from backend.contexts.connectivity.application.campaign import CampaignError
+from backend.contexts.connectivity.domain.groups import (
     DEFAULT_QUANTILE_GRID,
     GroupingParams,
     build_groups,
@@ -19,7 +19,7 @@ from backend.domain.connectivity.groups import (
     sweep_quantiles,
     weight_threshold,
 )
-from backend.domain.connectivity.measure import (
+from backend.contexts.connectivity.domain.measure import (
     EXTRAPOLATION,
     PARTIAL_EXTRAPOLATION,
     WITHIN_WINDOW,
@@ -34,8 +34,8 @@ from backend.domain.connectivity.tests.test_lambda_provenance import (
     lambda_of,
     report_of,
 )
-from backend.presentation.ui_export.fixtures import make_synthetic_artifact
-from backend.presentation.ui_export.graph_view import (
+from tests.support.backend.showcase_fixtures import make_synthetic_artifact
+from backend.contexts.showcase.application.exporters.graph_view import (
     build_lambda_graph,
     export_graph_json,
     file_sha256,

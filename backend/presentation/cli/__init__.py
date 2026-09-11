@@ -1,4 +1,4 @@
-from .paths import (
+from backend.interfaces.cli.paths import (
     DEFAULT_SEED,
     DOCS_ROOT_ENV_VAR,
     SEED_ENV_VAR,

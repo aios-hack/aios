@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.core.provenance import (
+from backend.contexts.runs.infrastructure.provenance import (
     DEFAULT_OPM_IMAGE,
     OPM_IMAGE_ENV,
     git_commit,

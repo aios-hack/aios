@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from backend.presentation.cli.surrogate_adapt import ensure_disjoint_splits, sample_scenarios, main
+from backend.interfaces.cli.surrogate.adapt import ensure_disjoint_splits, sample_scenarios, main
 
 
 @pytest.mark.parametrize("splits", [(["a"], ["a"], ["c"]),

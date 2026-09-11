@@ -1,18 +1,18 @@
-from backend.domain.robustness.battery import (
+from backend.contexts.robustness.application.battery import (
     FragilityBattery,
     Scenario,
     Split,
     coverage_report,
     split_by_declaration,
 )
-from backend.domain.robustness.catalog import (
+from backend.contexts.robustness.domain.catalog import (
     BATTERY_VERSION,
     BatteryBasis,
     battery_of,
     default_battery,
     default_scenarios,
 )
-from backend.domain.robustness.perturbation import (
+from backend.contexts.robustness.domain.perturbation import (
     KIND_SOURCE,
     ORGANIZER_KINDS,
     InfrastructureLimit,
@@ -24,7 +24,7 @@ from backend.domain.robustness.perturbation import (
     WatercutCap,
     WellsOut,
 )
-from backend.domain.robustness.regret import (
+from backend.contexts.robustness.domain.regret import (
     RegretReport,
     ScenarioOutcome,
     covers_battery,

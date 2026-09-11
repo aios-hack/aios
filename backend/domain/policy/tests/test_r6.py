@@ -14,7 +14,7 @@ from backend.domain.policy import (
     default_theta,
     make_theta,
 )
-from backend.domain.policy.rules import r6
+from backend.contexts.policy.domain.rules import r6
 from backend.domain.policy.tests.conftest import influence_of, injector, memory_of, producer, state_of
 
 CANDIDATE = "43"

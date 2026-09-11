@@ -853,10 +853,10 @@ C — `WORKSPACE_VIEWS`); тип `compare` с объектами (A шлёт, B 
   `grid-template-areas` убрана, `.app.console` получил `position: relative` (нужен как
   containing block для layout-метрик C-02 и для `.console-area-timeaxis`).
 - `[C→координатор]` C-02: `useStageBox` уже мерил `clientWidth/clientHeight`, править было
-  нечего. `useBackdropShape` и `useContainerBox` переведены на общий `frontend/src/ui/shared/layoutBox.ts`
+  нечего. `useBackdropShape` и `useContainerBox` переведены на общий `frontend/src/shared/lib/layout/layoutBox.ts`
   (сумма `offsetLeft/offsetTop` по цепочке `offsetParent` до `.app.console`).
   `useReadoutBounds` (Chronomap) экранные координаты сохранил, но теперь замер включается
-  только при `data-phase="closed"` — фаза читается из DOM через `frontend/src/ui/shared/useStageSettled.ts`,
+  только при `data-phase="closed"` — фаза читается из DOM через `frontend/src/shared/lib/layout/useStageSettled.ts`,
   а не через `useJarvis()`: вид не должен зависеть от контекста Джарвиса (файлы агента B).
   `applyScale` в `useChronomapCanvas` и `useWallCanvas` не переприсваивает `canvas.width`,
   если размер не изменился, — вместо этого чистит холст.

@@ -28,7 +28,7 @@ import pytest
 
 from backend.core.contracts import OptimizerResult, ScenarioViolation, Theta
 from backend.application.optimization import Objective, ScenarioOutcome
-from backend.application.optimization.search import (
+from backend.contexts.optimization.domain.optimizer import (
     Evaluation,
     OptimizerError,
     SearchReport,
@@ -36,6 +36,7 @@ from backend.application.optimization.search import (
     is_better,
     optimize,
 )
+from backend.contexts.optimization.domain import optimizer as _src_optimizer
 
 BOUNDS = {"a": (0.0, 10.0), "b": (-5.0, 5.0), "c": (1.0, 3.0)}
 OPTIMUM = {"a": 7.5, "b": -2.0, "c": 1.5}
@@ -225,7 +226,7 @@ def test_search_module_contains_no_summation_over_the_battery() -> None:
     """Статическая проверка: `violations_by_scenario` в коде поиска не
     попадает под `sum(...)`. Запрет структурный, а не «мы помним»."""
 
-    path = Path(__file__).resolve().parents[1].joinpath("search.py")
+    path = Path(_src_optimizer.__file__)
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
     for node in ast.walk(tree):
@@ -309,7 +310,7 @@ def test_seed_comes_from_the_component_registry() -> None:
     """`optimizer` заявлен в реестре компонентов конфига — seed берётся
     оттуда, а не назначается на месте."""
 
-    from backend.domain.configuration.schema import COMPONENT_SEEDS
+    from backend.contexts.constraints.domain.schema import COMPONENT_SEEDS
 
     assert "optimizer" in COMPONENT_SEEDS
 
@@ -371,7 +372,7 @@ def test_search_module_never_references_well_level_types() -> None:
     """Та же статическая проверка, что у задачи 37: оптимизатор двигает
     ≤10 чисел и не знает ни фонда, ни расписания."""
 
-    path = Path(__file__).resolve().parents[1].joinpath("search.py")
+    path = Path(_src_optimizer.__file__)
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
     names: set[str] = set()

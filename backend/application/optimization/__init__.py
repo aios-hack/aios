@@ -10,14 +10,14 @@
 
 from __future__ import annotations
 
-from .interface import (
+from backend.contexts.optimization.domain.interface import (
     NominalObjective,
     Objective,
     ProvenanceSource,
     ScenarioEvaluator,
     ScenarioOutcome,
 )
-from .search import (
+from backend.contexts.optimization.domain.optimizer import (
     Evaluation,
     ObjectiveFunction,
     OptimizerError,

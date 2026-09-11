@@ -6,11 +6,11 @@ import pytest
 
 from backend.core.contracts import Schedule, ScheduleMeta
 from backend.domain.schedule import parse_schedule
-from backend.infrastructure.opm.opm_deck import (
+from backend.contexts.reservoir.infrastructure.opm_deck import (
     DIAGNOSTIC_MARKER_NAME,
     OpmDeckEmitter,
 )
-from backend.infrastructure.opm.summary import (
+from backend.contexts.reservoir.infrastructure.summary import (
     REGION_MARKUP_KEYWORD,
     REGION_PRESSURE_KEY,
     REGION_REPORT_KEYWORD,

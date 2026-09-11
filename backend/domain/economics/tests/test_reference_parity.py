@@ -21,7 +21,7 @@ from backend.domain.economics import (
     build_production_ledger,
     compute_npv_table,
 )
-from backend.domain.economics.reference_parity import (
+from backend.contexts.economics.application.reference_parity import (
     ParityReport,
     build_reference_records,
     compare_with_reference,

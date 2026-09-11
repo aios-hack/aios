@@ -5,15 +5,15 @@ from pathlib import Path
 
 import pytest
 
-from backend.application.jarvis.artifacts import ArtifactStore
-from backend.application.jarvis.fixtures import replay, to_jsonl
-from backend.application.jarvis.knowledge import Knowledge
-from backend.application.jarvis.orchestrator import Orchestrator
-from backend.application.jarvis.recordings import RECORDINGS
-from backend.application.jarvis.session import SessionError, SessionStore
-from backend.application.jarvis.tools.context import ConsoleContext
-from backend.infrastructure.llm.chat_events import ToolCall
-from backend.infrastructure.llm.fake_chat import FakeChatClient
+from backend.contexts.assistant.infrastructure.artifacts import ArtifactStore
+from backend.contexts.assistant.application.recording_replay import replay, to_jsonl
+from backend.contexts.assistant.infrastructure.knowledge import Knowledge
+from backend.contexts.assistant.application.orchestrator import Orchestrator
+from backend.contexts.assistant.infrastructure.recordings import RECORDINGS
+from backend.contexts.assistant.domain.session import SessionError, SessionStore
+from backend.contexts.assistant.application.tools.context import ConsoleContext
+from backend.contexts.assistant.infrastructure.llm.chat_events import ToolCall
+from backend.contexts.assistant.infrastructure.llm.fake_chat import FakeChatClient
 
 EVENT_ORDER = (
     "scene",

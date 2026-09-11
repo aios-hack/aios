@@ -13,7 +13,7 @@ from backend.core.contracts import (
     WellState,
     canonical_bytes,
 )
-from backend.domain.schedule.validate import (
+from backend.contexts.schedule.domain.validate import (
     CONSTRAINT_OIL_LIMITS,
     CONSTRAINT_PRODUCTION_FLOORS,
     STATUS_CHECKED,
@@ -21,7 +21,7 @@ from backend.domain.schedule.validate import (
     ConstraintCheck,
     ViolationKind,
 )
-from backend.domain.schedule.validate_dynamic import (
+from backend.contexts.schedule.domain.validate_dynamic import (
     BLOCKING_DYNAMIC_VIOLATION_KINDS,
     CONSTRAINT_FIELD_COVERAGE,
     DYNAMIC_VIOLATION_KINDS,

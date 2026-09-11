@@ -19,15 +19,15 @@ import pytest
 
 from backend.core.contracts import ResponseArtifact
 from backend.core.paths import data_root
-from backend.application.connectivity_plan import campaign_plan
-from backend.domain.connectivity.campaign import (
+from backend.contexts.connectivity.application.connectivity_plan import campaign_plan
+from backend.contexts.connectivity.application.campaign import (
     BATCHES_PER_HALF,
     DEFAULT_WINDOW_STEPS,
     CampaignError,
     setup,
 )
-from backend.domain.connectivity.doe import Level
-from backend.domain.connectivity.measure import load_lambda, measure, save_lambda
+from backend.contexts.connectivity.domain.doe import Level
+from backend.contexts.connectivity.domain.measure import load_lambda, measure, save_lambda
 
 from conftest import missing_reason, model_z_dir
 

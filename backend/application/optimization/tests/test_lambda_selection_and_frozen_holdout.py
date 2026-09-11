@@ -9,21 +9,21 @@ from pathlib import Path
 import pytest
 
 from backend.core.contracts import ControlEvent, EventKind, Lambda, Schedule
-from backend.core.contracts.schedule import (
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     OperatingStatus,
     Role,
     ScheduleMeta,
     WellState,
 )
-from backend.application.optimization.runtime_artifacts import (
+from backend.contexts.optimization.infrastructure.artifacts import (
     LAMBDA_PATH_ENV,
     LAMBDA_SELECTION_ENV,
     LAMBDA_SELECTION_FORMAT,
     RuntimeArtifactError,
     resolve_lambda_selection,
 )
-from backend.application.optimization.search_run import (
+from backend.contexts.optimization.application.search_use_case import (
     ConnectivitySearchError,
     _baseline_injection_rates,
     _connectivity_groups,
@@ -31,7 +31,7 @@ from backend.application.optimization.search_run import (
     _lambda_connectivity,
     _transfer_injection,
 )
-from backend.presentation.cli.surrogate_tools.surrogate_metrics_report import (
+from backend.interfaces.cli.surrogate.tools.surrogate_metrics_report import (
     DEFAULT_HOLDOUT,
     HOLDOUT_FORMAT,
     FrozenHoldoutError,

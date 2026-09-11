@@ -1,0 +1,11 @@
+{
+  "orbitLabel": "Answer cards",
+  "railBead": "Scene: {question}",
+  "railLabel": "Memory rail",
+  "railNoCards": "no cards",
+  "sessionNew": "New session",
+  "sessionNoQuestion": "no question",
+  "sessionToday": "today",
+  "sessionYesterday": "yesterday",
+  "sessionsLabel": "Session"
+}

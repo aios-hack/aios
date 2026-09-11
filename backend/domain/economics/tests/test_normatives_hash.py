@@ -5,7 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from backend.domain.economics.normatives_io import NormativesError, normatives_sha256
+from backend.contexts.economics.infrastructure.normatives_io import (
+    NormativesError,
+    normatives_sha256,
+)
 
 
 def write_workbook(path: Path, payload: bytes) -> Path:

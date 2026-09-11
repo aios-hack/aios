@@ -1,0 +1,99 @@
+@import '../../../../shared/ui/IconButton/IconButton.css';
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.icon-button-glyph {
+  animation: glyph-swap var(--duration-drawer) var(--ease-emphasis);
+}
+
+@keyframes glyph-swap {
+  from {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.4);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-button-glyph {
+    animation: none;
+  }
+
+  .icon-button,
+  .lang-thumb {
+    transition: none;
+  }
+}
+
+.lang-toggle {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  align-items: center;
+  height: var(--size-icon-button);
+  padding: 3px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-dim);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-mono);
+  cursor: pointer;
+  transition: background var(--duration-state) var(--ease-out),
+    box-shadow var(--duration-state) var(--ease-out);
+}
+
+.lang-toggle:hover .lang-code {
+  color: var(--color-text);
+}
+
+.lang-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  transition: transform var(--duration-drawer) var(--ease-emphasis);
+}
+
+.lang-toggle[data-lang='en'] .lang-thumb {
+  transform: translateX(100%);
+}
+
+.lang-code {
+  position: relative;
+  z-index: 1;
+  padding: 0 var(--space-4);
+  color: var(--color-text-muted);
+  transition: color var(--duration-state) var(--ease-out);
+}
+
+.lang-toggle[data-lang='ru']:hover .lang-code[data-code='en'],
+.lang-toggle[data-lang='en']:hover .lang-code[data-code='ru'] {
+  color: var(--color-text);
+}
+
+.lang-toggle[data-lang='ru'] .lang-code[data-code='ru'],
+.lang-toggle[data-lang='en'] .lang-code[data-code='en'] {
+  color: var(--color-accent-contrast);
+}
+
+.header-controls .icon-island {
+  padding: var(--space-1);
+}
+
+.header-controls .icon-button {
+  width: var(--size-hit-min);
+  height: var(--size-hit-min);
+}

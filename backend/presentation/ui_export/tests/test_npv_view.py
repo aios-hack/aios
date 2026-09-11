@@ -7,8 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from backend.presentation.ui_export.fixtures import make_synthetic_artifact
-from backend.presentation.ui_export.npv_view import build_npv_by_well, export_npv_json
+from tests.support.backend.showcase_fixtures import make_synthetic_artifact
+from backend.contexts.showcase.application.exporters.npv_view import (
+    build_npv_by_well,
+    export_npv_json,
+)
 
 
 def test_values_taken_from_by_well_without_distortion() -> None:

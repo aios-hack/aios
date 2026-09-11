@@ -1,7 +1,7 @@
 """Schedule-only features for the reservoir surrogate."""
 
-from .adapter import AdapterError, ResponseAdapter
-from .features import (
+from backend.contexts.surrogate.application.adapter import AdapterError, ResponseAdapter
+from backend.contexts.surrogate.domain.features import (
     FeatureContext,
     FeatureError,
     HistoryTargets,
@@ -11,7 +11,10 @@ from .features import (
     WellStepFeatures,
     history_targets_from_deck,
 )
-from .raw_model_output import RawModelOutput, RawWellStepPrediction
+from backend.contexts.surrogate.domain.raw_model_output import (
+    RawModelOutput,
+    RawWellStepPrediction,
+)
 
 __all__ = [
     "AdapterError",

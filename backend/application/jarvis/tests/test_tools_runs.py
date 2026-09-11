@@ -9,17 +9,17 @@ from typing import Any
 
 import pytest
 
-from backend.application.jarvis.artifacts import ArtifactStore, RunStore
-from backend.application.jarvis.knowledge import Knowledge
-from backend.application.jarvis.orchestrator import Orchestrator
-from backend.application.jarvis.tools import run_tool, tool_specs
-from backend.application.jarvis.tools.context import (
+from backend.contexts.assistant.infrastructure.artifacts import ArtifactStore, RunStore
+from backend.contexts.assistant.infrastructure.knowledge import Knowledge
+from backend.contexts.assistant.application.orchestrator import Orchestrator
+from backend.contexts.assistant.application.tools import run_tool, tool_specs
+from backend.contexts.assistant.application.tools.context import (
     ConsoleContext,
     ToolContext,
     ToolFailure,
 )
-from backend.application.jarvis.tools.runs import NO_SUBMISSION
-from backend.application.runs.workflow import (
+from backend.contexts.assistant.application.tools.runs import NO_SUBMISSION
+from backend.contexts.runs.application.workflow import (
     RunProvenance,
     RunRequest,
     RunWorkflow,
@@ -34,8 +34,8 @@ from backend.core.contracts import (
     SubmissionBundle,
     WellState,
 )
-from backend.infrastructure.llm.chat_events import ToolCall
-from backend.infrastructure.llm.fake_chat import FakeChatClient
+from backend.contexts.assistant.infrastructure.llm.chat_events import ToolCall
+from backend.contexts.assistant.infrastructure.llm.fake_chat import FakeChatClient
 
 RUN_ID = "jarvis-run"
 PREDICTED_NPV = 12_345_678.5

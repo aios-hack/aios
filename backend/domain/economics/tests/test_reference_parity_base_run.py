@@ -27,8 +27,15 @@ import pytest
 from backend.core.contracts import ChargeInitialEsp, DEFAULT_NORMATIVES_2007, NormativeSet, Policies, QuantizationPolicy
 from backend.core.paths import data_root
 from backend.domain.economics import ESP_CATALOG_2007, analyze_base_case, load_response_artifact
-from backend.domain.economics.base_case import responses_by_well_from_artifact, states_by_well_from_artifact
-from backend.domain.economics.reference_parity import build_reference_records, compare_with_reference, run_reference
+from backend.contexts.economics.application.base_case import (
+    responses_by_well_from_artifact,
+    states_by_well_from_artifact,
+)
+from backend.contexts.economics.application.reference_parity import (
+    build_reference_records,
+    compare_with_reference,
+    run_reference,
+)
 from backend.domain.schedule import parse_schedule
 
 from conftest import chdd_python_dir, missing_reason, model_z_schedule

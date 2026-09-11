@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from backend.domain.economics import reference_parity as parity
+from backend.contexts.economics.application import reference_parity as parity
 
 
 def test_reference_receives_exact_aios_start_not_beginning_of_year(monkeypatch):

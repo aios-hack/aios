@@ -6,14 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from backend.application.jarvis.artifacts import ArtifactStore
-from backend.application.jarvis.tools import run_tool
-from backend.application.jarvis.tools.context import (
+from backend.contexts.assistant.infrastructure.artifacts import ArtifactStore
+from backend.contexts.assistant.application.tools import run_tool
+from backend.contexts.assistant.application.tools.context import (
     ConsoleContext,
     ToolContext,
     ToolFailure,
 )
-from backend.application.jarvis.tools.fields import field_events_rows
+from backend.contexts.assistant.application.tools.fields import field_events_rows
 
 STEP_2015 = 96
 EVENTS_TOTAL = 36

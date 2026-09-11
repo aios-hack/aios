@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from backend.infrastructure.opm import OpmDeckEmitter
-from backend.infrastructure.opm.dataset_plan import (
+from backend.contexts.simulation.domain.perturbation_design import (
     DatasetPlanError,
     PerturbationFamily,
     PlanConfig,

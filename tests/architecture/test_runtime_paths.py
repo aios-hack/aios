@@ -1,9 +1,9 @@
 from pathlib import Path
 
 from backend.core.paths import data_root, out_root, project_root
-from backend.presentation.ui_export.base_artifact import DEFAULT_RESPONSE_PATH
-from backend.presentation.ui_export.demo import DEFAULT_OUT_DIR
-from backend.presentation.ui_export.webdata import DEFAULT_OUT_PATH
+from backend.contexts.showcase.application.base_artifact import DEFAULT_RESPONSE_PATH
+from backend.contexts.showcase.application.build_showcase import DEFAULT_OUT_DIR
+from backend.contexts.reservoir.application.well_geometry import DEFAULT_OUT_PATH
 
 
 def test_runtime_defaults_are_under_project_not_source_package(monkeypatch) -> None:

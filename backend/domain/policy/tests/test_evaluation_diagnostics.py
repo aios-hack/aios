@@ -14,9 +14,9 @@ from backend.core.contracts import (
     ScheduleMeta,
     WellState,
 )
-from backend.domain.configuration.schema import DEFAULT_BUDGETS
+from backend.contexts.constraints.domain.schema import DEFAULT_BUDGETS
 from backend.domain.policy import Evaluation, resolve
-from backend.domain.policy.fixed_point import FixedPointResult, Visited
+from backend.contexts.policy.domain.fixed_point import FixedPointResult, Visited
 
 WELL = "42"
 

@@ -1,0 +1,1 @@
+export { NpvTable } from './NpvTable';

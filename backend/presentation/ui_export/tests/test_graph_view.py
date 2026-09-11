@@ -7,8 +7,11 @@ from datetime import date
 from pathlib import Path
 
 from backend.core.contracts import Groups, Lambda, RunArtifact
-from backend.presentation.ui_export.fixtures import make_synthetic_artifact
-from backend.presentation.ui_export.graph_view import build_lambda_graph, export_graph_json
+from tests.support.backend.showcase_fixtures import make_synthetic_artifact
+from backend.contexts.showcase.application.exporters.graph_view import (
+    build_lambda_graph,
+    export_graph_json,
+)
 
 _PLACEHOLDER_HASH = "0" * 64
 

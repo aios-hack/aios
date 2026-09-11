@@ -9,15 +9,15 @@ from pathlib import Path
 
 from backend.core.contracts import IntervalResponse, N_INTERVALS, T0
 from backend.core.paths import data_root
-from backend.domain.economics.base_case import load_response_artifact
-from backend.domain.schedule.validate_dynamic import (
+from backend.contexts.economics.application.base_case import load_response_artifact
+from backend.contexts.schedule.domain.validate_dynamic import (
     COMPENSATION_RESERVOIR_CONDITIONS,
     COMPENSATION_SURFACE_CONDITIONS,
     control_step_pressures,
     reservoir_step_totals,
 )
-from backend.infrastructure.opm.base_run import _read_field_series
-from backend.infrastructure.opm.pvt import PvtTables, load_pvt
+from backend.contexts.simulation.application.baseline_diagnostics import _read_field_series
+from backend.contexts.reservoir.infrastructure.pvt import PvtTables, load_pvt
 
 DEFAULT_RESPONSE: Path = data_root() / "base_case" / "response.json"
 DEFAULT_ARTIFACT: Path = data_root() / "compensation-base.json"

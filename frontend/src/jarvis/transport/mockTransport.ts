@@ -1,5 +1,5 @@
-import { parseEventLine, type JarvisEvent } from './events';
-import type { JarvisAsk, JarvisTransport } from './JarvisTransport';
+import { parseEventLine, type JarvisEvent } from '@/jarvis/transport/events';
+import type { JarvisAsk, JarvisTransport } from '@/jarvis/transport/JarvisTransport';
 
 export const FIXTURE_DIR = '/jarvis/fixtures';
 

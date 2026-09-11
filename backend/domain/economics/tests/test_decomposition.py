@@ -12,7 +12,7 @@ from backend.domain.economics import (
     build_production_ledger,
     compute_npv_table,
 )
-from backend.domain.economics.decomposition import (
+from backend.contexts.economics.domain.decomposition import (
     MACHINE_ZERO_RUB,
     DecompositionError,
     TaxBasis,

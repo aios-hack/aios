@@ -1,5 +1,5 @@
 from backend.core.contracts import EventKind, hash_schedule
-from backend.presentation.cli import final_campaign
+from backend.interfaces.cli import final_campaign
 from tests.application.test_run_workflow import historical_schedule
 
 

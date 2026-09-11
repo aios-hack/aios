@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from backend.ml.surrogate.npv_calibration import (
+from backend.contexts.surrogate.domain.npv_calibration import (
     FORMAT,
     NpvCalibration,
     NpvCalibrationError,

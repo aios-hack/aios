@@ -6,8 +6,8 @@ import pytest
 
 pytest.importorskip("torch")
 
-from backend.ml.surrogate.cycle import CycleState, EXTRA_CONFIG, PILOT_CONFIG  # noqa: E402
-from backend.ml.surrogate.dashboard import collect_status  # noqa: E402
+from backend.contexts.surrogate.application.pipeline import CycleState, EXTRA_CONFIG, PILOT_CONFIG  # noqa: E402
+from backend.interfaces.http.surrogate_dashboard.server import collect_status  # noqa: E402
 
 
 def _size(config) -> int:

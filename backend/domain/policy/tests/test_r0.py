@@ -15,7 +15,7 @@ from backend.domain.policy import (
     default_theta,
     make_theta,
 )
-from backend.domain.policy.rules import r0
+from backend.contexts.policy.domain.rules import r0
 from backend.domain.policy.tests.conftest import (
     OIL_DENSITY_SECOND_REGION_T_PER_M3,
     OIL_DENSITY_T_PER_M3,

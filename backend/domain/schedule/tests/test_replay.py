@@ -19,8 +19,8 @@ from backend.domain.schedule import (
     replay,
     replay_initial_state,
 )
-from backend.domain.schedule.lossless import LosslessBlock, ParsedSchedule
-from backend.domain.schedule.replay import _Fund, _apply_record
+from backend.contexts.schedule.domain.lossless import LosslessBlock, ParsedSchedule
+from backend.contexts.schedule.domain.replay import _Fund, _apply_record
 
 from conftest import missing_reason, model_z_schedule
 

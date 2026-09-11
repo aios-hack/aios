@@ -64,7 +64,7 @@ def _spy_subprocess_run(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
         calls.append(list(command))
         return original(command, *args, **kwargs)
 
-    monkeypatch.setattr("backend.infrastructure.opm.runner.subprocess.run", spy)
+    monkeypatch.setattr("backend.contexts.simulation.infrastructure.runner.subprocess.run", spy)
     return calls
 
 

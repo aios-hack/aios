@@ -1,15 +1,15 @@
-from backend.domain.connectivity.deck import (
+from backend.contexts.connectivity.infrastructure.deck import (
     DeckSchedule,
     DeckWellRecord,
     MONTHS,
     parse_deck_schedule,
 )
-from backend.domain.connectivity.setpoints import (
+from backend.contexts.connectivity.domain.setpoints import (
     SetpointChange,
     StepDistribution,
     setpoint_changes,
 )
-from backend.domain.connectivity.fund import (
+from backend.contexts.connectivity.domain.fund import (
     ActiveFund,
     FundHistory,
     Window,
@@ -18,7 +18,7 @@ from backend.domain.connectivity.fund import (
     build_fund_history,
     slice_windows,
 )
-from backend.domain.connectivity.doe import (
+from backend.contexts.connectivity.domain.doe import (
     AchievabilityCheck,
     AchievabilityReport,
     Amplitude,
@@ -34,7 +34,7 @@ from backend.domain.connectivity.doe import (
     plans_for_windows,
     realized_matrix,
 )
-from backend.domain.connectivity.amplitude import (
+from backend.contexts.connectivity.domain.amplitude import (
     AmplitudeMeasurement,
     AmplitudeProbe,
     AmplitudeVerdict,
@@ -55,7 +55,7 @@ from backend.domain.connectivity.amplitude import (
     select_probe_injectors,
     sweep_amplitudes,
 )
-from backend.domain.connectivity.estimator import (
+from backend.contexts.connectivity.domain.estimator import (
     SINGULARITY_TOLERANCE,
     Batch,
     DriveMatrix,
@@ -70,7 +70,7 @@ from backend.domain.connectivity.estimator import (
     scan_lag,
     stability_between,
 )
-from backend.domain.connectivity.sweep import (
+from backend.contexts.connectivity.domain.sweep import (
     ResponseSource,
     SweepRun,
     WindowSteps,
@@ -83,7 +83,7 @@ from backend.domain.connectivity.sweep import (
     responders_of,
     sweep_targets,
 )
-from backend.domain.connectivity.groups import (
+from backend.contexts.connectivity.domain.groups import (
     GROUP_PREFIX,
     GroupingParams,
     GroupingReport,
@@ -95,7 +95,7 @@ from backend.domain.connectivity.groups import (
     moved_share,
     validate_groups,
 )
-from backend.domain.connectivity.groups_artifact import (
+from backend.contexts.connectivity.infrastructure.groups_artifact import (
     ALGORITHM_NAME,
     ALGORITHM_VERSION,
     ARTIFACT_FORMAT,
@@ -115,7 +115,12 @@ from backend.domain.connectivity.groups_artifact import (
     reusable_for,
     verify_against_lambda,
 )
-from backend.domain.connectivity.hadamard import hadamard, is_hadamard, is_prime, normalized
+from backend.contexts.connectivity.domain.hadamard import (
+    hadamard,
+    is_hadamard,
+    is_prime,
+    normalized,
+)
 
 __all__ = [
     "ALGORITHM_NAME",

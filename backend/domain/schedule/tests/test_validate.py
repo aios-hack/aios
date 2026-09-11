@@ -17,7 +17,7 @@ from backend.core.contracts import (
     WellState,
 )
 from backend.domain.schedule import load_schedule
-from backend.domain.schedule.validate import (
+from backend.contexts.schedule.domain.validate import (
     CandidateEvent,
     StaticValidationError,
     ValidationReport,

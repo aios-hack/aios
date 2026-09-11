@@ -18,6 +18,7 @@
     "types": ["vite/client", "node"],
     "noEmit": true,
     "baseUrl": ".",
+    "typeRoots": ["./node_modules/@types", "./node_modules"],
     "paths": {
       "@/*": ["src/*"],
       "@tests/*": ["../tests/frontend/*"],

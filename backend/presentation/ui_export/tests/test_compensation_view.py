@@ -5,7 +5,7 @@ from dataclasses import replace
 import pytest
 
 from backend.core.contracts import CompensationPolicy, Constraints
-from backend.presentation.ui_export.compensation_view import (
+from backend.contexts.showcase.application.exporters.compensation_view import (
     COMPENSATION_BASIS_SURFACE,
     COMPENSATION_NORM_MAX,
     COMPENSATION_NORM_MIN,
@@ -13,8 +13,8 @@ from backend.presentation.ui_export.compensation_view import (
     compensation_norm,
     reservoir_compensation,
 )
-from backend.presentation.ui_export.fixtures import make_synthetic_artifact
-from backend.presentation.ui_export.timeline import build_timeline
+from tests.support.backend.showcase_fixtures import make_synthetic_artifact
+from backend.contexts.showcase.application.exporters.timeline import build_timeline
 
 DEFAULT_POLICY = CompensationPolicy(None, None, "diagnostic", "field_and_groups")
 

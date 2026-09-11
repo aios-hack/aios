@@ -4,7 +4,7 @@ import pytest
 
 from backend.core.contracts import T0, content_hash
 from backend.domain.schedule import LosslessEmitter, parse_schedule
-from backend.domain.schedule.emit import (
+from backend.contexts.schedule.application.emit import (
     WELLS_SCHEDULE_FILE_NAME,
     ScheduleEmitError,
     emit_from_deck,
@@ -179,7 +179,7 @@ def test_lossless_emit_preserves_even_unknown_bytes(deck_bytes: bytes) -> None:
 
 
 def test_broken_round_trip_is_reported_and_raised() -> None:
-    from backend.domain.schedule.emit import RoundTripReport
+    from backend.contexts.schedule.application.emit import RoundTripReport
 
     broken = RoundTripReport(
         byte_identical=False,

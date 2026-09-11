@@ -7,10 +7,10 @@ from pathlib import Path
 import pytest
 
 from backend.core.contracts import ArtifactHashes, Budgets, NormativeSet
-from backend.core.contracts.config import DEFAULT_NORMATIVES_2007
+from backend.contexts.constraints.domain.config import DEFAULT_NORMATIVES_2007
 
 from backend.domain.configuration import COMPONENT_SEEDS, GLOBAL_SEED_KEY
-from backend.domain.configuration.schema import DEFAULT_BUDGETS, default_seeds
+from backend.contexts.constraints.domain.schema import DEFAULT_BUDGETS, default_seeds
 
 OWNED_PACKAGES: tuple[str, ...] = (
     "domain/connectivity",

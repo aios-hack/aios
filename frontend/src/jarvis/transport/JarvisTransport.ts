@@ -1,4 +1,4 @@
-import type { JarvisAskContext, JarvisEvent } from './events';
+import type { JarvisAskContext, JarvisEvent } from '@/jarvis/transport/events';
 
 export interface JarvisAsk {
   sessionId: string;

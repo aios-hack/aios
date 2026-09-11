@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from backend.application.optimization.champion import CONDITION_KEYS, promote_champion
+from backend.contexts.optimization.infrastructure.champion import CONDITION_KEYS, promote_champion
 
 
 def candidate(npv):

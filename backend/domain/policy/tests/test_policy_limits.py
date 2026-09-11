@@ -6,12 +6,12 @@ import pytest
 
 from backend.core.contracts import Constraints, EventKind, Rule
 
-from backend.domain.policy.flags import (
+from backend.contexts.policy.domain.flags import (
     DEFAULT_FEATURE_FLAGS,
     WATERCUT_CAP_FEATURE,
     RuleFlags,
 )
-from backend.domain.policy.levels import (
+from backend.contexts.policy.domain.levels import (
     PRODUCTION_FLOOR_MET,
     PRODUCTION_FLOOR_NOT_SET,
     PRODUCTION_FLOOR_UNREACHABLE,
@@ -21,11 +21,11 @@ from backend.domain.policy.levels import (
     decide_group,
     watercut_cap_shutins,
 )
-from backend.domain.policy.rules import apply_rule
-from backend.domain.policy.rules.r1 import held_target
-from backend.domain.policy.rules.r5 import corridor_bounds
-from backend.domain.policy.state import RuleContext
-from backend.domain.policy.theta import default_theta, make_theta
+from backend.contexts.policy.domain.rules import apply_rule
+from backend.contexts.policy.domain.rules.r1 import held_target
+from backend.contexts.policy.domain.rules.r5 import corridor_bounds
+from backend.contexts.policy.domain.state import RuleContext
+from backend.contexts.policy.domain.theta import default_theta, make_theta
 from backend.domain.policy.tests.conftest import (
     OIL_DENSITY_T_PER_M3,
     groups_of,

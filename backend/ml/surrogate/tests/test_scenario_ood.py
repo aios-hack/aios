@@ -3,7 +3,10 @@ from __future__ import annotations
 import pytest
 import torch
 
-from backend.ml.surrogate.scenario_ood import ScenarioDensityDomain, ScenarioDensityError
+from backend.contexts.robustness.domain.scenario_ood import (
+    ScenarioDensityDomain,
+    ScenarioDensityError,
+)
 
 
 def _domain() -> ScenarioDensityDomain:

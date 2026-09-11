@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from backend.application.optimization.runtime_artifacts import (
+from backend.contexts.optimization.infrastructure.artifacts import (
     RuntimeArtifactError,
     RuntimeArtifacts,
     resolve_runtime_artifacts,
@@ -132,4 +132,4 @@ def test_production_cannot_silently_disable_scenario_ood(tmp_path, problem):
 
 @pytest.fixture(autouse=True)
 def isolated_project_root(tmp_path, monkeypatch):
-    monkeypatch.setattr("backend.application.optimization.runtime_artifacts.project_root", lambda: tmp_path)
+    monkeypatch.setattr("backend.contexts.optimization.infrastructure.artifacts.project_root", lambda: tmp_path)

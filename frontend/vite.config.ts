@@ -19,8 +19,27 @@ const dropJarvisFixtures = (): Plugin => {
   };
 };
 
+const MODULES_DIR = resolve(__dirname, 'node_modules');
+
+const resolveOutsideRoot = (): Plugin => ({
+  name: 'aios-resolve-outside-root',
+  enforce: 'pre',
+  async resolveId(source, importer, options) {
+    if (importer === undefined || /^[./]/.test(source) || source.startsWith('@/') || source.startsWith('@tests/') || source.startsWith('@support/')) {
+      return null;
+    }
+    if (!importer.replaceAll('\\', '/').includes('/tests/')) {
+      return null;
+    }
+    return this.resolve(source, resolve(MODULES_DIR, '_.js'), {
+      ...options,
+      skipSelf: true
+    });
+  }
+});
+
 export default defineConfig({
-  plugins: [react(), dropJarvisFixtures()],
+  plugins: [react(), dropJarvisFixtures(), resolveOutsideRoot()],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
@@ -29,6 +48,9 @@ export default defineConfig({
     }
   },
   server: {
+    fs: {
+      allow: [resolve(__dirname, '..')]
+    },
     proxy: {
       '/api': {
         target: process.env.VITE_API_PROXY ?? 'http://127.0.0.1:8010',
@@ -48,17 +70,14 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    setupFiles: ['./src/test/setup.ts'],
+    include: ['../tests/frontend/**/*.test.{ts,tsx}', '../tests/architecture/frontend/**/*.test.{ts,tsx}'],
+    setupFiles: ['../tests/frontend/setup.ts'],
     testTimeout: 15000,
     coverage: {
       include: ['src/**/*.{ts,tsx}'],
       exclude: [
-        'src/api/types.ts',
-        'src/main.tsx',
-        'src/test/**',
-        'src/**/*.test.ts',
-        'src/**/*.test.tsx',
-        'src/**/testFixtures.tsx',
+        'src/entities/**/types.ts',
+        'src/app/main.tsx',
         'src/**/index.ts',
         '**/*.css',
         '**/.impeccable/**'

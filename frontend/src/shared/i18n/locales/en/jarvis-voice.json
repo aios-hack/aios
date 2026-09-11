@@ -1,0 +1,18 @@
+{
+  "listening": "Listening",
+  "micHint": "Hold space to speak",
+  "micStart": "Turn the microphone on",
+  "micStop": "Turn the microphone off",
+  "micUnavailable": "Speech recognition is unavailable",
+  "speakAnswer": "Read the whole answer",
+  "speakOff": "Speech off",
+  "speakOn": "Speech on",
+  "speakStop": "Stop the voice",
+  "stt.audio-capture": "No microphone found",
+  "stt.network": "Recognition is unreachable: the network is down",
+  "stt.not-allowed": "Allow microphone access in the browser",
+  "stt.unknown": "Recognition did not work",
+  "voiceConfirm": "Voice: confirm",
+  "voiceInstant": "Voice: send at once",
+  "voiceModeHint": "Send the transcript straight away or put it in the field first"
+}

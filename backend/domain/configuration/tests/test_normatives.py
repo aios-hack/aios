@@ -12,7 +12,7 @@ from backend.domain.configuration import (
     NormativesLoader,
     normatives_from_mapping,
 )
-from backend.domain.configuration.normatives import METHODOLOGY_LOCKED
+from backend.contexts.constraints.domain.normatives import METHODOLOGY_LOCKED
 
 from conftest import missing_reason, normatives_xlsx
 

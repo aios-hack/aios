@@ -29,7 +29,7 @@ from backend.domain.policy import (
     resolve,
     run_step,
 )
-from backend.domain.policy.agents import (
+from backend.contexts.policy.domain.agents import (
     DEFAULT_REGISTRY,
     WATER_AGENT,
     WATER_AGENT_RANK,
@@ -44,17 +44,17 @@ from backend.domain.policy.agents import (
     water_ceiling_for,
     with_agents,
 )
-from backend.domain.policy.agents.base import Bound, BoundSense, merge_proposals
-from backend.domain.policy.agents.registry import rank_of
-from backend.domain.policy.budget import injection_ceiling_for_well
-from backend.domain.policy.fixed_point import PolicyEquilibrium, Visited
-from backend.domain.policy.theta import (
+from backend.contexts.policy.domain.agents.base import Bound, BoundSense, merge_proposals
+from backend.contexts.policy.domain.agents.registry import rank_of
+from backend.contexts.policy.domain.budget import injection_ceiling_for_well
+from backend.contexts.policy.domain.fixed_point import PolicyEquilibrium, Visited
+from backend.contexts.policy.domain.theta import (
     DEFAULT_THETA_REGISTRY,
     THETA_CAP,
     ThetaRegistry,
     ThetaSpec,
 )
-from backend.domain.policy.trace import dumps, loads, to_payload, trace_hash
+from backend.contexts.policy.domain.trace import dumps, loads, to_payload, trace_hash
 from backend.domain.policy.tests.conftest import (
     groups_of,
     influence_of,

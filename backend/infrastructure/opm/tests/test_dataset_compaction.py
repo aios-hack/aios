@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from backend.infrastructure.opm.dataset import DatasetGenerator
-from backend.infrastructure.opm.opm_deck import EmittedOpmDeck
+from backend.contexts.simulation.infrastructure.dataset import DatasetGenerator
+from backend.contexts.reservoir.infrastructure.opm_deck import EmittedOpmDeck
 from backend.core.contracts import RunResult, RunStatus
 
 

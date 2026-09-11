@@ -23,7 +23,7 @@ from backend.core.contracts import (
     WellOutage,
     WellState,
 )
-from backend.core.contracts.constraints import (
+from backend.contexts.constraints.domain.constraints import (
     BHP_INJECTOR_MAX_BAR,
     BHP_PRODUCER_MIN_BAR,
     DEFAULT_BHP_INJECTOR_MAX_BAR,
@@ -33,10 +33,10 @@ from backend.core.contracts.constraints import (
     source_key,
 )
 from backend.domain.schedule import load_schedule
-from backend.domain.schedule.validate import ViolationKind
+from backend.contexts.schedule.domain.validate import ViolationKind
 
 from conftest import base_run_dir, base_run_output_dir, missing_reason
-from backend.domain.schedule.validate_dynamic import (
+from backend.contexts.schedule.domain.validate_dynamic import (
     ACHIEVEMENT_THRESHOLD,
     DYNAMIC_VIOLATION_KINDS,
     BLOCKING_DYNAMIC_VIOLATION_KINDS,

@@ -1,11 +1,11 @@
-import { isView, isWorkspace, type ConsoleAction } from '../actions/consoleAction';
+import { isView, isWorkspace, type ConsoleAction } from '@/jarvis/actions/lib/consoleAction';
 import {
   CARD_TYPES,
   type CardType,
   type JarvisAskContext,
   type JarvisCard,
   type JarvisEvent
-} from './eventTypes';
+} from '@/jarvis/transport/eventTypes';
 
 export {
   CARD_TYPES,
@@ -16,7 +16,7 @@ export {
   type JarvisCard,
   type JarvisEvent,
   type JarvisStatusState
-} from './eventTypes';
+} from '@/jarvis/transport/eventTypes';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);

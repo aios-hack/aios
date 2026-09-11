@@ -1,0 +1,337 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ScenariosFile } from '@/entities/scenarios/types';
+import type { TimelineFile, TimelineWellRow } from '@/entities/timeline/types';
+import { TimeScale } from '@/features/timeline-player/ui/TimeScale/TimeScale';
+import { stepForYearShift } from '@/features/timeline-player/model/useHotkeys';
+import { PLAY_INTERVAL_MS, playIntervalMs } from '@/features/timeline-player/model/useStepPlayback';
+import { dictionaries } from '@/shared/i18n/dictionaries';
+import { I18nProvider } from '@/shared/i18n/I18nContext';
+import { RouterProvider } from '@/shared/router/RouterProvider';
+import { PlaybackProvider, usePlayback } from '@/entities/timeline/model/PlaybackContext';
+import { ScenarioProvider } from '@/entities/scenarios/model/ScenarioContext';
+import { TimelineProvider, useTimeline } from '@/entities/timeline/model/TimelineContext';
+import { ThemeProvider } from '@/shared/theme/ThemeContext';
+import { CommandPalette } from '@/features/command-palette/ui/CommandPalette/CommandPalette';
+import { nearestStepByDate, wellCommands } from '@/features/command-palette/ui/commands';
+
+const { ru } = dictionaries;
+
+const WELLS = ['P10', 'P2', 'I1'];
+
+const wellRow = (well: string, k: number): TimelineWellRow => ({
+  well,
+  availability: 'AVAILABLE',
+  role: well.startsWith('I') ? 'INJ' : 'PROD',
+  operating_status: 'OPEN',
+  setpoint: 50,
+  liquid_rate: well.startsWith('I') ? 0 : 40 + k,
+  injection_rate: well.startsWith('I') ? 120 + k : 0,
+  bhp: 90 + k,
+  watercut: well.startsWith('I') ? null : 0.3,
+  fact_to_target: 0.9,
+  cumulative_liquid: 100 * (k + 1)
+});
+
+const STEP_COUNT = 30;
+
+const timelineFixture: TimelineFile = {
+  model: 'Model_Z',
+  t0: '2007-01-01',
+  n_control_dates: STEP_COUNT,
+  n_intervals: STEP_COUNT - 1,
+  wells: WELLS,
+  steps: Array.from({ length: STEP_COUNT }, (_, k) => ({
+    control_step: k,
+    date: `${2007 + Math.floor(k / 12)}-${String((k % 12) + 1).padStart(2, '0')}-01`,
+    terminal: k === STEP_COUNT - 1,
+    field: {
+      production: 2000 + k,
+      injection: 1500 + k,
+      compensation: 0.75,
+      npv_cumulative: 1000 * (k + 1),
+      active_wells: WELLS.length
+    },
+    wells: WELLS.map((well) => wellRow(well, k))
+  }))
+};
+
+const scenariosFixture: ScenariosFile = {
+  submitted: 'base',
+  scenarios: [
+    {
+      id: 'base',
+      config_hash: 'hash-base',
+      converged: true,
+      self_consistent: true,
+      is_submitted: true,
+      npv_methodology: 100,
+      constraints: {
+        injection_limits: 0,
+        liquid_limits: 0,
+        production_floors: 0,
+        watercut_limits: 0,
+        well_outages: 0,
+        infrastructure: 0,
+        years: [2007],
+        outage_wells: [],
+        empty: true
+      }
+    }
+  ]
+};
+
+const mockFetch = () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: string) => {
+      const payload = url.includes('scenarios')
+        ? scenariosFixture
+        : url.includes('timeline')
+          ? timelineFixture
+          : {};
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(payload) });
+    })
+  );
+};
+
+const SelectionProbe = () => {
+  const { selectedWell, stepIndex } = useTimeline();
+  const { setSpeed } = usePlayback();
+  return (
+    <p>
+      <span data-testid="selected-well">{selectedWell ?? ''}</span>
+      <span data-testid="step-index">{stepIndex}</span>
+      {[1, 2, 3].map((value) => (
+        <button
+          key={value}
+          type="button"
+          data-testid={`probe-speed-${value}`}
+          onClick={() => setSpeed(value)}
+        >
+          {value}
+        </button>
+      ))}
+    </p>
+  );
+};
+
+const renderPalette = () =>
+  render(
+    <ThemeProvider>
+      <I18nProvider>
+        <ScenarioProvider>
+          <TimelineProvider>
+            <PlaybackProvider>
+              <RouterProvider>
+                <SelectionProbe />
+                <CommandPalette />
+              </RouterProvider>
+            </PlaybackProvider>
+          </TimelineProvider>
+        </ScenarioProvider>
+      </I18nProvider>
+    </ThemeProvider>
+  );
+
+const renderScale = () =>
+  render(
+    <ThemeProvider>
+      <I18nProvider>
+        <ScenarioProvider>
+          <TimelineProvider>
+            <PlaybackProvider>
+              <SelectionProbe />
+              <TimeScale />
+            </PlaybackProvider>
+          </TimelineProvider>
+        </ScenarioProvider>
+      </I18nProvider>
+    </ThemeProvider>
+  );
+
+const openPalette = () =>
+  fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+
+beforeEach(() => {
+  localStorage.clear();
+  mockFetch();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
+
+describe('command sources', () => {
+  it('orders wells with compareWellIds instead of string order', () => {
+    expect(wellCommands(WELLS).map((command) => command.label)).toEqual([
+      'I1',
+      'P2',
+      'P10'
+    ]);
+  });
+
+  it('resolves a year and a year-month query to the nearest step in the data', () => {
+    expect(nearestStepByDate(timelineFixture.steps, '2008')).toBe(12);
+    expect(nearestStepByDate(timelineFixture.steps, '2008-03')).toBe(14);
+    expect(nearestStepByDate(timelineFixture.steps, 'P2')).toBeNull();
+  });
+});
+
+describe('command palette', () => {
+  it('changes the selected well when a well number is typed and confirmed', async () => {
+    renderPalette();
+    await waitFor(() => expect(screen.queryByTestId('step-index')).toBeTruthy());
+    openPalette();
+    const input = await screen.findByRole('combobox');
+    fireEvent.change(input, { target: { value: 'P10' } });
+    const option = await screen.findByRole('option', { name: /P10/ });
+    expect(option.getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() =>
+      expect(screen.getByTestId('selected-well').textContent).toBe('P10')
+    );
+    expect(screen.queryByTestId('command-palette')).toBeNull();
+  });
+
+  it('jumps to the step nearest to a typed date', async () => {
+    renderPalette();
+    openPalette();
+    const input = await screen.findByRole('combobox');
+    fireEvent.change(input, { target: { value: '2008-03' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(screen.getByTestId('step-index').textContent).toBe('14'));
+  });
+
+  it('navigates with the arrows and closes on escape returning focus to the opener', async () => {
+    renderPalette();
+    const opener = document.createElement('button');
+    document.body.appendChild(opener);
+    opener.focus();
+    openPalette();
+    const input = await screen.findByRole('combobox');
+    fireEvent.change(input, { target: { value: 'P' } });
+    const options = await screen.findAllByRole('option');
+    expect(options[0].getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    await waitFor(() =>
+      expect(screen.getAllByRole('option')[1].getAttribute('aria-selected')).toBe('true')
+    );
+    fireEvent.keyDown(input, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByTestId('command-palette')).toBeNull());
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+
+  it('keeps the focus inside the modal instead of letting tab reach the page behind', async () => {
+    renderPalette();
+    const behind = document.createElement('button');
+    document.body.appendChild(behind);
+    openPalette();
+    const input = await screen.findByRole('combobox');
+    const dialog = screen.getByRole('dialog');
+
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(document.activeElement).toBe(input);
+
+    const tab = fireEvent.keyDown(input, { key: 'Tab' });
+
+    expect(tab).toBe(false);
+    expect(document.activeElement).toBe(input);
+    behind.remove();
+  });
+
+  it('opens and closes on the ctrl+k shortcut', async () => {
+    renderPalette();
+    openPalette();
+    expect(await screen.findByTestId('command-palette')).toBeTruthy();
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    await waitFor(() => expect(screen.queryByTestId('command-palette')).toBeNull());
+  });
+});
+
+describe('playback speed', () => {
+  it('divides the base interval by the multiplier', () => {
+    expect(playIntervalMs(1)).toBe(PLAY_INTERVAL_MS);
+    expect(playIntervalMs(2)).toBe(PLAY_INTERVAL_MS / 2);
+    expect(playIntervalMs(3)).toBe(Math.round(PLAY_INTERVAL_MS / 3));
+  });
+
+  it('changes the timer interval when the speed is switched', async () => {
+    const setInterval = vi.spyOn(window, 'setInterval');
+    const watched = [playIntervalMs(1), playIntervalMs(2), playIntervalMs(3)];
+    const playbackIntervals = () =>
+      setInterval.mock.calls
+        .map((call) => call[1])
+        .filter((delay) => watched.includes(delay as number));
+    renderScale();
+    await screen.findByTestId('time-scale-track');
+
+    fireEvent.click(screen.getByLabelText(ru['steps.play']));
+    await waitFor(() => expect(playbackIntervals().length).toBeGreaterThan(0));
+    expect(playbackIntervals().at(-1)).toBe(PLAY_INTERVAL_MS);
+
+    fireEvent.click(screen.getByTestId('probe-speed-2'));
+    await waitFor(() => expect(playbackIntervals().at(-1)).toBe(playIntervalMs(2)));
+    fireEvent.click(screen.getByTestId('probe-speed-3'));
+    await waitFor(() => expect(playbackIntervals().at(-1)).toBe(playIntervalMs(3)));
+    expect(playIntervalMs(3)).not.toBe(PLAY_INTERVAL_MS);
+    setInterval.mockRestore();
+  });
+});
+
+describe('console hotkeys', () => {
+  it('starts and stops playback on space', async () => {
+    renderScale();
+    await screen.findByTestId('time-scale-track');
+    expect(screen.getByLabelText(ru['steps.play'])).toBeTruthy();
+
+    fireEvent.keyDown(window, { key: ' ' });
+    await waitFor(() => expect(screen.getByLabelText(ru['steps.pause'])).toBeTruthy());
+
+    fireEvent.keyDown(window, { key: ' ' });
+    await waitFor(() => expect(screen.getByLabelText(ru['steps.play'])).toBeTruthy());
+  });
+
+  it('moves one step with the arrows', async () => {
+    renderScale();
+    await screen.findByTestId('time-scale-track');
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    await waitFor(() => expect(screen.getByTestId('step-index').textContent).toBe('1'));
+    fireEvent.keyDown(window, { key: 'ArrowLeft' });
+    await waitFor(() => expect(screen.getByTestId('step-index').textContent).toBe('0'));
+  });
+
+  it('moves a year by the dates in the data, not by a step count literal', async () => {
+    renderScale();
+    await screen.findByTestId('time-scale-track');
+    fireEvent.keyDown(window, { key: ']' });
+    await waitFor(() => expect(screen.getByTestId('step-index').textContent).toBe('12'));
+    fireEvent.keyDown(window, { key: '[' });
+    await waitFor(() => expect(screen.getByTestId('step-index').textContent).toBe('0'));
+  });
+
+  it('stays inert while the focus is inside a text field', async () => {
+    renderScale();
+    await screen.findByTestId('time-scale-track');
+    const field = document.createElement('input');
+    document.body.appendChild(field);
+    field.focus();
+    fireEvent.keyDown(field, { key: ' ' });
+    fireEvent.keyDown(field, { key: 'ArrowRight' });
+    expect(screen.getByLabelText(ru['steps.play'])).toBeTruthy();
+    expect(screen.getByTestId('step-index').textContent).toBe('0');
+    field.remove();
+  });
+});
+
+describe('year navigation model', () => {
+  it('lands on the first step of the neighbouring year found in the dates', () => {
+    const steps = timelineFixture.steps;
+    expect(stepForYearShift(steps, 0, 1)).toBe(12);
+    expect(stepForYearShift(steps, 14, -1)).toBe(0);
+    expect(stepForYearShift(steps, steps.length - 1, 1)).toBe(steps.length - 1);
+    expect(stepForYearShift([], 0, 1)).toBe(0);
+  });
+});

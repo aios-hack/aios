@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from backend.ml.surrogate.npv_head import ScenarioNpvHead
+from backend.contexts.surrogate.domain.npv_head import ScenarioNpvHead
 
 
 def test_loads_installed_production_npv_head() -> None:

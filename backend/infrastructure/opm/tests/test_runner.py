@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from backend.infrastructure.opm import OpmDeckEmitter, OpmRunner, deck_hashes
-from backend.infrastructure.opm.runner import (
+from backend.contexts.simulation.infrastructure.runner import (
     OPM_USER_ENV,
     _ITERATION_LIMIT_MARKER,
     _NOT_CONVERGED_MARKERS,

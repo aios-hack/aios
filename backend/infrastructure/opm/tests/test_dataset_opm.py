@@ -5,8 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from backend.infrastructure.opm.dataset import DatasetGenerator
-from backend.infrastructure.opm.dataset_plan import PerturbationFamily, PlanConfig, build_plan
+from backend.contexts.simulation.infrastructure.dataset import DatasetGenerator
+from backend.contexts.simulation.domain.perturbation_design import (
+    PerturbationFamily,
+    PlanConfig,
+    build_plan,
+)
 from backend.core.contracts import N_INTERVALS, RunStatus
 
 import conftest

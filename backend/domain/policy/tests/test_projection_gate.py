@@ -15,18 +15,14 @@ import pytest
 
 from backend.core.contracts import MAX_LRAT_M3_PER_DAY, ControlEvent, EventKind
 
-from backend.domain.policy.agents.projection import (
+from backend.contexts.policy.domain.agents.projection import (
     RATE_KINDS,
     HardConstraints,
     project_to_hard_constraints,
 )
+from backend.contexts.optimization.application import environment as _environment
 
-SEARCH_SOURCE = (
-    Path(__file__).resolve().parents[3]
-    / "application"
-    / "optimization"
-    / "schedule_search.py"
-)
+SEARCH_SOURCE = Path(_environment.__file__)
 GATE = "_admit"
 
 
@@ -198,7 +194,7 @@ def test_a_non_positive_ceiling_is_refused() -> None:
 
 def test_a_detector_projection_sees_every_event_of_the_dense_layer() -> None:
     search = pytest.importorskip(
-        "backend.application.optimization.schedule_search",
+        "backend.contexts.optimization.application.environment",
         reason="сквозной поиск требует torch (extras ml)",
     )
     _scale_step_injection_to_limit = search._scale_step_injection_to_limit

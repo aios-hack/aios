@@ -8,7 +8,11 @@ import pytest
 from backend.core.contracts import ChargeInitialEsp, DEFAULT_NORMATIVES_2007, NormativeSet, Policies, QuantizationPolicy
 from backend.domain.economics import MACHINE_ZERO_RUB, ESP_CATALOG_2007, analyze_base_case, load_response_artifact
 from backend.domain.schedule import parse_schedule
-from backend.presentation.ui_export.base_artifact import DEFAULT_RESPONSE_PATH, REAL_PROVENANCE, build_base_artifact
+from backend.contexts.showcase.application.base_artifact import (
+    DEFAULT_RESPONSE_PATH,
+    REAL_PROVENANCE,
+    build_base_artifact,
+)
 
 from conftest import missing_reason, model_z_dir, model_z_schedule
 

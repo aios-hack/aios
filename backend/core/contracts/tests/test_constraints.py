@@ -7,7 +7,7 @@ from backend.core.contracts import (
     compensation_policy,
     water_supply_policy,
 )
-from backend.core.contracts.constraints import (
+from backend.contexts.constraints.domain.constraints import (
     BHP_INJECTOR_MAX_BAR,
     BHP_PRODUCER_MIN_BAR,
     COMPENSATION_MAX,

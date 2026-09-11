@@ -27,7 +27,7 @@ from backend.domain.connectivity import (
     setpoint_changes,
     slice_windows,
 )
-from backend.domain.connectivity.fund import ActiveFund
+from backend.contexts.connectivity.domain.fund import ActiveFund
 
 SEED = 7
 COVERAGE = 0.8

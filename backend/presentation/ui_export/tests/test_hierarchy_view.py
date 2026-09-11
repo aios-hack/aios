@@ -11,24 +11,25 @@ import pytest
 
 from backend.core.contracts import Groups, RunArtifact
 
-from backend.domain.policy.agents.registry import DEFAULT_REGISTRY
-from backend.domain.policy.levels import Level
-from backend.presentation.ui_export.fixtures import make_synthetic_artifact
-from backend.presentation.ui_export.hierarchy_view import (
+from backend.contexts.policy.domain.agents.registry import DEFAULT_REGISTRY
+from backend.contexts.policy.domain.levels import Level
+from tests.support.backend.showcase_fixtures import make_synthetic_artifact
+from backend.contexts.showcase.application.exporters.hierarchy_view import (
     build_hierarchy,
     export_hierarchy_json,
     run_hierarchy_steps,
 )
+from backend.contexts.showcase.application.exporters import hierarchy_view as _hierarchy_view
 
 TOLERANCE = 1e-6
-SOURCE = Path(__file__).resolve().parents[1] / "hierarchy_view.py"
+SOURCE = Path(_hierarchy_view.__file__)
 SHOWCASE = (
     Path(__file__).resolve().parents[4] / "frontend" / "public" / "data"
 )
 
 
 def _artifact() -> RunArtifact:
-    from backend.presentation.ui_export.artifact_io import load_bundle
+    from backend.contexts.showcase.infrastructure.artifact_io import load_bundle
 
     bundle = SHOWCASE / "bundles" / "base.json"
     if not bundle.is_file():

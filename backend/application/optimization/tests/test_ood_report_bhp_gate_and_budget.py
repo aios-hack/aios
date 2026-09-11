@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from backend.application.optimization.search_run import (
+from backend.contexts.optimization.application.search_use_case import (
     BhpTolerance,
     BhpToleranceError,
     OpmBudgetError,
@@ -20,7 +20,7 @@ from backend.application.optimization.search_run import (
     read_opm_budget,
     surrogate_blocking_violations,
 )
-from backend.application.optimization.schedule_search import (
+from backend.contexts.optimization.application.environment import (
     OOD_EXCEEDANCE_LIMIT,
     SELF_REFERENCE_SKIP_REASON,
     OutOfDomainScheduleError,
@@ -28,20 +28,18 @@ from backend.application.optimization.schedule_search import (
     format_ood_exceedances,
 )
 from backend.core.contracts import Constraints
-from backend.core.contracts.constraints import (
+from backend.contexts.constraints.domain.constraints import (
     BHP_INJECTOR_MAX_BAR,
     BHP_PRODUCER_MIN_BAR,
 )
 from backend.domain.schedule import ViolationKind
-from backend.domain.schedule.validate import Violation
-from backend.ml.surrogate.ood import Exceedance, OodScore
+from backend.contexts.schedule.domain.validate import Violation
+from backend.contexts.robustness.domain.ood import Exceedance, OodScore
+from backend.interfaces.cli.surrogate import check as _check
+from backend.contexts.optimization.application import environment as _src_environment
+from backend.contexts.optimization.application import search_use_case as _src_search_use_case
 
-CHECK_SOURCE = (
-    Path(__file__).resolve().parents[3]
-    / "presentation"
-    / "cli"
-    / "surrogate_check.py"
-)
+CHECK_SOURCE = Path(_check.__file__)
 
 
 def _exceedance(feature: str, well: str, step: int, score: float) -> Exceedance:
@@ -227,7 +225,7 @@ def test_the_skip_reason_of_the_self_reference_names_the_cause() -> None:
 
 def test_the_self_reference_skip_is_only_for_the_diagnostic_gate_off_mode() -> None:
     search_source = (
-        Path(__file__).resolve().parents[1] / "schedule_search.py"
+        Path(_src_environment.__file__)
     ).read_text(encoding="utf-8")
 
     assert 'and not getattr(env, "physics_gate", True)' in search_source
@@ -560,7 +558,7 @@ def test_an_unmeasured_opm_wallclock_is_marked_not_zeroed() -> None:
 
 def _run_source() -> ast.Module:
     return ast.parse(
-        (Path(__file__).resolve().parents[1] / "search_run.py").read_text(
+        (Path(_src_search_use_case.__file__)).read_text(
             encoding="utf-8"
         )
     )
@@ -587,7 +585,7 @@ def test_the_search_measures_its_own_wallclock_and_reads_the_journal() -> None:
 
 
 def test_a_run_clock_that_was_never_started_is_an_error_not_a_zero() -> None:
-    import backend.application.optimization.search_run as module
+    import backend.contexts.optimization.application.search_use_case as module
 
     saved = dict(module.RUN_CLOCK)
     module.RUN_CLOCK.update({"journal": None, "mark": 0, "started": None})
@@ -599,7 +597,7 @@ def test_a_run_clock_that_was_never_started_is_an_error_not_a_zero() -> None:
 
 
 def test_the_run_clock_measures_a_real_interval(tmp_path: Path) -> None:
-    import backend.application.optimization.search_run as module
+    import backend.contexts.optimization.application.search_use_case as module
 
     journal = _journal(tmp_path, [{"run_id": "a", "wallclock_seconds": 60.0}])
     saved = dict(module.RUN_CLOCK)
@@ -651,7 +649,7 @@ def test_the_bhp_gate_is_used_in_both_search_paths() -> None:
 
 def test_the_evaluator_publishes_the_exceedance_list() -> None:
     search_source = (
-        Path(__file__).resolve().parents[1] / "schedule_search.py"
+        Path(_src_environment.__file__)
     ).read_text(encoding="utf-8")
 
     assert "evaluator.ood_exceedances = format_ood_exceedances(" in search_source
@@ -660,8 +658,8 @@ def test_the_evaluator_publishes_the_exceedance_list() -> None:
 
 def test_no_comments_in_the_touched_files() -> None:
     for path in (
-        Path(__file__).resolve().parents[1] / "search_run.py",
-        Path(__file__).resolve().parents[1] / "schedule_search.py",
+        Path(_src_search_use_case.__file__),
+        Path(_src_environment.__file__),
         CHECK_SOURCE,
     ):
         for number, line in enumerate(

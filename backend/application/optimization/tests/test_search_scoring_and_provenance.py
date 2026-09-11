@@ -23,16 +23,19 @@ from typing import Any, Iterator, Mapping, Sequence
 
 import pytest
 
-from backend.application.optimization.runtime_artifacts import (
+from backend.contexts.optimization.infrastructure.artifacts import (
     RuntimeArtifactError,
     RuntimeArtifacts,
     resolve_runtime_artifacts,
     validate_npv_scoring_is_unambiguous,
 )
+from backend.contexts.optimization.infrastructure import artifacts as _artifacts
+from backend.contexts.optimization.application import environment as _environment
+from backend.contexts.optimization.application import search_use_case as _search_use_case
 
-RUN_SOURCE = Path(__file__).resolve().parents[1] / "search_run.py"
-SEARCH_SOURCE = Path(__file__).resolve().parents[1] / "schedule_search.py"
-ARTIFACTS_SOURCE = Path(__file__).resolve().parents[1] / "runtime_artifacts.py"
+RUN_SOURCE = Path(_search_use_case.__file__)
+SEARCH_SOURCE = Path(_environment.__file__)
+ARTIFACTS_SOURCE = Path(_artifacts.__file__)
 
 TORCH_PACKAGES = (
     "torch",
@@ -118,8 +121,8 @@ def _drop_stubbed(stubbed: list[str]) -> None:
         module
         for module in sys.modules
         if module.startswith("backend.ml")
-        or module.startswith("backend.application.optimization.schedule_search")
-        or module.startswith("backend.application.optimization.search_run")
+        or module.startswith("backend.contexts.optimization.application.environment")
+        or module.startswith("backend.contexts.optimization.application.search_use_case")
     ]:
         sys.modules.pop(name, None)
     for name in reversed(stubbed):
@@ -153,15 +156,15 @@ def _reload_search_run(environ: dict[str, str]) -> Any:
     saved = {name: os.environ.get(name) for name in environ}
     os.environ.update(environ)
     try:
-        sys.modules.pop("backend.application.optimization.search_run", None)
-        return _load_module("backend.application.optimization.search_run")
+        sys.modules.pop("backend.contexts.optimization.application.search_use_case", None)
+        return _load_module("backend.contexts.optimization.application.search_use_case")
     finally:
         for name, value in saved.items():
             if value is None:
                 os.environ.pop(name, None)
             else:
                 os.environ[name] = value
-        sys.modules.pop("backend.application.optimization.search_run", None)
+        sys.modules.pop("backend.contexts.optimization.application.search_use_case", None)
 
 
 @pytest.fixture
@@ -479,32 +482,35 @@ _RUN_SEARCH_IMPORT_SOURCES: tuple[tuple[str, tuple[str, ...]], ...] = (
             "water_supply_policy",
         ),
     ),
-    ("backend.core.contracts.schedule", ("MAX_LRAT_M3_PER_DAY",)),
+    ("backend.contexts.schedule.domain.schedule", ("MAX_LRAT_M3_PER_DAY",)),
     ("backend.domain.economics", ("load_response_artifact",)),
     (
-        "backend.application.optimization.runtime_artifacts",
+        "backend.contexts.optimization.infrastructure.artifacts",
         (
             "resolve_runtime_artifacts",
             "resolve_lambda_selection",
             "validate_runtime_economic_head",
         ),
     ),
-    ("backend.application.optimization.search", ("optimize",)),
-    ("backend.domain.policy.fixed_point", ("FixedPointResult", "resolve")),
-    ("backend.domain.policy.theta", ("default_theta",)),
-    ("backend.domain.schedule.case_limits", ("YearlyProduction", "apply_case_limits")),
+    ("backend.contexts.optimization.domain.optimizer", ("optimize",)),
+    ("backend.contexts.policy.domain.fixed_point", ("FixedPointResult", "resolve")),
+    ("backend.contexts.policy.domain.theta", ("default_theta",)),
+    ("backend.contexts.schedule.domain.case_limits", ("YearlyProduction", "apply_case_limits")),
     (
         "backend.domain.schedule",
         ("ViolationKind", "canonicalize", "validate_dynamic", "validate_static"),
     ),
     (
-        "backend.domain.schedule.validate_dynamic",
+        "backend.contexts.schedule.domain.validate_dynamic",
         ("FIRST_CONTROL_DECK_DATE_INDEX", "year_of_step"),
     ),
-    ("backend.infrastructure.resources", ("chdd_python_dir", "model_z_dir")),
-    ("backend.application.cases", ("load_case",)),
-    ("backend.core.paths", ("data_root",)),
-    ("backend.domain.configuration.constraints_io", ("constraints_hash",)),
+    ("backend.shared.resources", ("chdd_python_dir", "model_z_dir")),
+    ("backend.contexts.constraints.application.cases", ("load_case",)),
+    ("backend.shared.paths", ("data_root",)),
+    ("backend.contexts.constraints.infrastructure.constraints_io", ("constraints_hash",)),
+    ("backend.shared.errors", ("ConfigurationError",)),
+    ("backend.shared.settings", ("Settings",)),
+    ("backend.shared.json_io", ("read_json",)),
 )
 
 

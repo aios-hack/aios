@@ -9,15 +9,15 @@ from pathlib import Path
 from typing import Any, Iterator
 from unittest.mock import patch
 import pytest
-from backend.presentation.cli import web
-from backend.presentation.cli.web_runs import WebRuns
+from backend.interfaces.cli import web
+from backend.contexts.runs.application.web_runs import WebRuns
 
 WEB_SOURCE = Path(web.__file__)
 
 
 def test_search_freezes_constraints_and_rejects_concurrent_run(tmp_path):
     jobs = WebRuns(tmp_path)
-    with patch('backend.presentation.cli.web_runs.threading.Thread') as thread:
+    with patch('backend.contexts.runs.application.web_runs.threading.Thread') as thread:
         run = jobs.start({'constraints': {'injection_limits': {'2007': 30000}}, 'budget': 10})
         saved = json.loads((tmp_path / run['run_id'] / 'constraints.json').read_text(encoding='utf-8'))
         assert saved['injection_limits'] == {'2007': 30000}
@@ -50,7 +50,7 @@ def test_failed_worker_is_not_a_verified_result(tmp_path):
     directory.mkdir()
     jobs.lock.acquire()
     data = {'run_id': 'web-test', 'status': 'running'}
-    with patch('backend.presentation.cli.web_runs.subprocess.run') as run:
+    with patch('backend.contexts.runs.application.web_runs.subprocess.run') as run:
         run.return_value.returncode = 1
         jobs._execute(directory, data, 'verify', 30)
     result = jobs.list()[0]
@@ -146,7 +146,7 @@ def test_jarvis_path_goes_to_the_proxy(server: str) -> None:
     def reply(handler: Any) -> None:
         handler._json(200, {'ok': True})
 
-    with patch('backend.presentation.cli.web.forward', side_effect=reply) as forward:
+    with patch('backend.interfaces.cli.web.forward', side_effect=reply) as forward:
         status, body = fetch(f'{server}/api/jarvis/health')
     assert status == 200
     assert json.loads(body) == {'ok': True}

@@ -8,7 +8,7 @@ import pytest
 
 from backend.core.contracts import IntervalResponse, N_INTERVALS, RunResult, RunStatus
 from backend.domain.schedule import load_schedule
-from backend.ml.surrogate.crm import (
+from backend.contexts.surrogate.domain.crm import (
     BaselineComparison,
     CrmBaseline,
     CrmError,

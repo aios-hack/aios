@@ -7,16 +7,16 @@ from types import MappingProxyType, SimpleNamespace
 
 import pytest
 
-from backend.application.optimization.schedule_search import (
+from backend.contexts.optimization.application.environment import (
     LambdaDesyncError,
     lambda_sync_provenance,
     npv_blend_provenance,
 )
 from backend.core.contracts import Lambda
 from backend.core.paths import data_root
-from backend.domain.connectivity.measure import load_lambda
-from backend.ml.surrogate.model_z_context import ModelZFeatureArtifact
-from backend.presentation.cli import surrogate_check
+from backend.contexts.connectivity.domain.measure import load_lambda
+from backend.contexts.surrogate.infrastructure.model_z_context import ModelZFeatureArtifact
+from backend.interfaces.cli.surrogate import check as surrogate_check
 
 LAMBDA_PATH = data_root() / "lambda-window-2007" / "lambda.json"
 CONTEXT_PATH = data_root() / "model-night-20260826-v2" / "feature_context.json"

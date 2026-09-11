@@ -6,24 +6,24 @@ from typing import Any
 
 import pytest
 
-from backend.application.jarvis.artifacts import ArtifactStore
-from backend.application.jarvis.knowledge import Knowledge, normalize
-from backend.application.jarvis.tools import run_tool
-from backend.application.jarvis.tools.actions import WORKSPACE_VIEWS
-from backend.application.jarvis.tools.context import (
+from backend.contexts.assistant.infrastructure.artifacts import ArtifactStore
+from backend.contexts.assistant.infrastructure.knowledge import Knowledge, normalize
+from backend.contexts.assistant.application.tools import run_tool
+from backend.contexts.assistant.application.tools.actions import WORKSPACE_VIEWS
+from backend.contexts.assistant.application.tools.context import (
     ConsoleContext,
     ToolContext,
     ToolFailure,
 )
-from backend.core.contracts.constraints import (
+from backend.contexts.constraints.domain.constraints import (
     COMPENSATION_ENFORCEMENTS,
     COMPENSATION_SCOPES,
     Constraints,
     compensation_policy,
     water_supply_policy,
 )
-from backend.domain.schedule.validate import ViolationKind
-from backend.ml.surrogate.physics_checks import (
+from backend.contexts.schedule.domain.validate import ViolationKind
+from backend.contexts.surrogate.domain.physics_checks import (
     Invariant,
     PhysicsReport,
     Severity,

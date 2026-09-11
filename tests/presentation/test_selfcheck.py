@@ -6,7 +6,7 @@ from pathlib import Path
 from backend.application.runs import RunProvenance, RunRequest, RunWorkflow
 from backend.core.contracts import Schedule
 from backend.domain.schedule import parse_schedule
-from backend.domain.schedule.build import build_schedule
+from backend.contexts.schedule.domain.build import build_schedule
 from backend.presentation.cli import selfcheck
 
 MONTHS = (

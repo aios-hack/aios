@@ -1,0 +1,1 @@
+export { CompareCard } from './CompareCard';

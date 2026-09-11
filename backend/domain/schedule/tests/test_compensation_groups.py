@@ -15,13 +15,13 @@ from backend.core.contracts import (
     StateAtDate,
     WellState,
 )
-from backend.core.contracts.constraints import (
+from backend.contexts.constraints.domain.constraints import (
     COMPENSATION_ENFORCEMENT,
     COMPENSATION_MAX,
     COMPENSATION_MIN,
     COMPENSATION_SCOPE,
 )
-from backend.domain.schedule.validate import (
+from backend.contexts.schedule.domain.validate import (
     CONSTRAINT_COMPENSATION,
     CONSTRAINT_COMPENSATION_SCOPE,
     STATUS_CHECKED,
@@ -29,7 +29,7 @@ from backend.domain.schedule.validate import (
     ConstraintCheck,
     ViolationKind,
 )
-from backend.domain.schedule.validate_dynamic import (
+from backend.contexts.schedule.domain.validate_dynamic import (
     FIRST_CONTROL_DECK_DATE_INDEX,
     DynamicReport,
     validate_dynamic,

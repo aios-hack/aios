@@ -5,13 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from backend.application.cases import (
+from backend.contexts.constraints.application.cases import (
     CaseError,
     INFRASTRUCTURE_KEYS,
     constraints_from_json,
     load_case,
 )
-from backend.core.contracts.constraints import (
+from backend.contexts.constraints.domain.constraints import (
     BHP_INJECTOR_MAX_BAR,
     BHP_PRODUCER_MIN_BAR,
     BLOCKING_INFRASTRUCTURE_KEYS,

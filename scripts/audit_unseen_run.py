@@ -28,13 +28,16 @@ def sha(path):
 
 def lock(root):
     import torch
-    from backend.application.optimization.runtime_artifacts import resolve_runtime_artifacts
-    from backend.application.optimization.schedule_search import load_environment, make_evaluator
-    from backend.domain.configuration.constraints_io import constraints_from_json
-    from backend.domain.schedule.json_io import load_schedule_json
+    from backend.contexts.optimization.infrastructure.artifacts import resolve_runtime_artifacts
+    from backend.contexts.optimization.application.environment import (
+        load_environment,
+        make_evaluator,
+    )
+    from backend.contexts.constraints.infrastructure.constraints_io import constraints_from_json
+    from backend.contexts.schedule.infrastructure.json_io import load_schedule_json
     from backend.core.contracts import hash_schedule
     from backend.domain.economics import save_response_artifact
-    from backend.infrastructure.resources import model_z_dir, normatives_xlsx
+    from backend.shared.resources import model_z_dir, normatives_xlsx
     manifest = json.loads((root / 'manifest.json').read_text())
     if manifest['verified_npv'] is not None or list(root.glob('opm/runs/*/command.txt')):
         raise RuntimeError('Prediction must be frozen before the first OPM run.')

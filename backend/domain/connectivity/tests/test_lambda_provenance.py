@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 from backend.core.contracts import Lambda
-from backend.domain.connectivity.campaign import CampaignError
-from backend.domain.connectivity.measure import (
+from backend.contexts.connectivity.application.campaign import CampaignError
+from backend.contexts.connectivity.domain.measure import (
     ARTIFACT_FORMAT,
     MEASURE_CODE_VERSION,
     PROVENANCE_FIELDS,

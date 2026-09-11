@@ -12,16 +12,16 @@ from typing import Any, Iterator
 
 import pytest
 
-from backend.application.jarvis.artifacts import ArtifactStore
-from backend.application.jarvis.knowledge import Knowledge
-from backend.application.jarvis.orchestrator import Orchestrator
-from backend.application.jarvis.session import SessionStore
-from backend.infrastructure.llm.chat_events import ToolCall
-from backend.infrastructure.llm.fake_chat import FakeChatClient
-from backend.presentation.api import sse
-from backend.presentation.api.jarvis_server import build_handler
-from backend.presentation.api.service import JarvisService
-from backend.presentation.api.sse import chunk, encode_event, error_event
+from backend.contexts.assistant.infrastructure.artifacts import ArtifactStore
+from backend.contexts.assistant.infrastructure.knowledge import Knowledge
+from backend.contexts.assistant.application.orchestrator import Orchestrator
+from backend.contexts.assistant.domain.session import SessionStore
+from backend.contexts.assistant.infrastructure.llm.chat_events import ToolCall
+from backend.contexts.assistant.infrastructure.llm.fake_chat import FakeChatClient
+from backend.interfaces.http.kit import sse
+from backend.interfaces.http.assistant.server import build_handler
+from backend.contexts.assistant.application.assistant_service import JarvisService
+from backend.interfaces.http.kit.sse import chunk, encode_event, error_event
 
 CALL = ToolCall(id="c1", name="field_metrics", args={"step": 96})
 CAPTION = "Фонд работает штатно."

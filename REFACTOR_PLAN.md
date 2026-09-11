@@ -656,7 +656,22 @@ C-задачи выполняет тот агент, чей стек они за
 
 `[A→B] …`, `[B→C] …` — одной строкой, координатор закрывает.
 
-- —
+- `[A→координатор]` Базовый прогон на `d0e9ebc` — **3 failed, 2067 passed, 3 skipped**, а не 2070 passed: `test_fixture_replays_byte_for_byte[how-system-works|champion-run|how-to-verify]` падали до волны 1 (записи `jarvis/fixtures/*.jsonl` разошлись с `recordings.py` ещё в `c77d56a`). Волна 1 их не чинит и не ухудшает; зелёным для A считается ровно этот базис.
+- `[A→координатор]` `tests/architecture/test_markdown_links.py` покраснел от переносов агента B (`frontend/src/app/main.tsx`, `app/events.ts`, `ui/shared/layoutBox.ts` и ещё 7 ссылок в `ARCHITECTURE.md`, `JARVIS.md`, `JARVIS_V2.md`, `frontend/PRODUCT.md`). Ни одной ссылки на `backend/**` не сломано; правка `.md` — за координатором и B.
+- `[A→координатор]` В §3.1 заявлено 18 переменных окружения, по факту в бэкенде читаются 53 различных имени (68 чтений). `Settings` собран под все 53; список — `ENV_VARIABLES` в `backend/shared/settings.py`.
+
+- `[B→координатор]` §4.2 кладёт `state/TimelineContext`, `state/ScenarioContext`, `PlaybackContext` в `features/*`, но от них зависят `entities` (`useDataset`, `useHierarchyStep`, `wells/model/useSelectionHighlight`) — это ребро `entities → features` вверх. Контексты переехали в `entities/{timeline,scenarios}/model/`; после этого правило §2.2 выполняется без исключений.
+- `[B→координатор]` §4.2 оставляет `ViewStatus`/`ViewToolbar` в `widgets/console-shell/ui/`, но их импортируют все 11 страниц (ребро `pages → widgets` вверх). Оба компонента ушли в `shared/ui/` — они не знают ни одной фичи.
+- `[B→координатор]` §4.2 кладёт роутер в `app/router/`, но `useConsole` вызывают `widgets`, `features` и `jarvis`. Разрезано: данные и контекст маршрута — `shared/router/{routes,RouterProvider}.ts(x)`, в `app/router/` остались `useWorkspaceRouting`, `documentTitle`, `useDocumentTitle`. `useConsole` → `useRoute`, `ConsoleProvider` → `RouterProvider`.
+- `[B→координатор]` `morphRequest` вынесен из роутера не в `widgets/console-shell/model/morph.ts` (§4.2), а в `shared/lib/morph/` — читатель `pages/field-projection` ниже слоя `widgets`. Провайдеры собраны в `app/providers/AppProviders.tsx`.
+- `[B→координатор]` `views/WellCard` уехал не в `entities/wells/ui/WellCard/` (§4.2), а в `features/inspector/ui/WellCard/`: карточка тянет `AskJarvis` и `ExplainButton`, то есть это фича-панель, а не представление сущности. Чистые части (`neighbours`, `wellSeries`, `useSelectionHighlight`) остались в `entities/wells/model/`.
+- `[B→координатор]` `ExplainButton` перенесён из `jarvis/actions/` в `features/ask-jarvis/ui/ExplainButton/`: его рендерят `pages/council` и `features/inspector`, а слайсу `jarvis` запрещено зависеть от `features`.
+- `[B→координатор]` `useOptionalJarvis` удалён (§7.2 B-05). Заменён на `useJarvisSessionContext`/`useOptionalJarvisSession`, `useJarvisVoice`/`useOptionalJarvisVoice`, `useJarvisSphere`/`useOptionalJarvisSphere` — три контекста §4.3. `JarvisContextValue` разбит на `JarvisSessionValue`, `JarvisVoiceValue`, `JarvisSphereValue`. `useOptionalScenario` и `useFallbackT` **оставлены**: первый обслуживает рендер вне `ScenarioProvider` в 6 местах, второй — `ErrorBoundary` и `LiveRuns` вне `I18nProvider`; удаление обоих меняет поведение и относится к волне 2. Добавлен `useFallbackI18n` (даёт `lang` + `t`), `useFallbackT` выражен через него.
+- `[B→координатор]` `jarvis.json` (147 ключей) разрезан на пять пространств §4.3: `jarvis-screen` 33, `jarvis-cards` 78, `jarvis-voice` 16, `jarvis-rail` 9, `jarvis-stage` 11. Префиксы ключей в коде изменились (`jarvis.*` → `jarvis-<ns>.*`), это внутренний контракт фронта.
+- `[B→координатор]` `LiveRuns`/`RunProvenance` переведены на ключи в новое пространство `runs` (97 ключей, ru/en). Русский текст в `ru/runs.json` сохранён дословно, поэтому `LiveRuns.test.tsx` не правился. `Intl.NumberFormat('ru-RU')` убраны, счёт идёт через `formatNumber(lang, …)`.
+- `[B→координатор]` `tsconfig.json` пришлось дополнить: `"typeRoots": ["./node_modules/@types", "./node_modules"]`. Без этого `tsc` не находит типы из тестов вне `frontend/` (`node_modules` есть только в `frontend/`). В `vite.config.ts` по той же причине добавлен плагин `aios-resolve-outside-root` (резолвит голые пакеты из `frontend/node_modules` для файлов в `tests/`) и `server.fs.allow` на корень репозитория. Новых npm-зависимостей нет.
+- `[B→координатор]` `index.html` указывал на `/src/main.tsx`; после переноса в `app/` исправлен на `/src/app/main.tsx`. Это ловится только `vite build`, не тестами — стоит добавить сборку в приёмку волны.
+- `[B→координатор]` Разбиты сверх плана (все были > 250 строк): `Chronomap.tsx` 407 → 245 (`shared/lib/layout/useStageBox.ts`, `pages/history-matrix/model/{readoutBounds,chronoLegend}.ts`); `useWallCanvas.ts` 252 → 93 (`pages/history-wall/wallPainter.ts`). Публичные `paintWall`, `paintWallCursor`, `readoutBoundsOf`, `OBSTRUCTION_SELECTORS` переехали в новые модули, тесты переключены на них.
 
 ---
 
@@ -672,3 +687,10 @@ C-задачи выполняет тот агент, чей стек они за
 - Не заявлять «идентично», не сверив золотые снимки.
 - Код, сообщения, имена, `help`, логи — английский. Русский — только §0 п.5.
 - Спорное — строкой в §10, не в чате.
+- **Свобода действий (владелец, 11.09):** переименовывать файлы, разбивать один файл на
+  несколько, сливать мелкие, заводить новые модули и папки, менять внутренние имена функций и
+  классов — **разрешено везде, где это улучшает структуру**, не дожидаясь отдельного пункта в
+  плане. План задаёт цель и границы владения, а не исчерпывающий список файлов. Три условия:
+  (1) поведение не меняется — сверка со снимками §8; (2) публичные символы не исчезают молча —
+  либо шим, либо запись в отчёте волны; (3) внешние точки входа (`python -m backend.presentation.cli.X`,
+  HTTP-контракт, формат витрины) продолжают работать до волны 3.

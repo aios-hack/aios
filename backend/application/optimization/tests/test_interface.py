@@ -14,6 +14,7 @@ import pytest
 
 from backend.core.contracts import OptimizerResult, Theta
 from backend.application.optimization import Objective, ScenarioOutcome
+from backend.contexts.optimization.domain import interface as _src_interface
 
 
 def _theta(value: float = 0.5) -> Theta:
@@ -49,7 +50,7 @@ def test_interface_module_never_references_well_level_types() -> None:
 
     import ast
 
-    path = Path(__file__).resolve().parents[1].joinpath("interface.py")
+    path = Path(_src_interface.__file__)
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
     names: set[str] = set()

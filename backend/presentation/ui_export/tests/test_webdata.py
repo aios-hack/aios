@@ -4,8 +4,13 @@ from typing import Any
 
 import pytest
 
-from backend.presentation.ui_export.deck import load_completions
-from backend.presentation.ui_export.webdata import build_wells_data, export_wells_json, occupied_k_values, split_layers
+from backend.contexts.reservoir.application.deck import load_completions
+from backend.contexts.reservoir.application.well_geometry import (
+    build_wells_data,
+    export_wells_json,
+    occupied_k_values,
+    split_layers,
+)
 
 from conftest import missing_reason, model_z_schedule
 

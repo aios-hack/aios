@@ -217,7 +217,7 @@ def test_group_agent_produces_nothing_when_every_rule_is_off(
 def test_group_agent_scales_down_a_request_above_its_limit(
     context: RuleContext,
 ) -> None:
-    from backend.domain.policy.hierarchy import GroupLimit
+    from backend.contexts.policy.application.hierarchy import GroupLimit
 
     state = state_of(
         producer("p1", liquid_rate_m3_per_day=60.0, watercut=0.30, setpoint=60.0),
@@ -264,7 +264,7 @@ def test_group_agent_scales_down_a_request_above_its_limit(
 def test_group_limit_rejects_a_request_it_cannot_satisfy(
     context: RuleContext,
 ) -> None:
-    from backend.domain.policy.hierarchy import GroupDecision, GroupLimit
+    from backend.contexts.policy.application.hierarchy import GroupDecision, GroupLimit
 
     limit = GroupLimit(
         group_id=GROUP_A,
@@ -448,7 +448,7 @@ def test_hierarchy_trace_flattens_into_the_run_trace_of_task_23(
 def test_a_rule_switched_off_cannot_leave_a_record_at_any_level(
     context: RuleContext,
 ) -> None:
-    from backend.domain.policy.hierarchy import LeveledTraceEntry
+    from backend.contexts.policy.application.hierarchy import LeveledTraceEntry
     from backend.core.contracts import TraceEntry
 
     flags = only_r1_flags()
@@ -468,7 +468,7 @@ def test_a_rule_switched_off_cannot_leave_a_record_at_any_level(
 
 
 def test_leveled_entry_without_numbers_is_refused() -> None:
-    from backend.domain.policy.hierarchy import LeveledTraceEntry
+    from backend.contexts.policy.application.hierarchy import LeveledTraceEntry
     from backend.core.contracts import TraceEntry
 
     with pytest.raises(ValueError, match="без чисел входа"):

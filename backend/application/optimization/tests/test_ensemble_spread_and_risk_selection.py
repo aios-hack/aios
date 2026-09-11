@@ -8,9 +8,9 @@ from typing import Any
 
 import pytest
 
-from backend.application.cases import load_case
-from backend.application.optimization.runtime_artifacts import resolve_runtime_artifacts
-from backend.application.optimization.schedule_search import (
+from backend.contexts.constraints.application.cases import load_case
+from backend.contexts.optimization.infrastructure.artifacts import resolve_runtime_artifacts
+from backend.contexts.optimization.application.environment import (
     EnsembleSpreadError,
     ensemble_members,
     ensemble_npv_sigma,
@@ -18,19 +18,24 @@ from backend.application.optimization.schedule_search import (
     make_evaluator,
     spread_bracket,
 )
-from backend.application.optimization.search_run import (
+from backend.contexts.optimization.application.search_use_case import (
     MISSING_SIGMA,
     SearchRunError,
     select_finalist,
 )
 from backend.core.contracts import EventKind, N_INTERVALS
-from backend.domain.schedule.canonical import canonicalize
-from backend.infrastructure.resources import chdd_python_dir, model_z_dir
-from backend.ml.surrogate.ensemble import TrajectoryEnsemble
-from backend.ml.surrogate.raw_model_output import RawModelOutput, RawWellStepPrediction
+from backend.contexts.schedule.domain.canonical import canonicalize
+from backend.shared.resources import chdd_python_dir, model_z_dir
+from backend.contexts.surrogate.application.ensemble import TrajectoryEnsemble
+from backend.contexts.surrogate.domain.raw_model_output import (
+    RawModelOutput,
+    RawWellStepPrediction,
+)
+from backend.contexts.optimization.application import environment as _environment
+from backend.contexts.optimization.application import search_use_case as _search_use_case
 
-SEARCH_SOURCE = Path(__file__).resolve().parents[1] / "schedule_search.py"
-RUN_SOURCE = Path(__file__).resolve().parents[1] / "search_run.py"
+SEARCH_SOURCE = Path(_environment.__file__)
+RUN_SOURCE = Path(_search_use_case.__file__)
 RESPONSE = Path("data/base_case/response.json")
 LAMBDA = Path("data/lambda-window-2007/lambda.json")
 CONSTRAINTS = Path("config/competition-constraints.json")
@@ -144,7 +149,7 @@ def test_sigma_is_none_for_a_single_model_not_zero(
 def test_sigma_costs_two_extra_economics_passes_and_none_in_the_hot_loop(
     open_environment: Any, candidate: Any
 ) -> None:
-    import backend.application.optimization.schedule_search as module
+    import backend.contexts.optimization.application.environment as module
 
     calls = {"n": 0}
     original = module.predict_economics

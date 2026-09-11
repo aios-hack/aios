@@ -1,0 +1,1 @@
+export { InfrastructureTable } from './InfrastructureTable';

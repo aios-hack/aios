@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.presentation.ui_export.deck import load_completions, load_wellheads
+from backend.contexts.reservoir.application.deck import load_completions, load_wellheads
 
 from conftest import missing_reason, model_z_schedule
 

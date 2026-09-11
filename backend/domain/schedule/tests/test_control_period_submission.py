@@ -4,9 +4,11 @@ import pytest
 
 from backend.core.contracts import N_CONTROL_DATES, T0, hash_schedule
 from backend.domain.schedule import build_schedule, parse_schedule
-from backend.domain.schedule.emit import verify_schedule_round_trip
-from backend.infrastructure.opm.opm_deck import (
-    render_control_period_include, render_schedule_include, render_submission_history,
+from backend.contexts.schedule.application.emit import verify_schedule_round_trip
+from backend.contexts.reservoir.infrastructure.opm_deck import (
+    render_control_period_include,
+    render_schedule_include,
+    render_submission_history,
 )
 from conftest import model_z_dir, missing_reason
 

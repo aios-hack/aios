@@ -15,7 +15,7 @@ from backend.domain.policy import (
     esp_size_for,
     esp_upgrade_cost_rub,
 )
-from backend.domain.policy.rules import r4
+from backend.contexts.policy.domain.rules import r4
 from backend.domain.policy.tests.conftest import ESP_CATALOG, memory_of, producer, state_of
 
 CLEAN = 0.30

@@ -28,13 +28,11 @@ from backend.core.contracts import (
     Theta,
     WellState,
 )
+from backend.contexts.optimization.application import environment as _environment
+from backend.contexts.optimization.application import search_use_case as _search_use_case
 
-SEARCH_SOURCE = (
-    Path(__file__).resolve().parents[1] / "schedule_search.py"
-)
-RUN_SOURCE = (
-    Path(__file__).resolve().parents[1] / "search_run.py"
-)
+SEARCH_SOURCE = Path(_environment.__file__)
+RUN_SOURCE = Path(_search_use_case.__file__)
 
 
 def _module_ast(path: Path) -> ast.Module:
@@ -92,11 +90,11 @@ def test_search_environment_declares_the_anchor_with_check_pair_types() -> None:
 
 def test_check_pair_accepts_exactly_those_types() -> None:
     physics = pytest.importorskip(
-        "backend.ml.surrogate.physics_checks",
+        "backend.contexts.surrogate.domain.physics_checks",
         reason="физические проверки суррогата требуют torch (extras ml)",
     )
     search = pytest.importorskip(
-        "backend.application.optimization.schedule_search",
+        "backend.contexts.optimization.application.environment",
         reason="сквозной поиск требует torch (extras ml)",
     )
     hints = typing.get_type_hints(physics.check_pair)
@@ -111,7 +109,7 @@ def test_check_pair_accepts_exactly_those_types() -> None:
 
 def test_missing_anchor_is_none_and_marked_in_provenance() -> None:
     search = pytest.importorskip(
-        "backend.application.optimization.schedule_search",
+        "backend.contexts.optimization.application.environment",
         reason="сквозной поиск требует torch (extras ml)",
     )
 
@@ -259,7 +257,7 @@ _PHYSICS_LATE_OPEN_STEP = 50
 
 def _search_namespace() -> dict[str, object]:
     physics = pytest.importorskip(
-        "backend.ml.surrogate.physics_checks",
+        "backend.contexts.surrogate.domain.physics_checks",
         reason="физические проверки суррогата требуют torch (extras ml)",
     )
     module = _module_ast(SEARCH_SOURCE)
@@ -340,7 +338,7 @@ def _physics_schedule(
 
 
 def _physics_node(well: str, step: int, **overrides):
-    raw_module = pytest.importorskip("backend.ml.surrogate.raw_model_output")
+    raw_module = pytest.importorskip("backend.contexts.surrogate.domain.raw_model_output")
     commissioned = well != "N" or step >= _PHYSICS_LATE_OPEN_STEP
     values: dict[str, object] = {"well": well, "control_step": step}
     if not commissioned:
@@ -375,7 +373,7 @@ def _physics_node(well: str, step: int, **overrides):
 
 
 def _physics_raw(schedule: Schedule, overrides=None):
-    raw_module = pytest.importorskip("backend.ml.surrogate.raw_model_output")
+    raw_module = pytest.importorskip("backend.contexts.surrogate.domain.raw_model_output")
     overrides = overrides or {}
     nodes = tuple(
         overrides.get((well, step), _physics_node(well, step))
@@ -440,7 +438,7 @@ def test_evaluator_calls_check_pair_not_check_prediction_alone() -> None:
 
 def test_incomplete_report_is_not_admitted_even_without_blocking_flags() -> None:
     namespace = _search_namespace()
-    physics = pytest.importorskip("backend.ml.surrogate.physics_checks")
+    physics = pytest.importorskip("backend.contexts.surrogate.domain.physics_checks")
     differential = _differential_names(physics)
     single_only = tuple(
         invariant
@@ -468,7 +466,7 @@ def test_incomplete_report_is_not_admitted_even_without_blocking_flags() -> None
 
 def test_complete_clean_report_is_admitted() -> None:
     namespace = _search_namespace()
-    physics = pytest.importorskip("backend.ml.surrogate.physics_checks")
+    physics = pytest.importorskip("backend.contexts.surrogate.domain.physics_checks")
     report = physics.PhysicsReport(
         counts={},
         examples=(),
@@ -484,7 +482,7 @@ def test_complete_clean_report_is_admitted() -> None:
 
 def test_blocking_flag_on_a_complete_report_names_completeness() -> None:
     namespace = _search_namespace()
-    physics = pytest.importorskip("backend.ml.surrogate.physics_checks")
+    physics = pytest.importorskip("backend.contexts.surrogate.domain.physics_checks")
     report = physics.PhysicsReport(
         counts={physics.Invariant.SHUT_WELL_FLOW.value: 3},
         examples=(),
@@ -504,7 +502,7 @@ def test_blocking_flag_on_a_complete_report_names_completeness() -> None:
 
 def test_absent_anchor_rejects_the_candidate_with_a_named_reason() -> None:
     namespace = _search_namespace()
-    physics = pytest.importorskip("backend.ml.surrogate.physics_checks")
+    physics = pytest.importorskip("backend.contexts.surrogate.domain.physics_checks")
     schedule = _physics_schedule(injector_setpoint=16.0)
     env = _Env(
         None,
@@ -531,7 +529,7 @@ def test_absent_anchor_is_never_silently_downgraded_to_check_prediction() -> Non
 
 def test_working_path_with_an_anchor_yields_a_complete_report() -> None:
     namespace = _search_namespace()
-    physics = pytest.importorskip("backend.ml.surrogate.physics_checks")
+    physics = pytest.importorskip("backend.contexts.surrogate.domain.physics_checks")
     reference_schedule = _physics_schedule()
     candidate_schedule = _physics_schedule(injector_setpoint=16.0)
     env = _Env(

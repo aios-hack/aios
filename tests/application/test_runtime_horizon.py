@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-from backend.core.horizon import load_horizon
+from backend.contexts.reservoir.domain.horizon import load_horizon
 
 
 def test_changed_horizon_reaches_contracts_economics_and_response_offsets(tmp_path):
@@ -13,11 +13,11 @@ def test_changed_horizon_reaches_contracts_economics_and_response_offsets(tmp_pa
     path.write_text(json.dumps(dict(t0="2017-01-01", n_intervals=12,
                                    n_deck_dates=33, discount_base_year=2017)))
     program = """
-from backend.core.contracts import T0, N_INTERVALS
-from backend.core.contracts.response import N_DECK_DATES
-from backend.core.horizon import HORIZON
-from backend.domain.economics.npv import DISCOUNT_BASE_YEAR
-from backend.infrastructure.opm.response_loader import _control_step_for_date
+from backend.contexts.schedule.domain.schedule import T0, N_INTERVALS
+from backend.contexts.reservoir.domain.response import N_DECK_DATES
+from backend.contexts.reservoir.domain.horizon import HORIZON
+from backend.contexts.economics.domain.npv import DISCOUNT_BASE_YEAR
+from backend.contexts.simulation.infrastructure.response_loader import _control_step_for_date
 assert str(T0) == '2017-01-01'
 assert N_INTERVALS == 12 and N_DECK_DATES == 33
 assert DISCOUNT_BASE_YEAR == 2017

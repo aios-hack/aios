@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from backend.application.optimization.schedule_search import (
+from backend.contexts.optimization.application.environment import (
     _field_limit_for_step,
     _flow_start_steps,
     _outage_events,
@@ -20,7 +20,7 @@ from backend.core.contracts import (
     ScheduleMeta,
     WellState,
 )
-from backend.domain.policy.state import PolicyState, WellObservation
+from backend.contexts.policy.domain.state import PolicyState, WellObservation
 
 
 def _observation(well: str, role: Role) -> WellObservation:

@@ -2,23 +2,23 @@ from __future__ import annotations
 
 import pytest
 
-from backend.application.jarvis.artifacts import ArtifactStore
-from backend.application.jarvis.prompt import build_system_prompt
-from backend.application.jarvis.session import (
+from backend.contexts.assistant.infrastructure.artifacts import ArtifactStore
+from backend.contexts.assistant.infrastructure.prompt import build_system_prompt
+from backend.contexts.assistant.domain.session import (
     Exchange,
     SessionError,
     SessionStore,
     check_question,
 )
-from backend.application.jarvis.suggestions import SUGGESTION_COUNT, build_suggestions
-from backend.application.jarvis.tools.actions import (
+from backend.contexts.assistant.application.suggestions import SUGGESTION_COUNT, build_suggestions
+from backend.contexts.assistant.application.tools.actions import (
     ROUTE_BY_CARD,
     WORKSPACE_VIEWS,
     RouteError,
     build_action,
     check_route,
 )
-from backend.application.jarvis.tools.context import ConsoleContext
+from backend.contexts.assistant.application.tools.context import ConsoleContext
 
 EXPECTED_VIEWS = {
     "overview": ("fund",),

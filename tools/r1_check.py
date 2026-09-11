@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-from backend.infrastructure.resources import model_z_dir, normatives_xlsx
+from backend.shared.resources import model_z_dir, normatives_xlsx
 
 # `optimizer.search_run` читает sys.argv на импорте (там это точка входа
 # поиска), а сюда приходит текстовая метка прогона. Подменяем argv на время
@@ -26,18 +26,28 @@ _ARGV = sys.argv[:]
 sys.argv = sys.argv[:1]
 
 from backend.infrastructure.opm import submit_schedule
-from backend.infrastructure.opm.opm_deck import OpmDeckEmitter
-from backend.infrastructure.opm.runner import deck_hashes, summary_spec_hash
-from backend.domain.configuration.schema import default_config
+from backend.contexts.reservoir.infrastructure.opm_deck import OpmDeckEmitter
+from backend.contexts.simulation.infrastructure.runner import deck_hashes, summary_spec_hash
+from backend.contexts.constraints.domain.schema import default_config
 from backend.core.contracts import ArtifactHashes, Constraints, EventKind, Theta
 from backend.core.contracts.hashing import hash_schedule
 from backend.domain.economics import load_normatives, load_response_artifact
-from backend.domain.economics.base_case import analyze_base_case
-from backend.application.optimization.schedule_search import load_environment, make_evaluator, make_policy
-from backend.application.optimization.search_run import DATASET, FINAL_CAP, LAMBDA, RESPONSE, SEED
-from backend.domain.policy.fixed_point import resolve
-from backend.domain.policy.theta import default_theta
-from backend.domain.schedule.canonical import canonical_part_hash
+from backend.contexts.economics.application.base_case import analyze_base_case
+from backend.contexts.optimization.application.environment import (
+    load_environment,
+    make_evaluator,
+    make_policy,
+)
+from backend.contexts.optimization.application.search_use_case import (
+    DATASET,
+    FINAL_CAP,
+    LAMBDA,
+    RESPONSE,
+    SEED,
+)
+from backend.contexts.policy.domain.fixed_point import resolve
+from backend.contexts.policy.domain.theta import default_theta
+from backend.contexts.schedule.domain.canonical import canonical_part_hash
 
 sys.argv = _ARGV
 LABEL = sys.argv[1] if len(sys.argv) > 1 else "run"

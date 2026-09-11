@@ -9,8 +9,8 @@ import pytest
 
 from backend.core.contracts import Groups, Lambda, Role
 
-from backend.domain.connectivity.groups import GroupingParams, build_groups, lambda_hash
-from backend.domain.connectivity.groups_artifact import (
+from backend.contexts.connectivity.domain.groups import GroupingParams, build_groups, lambda_hash
+from backend.contexts.connectivity.infrastructure.groups_artifact import (
     ALGORITHM_NAME,
     ALGORITHM_VERSION,
     ARTIFACT_FORMAT,

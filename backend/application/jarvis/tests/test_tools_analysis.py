@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from backend.application.jarvis.artifacts import ArtifactStore
-from backend.application.jarvis.tools import run_tool
-from backend.application.jarvis.tools.context import (
+from backend.contexts.assistant.infrastructure.artifacts import ArtifactStore
+from backend.contexts.assistant.application.tools import run_tool
+from backend.contexts.assistant.application.tools.context import (
     ConsoleContext,
     ToolContext,
     ToolFailure,

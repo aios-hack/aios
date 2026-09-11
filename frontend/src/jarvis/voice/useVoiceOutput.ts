@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { rmsOf } from './useMicLevel';
+import { rmsOf } from '@/jarvis/voice/useMicLevel';
 import {
   fetchSpeech,
   pickVoice,
   plainSpeech,
   speakLang,
   speechSynthesisSupported
-} from './speakText';
+} from '@/jarvis/voice/speakText';
 
 interface VoiceOptions {
   enabled: boolean;

@@ -14,21 +14,21 @@ from backend.core.contracts import (
     StateAtDate,
     WellState,
 )
-from backend.core.contracts.constraints import (
+from backend.contexts.constraints.domain.constraints import (
     PRESSURE_CEILING_BAR,
     PRESSURE_FLOOR_BAR,
     SOURCE_ORGANIZER,
     field_pressure_limits,
     source_key,
 )
-from backend.domain.schedule.validate import (
+from backend.contexts.schedule.domain.validate import (
     CONSTRAINT_FIELD_PRESSURE,
     CONSTRAINT_MATERIAL_BALANCE,
     STATUS_CHECKED,
     STATUS_NOT_SET,
     ViolationKind,
 )
-from backend.domain.schedule.validate_dynamic import (
+from backend.contexts.schedule.domain.validate_dynamic import (
     BLOCKING_DYNAMIC_VIOLATION_KINDS,
     DYNAMIC_VIOLATION_KINDS,
     FIRST_CONTROL_LEVEL_DECK_DATE_INDEX,

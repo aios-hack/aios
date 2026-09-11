@@ -12,7 +12,7 @@ from backend.core.contracts import (
     SubmissionBundle,
     SummarySpec,
 )
-from backend.core.contracts.simulation import SUBMISSION_BUNDLE_REQUIRED_TEXT_FIELDS
+from backend.contexts.runs.domain.run_result import SUBMISSION_BUNDLE_REQUIRED_TEXT_FIELDS
 
 
 def _empty_line() -> LineItems:

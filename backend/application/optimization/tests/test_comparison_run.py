@@ -27,8 +27,8 @@ from backend.core.contracts import (
     WellState,
     hash_schedule,
 )
-from backend.domain.configuration.constraints_io import constraints_hash
-from backend.domain.schedule.case_limits import CaseLimitsOutcome, YearlyProduction
+from backend.contexts.constraints.infrastructure.constraints_io import constraints_hash
+from backend.contexts.schedule.domain.case_limits import CaseLimitsOutcome, YearlyProduction
 
 TORCH_PACKAGES = (
     "torch",
@@ -111,7 +111,7 @@ def _load_module() -> Any:
         stubbed = _install_torch_stub()
     try:
         return importlib.import_module(
-            "backend.application.optimization.verification_run"
+            "backend.contexts.optimization.application.verification_run"
         )
     finally:
         if stubbed:
@@ -119,7 +119,7 @@ def _load_module() -> Any:
                 module
                 for module in sys.modules
                 if module.startswith("backend.ml")
-                or module.startswith("backend.application.optimization.schedule_search")
+                or module.startswith("backend.contexts.optimization.application.environment")
             ]:
                 sys.modules.pop(name, None)
             for name in reversed(stubbed):

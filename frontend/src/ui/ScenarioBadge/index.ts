@@ -1,1 +1,0 @@
-export { ScenarioBadge } from './ScenarioBadge';

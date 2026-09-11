@@ -1,4 +1,4 @@
-from .workflow import (
+from backend.contexts.runs.application.workflow import (
     MANIFEST_FIELDS,
     MANIFEST_PROVENANCE_FIELDS,
     RunManifest,

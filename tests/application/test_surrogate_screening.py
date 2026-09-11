@@ -3,10 +3,16 @@ from dataclasses import replace
 import pytest
 
 from backend.core.contracts import ControlEvent, EventKind
-from backend.presentation.cli.surrogate_audit import ranking_metrics
-from backend.presentation.cli.surrogate_screen import (add_hybrid_scores,
-    choose_hybrid_comparison, choose_model_comparison, choose_pair,
-    transfer_fraction, water_margins, known_schedule_hashes)
+from backend.interfaces.cli.surrogate.audit import ranking_metrics
+from backend.interfaces.cli.surrogate.screen import (
+    add_hybrid_scores,
+    choose_hybrid_comparison,
+    choose_model_comparison,
+    choose_pair,
+    transfer_fraction,
+    water_margins,
+    known_schedule_hashes,
+)
 from tests.application.test_run_workflow import historical_schedule
 
 
@@ -95,7 +101,7 @@ def test_default_water_proposals_keep_five_percent_reserve():
 def test_known_measurements_are_reused_only_with_identical_conditions(tmp_path, monkeypatch):
     import json
     from types import SimpleNamespace
-    from backend.presentation.cli import surrogate_screen
+    from backend.interfaces.cli.surrogate import screen as surrogate_screen
     root = tmp_path / "candidate-001"
     (root / "inputs").mkdir(parents=True)
     (root / "economics").mkdir()

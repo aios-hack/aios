@@ -31,8 +31,8 @@ import pytest
 from backend.core.contracts import Constraints, OptimizerResult, Theta
 
 from backend.domain.robustness import FragilityBattery, Split, holdout_view, optimization_view
-from backend.domain.robustness.battery import Scenario
-from backend.application.optimization.scenario_baseline import (
+from backend.contexts.robustness.application.battery import Scenario
+from backend.contexts.optimization.application.scenario_baseline import (
     BaselineSearch,
     RegretComputation,
     ScenarioBaselineError,

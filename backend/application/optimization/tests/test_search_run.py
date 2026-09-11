@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from backend.application.optimization.search_run import _search_theta
+from backend.contexts.optimization.application.search_use_case import _search_theta
 from backend.core.contracts import Constraints
 
 

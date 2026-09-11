@@ -7,7 +7,7 @@ import pytest
 
 from backend.core.contracts import Groups, Lambda, Role
 
-from backend.domain.connectivity.groups import (
+from backend.contexts.connectivity.domain.groups import (
     GroupingParams,
     build_groups,
     coverage_of,

@@ -1,4 +1,4 @@
-from .build import (
+from backend.contexts.schedule.domain.build import (
     ControlEventConflict,
     ScheduleBuildError,
     build_schedule,
@@ -11,7 +11,7 @@ from .build import (
     load_schedule,
     schedule_hash_parts,
 )
-from .canonical import (
+from backend.contexts.schedule.domain.canonical import (
     ScheduleCanonicalError,
     canonical_bytes,
     canonical_digest,
@@ -28,7 +28,7 @@ from .canonical import (
     normalize_initial_state,
     normalize_well_state,
 )
-from .emit import (
+from backend.contexts.schedule.application.emit import (
     EmitStats,
     EmittedSchedule,
     RoundTripReport,
@@ -42,14 +42,14 @@ from .emit import (
     round_trip,
     verify_schedule_round_trip,
 )
-from .lossless import (
+from backend.contexts.schedule.domain.lossless import (
     LosslessBlock,
     LosslessEmitter,
     ParsedSchedule,
     ScheduleParseError,
     parse_schedule,
 )
-from .replay import (
+from backend.contexts.schedule.domain.replay import (
     Conversion,
     ReplayError,
     ReplayResult,
@@ -57,7 +57,7 @@ from .replay import (
     replay,
     replay_initial_state,
 )
-from .validate_dynamic import (
+from backend.contexts.schedule.domain.validate_dynamic import (
     ACHIEVEMENT_THRESHOLD,
     CONSTRAINT_FIELD_COVERAGE,
     DYNAMIC_CONSTRAINT_NAMES,
@@ -81,7 +81,7 @@ from .validate_dynamic import (
     validate_dynamic,
     verified_constraint_checks,
 )
-from .validate import (
+from backend.contexts.schedule.domain.validate import (
     CONSTRAINT_COMPENSATION,
     CONSTRAINT_COMPENSATION_SCOPE,
     CONSTRAINT_INJECTION_LIMITS,

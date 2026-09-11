@@ -1,0 +1,20 @@
+{
+  "http.error.body_too_large": "Request body exceeds the allowed size",
+  "http.error.conflict": "The current state does not allow this action",
+  "http.error.internal": "Internal service error",
+  "http.error.not_found": "Resource not found",
+  "http.error.unavailable": "The capability is unavailable",
+  "http.error.unknown_route": "Unknown route",
+  "http.error.validation": "The request does not pass validation",
+  "runs.status.completed_search": "Forecast is ready. Run OPM to confirm it.",
+  "runs.status.completed_verify": "The OPM run is complete.",
+  "runs.status.failed": "The run could not be completed. Details are kept in the server log.",
+  "runs.status.failed_infeasible": "No feasible plan was found or the run failed. See the rejection reasons below.",
+  "runs.status.restarted": "The server was restarted. The run is not confirmed; start it again.",
+  "runs.status.searching": "Searching for a plan with the surrogate…",
+  "runs.status.verifying": "Full OPM run…",
+  "showcase.notice.ablation_absent": "No ablation was run: the NPV contribution of each rule is not measured. Only the enabled flag is reported, the file carries no money values",
+  "showcase.notice.demo": "Demonstration data, not a computed result",
+  "showcase.notice.hierarchy": "Real decision log: field, group and well levels come from a policy run (policy/hierarchy.run_step) over the scenario response",
+  "showcase.notice.real": "Real result: OPM baseline run with zero retiming, reference NPV methodology"
+}

@@ -1,0 +1,11 @@
+{
+  "orbitLabel": "Карточки ответа",
+  "railBead": "Сцена: {question}",
+  "railLabel": "Лента памяти",
+  "railNoCards": "без карточек",
+  "sessionNew": "Новая сессия",
+  "sessionNoQuestion": "без вопроса",
+  "sessionToday": "сегодня",
+  "sessionYesterday": "вчера",
+  "sessionsLabel": "Сессия"
+}

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.application.jarvis.artifacts import (
+from backend.contexts.assistant.infrastructure.artifacts import (
     ArtifactError,
     ArtifactStore,
     SCENARIO_FILES,

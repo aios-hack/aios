@@ -5,7 +5,7 @@ from typing import Callable
 import pytest
 
 from backend.core.contracts import Constraints, WellOutage
-from backend.domain.configuration.constraints_io import (
+from backend.contexts.constraints.infrastructure.constraints_io import (
     constraints_from_json,
     constraints_hash,
     constraints_to_json,

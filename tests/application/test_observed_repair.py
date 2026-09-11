@@ -3,10 +3,13 @@ from dataclasses import replace
 
 import pytest
 
-from backend.application.cases import load_case
-from backend.application.optimization.observed_repair import repair_from_observation, production_from_observation
+from backend.contexts.constraints.application.cases import load_case
+from backend.contexts.optimization.domain.observed_repair import (
+    repair_from_observation,
+    production_from_observation,
+)
 from backend.core.contracts import EventKind, FixedDeckEvent
-from backend.core.horizon import HORIZON
+from backend.contexts.reservoir.domain.horizon import HORIZON
 from backend.domain.schedule import parse_schedule
 from tests.application.test_run_workflow import historical_schedule, historical_model_dir
 

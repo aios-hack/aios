@@ -3,13 +3,16 @@ from pathlib import Path
 
 import pytest
 
-from backend.application.cases import CaseError, load_case
+from backend.contexts.constraints.application.cases import CaseError, load_case
 from backend.application.runs import RunProvenance, RunRequest, RunWorkflow
-from backend.application.runs.workflow import SUBMISSION_BUNDLE_FIELDS
+from backend.contexts.runs.application.workflow import SUBMISSION_BUNDLE_FIELDS
 from backend.core.contracts import SubmissionBundle, water_supply_policy
-from backend.core.provenance import DEFAULT_OPM_IMAGE
-from backend.domain.configuration.constraints_io import constraints_hash, constraints_to_json
-from backend.presentation.cli.run import (
+from backend.contexts.runs.infrastructure.provenance import DEFAULT_OPM_IMAGE
+from backend.contexts.constraints.infrastructure.constraints_io import (
+    constraints_hash,
+    constraints_to_json,
+)
+from backend.interfaces.cli.run import (
     build_parser,
     build_provenance,
     default_case_path,
@@ -20,6 +23,7 @@ from backend.presentation.cli.run import (
     resolve_constraints,
 )
 from tests.application.test_run_workflow import prepare_submittable_run, sample_schedule
+from backend.shared.errors import ValidationError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BASE_CASE = REPO_ROOT / "config" / "cases" / "base.json"
@@ -110,10 +114,11 @@ def test_new_wells_is_refused_with_a_stated_reason(tmp_path) -> None:
 def test_case_cli_refuses_new_wells_before_running_the_search(tmp_path) -> None:
     case = write_case(tmp_path / "case.json", {"new_wells": [{"name": "W-100"}]})
 
-    with pytest.raises(SystemExit) as error:
+    with pytest.raises(ValidationError) as error:
         main(["search", "--case", str(case)])
 
     assert "new_wells" in str(error.value)
+    assert error.value.code == "runs.case_rejected"
 
 
 def test_missing_case_file_is_refused_with_its_path(tmp_path) -> None:

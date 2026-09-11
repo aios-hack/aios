@@ -1,4 +1,4 @@
-from .esp import (
+from backend.contexts.economics.domain.esp import (
     DOWNSIZE_THRESHOLD_M3_PER_DAY,
     ESP_CATALOG_2007,
     EspEvent,
@@ -9,7 +9,7 @@ from .esp import (
     pick_initial_esp,
     pick_upsize_esp,
 )
-from .fund import (
+from backend.contexts.economics.domain.fund import (
     ACTIVE_FUND_STATES,
     FundState,
     FundTransition,
@@ -18,7 +18,7 @@ from .fund import (
     track_well,
     transition_costs,
 )
-from .ledger import (
+from backend.contexts.economics.domain.ledger import (
     CumulativeSeries,
     LedgerError,
     LedgerRow,
@@ -32,7 +32,7 @@ from .ledger import (
     raw_diff,
     responses_by_well_from_cumulative,
 )
-from .decomposition import (
+from backend.contexts.economics.domain.decomposition import (
     EXACT_PER_WELL_FIELDS,
     MACHINE_ZERO_RUB,
     TAX_BASIS_CAPTION,
@@ -54,7 +54,7 @@ from .decomposition import (
     well_contributions_from_flows,
     well_ranking,
 )
-from .base_case import (
+from backend.contexts.economics.application.base_case import (
     RUB_PER_MILLION,
     BaseCaseAnalysis,
     BaseCaseError,
@@ -73,7 +73,7 @@ from .base_case import (
     tally_events,
     volume_totals,
 )
-from .normatives_io import (
+from backend.contexts.economics.infrastructure.normatives_io import (
     ESP_SHEET,
     NORMATIVES_SHEET,
     NormativesError,
@@ -81,7 +81,7 @@ from .normatives_io import (
     parse_normative_set,
     read_normative_sheets,
 )
-from .reference_parity import (
+from backend.contexts.economics.application.reference_parity import (
     Discrepancy,
     ParityError,
     ParityReport,
@@ -93,7 +93,7 @@ from .reference_parity import (
     reference_pumps,
     run_reference,
 )
-from .npv import (
+from backend.contexts.economics.domain.npv import (
     DISCOUNT_BASE_YEAR,
     BalanceSheetInputs,
     CellFlows,
@@ -107,7 +107,10 @@ from .npv import (
     monthly_income_tax_sum,
     npv_table_from_flows,
 )
-from .methodology_hash import METHODOLOGY_FILES, methodology_version_hash
+from backend.contexts.economics.domain.methodology_hash import (
+    METHODOLOGY_FILES,
+    methodology_version_hash,
+)
 
 __all__ = [
     "METHODOLOGY_FILES",

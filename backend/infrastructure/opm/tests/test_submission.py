@@ -7,10 +7,10 @@ from pathlib import Path
 import pytest
 
 from backend.infrastructure.opm import SubmissionTractError, submit_schedule
-from backend.infrastructure.opm.cache import cache_key
-from backend.infrastructure.opm.opm_deck import OpmDeckEmitter
-from backend.infrastructure.opm.runner import deck_hashes, summary_spec_hash
-from backend.infrastructure.opm.submission import _run
+from backend.contexts.simulation.infrastructure.cache import cache_key
+from backend.contexts.reservoir.infrastructure.opm_deck import OpmDeckEmitter
+from backend.contexts.simulation.infrastructure.runner import deck_hashes, summary_spec_hash
+from backend.contexts.simulation.application.submission import _run
 from backend.domain.configuration import default_config, economics_config_hash
 from backend.core.contracts import (
     ArtifactHashes,
@@ -26,11 +26,11 @@ from backend.core.contracts import (
 )
 from backend.core.paths import data_root
 from backend.domain.economics import ESP_CATALOG_2007, methodology_version_hash
-from backend.domain.economics.base_case import analyze_base_case
+from backend.contexts.economics.application.base_case import analyze_base_case
 from backend.domain.schedule import ViolationKind, parse_schedule
-from backend.domain.schedule.build import deck_well_axis, initial_state_from_prefix
-from backend.domain.schedule.canonical import canonical_part_hash
-from backend.domain.schedule.validate_dynamic import _states_by_step
+from backend.contexts.schedule.domain.build import deck_well_axis, initial_state_from_prefix
+from backend.contexts.schedule.domain.canonical import canonical_part_hash
+from backend.contexts.schedule.domain.validate_dynamic import _states_by_step
 
 from conftest import docker_unavailable_reason, missing_reason, model_z_dir
 

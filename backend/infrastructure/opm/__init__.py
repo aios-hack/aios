@@ -1,4 +1,4 @@
-from .base_run import (
+from backend.contexts.simulation.application.baseline_diagnostics import (
     BaseRunReport,
     MATERIAL_BALANCE_RELATIVE_TOLERANCE,
     baseline_schedule,
@@ -6,8 +6,8 @@ from .base_run import (
     find_well_introductions,
     run_base_case,
 )
-from .cache import CachingOpmRunner, RunCache, cache_key
-from .dataset import (
+from backend.contexts.simulation.infrastructure.cache import CachingOpmRunner, RunCache, cache_key
+from backend.contexts.simulation.infrastructure.dataset import (
     CORES_PER_CONTAINER,
     DatasetBuildReport,
     DatasetError,
@@ -22,7 +22,7 @@ from .dataset import (
     default_max_workers,
     schedule_keys,
 )
-from .dataset_plan import (
+from backend.contexts.simulation.domain.perturbation_design import (
     BaselineProfile,
     ConversionToggle,
     DatasetPlanError,
@@ -42,7 +42,7 @@ from .dataset_plan import (
     materialize,
     role_of,
 )
-from .opm_deck import (
+from backend.contexts.reservoir.infrastructure.opm_deck import (
     EmittedOpmDeck,
     EmittedSchedule,
     OpmDeckEmitter,
@@ -51,7 +51,7 @@ from .opm_deck import (
     render_control_period_include,
     render_schedule_include,
 )
-from .pvt import (
+from backend.contexts.reservoir.infrastructure.pvt import (
     Densities,
     OilBranch,
     OilTable,
@@ -62,8 +62,12 @@ from .pvt import (
     load_pvt,
     parse_pvt,
 )
-from .response_loader import ResponseLoader, ResponseLoaderError, load_density_by_pvtnum
-from .runner import (
+from backend.contexts.simulation.infrastructure.response_loader import (
+    ResponseLoader,
+    ResponseLoaderError,
+    load_density_by_pvtnum,
+)
+from backend.contexts.simulation.infrastructure.runner import (
     DEFAULT_FLOW_ARGS,
     DEFAULT_OPM_IMAGE,
     DeckHashes,
@@ -73,13 +77,13 @@ from .runner import (
     static_deck_hash,
     summary_spec_hash,
 )
-from .submission import (
+from backend.contexts.simulation.application.submission import (
     IdentityCheck,
     SubmissionResult,
     SubmissionTractError,
     submit_schedule,
 )
-from .summary import (
+from backend.contexts.reservoir.infrastructure.summary import (
     SummaryConnection,
     SummaryPlan,
     SummaryPlanError,

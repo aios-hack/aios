@@ -25,8 +25,8 @@ from backend.domain.configuration import (
     parse_config,
     seed_for,
 )
-from backend.domain.configuration.io import _as_jsonable
-from backend.domain.configuration.schema import validate
+from backend.contexts.constraints.infrastructure.io import _as_jsonable
+from backend.contexts.constraints.domain.schema import validate
 
 from backend.domain.configuration.tests.conftest import GLOBAL_SEED, a_hash
 

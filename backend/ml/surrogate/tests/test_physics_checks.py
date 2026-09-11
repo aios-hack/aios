@@ -26,7 +26,7 @@ from backend.core.contracts import (
     WellState,
     hash_schedule,
 )
-from backend.ml.surrogate.physics_checks import (
+from backend.contexts.surrogate.domain.physics_checks import (
     BhpLimits,
     DEFAULT_OIL_DENSITY_T_PER_M3,
     Invariant,
@@ -39,7 +39,10 @@ from backend.ml.surrogate.physics_checks import (
     injection_only_pair,
     lambda_column_sums,
 )
-from backend.ml.surrogate.raw_model_output import RawModelOutput, RawWellStepPrediction
+from backend.contexts.surrogate.domain.raw_model_output import (
+    RawModelOutput,
+    RawWellStepPrediction,
+)
 
 _WELLS = ("I", "N", "P")  # нагнетательная, невведённая, добывающая
 _LATE_OPEN_STEP = 50

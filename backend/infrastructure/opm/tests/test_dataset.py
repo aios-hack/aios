@@ -8,7 +8,7 @@ from typing import Sequence
 
 import pytest
 
-from backend.infrastructure.opm.dataset import (
+from backend.contexts.simulation.infrastructure.dataset import (
     CORES_PER_CONTAINER,
     DatasetError,
     DatasetGenerator,
@@ -19,14 +19,14 @@ from backend.infrastructure.opm.dataset import (
     dataset_hash,
     default_max_workers,
 )
-from backend.infrastructure.opm.dataset_plan import (
+from backend.contexts.simulation.domain.perturbation_design import (
     PerturbationFamily,
     PlanConfig,
     build_plan,
     dataset_base_schedule,
 )
-from backend.infrastructure.opm.opm_deck import EmittedOpmDeck
-from backend.infrastructure.opm.runner import deck_hashes
+from backend.contexts.reservoir.infrastructure.opm_deck import EmittedOpmDeck
+from backend.contexts.simulation.infrastructure.runner import deck_hashes
 from backend.core.contracts import RunResult, RunStatus, Schedule
 
 import conftest

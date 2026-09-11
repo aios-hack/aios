@@ -8,7 +8,7 @@ import pytest
 
 from backend.core.contracts import Rule
 
-from backend.presentation.ui_export.ablation_view import (
+from backend.contexts.showcase.application.exporters.ablation_view import (
     ABLATION_NOT_RUN,
     ABLATION_PROVENANCE,
     DISABLED_RULES,
@@ -16,7 +16,7 @@ from backend.presentation.ui_export.ablation_view import (
     build_ablation,
     export_ablation_json,
 )
-from backend.presentation.ui_export.fixtures import make_synthetic_artifact
+from tests.support.backend.showcase_fixtures import make_synthetic_artifact
 
 SEED = 20260815
 

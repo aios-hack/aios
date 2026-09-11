@@ -11,7 +11,12 @@ import math
 
 import pytest
 
-from backend.application.optimization.linalg import identity, jacobi_eigen, matrix_vector, symmetrize
+from backend.contexts.optimization.domain.linalg import (
+    identity,
+    jacobi_eigen,
+    matrix_vector,
+    symmetrize,
+)
 
 
 def _reconstruct(eigenvalues, basis):

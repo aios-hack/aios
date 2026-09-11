@@ -14,7 +14,7 @@ from backend.domain.policy import (
     default_theta,
     run_step,
 )
-from backend.domain.policy.agents import (
+from backend.contexts.policy.domain.agents import (
     DEFAULT_AGENTS,
     DEFAULT_REGISTRY,
     LEVEL_ORDER,

@@ -12,7 +12,7 @@ import pytest
 
 from backend.presentation.api import proxy
 from backend.presentation.cli import jarvis as cli
-from backend.presentation.cli.web import SpaRequestHandler
+from backend.interfaces.cli.web import SpaRequestHandler
 
 ENTRYPOINT_COMMAND = "jarvis) cmd_jarvis"
 

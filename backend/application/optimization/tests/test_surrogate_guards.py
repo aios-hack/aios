@@ -2,10 +2,13 @@
 from pathlib import Path
 import pytest
 
-from backend.application.optimization.schedule_search import _enforce_physics, PhysicallyImpossibleScheduleError
-from backend.application.optimization.runtime_artifacts import RuntimeArtifacts
-from backend.application.optimization import search_run
-from backend.ml.surrogate.physics_checks import PhysicsReport, Invariant
+from backend.contexts.optimization.application.environment import (
+    _enforce_physics,
+    PhysicallyImpossibleScheduleError,
+)
+from backend.contexts.optimization.infrastructure.artifacts import RuntimeArtifacts
+from backend.contexts.optimization.application import search_use_case as search_run
+from backend.contexts.surrogate.domain.physics_checks import PhysicsReport, Invariant
 
 
 def _report(counts):

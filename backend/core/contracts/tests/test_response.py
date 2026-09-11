@@ -7,7 +7,7 @@ from backend.core.contracts import (
     is_excluded_by_negative_rule,
     join_by_control_step,
 )
-from backend.core.contracts.response import N_DECK_DATES, N_INTERVALS
+from backend.contexts.reservoir.domain.response import N_DECK_DATES, N_INTERVALS
 
 
 def _resp(oil: float = 100.0, liquid: float = 200.0, injection: float = 300.0) -> IntervalResponse:

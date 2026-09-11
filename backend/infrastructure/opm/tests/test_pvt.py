@@ -4,12 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.infrastructure.opm.pvt import (
-    PvtError,
-    PvtTables,
-    load_pvt,
-    parse_pvt,
-)
+from backend.contexts.reservoir.infrastructure.pvt import PvtError, PvtTables, load_pvt, parse_pvt
 
 from conftest import model_z_dir
 

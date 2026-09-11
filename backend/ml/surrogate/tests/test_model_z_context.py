@@ -11,7 +11,7 @@ from backend.core.contracts import (  # noqa: E402
     ScheduleMeta,
     WellState,
 )
-from backend.ml.surrogate.schedule_roles import build_role_timelines
+from backend.contexts.surrogate.domain.schedule_roles import build_role_timelines
 
 
 def _schedule() -> Schedule:

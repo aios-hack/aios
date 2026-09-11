@@ -18,7 +18,7 @@ from backend.core.contracts import (
     WellOutage,
     WellState,
 )
-from backend.core.contracts.constraints import (
+from backend.contexts.constraints.domain.constraints import (
     COMPENSATION_ENFORCEMENT,
     COMPENSATION_MAX,
     COMPENSATION_MIN,
@@ -27,7 +27,7 @@ from backend.core.contracts.constraints import (
     WATER_REINJECTION_FRACTION,
     WATER_SUPPLY_UNLIMITED,
 )
-from backend.domain.schedule.validate import (
+from backend.contexts.schedule.domain.validate import (
     CONSTRAINT_BHP_LIMITS,
     CONSTRAINT_COMPENSATION,
     CONSTRAINT_COMPENSATION_SCOPE,
@@ -45,7 +45,7 @@ from backend.domain.schedule.validate import (
     ViolationKind,
     check_constraints,
 )
-from backend.domain.schedule.validate_dynamic import (
+from backend.contexts.schedule.domain.validate_dynamic import (
     CONSTRAINT_FIELD_COVERAGE,
     FIRST_CONTROL_DECK_DATE_INDEX,
     PHYSICS_CONSTRAINT_NAMES,
@@ -188,7 +188,7 @@ def test_a_new_constraints_field_without_a_record_fails_the_report(
 ) -> None:
     checks = report_for(Constraints()).constraint_checks
     module = importlib.import_module(
-        "backend.domain.schedule.validate_dynamic"
+        "backend.contexts.schedule.domain.validate_dynamic"
     )
     monkeypatch.setattr(
         module,

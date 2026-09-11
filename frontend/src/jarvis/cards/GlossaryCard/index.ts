@@ -1,0 +1,1 @@
+export { GlossaryCard } from './GlossaryCard';

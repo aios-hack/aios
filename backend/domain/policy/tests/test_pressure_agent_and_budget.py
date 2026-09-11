@@ -27,7 +27,7 @@ from backend.domain.policy import (
     default_theta,
     run_step,
 )
-from backend.domain.policy.agents import (
+from backend.contexts.policy.domain.agents import (
     APPROACH_FRACTION,
     DEFAULT_REGISTRY,
     PRESSURE_AGENT,
@@ -44,13 +44,13 @@ from backend.domain.policy.agents import (
     pressure_corridor_of,
     with_agents,
 )
-from backend.domain.policy.agents.registry import rank_of
-from backend.domain.policy.budget import (
+from backend.contexts.policy.domain.agents.registry import rank_of
+from backend.contexts.policy.domain.budget import (
     baseline_injection_by_step,
     interval_produced_water_rate_m3_per_day,
 )
-from backend.domain.policy.levels import Level
-from backend.domain.policy.trace import trace_hash
+from backend.contexts.policy.domain.levels import Level
+from backend.contexts.policy.domain.trace import trace_hash
 from backend.domain.policy.tests.conftest import (
     OIL_DENSITY_T_PER_M3,
     groups_of,

@@ -7,25 +7,25 @@ from pathlib import Path
 import pytest
 
 from backend.core.contracts import RunResult, RunStatus
-from backend.infrastructure.opm import preflight as preflight_module
-from backend.infrastructure.opm import runner as runner_module
-from backend.infrastructure.opm.cache import RunCache
-from backend.infrastructure.opm.dataset import (
+from backend.contexts.simulation.infrastructure import preflight as preflight_module
+from backend.contexts.simulation.infrastructure import runner as runner_module
+from backend.contexts.simulation.infrastructure.cache import RunCache
+from backend.contexts.simulation.infrastructure.dataset import (
     ALWAYS_RETAINED,
     COMPACTED_ON_REQUEST,
     SCHEDULES_DIR,
     DatasetError,
     DatasetGenerator,
 )
-from backend.infrastructure.opm.opm_deck import EmittedOpmDeck
-from backend.infrastructure.opm.preflight import (
+from backend.contexts.reservoir.infrastructure.opm_deck import EmittedOpmDeck
+from backend.contexts.simulation.infrastructure.preflight import (
     DockerPreflightError,
     PreflightProblem,
     docker_preflight,
     ensure_docker_ready,
     resolve_image_reference,
 )
-from backend.infrastructure.opm.runner import OpmRunner
+from backend.contexts.simulation.infrastructure.runner import OpmRunner
 
 IMAGE = "openporousmedia/opmreleases:latest"
 DIGEST = "openporousmedia/opmreleases@sha256:" + "a" * 64
@@ -235,9 +235,9 @@ def test_runner_refuses_to_start_flow_without_docker(
 
 def test_every_consumer_uses_the_shared_preflight() -> None:
     consumers = (
-        REPO_ROOT / "backend" / "presentation" / "cli" / "web_run_worker.py",
-        REPO_ROOT / "backend" / "presentation" / "cli" / "run.py",
-        REPO_ROOT / "backend" / "infrastructure" / "opm" / "runner.py",
+        REPO_ROOT / "backend" / "interfaces" / "cli" / "web_run_worker.py",
+        REPO_ROOT / "backend" / "interfaces" / "cli" / "run.py",
+        REPO_ROOT / "backend" / "contexts" / "simulation" / "infrastructure" / "runner.py",
     )
     for path in consumers:
         source = path.read_text(encoding="utf-8")
@@ -248,7 +248,7 @@ def test_every_consumer_uses_the_shared_preflight() -> None:
 
 
 def test_run_cli_writes_image_reference_not_bare_tag() -> None:
-    source = (REPO_ROOT / "backend" / "presentation" / "cli" / "run.py").read_text(
+    source = (REPO_ROOT / "backend" / "interfaces" / "cli" / "run.py").read_text(
         encoding="utf-8"
     )
     assert "opm_image=resolve_image_reference().image" in source

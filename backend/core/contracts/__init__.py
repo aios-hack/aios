@@ -1,4 +1,4 @@
-from .config import (
+from backend.contexts.constraints.domain.config import (
     ArtifactHashes,
     Budgets,
     Config,
@@ -9,8 +9,8 @@ from .config import (
     Policies,
     QuantizationPolicy,
 )
-from .connectivity import Groups, Lambda
-from .constraints import (
+from backend.contexts.connectivity.domain.connectivity import Groups, Lambda
+from backend.contexts.constraints.domain.constraints import (
     CompensationPolicy,
     Constraints,
     WaterSupplyPolicy,
@@ -18,10 +18,16 @@ from .constraints import (
     compensation_policy,
     water_supply_policy,
 )
-from .economics import LineItems, NpvTable
+from backend.contexts.economics.domain.economics import LineItems, NpvTable
 from .hashing import canonical_bytes, canonical_schedule_hash, content_hash, hash_schedule
-from .policy import OptimizerResult, Rule, ScenarioViolation, Theta, TraceEntry
-from .response import (
+from backend.contexts.policy.domain.policy import (
+    OptimizerResult,
+    Rule,
+    ScenarioViolation,
+    Theta,
+    TraceEntry,
+)
+from backend.contexts.reservoir.domain.response import (
     ActiveControlMode,
     IntervalResponse,
     StateAtDate,
@@ -30,8 +36,8 @@ from .response import (
     join_by_control_step,
     watercut,
 )
-from .run_artifact import RunArtifact
-from .schedule import (
+from backend.contexts.runs.domain.run_artifact import RunArtifact
+from backend.contexts.schedule.domain.schedule import (
     Availability,
     MAX_LRAT_M3_PER_DAY,
     ControlEvent,
@@ -46,7 +52,7 @@ from .schedule import (
     T0,
     WellState,
 )
-from .simulation import (
+from backend.contexts.runs.domain.run_result import (
     MATERIAL_BALANCE_RELATIVE_TOLERANCE,
     FinalNpvArtifact,
     OPM_CONNECTION_SUMMARY_KEYS,

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from backend.infrastructure.opm import OpmRunner
-from backend.infrastructure.opm.response_loader import (
+from backend.contexts.simulation.infrastructure.response_loader import (
     _ELEMENTS_PER_BLOCK,
     ResponseLoader,
     ResponseLoaderError,
@@ -23,7 +23,7 @@ from backend.infrastructure.opm.response_loader import (
     _WellRow,
     load_density_by_pvtnum,
 )
-from backend.infrastructure.opm.summary import SummaryConnection, SummaryPlan
+from backend.contexts.reservoir.infrastructure.summary import SummaryConnection, SummaryPlan
 from backend.core.contracts import (
     ActiveControlMode,
     ControlEvent,
@@ -36,7 +36,7 @@ from backend.core.contracts import (
     ScheduleMeta,
     SummarySpec,
 )
-from backend.core.contracts.response import N_DECK_DATES
+from backend.contexts.reservoir.domain.response import N_DECK_DATES
 
 
 from conftest import docker_unavailable_reason, missing_reason, model_z_dir
@@ -165,7 +165,7 @@ def test_load_density_by_pvtnum_real_model_z() -> None:
 
 def _nums(k: int, _unused: int, smspec) -> int:
     # MULTI занимает (2,2,k) в PVT.DATA (3x3x3 грид).
-    from backend.infrastructure.opm.summary import _grid_index
+    from backend.contexts.reservoir.infrastructure.summary import _grid_index
 
     return _grid_index(2, 2, k, smspec.nx, smspec.ny, smspec.nz) + 1
 
@@ -310,7 +310,7 @@ def test_resolve_control_mode_wmctl_zero_not_commissioned_then_shut() -> None:
         fixed_deck_events=(),
         control_events=(ControlEvent(control_step=60, well="W", kind=EventKind.OPEN),),
     )
-    from backend.infrastructure.opm.response_loader import _build_well_timelines
+    from backend.contexts.simulation.infrastructure.response_loader import _build_well_timelines
 
     timelines = _build_well_timelines(schedule)
     row = _well_row(wmctl=0.0)
@@ -513,7 +513,7 @@ def test_check_no_nan_accepts_clean_data() -> None:
 ])
 def test_fixed_commissioning_controls_availability_status_and_target(operator, args, expected_status, target):
     from backend.core.contracts import FixedDeckEvent
-    from backend.infrastructure.opm.response_loader import _build_well_timelines
+    from backend.contexts.simulation.infrastructure.response_loader import _build_well_timelines
     schedule = Schedule(
         meta=ScheduleMeta(wells=('NEW',)), initial_state={},
         fixed_deck_events=(FixedDeckEvent(14, 'NEW', operator, args),),
@@ -528,7 +528,7 @@ def test_fixed_commissioning_controls_availability_status_and_target(operator, a
 
 def test_managed_controls_override_fixed_commissioning_at_same_step():
     from backend.core.contracts import FixedDeckEvent
-    from backend.infrastructure.opm.response_loader import _build_well_timelines
+    from backend.contexts.simulation.infrastructure.response_loader import _build_well_timelines
     schedule = Schedule(
         meta=ScheduleMeta(wells=('NEW',)), initial_state={},
         fixed_deck_events=(FixedDeckEvent(14, 'NEW', 'WCONPROD', ('OPEN', 'LRAT', '1*', '1*', '1*', '120')),),

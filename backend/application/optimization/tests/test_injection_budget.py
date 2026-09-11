@@ -21,17 +21,20 @@ from backend.core.contracts import (
     ScheduleMeta,
     WellState,
 )
-from backend.core.contracts.constraints import (
+from backend.contexts.constraints.domain.constraints import (
     DEFAULT_WATER_SAFETY_FACTOR,
     WATER_SAFETY_FACTOR,
     water_safety_factor,
 )
-from backend.core.contracts.constraints import water_supply_policy
-from backend.domain.schedule.canonical import canonicalize
+from backend.contexts.constraints.domain.constraints import water_supply_policy
+from backend.contexts.schedule.domain.canonical import canonicalize
+from backend.contexts.optimization.application import environment as _environment
+from backend.contexts.optimization.application import search_use_case as _search_use_case
+from backend.contexts.optimization.application import water_baseline_run as _water_baseline_run
 
-SEARCH_SOURCE = Path(__file__).resolve().parents[1] / "schedule_search.py"
-RUN_SOURCE = Path(__file__).resolve().parents[1] / "search_run.py"
-BASELINE_SOURCE = Path(__file__).resolve().parents[1] / "water_baseline_run.py"
+SEARCH_SOURCE = Path(_environment.__file__)
+RUN_SOURCE = Path(_search_use_case.__file__)
+BASELINE_SOURCE = Path(_water_baseline_run.__file__)
 
 _BUDGET_NAMES = (
     "InjectionBudget",

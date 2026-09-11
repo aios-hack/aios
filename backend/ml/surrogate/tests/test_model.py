@@ -19,8 +19,8 @@ from backend.core.contracts import (  # noqa: E402
     Role,
     StateAtDate,
 )
-from backend.ml.surrogate.features import SurrogateInput, WellStepFeatures  # noqa: E402
-from backend.ml.surrogate.model import (  # noqa: E402
+from backend.contexts.surrogate.domain.features import SurrogateInput, WellStepFeatures  # noqa: E402
+from backend.contexts.surrogate.application.model import (
     TARGET_NAMES,
     _WATERCUT_CEILING,
     _ScenarioBatches,
@@ -33,14 +33,14 @@ from backend.ml.surrogate.model import (  # noqa: E402
     _targets,
     _watercut_row,
     _scenario_money,
-    _spearman,  # noqa: E402
+    _spearman,
     ModelConfig,
     SurrogateModelError,
     TrainingExample,
     TrajectorySurrogate,
     split_examples,
 )
-from backend.ml.surrogate.ood import ScoredPrediction  # noqa: E402
+from backend.contexts.robustness.domain.ood import ScoredPrediction  # noqa: E402
 
 
 WELLS = ("I", "P")
@@ -672,7 +672,7 @@ def test_scenario_batches_reject_unaligned_lengths() -> None:
 
 
 def test_spearman_constant_prediction_has_no_ranking_skill() -> None:
-    from backend.ml.surrogate.model import _spearman
+    from backend.contexts.surrogate.application.model import _spearman
     assert _spearman(torch.ones(4), torch.arange(4.)) == 0.0
     assert _spearman(torch.tensor([1., 1., 3.]), torch.tensor([1., 1., 3.])) == pytest.approx(1.)
 
@@ -721,7 +721,7 @@ def test_measured_defaults_do_not_combine_ranking_loss_with_watercut() -> None:
     """Связка даёт Spearman −0.278 на тесте при ранге +0.930 на валидации:
     ранговый лосс оптимизирует денежный прокси через обводнённость, минуя
     статьи ЧДД, которых в прокси нет. Дефолты не должны её собирать."""
-    from backend.ml.surrogate.train import _parser
+    from backend.contexts.surrogate.application.train import _parser
     args = _parser().parse_args(
         ["--model-dir", ".", "--dataset-root", ".", "--normatives", "n.xlsx",
          "--output-dir", "."]

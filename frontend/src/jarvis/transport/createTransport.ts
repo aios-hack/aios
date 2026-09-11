@@ -1,6 +1,6 @@
-import { createMockTransport } from './mockTransport';
-import { createSseTransport } from './sseTransport';
-import type { JarvisTransport } from './JarvisTransport';
+import { createMockTransport } from '@/jarvis/transport/mockTransport';
+import { createSseTransport } from '@/jarvis/transport/sseTransport';
+import type { JarvisTransport } from '@/jarvis/transport/JarvisTransport';
 
 export type TransportMode = 'mock' | 'sse';
 

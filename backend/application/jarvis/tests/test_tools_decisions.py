@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import pytest
 
-from backend.application.jarvis.artifacts import ArtifactStore
-from backend.application.jarvis.tools import run_tool, tool_specs
-from backend.application.jarvis.tools.context import (
+from backend.contexts.assistant.infrastructure.artifacts import ArtifactStore
+from backend.contexts.assistant.application.tools import run_tool, tool_specs
+from backend.contexts.assistant.application.tools.context import (
     ConsoleContext,
     ToolContext,
     ToolFailure,
 )
-from backend.application.jarvis.tools.decisions import NoTraceEntry
-from backend.application.jarvis.tools.registry import JOURNAL_TOOL, NO_TRACE_ENTRY
+from backend.contexts.assistant.application.tools.decisions import NoTraceEntry
+from backend.contexts.assistant.application.tools.registry import JOURNAL_TOOL, NO_TRACE_ENTRY
 
 WITH_TRACE = "whatif-injection-cut"
 

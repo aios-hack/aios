@@ -13,9 +13,12 @@ from types import MappingProxyType, SimpleNamespace
 from typing import Any, Mapping, Sequence
 
 import pytest
+from backend.contexts.optimization.application import environment as _environment
+from backend.contexts.optimization.application import search_use_case as _search_use_case
+from backend.shared.json_io import read_json
 
-RUN_SOURCE = Path(__file__).resolve().parents[1] / "search_run.py"
-SEARCH_SOURCE = Path(__file__).resolve().parents[1] / "schedule_search.py"
+RUN_SOURCE = Path(_search_use_case.__file__)
+SEARCH_SOURCE = Path(_environment.__file__)
 
 FIELD_NAMES = (
     "schedule_hash",
@@ -73,6 +76,7 @@ def _run_namespace() -> dict[str, object]:
             "Sequence": Sequence,
             "json": json,
             "math": math,
+            "read_json": read_json,
         }
     )
     sys.modules["search_run_slice"] = holder

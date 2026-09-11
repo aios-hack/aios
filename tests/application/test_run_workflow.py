@@ -14,7 +14,7 @@ from backend.application.runs import (
     RunWorkflow,
     WorkflowStatus,
 )
-from backend.application.runs.workflow import SubmissionError
+from backend.contexts.runs.application.workflow import SubmissionError
 from backend.core.contracts import (
     ActiveControlMode,
     Availability,
@@ -32,20 +32,23 @@ from backend.core.contracts import (
     content_hash,
     hash_schedule,
 )
-from backend.domain.configuration.constraints_io import (
+from backend.contexts.constraints.infrastructure.constraints_io import (
     constraints_from_json,
     constraints_hash,
     constraints_to_json,
 )
 from backend.domain.schedule import parse_schedule
-from backend.domain.schedule.build import build_schedule
-from backend.domain.schedule.emit import ScheduleEmitError, verify_schedule_round_trip
-from backend.domain.schedule.validate_dynamic import (
+from backend.contexts.schedule.domain.build import build_schedule
+from backend.contexts.schedule.application.emit import (
+    ScheduleEmitError,
+    verify_schedule_round_trip,
+)
+from backend.contexts.schedule.domain.validate_dynamic import (
     FIRST_CONTROL_DECK_DATE_INDEX,
     DynamicReport,
     validate_dynamic,
 )
-from backend.infrastructure.opm.opm_deck import (
+from backend.contexts.reservoir.infrastructure.opm_deck import (
     render_control_period_include,
     render_schedule_include,
 )
@@ -525,7 +528,7 @@ def test_a_broken_round_trip_gives_no_package(tmp_path, monkeypatch) -> None:
     tampered = genuine.raw.replace(b"'W1' 'OPEN' 'LRAT'", b"'W1' 'SHUT' 'LRAT'", 1)
     assert tampered != genuine.raw
     monkeypatch.setattr(
-        "backend.application.runs.workflow.render_control_period_include",
+        "backend.contexts.runs.application.workflow.render_control_period_include",
         lambda schedule, directory: replace(genuine, raw=tampered),
     )
 

@@ -7,14 +7,14 @@ from typing import Any
 
 import pytest
 
-from backend.application.runs.workflow import (
+from backend.contexts.runs.application.workflow import (
     MANIFEST_PROVENANCE_FIELDS,
     RunManifest,
     RunProvenance,
     WorkflowStatus,
 )
 from backend.core.contracts import Constraints
-from backend.domain.configuration.constraints_io import constraints_hash
+from backend.contexts.constraints.infrastructure.constraints_io import constraints_hash
 
 from .test_search_scoring_and_provenance import (
     _run_search_module,

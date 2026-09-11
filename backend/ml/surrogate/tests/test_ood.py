@@ -39,8 +39,12 @@ from backend.core.contracts import (
     WellState,
 )
 
-from backend.ml.surrogate.features import FeatureContext, HistoryTargets, ScheduleFeatureizer
-from backend.ml.surrogate.ood import (
+from backend.contexts.surrogate.domain.features import (
+    FeatureContext,
+    HistoryTargets,
+    ScheduleFeatureizer,
+)
+from backend.contexts.robustness.domain.ood import (
     CATEGORICAL_FEATURES,
     NUMERIC_FEATURES,
     Exceedance,
@@ -53,7 +57,10 @@ from backend.ml.surrogate.ood import (
     score,
     worst_offenders,
 )
-from backend.ml.surrogate.raw_model_output import RawModelOutput, RawWellStepPrediction
+from backend.contexts.surrogate.domain.raw_model_output import (
+    RawModelOutput,
+    RawWellStepPrediction,
+)
 
 
 def _lambda() -> Lambda:

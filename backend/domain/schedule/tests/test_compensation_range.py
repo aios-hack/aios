@@ -16,17 +16,14 @@ from backend.core.contracts import (
     ActiveControlMode,
     WellState,
 )
-from backend.core.contracts.constraints import (
+from backend.contexts.constraints.domain.constraints import (
     COMPENSATION_ENFORCEMENT,
     COMPENSATION_MAX,
     COMPENSATION_MIN,
     COMPENSATION_SCOPE,
 )
-from backend.domain.schedule.validate import (
-    CONSTRAINT_COMPENSATION,
-    ViolationKind,
-)
-from backend.domain.schedule.validate_dynamic import (
+from backend.contexts.schedule.domain.validate import CONSTRAINT_COMPENSATION, ViolationKind
+from backend.contexts.schedule.domain.validate_dynamic import (
     COMPENSATION_RESERVOIR_CONDITIONS,
     COMPENSATION_SURFACE_CONDITIONS,
     COMPENSATION_SURFACE_NOTICE,

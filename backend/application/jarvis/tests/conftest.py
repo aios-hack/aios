@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.application.jarvis.artifacts import ArtifactStore
+from backend.contexts.assistant.infrastructure.artifacts import ArtifactStore
 
 
 def repo_root() -> Path:

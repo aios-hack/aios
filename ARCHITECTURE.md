@@ -119,7 +119,7 @@ backend/presentation/cli/jarvis.py
 and drop the four call sites that reference them: the proxy import and the two
 `is_jarvis_path` branches in `backend/presentation/cli/web.py`, the `jarvis`
 command in `docker/entrypoint.sh`, the `jarvis` service in
-`docker-compose.yml`, and the Jarvis mount points in `frontend/src/main.tsx`
+`docker-compose.yml`, and the Jarvis mount points in `frontend/src/app/main.tsx`
 and `frontend/src/ui/WorkspaceNav/`. Nothing else in the backend imports the
 module: `backend/infrastructure/llm/client.py`, `explainer.py`, and `diagnostics.py`
 predate Jarvis and stay.

@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import torch
 
-from backend.ml.surrogate.npv_block_head import (
+from backend.contexts.surrogate.domain.npv_block_head import (
     BlockKernelNpvHead,
     BlockNpvHeadError,
     fit_block_head,

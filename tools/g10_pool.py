@@ -17,15 +17,27 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-from backend.infrastructure.resources import model_z_dir, normatives_xlsx
+from backend.shared.resources import model_z_dir, normatives_xlsx
 from backend.core.contracts import OptimizerResult
 from backend.core.contracts.hashing import hash_schedule
 from backend.domain.economics import load_response_artifact
-from backend.application.optimization.schedule_search import load_environment, make_evaluator, make_policy
-from backend.application.optimization.search import optimize
-from backend.application.optimization.search_run import BUDGET, DATASET, FINAL_CAP, LAMBDA, RESPONSE, SEARCH_CAP, SEED
-from backend.domain.policy.fixed_point import resolve
-from backend.domain.policy.theta import default_theta
+from backend.contexts.optimization.application.environment import (
+    load_environment,
+    make_evaluator,
+    make_policy,
+)
+from backend.contexts.optimization.domain.optimizer import optimize
+from backend.contexts.optimization.application.search_use_case import (
+    BUDGET,
+    DATASET,
+    FINAL_CAP,
+    LAMBDA,
+    RESPONSE,
+    SEARCH_CAP,
+    SEED,
+)
+from backend.contexts.policy.domain.fixed_point import resolve
+from backend.contexts.policy.domain.theta import default_theta
 
 OUT = Path("data/g10-verification")
 TOP_K = int(sys.argv[1]) if len(sys.argv) > 1 else 40

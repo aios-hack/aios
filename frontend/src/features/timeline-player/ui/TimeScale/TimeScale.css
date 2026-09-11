@@ -1,0 +1,101 @@
+@import '../TimeScaleTrack/TimeScaleTrack.css';
+@import './TimeScalePlayer.css';
+
+.time-scale {
+  --time-scale-shelf: 62px;
+  --time-scale-hump: 148px;
+  --time-scale-peek: 62px;
+  --time-scale-shift: 0px;
+  --time-scale-crest: 126px;
+  --time-scale-tail: 16px;
+  --time-scale-grip-inset: 12px;
+
+  position: relative;
+  translate: 0 var(--time-scale-shift);
+  transition: translate var(--duration-drawer) var(--ease-emphasis);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  padding: var(--space-5) var(--space-5) 10px;
+  background: transparent;
+}
+
+.time-scale-backdrop {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  overflow: visible;
+  z-index: -1;
+  width: 100%;
+  height: var(--time-scale-hump);
+}
+
+.time-scale-backdrop path {
+  fill: var(--color-surface);
+  stroke: var(--color-border-strong);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(var(--shadow-backdrop));
+}
+
+.time-scale-empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.time-scale[data-collapsed='true'] {
+  --time-scale-shift: calc(100% - var(--time-scale-peek) - var(--time-scale-tail));
+}
+
+.time-scale-grip {
+  position: absolute;
+  bottom: calc(var(--time-scale-crest) - var(--time-scale-grip-inset));
+  left: 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  transform: translateX(-50%);
+  cursor: grab;
+  touch-action: none;
+}
+
+.time-scale-grip:active {
+  cursor: grabbing;
+}
+
+.time-scale-grip-bar {
+  display: block;
+  width: 40px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--color-grip);
+  transition: background var(--duration-state) var(--ease-out),
+    width var(--duration-state) var(--ease-emphasis);
+}
+
+.time-scale-grip:hover .time-scale-grip-bar,
+.time-scale-grip:focus-visible .time-scale-grip-bar {
+  width: 52px;
+  background: var(--color-accent);
+}
+
+.time-scale-grip:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-pill);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .time-scale,
+  .time-scale-grip-bar {
+    transition: none;
+  }
+}

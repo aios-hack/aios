@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from backend.ml.surrogate.ensemble import TrajectoryEnsemble
+from backend.contexts.surrogate.application.ensemble import TrajectoryEnsemble
 
 
 def test_loads_installed_production_ensemble() -> None:

@@ -7,9 +7,9 @@ import pytest
 
 from backend.core.contracts import Constraints, FinalNpvArtifact, RunArtifact, WellOutage
 
-from backend.presentation.ui_export.artifact_io import dump_bundle
-from backend.presentation.ui_export.fixtures import make_synthetic_artifact
-from backend.presentation.ui_export.scenarios import (
+from backend.contexts.showcase.infrastructure.artifact_io import dump_bundle
+from tests.support.backend.showcase_fixtures import make_synthetic_artifact
+from backend.contexts.showcase.application.scenarios import (
     REGRET_PARTS,
     ScenarioRobustness,
     WorstRegret,

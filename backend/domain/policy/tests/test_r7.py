@@ -5,7 +5,7 @@ from dataclasses import replace
 import pytest
 
 from backend.core.contracts import EventKind, Rule
-from backend.core.contracts.policy import MAX_THETA_PARAMS
+from backend.contexts.policy.domain.policy import MAX_THETA_PARAMS
 
 from backend.domain.policy import (
     ADMISSION_CRITERIA,
@@ -22,7 +22,7 @@ from backend.domain.policy import (
     make_theta,
     specs_for,
 )
-from backend.domain.policy.rules import r7
+from backend.contexts.policy.domain.rules import r7
 from backend.domain.policy.tests.conftest import (
     DECIDING_WELLS,
     deciding_context,

@@ -31,7 +31,7 @@ import pytest
 
 from backend.core.contracts import Theta
 
-from backend.application.optimization.verification import (
+from backend.contexts.optimization.application.verification import (
     CandidateCheck,
     SurrogateVerdict,
     TruthVerdict,

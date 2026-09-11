@@ -11,7 +11,7 @@ from backend.core.contracts import (
     Policies,
     QuantizationPolicy,
 )
-from backend.application.optimization.search_run import BASE_NPV
+from backend.contexts.optimization.application.search_use_case import BASE_NPV
 from backend.core.paths import data_root
 from backend.domain.economics import (
     ESP_CATALOG_2007,
@@ -22,7 +22,7 @@ from backend.domain.economics import (
     format_report,
     load_response_artifact,
 )
-from backend.domain.economics.decomposition import MACHINE_RELATIVE_TOLERANCE
+from backend.contexts.economics.domain.decomposition import MACHINE_RELATIVE_TOLERANCE
 from backend.domain.schedule import parse_schedule
 
 from conftest import missing_reason, model_z_schedule

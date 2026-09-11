@@ -14,7 +14,7 @@ from backend.core.contracts import (
     StateAtDate,
     WellState,
 )
-from backend.core.contracts.constraints import (
+from backend.contexts.constraints.domain.constraints import (
     REGION_PRESSURE_CEILING_BAR,
     REGION_PRESSURE_FLOOR_BAR,
     SOURCE_ORGANIZER,
@@ -22,13 +22,13 @@ from backend.core.contracts.constraints import (
     region_pressure_limits,
     source_key,
 )
-from backend.domain.schedule.validate import (
+from backend.contexts.schedule.domain.validate import (
     CONSTRAINT_REGION_PRESSURE,
     STATUS_CHECKED,
     STATUS_NOT_SET,
     ViolationKind,
 )
-from backend.domain.schedule.validate_dynamic import (
+from backend.contexts.schedule.domain.validate_dynamic import (
     BLOCKING_DYNAMIC_VIOLATION_KINDS,
     CONSTRAINT_FIELD_COVERAGE,
     DYNAMIC_VIOLATION_KINDS,

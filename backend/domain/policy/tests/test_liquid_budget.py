@@ -16,11 +16,8 @@ from backend.domain.policy import (
     group_liquid_demand_rub_per_day,
     run_step,
 )
-from backend.domain.policy.budget import (
-    liquid_limit_for_step,
-    production_floor_for_step,
-)
-from backend.domain.policy.rules import r2
+from backend.contexts.policy.domain.budget import liquid_limit_for_step, production_floor_for_step
+from backend.contexts.policy.domain.rules import r2
 from backend.domain.policy.tests.conftest import (
     groups_of,
     influence_of,

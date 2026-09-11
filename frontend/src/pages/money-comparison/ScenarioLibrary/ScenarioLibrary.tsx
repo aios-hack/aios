@@ -1,0 +1,162 @@
+import type { ScenarioEntry } from '@/entities/scenarios/types';
+import { useDataset } from '@/entities';
+import { useI18n } from '@/shared/i18n/I18nContext';
+import { DEFAULT_SCENARIO_ID, useScenario } from '@/entities/scenarios/model/ScenarioContext';
+import { ViewStatus } from '@/shared/ui/ViewStatus';
+import { formatNumber } from '@/shared/lib/format';
+import './ScenariosLibrary.css';
+
+const summaryOf = (entry: ScenarioEntry): number =>
+  entry.constraints.injection_limits +
+  entry.constraints.liquid_limits +
+  entry.constraints.production_floors +
+  entry.constraints.watercut_limits +
+  entry.constraints.well_outages +
+  entry.constraints.infrastructure;
+
+export const ScenarioLibrary = () => {
+  const { t, lang } = useI18n();
+  const { activeId, selectScenario } = useScenario();
+  const index = useDataset('scenarios');
+
+  if (index.status === 'loading') {
+    return <ViewStatus kind="loading" title={t('scenarios.library.loading')} />;
+  }
+  if (index.status === 'error') {
+    return (
+      <ViewStatus
+        kind="error"
+        title={t('scenarios.library.error')}
+        hint={t('scenarios.library.errorHint')}
+      />
+    );
+  }
+  if (index.data.scenarios.length === 0) {
+    return (
+      <ViewStatus
+        kind="empty"
+        title={t('scenarios.library.empty')}
+        hint={t('scenarios.library.emptyHint')}
+      />
+    );
+  }
+
+  return (
+    <section className="scenarios-library">
+      <h3 className="scenarios-heading">{t('scenarios.library.title')}</h3>
+      <p className="scenarios-note">{t('scenarios.library.note')}</p>
+      <ul className="scenarios-list">
+        {index.data.scenarios.map((entry, position) => {
+          const active =
+            entry.id === activeId || (activeId === DEFAULT_SCENARIO_ID && position === 0);
+          return (
+            <li key={entry.id}>
+              <button
+                type="button"
+                className="scenarios-item"
+                data-scenario-id={entry.id}
+                data-submitted={entry.is_submitted}
+                data-active={active}
+                aria-pressed={active}
+                onClick={() => selectScenario(entry.id)}
+              >
+                <span className="scenarios-item-head">
+                  <span className="scenarios-item-id">{entry.id}</span>
+                  <span
+                    className="scenarios-badge"
+                    data-kind={entry.is_submitted ? 'submitted' : 'whatif'}
+                  >
+                    {t(entry.is_submitted ? 'scenarios.badge.submitted' : 'scenarios.badge.whatIf')}
+                  </span>
+                </span>
+                <span className="scenarios-item-state" data-active={active}>
+                  {t(active ? 'scenarios.library.active' : 'scenarios.library.switch')}
+                </span>
+                {(!entry.converged || !entry.self_consistent) && (
+                  <span className="scenarios-item-flags">
+                    {!entry.converged && (
+                      <span className="scenarios-flag" data-ok="false">
+                        {t('scenarios.flag.notConverged')}
+                      </span>
+                    )}
+                    {!entry.self_consistent && (
+                      <span className="scenarios-flag" data-ok="false">
+                        {t('scenarios.flag.notSelfConsistent')}
+                      </span>
+                    )}
+                  </span>
+                )}
+                <span className="scenarios-item-npv">
+                  <span className="scenarios-item-npv-label">
+                    <span>{t('scenarios.library.npvLabel')}</span>
+                    <span className="scenarios-item-basis">
+                      {entry.npv_methodology === null
+                        ? t('scenarios.library.npvMissingHint')
+                        : t('scenarios.library.npvBasis')}
+                    </span>
+                  </span>
+                  {entry.npv_methodology === null ? (
+                    <span className="scenarios-item-missing">
+                      {t('scenarios.library.npvMissing')}
+                    </span>
+                  ) : (
+                    <span className="scenarios-item-metric">
+                      {formatNumber(lang, entry.npv_methodology)}
+                    </span>
+                  )}
+                </span>
+                {typeof entry.ood_score === 'number' &&
+                  typeof entry.ood_threshold === 'number' && (
+                    <span className="scenarios-item-summary">
+                      <span className="scenarios-item-npv-label">
+                        <span>{t('scenarios.library.oodLabel')}</span>
+                        <span className="scenarios-item-basis">
+                          {t(
+                            entry.ood_score > entry.ood_threshold
+                              ? 'scenarios.library.oodOver'
+                              : 'scenarios.library.oodOk',
+                            { threshold: formatNumber(lang, entry.ood_threshold, 2) }
+                          )}
+                        </span>
+                      </span>
+                      <span
+                        className="scenarios-item-metric"
+                        data-alert={entry.ood_score > entry.ood_threshold}
+                      >
+                        {formatNumber(lang, entry.ood_score, 2)}
+                      </span>
+                    </span>
+                  )}
+                {entry.worst_regret != null && (
+                  <span className="scenarios-item-summary">
+                    <span className="scenarios-item-npv-label">
+                      <span>{t('scenarios.library.regretLabel')}</span>
+                      <span className="scenarios-item-basis">
+                        {t('scenarios.library.regretOn', {
+                          scenario: entry.worst_regret.scenario_id
+                        })}
+                      </span>
+                    </span>
+                    <span className="scenarios-item-metric">
+                      {formatNumber(lang, entry.worst_regret.value_rub)}
+                    </span>
+                  </span>
+                )}
+                <span className="scenarios-item-summary">
+                  {entry.constraints.empty ? (
+                    <span>{t('scenarios.library.noConstraints')}</span>
+                  ) : (
+                    <>
+                      <span>{t('scenarios.library.constraintsLabel')}</span>
+                      <span className="scenarios-item-metric">{summaryOf(entry)}</span>
+                    </>
+                  )}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+};

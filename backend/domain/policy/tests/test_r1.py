@@ -7,7 +7,7 @@ import pytest
 from backend.core.contracts import EventKind, NormativeSet, Rule
 
 from backend.domain.policy import RuleContext, RuleFlags, apply_rule, default_theta
-from backend.domain.policy.rules import r1
+from backend.contexts.policy.domain.rules import r1
 from backend.domain.policy.tests.conftest import (
     OIL_DENSITY_T_PER_M3,
     influence_of,

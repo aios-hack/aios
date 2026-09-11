@@ -8,11 +8,11 @@ from pathlib import Path
 
 import pytest
 
-from backend.application.optimization.runtime_artifacts import (
+from backend.contexts.optimization.infrastructure.artifacts import (
     RuntimeArtifactError,
     verify_bundle,
 )
-from backend.application.optimization.schedule_search import (
+from backend.contexts.optimization.application.environment import (
     LambdaDesyncError,
     _lambda_strict_enabled,
     lambda_sync_provenance,
@@ -20,10 +20,10 @@ from backend.application.optimization.schedule_search import (
 )
 from backend.core.contracts import Lambda
 from backend.core.paths import data_root
-from backend.domain.connectivity.measure import load_lambda
-from backend.ml.surrogate.features import FeatureContext, HistoryTargets
-from backend.ml.surrogate.model_z_context import ModelZFeatureArtifact
-from backend.presentation.cli import surrogate_release
+from backend.contexts.connectivity.domain.measure import load_lambda
+from backend.contexts.surrogate.domain.features import FeatureContext, HistoryTargets
+from backend.contexts.surrogate.infrastructure.model_z_context import ModelZFeatureArtifact
+from backend.interfaces.cli.surrogate import release as surrogate_release
 
 
 def _lambda(seed: float) -> Lambda:

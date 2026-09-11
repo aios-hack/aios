@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from backend.application.jarvis.guard import (
+from backend.contexts.assistant.domain.guard import (
     allowed_numbers,
     collect_numbers,
     guard_caption,

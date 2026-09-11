@@ -5,15 +5,15 @@ from pathlib import Path
 
 import pytest
 
-from backend.presentation.ui_export.artifact_io import dump_bundle
-from backend.presentation.ui_export.fixtures import make_synthetic_artifact
-from backend.presentation.ui_export.physics_view import (
+from backend.contexts.showcase.infrastructure.artifact_io import dump_bundle
+from tests.support.backend.showcase_fixtures import make_synthetic_artifact
+from backend.contexts.showcase.application.exporters.physics_view import (
     PHYSICS_INVARIANTS,
     PHYSICS_TOTAL,
     ScenarioPhysics,
     physics_json,
 )
-from backend.presentation.ui_export.scenarios import (
+from backend.contexts.showcase.application.scenarios import (
     ScenarioRobustness,
     build_scenario_index,
     export_scenarios_json,

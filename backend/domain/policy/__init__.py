@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from backend.domain.policy.economics import (
+from backend.contexts.policy.domain.economics import (
     DAYS_PER_YEAR,
     annual_margin_rub,
     breakeven_watercut,
     oil_margin_rub_per_m3_liquid,
     oil_margin_rub_per_t,
 )
-from backend.domain.policy.fixed_point import (
+from backend.contexts.policy.domain.fixed_point import (
     Evaluation,
     Evaluator,
     FixedPointResult,
@@ -15,13 +15,13 @@ from backend.domain.policy.fixed_point import (
     Visited,
     resolve,
 )
-from backend.domain.policy.flags import (
+from backend.contexts.policy.domain.flags import (
     DEFAULT_RULE_FLAGS,
     IMPLEMENTED_RULES,
     RuleFlags,
     all_off,
 )
-from backend.domain.policy.agents import (
+from backend.contexts.policy.domain.agents import (
     Agent,
     AgentRegistry,
     DEFAULT_AGENTS,
@@ -37,7 +37,7 @@ from backend.domain.policy.agents import (
     project_to_hard_constraints,
     with_agents,
 )
-from backend.domain.policy.hierarchy import (
+from backend.contexts.policy.application.hierarchy import (
     FIELD_AGENT,
     FieldAllocation,
     GroupDecision,
@@ -59,14 +59,14 @@ from backend.domain.policy.hierarchy import (
     run_step,
     wells_without_group,
 )
-from backend.domain.policy.memory import (
+from backend.contexts.policy.domain.memory import (
     NO_EVENT,
     PolicyMemory,
     WellMemory,
     esp_size_for,
     esp_upgrade_cost_rub,
 )
-from backend.domain.policy.rules import (
+from backend.contexts.policy.domain.rules import (
     ADMISSION_CRITERIA,
     RULE_FUNCTIONS,
     SUPERSEDED_WHEN_ON,
@@ -77,8 +77,8 @@ from backend.domain.policy.rules import (
     merge,
     superseded,
 )
-from backend.domain.policy.state import PolicyState, RuleContext, WellObservation
-from backend.domain.policy.trace import (
+from backend.contexts.policy.domain.state import PolicyState, RuleContext, WellObservation
+from backend.contexts.policy.domain.trace import (
     TRACE_FORMAT,
     RunResultWithTrace,
     RunTrace,
@@ -92,7 +92,7 @@ from backend.domain.policy.trace import (
     to_payload,
     trace_hash,
 )
-from backend.domain.policy.theta import (
+from backend.contexts.policy.domain.theta import (
     DEFAULT_THETA_REGISTRY,
     SPECS,
     THETA_CAP,

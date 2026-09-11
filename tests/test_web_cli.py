@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from backend.presentation.cli import web
+from backend.interfaces.cli import web
 
 
 def test_web_server_handles_requests_concurrently(monkeypatch, tmp_path) -> None:

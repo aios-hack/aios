@@ -11,11 +11,8 @@ from typing import Mapping, Sequence
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from backend.core.contracts import Lambda
-from backend.domain.connectivity.campaign import CampaignError
-from backend.domain.connectivity.measure import (
-    artifact_id,
-    load_lambda_with_provenance,
-)
+from backend.contexts.connectivity.application.campaign import CampaignError
+from backend.contexts.connectivity.domain.measure import artifact_id, load_lambda_with_provenance
 
 
 class LambdaCompareError(RuntimeError):

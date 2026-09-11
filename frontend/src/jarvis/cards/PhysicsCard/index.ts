@@ -1,0 +1,1 @@
+export { PhysicsCard } from './PhysicsCard';

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.application.cases import (
+from backend.contexts.constraints.application.cases import (
     REFUSED_SECTIONS,
     TOP_LEVEL_SECTIONS,
     YEAR_SECTIONS,
@@ -14,7 +14,7 @@ from backend.application.cases import (
     load_case,
 )
 from backend.core.contracts import Constraints
-from backend.domain.configuration.constraints_io import (
+from backend.contexts.constraints.infrastructure.constraints_io import (
     constraints_from_json as io_constraints_from_json,
     constraints_hash,
     constraints_to_json,

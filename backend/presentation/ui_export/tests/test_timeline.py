@@ -9,8 +9,8 @@ import pytest
 
 from backend.core.contracts import ControlEvent, EventKind, Rule, RunArtifact, TraceEntry
 
-from backend.presentation.ui_export.fixtures import make_synthetic_artifact
-from backend.presentation.ui_export.timeline import (
+from tests.support.backend.showcase_fixtures import make_synthetic_artifact
+from backend.contexts.showcase.application.exporters.timeline import (
     COMPENSATION_NORM_MAX,
     COMPENSATION_NORM_MIN,
     build_timeline,
@@ -18,6 +18,7 @@ from backend.presentation.ui_export.timeline import (
     export_timeline_json,
     export_trace_json,
 )
+from backend.contexts.showcase.application.exporters import timeline as _src_timeline
 
 DENSITIES = {"10": 900.0, "11": 910.0, "12": 920.0, "13": 930.0, "14": 940.0}
 
@@ -251,7 +252,7 @@ def test_field_norms_survive_the_export(tmp_path: Path) -> None:
 
 
 def test_no_deck_scale_literals_in_source() -> None:
-    source = (Path(__file__).resolve().parents[1] / "timeline.py").read_text(
+    source = (Path(_src_timeline.__file__)).read_text(
         encoding="utf-8"
     )
     for literal in ("146", "147", "225", "103"):

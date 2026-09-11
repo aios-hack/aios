@@ -19,7 +19,7 @@ from backend.core.contracts import (
     WellOutage,
     WellState,
 )
-from backend.domain.schedule.case_limits import (
+from backend.contexts.schedule.domain.case_limits import (
     CaseLimitsForecastRequired,
     CaseLimitsNotConverged,
     YearlyProduction,

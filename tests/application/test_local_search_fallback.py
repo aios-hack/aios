@@ -2,7 +2,7 @@ import json
 from types import SimpleNamespace
 from unittest.mock import patch
 import pytest
-from backend.application.optimization import search_run as search
+from backend.contexts.optimization.application import search_use_case as search
 from datetime import date
 
 from backend.core.contracts import (

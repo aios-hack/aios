@@ -5,7 +5,7 @@ import pytest
 from backend.core.contracts import MAX_LRAT_M3_PER_DAY, EventKind, Rule
 
 from backend.domain.policy import RuleContext, RuleFlags, apply_rule, make_theta
-from backend.domain.policy.rules import r2
+from backend.contexts.policy.domain.rules import r2
 from backend.domain.policy.tests.conftest import producer, state_of
 
 

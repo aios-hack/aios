@@ -6,8 +6,11 @@ import pytest
 import torch
 
 from backend.core.contracts import canonical_bytes
-from backend.ml.surrogate.npv_target import TARGET_PROVENANCE_FORMAT, TARGET_SOURCE_FILES
-from backend.presentation.cli.surrogate_tools.surrogate_train_tensors import _exact_targets
+from backend.contexts.surrogate.domain.npv_target import (
+    TARGET_PROVENANCE_FORMAT,
+    TARGET_SOURCE_FILES,
+)
+from backend.interfaces.cli.surrogate.tools.surrogate_train_tensors import _exact_targets
 
 
 def _inputs():

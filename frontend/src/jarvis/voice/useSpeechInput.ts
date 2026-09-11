@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useI18n } from '../../i18n/I18nContext';
+import { useI18n } from '@/shared/i18n/I18nContext';
 import {
   collectTranscript,
   recognitionConstructor,
   recognitionLang,
   speechSupported,
   type SpeechRecognitionLike
-} from './speechTypes';
+} from '@/jarvis/voice/speechTypes';
 
 export const SILENCE_RMS = 0.06;
 export const SILENCE_MS = 900;

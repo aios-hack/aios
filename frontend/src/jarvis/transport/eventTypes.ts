@@ -1,5 +1,5 @@
-import type { Workspace, WorkspaceView } from '../../state/ConsoleContext';
-import type { ConsoleAction } from '../actions/consoleAction';
+import type { Workspace, WorkspaceView } from '@/shared/router/routes';
+import type { ConsoleAction } from '@/jarvis/actions/lib/consoleAction';
 
 export const CARD_TYPES = [
   'metric',

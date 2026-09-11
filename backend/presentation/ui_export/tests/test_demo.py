@@ -16,11 +16,14 @@ from backend.core.contracts import (
     RunArtifact,
     T0,
 )
-from backend.core.contracts.response import N_DECK_DATES
-from backend.presentation.ui_export.artifact_io import load_bundle
-from backend.presentation.ui_export.base_artifact import DEFAULT_RESPONSE_PATH, REAL_PROVENANCE
-from backend.presentation.ui_export.deck import load_wellheads
-from backend.presentation.ui_export.demo import (
+from backend.contexts.reservoir.domain.response import N_DECK_DATES
+from backend.contexts.showcase.infrastructure.artifact_io import load_bundle
+from backend.contexts.showcase.application.base_artifact import (
+    DEFAULT_RESPONSE_PATH,
+    REAL_PROVENANCE,
+)
+from backend.contexts.reservoir.application.deck import load_wellheads
+from backend.contexts.showcase.application.build_showcase import (
     _DEFAULT_DENSITY,
     BASE_ID,
     TARGET_TOTAL_MS,
@@ -32,13 +35,17 @@ from backend.presentation.ui_export.demo import (
     export_demo_script_json,
     field_events,
 )
-from backend.presentation.ui_export.demo_artifact import DEMO_PROVENANCE, DEMO_SEED, build_demo_artifact
-from backend.presentation.ui_export.fixtures import make_synthetic_artifact
-from backend.presentation.ui_export.graph_view import build_lambda_graph
-from backend.presentation.ui_export.npv_view import build_npv_by_well
-from backend.presentation.ui_export.scenarios import build_scenario_index
-from backend.presentation.ui_export.timeline import build_timeline, build_trace
-from backend.presentation.ui_export.webdata import DEFAULT_DECK_PATH
+from backend.contexts.showcase.infrastructure.synthetic_artifact import (
+    DEMO_PROVENANCE,
+    DEMO_SEED,
+    build_demo_artifact,
+)
+from tests.support.backend.showcase_fixtures import make_synthetic_artifact
+from backend.contexts.showcase.application.exporters.graph_view import build_lambda_graph
+from backend.contexts.showcase.application.exporters.npv_view import build_npv_by_well
+from backend.contexts.showcase.application.scenarios import build_scenario_index
+from backend.contexts.showcase.application.exporters.timeline import build_timeline, build_trace
+from backend.contexts.reservoir.application.well_geometry import DEFAULT_DECK_PATH
 
 from conftest import missing_reason
 

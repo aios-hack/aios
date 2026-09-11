@@ -15,7 +15,7 @@ from backend.domain.policy import (
     default_theta,
     run_step,
 )
-from backend.domain.policy.agents import (
+from backend.contexts.policy.domain.agents import (
     DEFAULT_REGISTRY,
     AgentRegistry,
     FieldCoordinator,
@@ -23,14 +23,14 @@ from backend.domain.policy.agents import (
     Proposal,
     WellExecutor,
 )
-from backend.domain.policy.agents.base import (
+from backend.contexts.policy.domain.agents.base import (
     Bound,
     BoundSense,
     Verdict,
     merge_bounds,
     merge_proposals,
 )
-from backend.domain.policy.agents.registry import rank_of
+from backend.contexts.policy.domain.agents.registry import rank_of
 from backend.domain.policy.tests.conftest import (
     groups_of,
     influence_of,

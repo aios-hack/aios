@@ -5,19 +5,19 @@ from pathlib import Path
 
 import pytest
 
-from backend.application.optimization.runtime_artifacts import (
+from backend.contexts.optimization.infrastructure.artifacts import (
     CONSERVATIVE_OOD_THRESHOLD,
     RuntimeArtifactError,
     resolve_ood_threshold,
 )
-from backend.application.optimization.search_run import (
+from backend.contexts.optimization.application.search_use_case import (
     SearchRunError,
     _ood_threshold_decision,
     _soft_penalty_enabled,
     _soft_penalty_rate,
     incumbent_gate_passed,
 )
-from backend.application.optimization.schedule_search import (
+from backend.contexts.optimization.application.environment import (
     ScheduleSearchError,
     SearchEnvironment,
     apply_ood_penalty,
@@ -34,6 +34,7 @@ from tools.ood_calibration import (
     load_calibration,
     write_artifact,
 )
+from backend.contexts.optimization.application import environment as _src_environment
 
 REAL_RUNS = Path(__file__).resolve().parents[4] / "out" / "web-runs"
 
@@ -450,18 +451,14 @@ def test_the_environment_defaults_to_the_hard_rejection() -> None:
 
 
 def test_enabling_the_penalty_without_a_rate_is_refused_not_silently_disarmed() -> None:
-    source = Path(
-        __file__
-    ).resolve().parents[1].joinpath("schedule_search.py").read_text(encoding="utf-8")
+    source = Path(_src_environment.__file__).read_text(encoding="utf-8")
 
     assert "if ood_soft_penalty and ood_penalty_per_unit <= 0.0:" in source
     assert "снятой охраны" in source
 
 
 def test_the_evaluator_only_penalizes_when_the_option_is_on() -> None:
-    source = Path(
-        __file__
-    ).resolve().parents[1].joinpath("schedule_search.py").read_text(encoding="utf-8")
+    source = Path(_src_environment.__file__).read_text(encoding="utf-8")
 
     assert "if env.ood_soft_penalty:" in source
     assert "_enforce_scenario_ood(model_input, env.model, env.scenario_ood)" in source

@@ -33,7 +33,7 @@ from backend.core.contracts import (
     StateAtDate,
 )
 
-from backend.ml.surrogate.metrics import (
+from backend.contexts.surrogate.domain.metrics import (
     MetricsError,
     WellTrajectory,
     accept_against_baseline,

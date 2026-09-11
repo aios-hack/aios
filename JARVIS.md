@@ -239,7 +239,7 @@ open ─(close)─▶ shrinking ─220ms─▶ turning ─600ms─▶ settling �
 
 При `prefers-reduced-motion` анимации нет: сфера просто исчезает и появляется.
 
-Математика вынесена в `frontend/src/jarvis/sphere/sphereBurst.ts` (`burstModeOf`, `burstFrameAt`) и покрыта
+Математика вынесена в `frontend/src/jarvis/sphere/lib/sphereBurst.ts` (`burstModeOf`, `burstFrameAt`) и покрыта
 тестами; фаза → режим: `shrinking` → `collapse`, `settling` → `materialize`, остальное →
 `none`.
 
@@ -602,9 +602,9 @@ src/jarvis/
 ```
 
 Точки врезки в существующий код (минимальные):
-- `frontend/src/main.tsx` — `<JarvisProvider>` и `<JarvisStage>` вокруг `<App/>`;
-- `frontend/src/ui/WorkspaceNav/WorkspaceNav.tsx` — слот сферы после tablist;
-- `frontend/src/app/useHotkeys.ts` — клавиша `J`;
+- `frontend/src/app/main.tsx` — `<JarvisProvider>` и `<JarvisStage>` вокруг `<App/>`;
+- `frontend/src/features/workspace-nav/ui/WorkspaceNav/WorkspaceNav.tsx` — слот сферы после tablist;
+- `frontend/src/features/timeline-player/model/useHotkeys.ts` — клавиша `J`;
 - `src/theme/tokens.*.css`, `tokens.test.ts` — токены и их проверка;
 - `vite.config.ts` — `server.proxy['/api/jarvis'] → http://localhost:8010`.
 
@@ -764,14 +764,14 @@ backend/
 
 ### 11.2 Инструменты
 
-Схемы в терминах JSON Schema; поля артефактов — по `frontend/src/api/types.ts`.
+Схемы в терминах JSON Schema; поля артефактов — по `frontend/src/entities`.
 
 | Инструмент | Вход | Выход (payload карточки) |
 |---|---|---|
 | `well_snapshot` | `{well, step?}` (step по умолчанию — из контекста) | `well`: `{well, role, availability, operating_status, liquid_rate, injection_rate, watercut, bhp, setpoint, npv, spark:[{step,value}]}` |
 | `well_series` | `{well, metric: liquid_rate\|injection_rate\|watercut\|bhp, from_step, to_step}` | `series`: `{metric, unit, rows:[{step,date,value}], window?:[from,to]}` |
 | `field_metrics` | `{step?}` | `metric[]`: `{id, label, value, unit, delta?, spark}` |
-| `field_events` | `{from_step, to_step, types?}` | `event-strip`: `{events:[{step,date,well,type}]}` — из той же логики, что `frontend/src/app/events.ts` |
+| `field_events` | `{from_step, to_step, types?}` | `event-strip`: `{events:[{step,date,well,type}]}` — из той же логики, что `frontend/src/entities/events/derive.ts` |
 | `explain_decision` | `{well, step}` | `rule`: `{rule, name, statement, inputs:{…}, decision, why}` — из `explainer.explain_decision` |
 | `rank_wells` | `{by: npv\|watercut\|liquid_rate\|injection_rate, order, limit≤10, step?}` | `well-list`: `{by, unit, rows:[{well, value, share?}]}` |
 | `rule_impact` | `{rule?}` | `rule[]` или сводка `{npv_total, rules:[{rule,delta,share,measured}]}` |
@@ -914,7 +914,7 @@ interface ConsoleAction {
       сброса: `useConsoleActions` снимал `pending` на первом же кадре, когда шаг и скважина
       совпали, а `TimelineProvider` сбрасывал их эффектом на смену `activeId` уже после этого.
       Исправлено флагом `settled` в `Pending`: отложенное применение держится ещё один проход
-      эффекта и переживает сброс. Тест `frontend/src/jarvis/actions/useConsoleActions.test.tsx` (3 кейса) на
+      эффекта и переживает сброс. Тест `tests/frontend/jarvis/actions/useConsoleActions.test.tsx` (3 кейса) на
       настоящих провайдерах; без флага падает.
 - [x] **F-18** Голос: `useSpeechInput` (interim, язык из i18n), скрытие mic без поддержки,
       `useMicLevel` → `u_audio`, push-to-talk на `Space`.
@@ -952,7 +952,7 @@ interface ConsoleAction {
 - [x] **B-05** `wells.py`: `well_snapshot`, `well_series`. Тест: скважина 45, несуществующая,
       `null` в обводнённости остаётся `null`.
 - [x] **B-06** `fields.py`: `field_metrics`, `field_events` (та же логика событий, что в
-      `frontend/src/app/events.ts` — продублировать нельзя, поэтому описать правило в тесте
+      `frontend/src/entities/events/derive.ts` — продублировать нельзя, поэтому описать правило в тесте
       и сверить на 2015 годе с фронтовым результатом по фикстуре).
 - [x] **B-07** `rules.py`: `explain_decision` поверх `explainer.explain_decision`,
       `rule_impact` из ablation с признаком `measured`.

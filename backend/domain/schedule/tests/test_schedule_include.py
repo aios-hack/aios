@@ -14,7 +14,7 @@ from backend.core.contracts import (
     hash_schedule,
 )
 from backend.domain.schedule import build_schedule, parse_schedule
-from backend.domain.schedule.emit import (
+from backend.contexts.schedule.application.emit import (
     ScheduleEmitError,
     ScheduleRoundTripReport,
     verify_schedule_round_trip,

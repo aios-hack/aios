@@ -1,16 +1,16 @@
-from backend.domain.configuration.io import (
+from backend.contexts.constraints.infrastructure.io import (
     ConfigError,
     dump_config,
     load_config,
     parse_config,
 )
-from backend.domain.configuration.normatives import (
+from backend.contexts.constraints.domain.normatives import (
     NORMATIVE_FIELDS,
     NormativeSource,
     NormativesLoader,
     normatives_from_mapping,
 )
-from backend.domain.configuration.schema import (
+from backend.contexts.constraints.domain.schema import (
     COMPONENT_SEEDS,
     DEFAULT_BUDGETS,
     DEFAULT_CONNECTIVITY_MEASUREMENT,

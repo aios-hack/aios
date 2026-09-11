@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from backend.core.contracts import RunResult, RunStatus
-from backend.infrastructure.opm.runner import (
+from backend.contexts.simulation.infrastructure.runner import (
     BUDGET_CASE_ENV,
     BUDGET_INITIATOR_ENV,
     BUDGET_JOURNAL_ENV,

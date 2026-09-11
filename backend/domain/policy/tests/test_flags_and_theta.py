@@ -5,7 +5,7 @@ from dataclasses import replace
 import pytest
 
 from backend.core.contracts import Rule, Theta
-from backend.core.contracts.policy import MAX_THETA_PARAMS
+from backend.contexts.policy.domain.policy import MAX_THETA_PARAMS
 
 from backend.domain.policy import (
     ADMISSION_CRITERIA,
@@ -26,7 +26,7 @@ from backend.domain.policy import (
     make_theta,
     specs_for,
 )
-from backend.domain.policy.theta import RESERVED_FOR_R7, total_budget_ok
+from backend.contexts.policy.domain.theta import RESERVED_FOR_R7, total_budget_ok
 from backend.domain.policy.tests.conftest import DECIDING_WELLS, deciding_context, state_of
 
 DECIDING_STATE_WELLS = DECIDING_WELLS
