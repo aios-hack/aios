@@ -21,6 +21,13 @@ const dropJarvisFixtures = (): Plugin => {
 
 export default defineConfig({
   plugins: [react(), dropJarvisFixtures()],
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, 'src'),
+      '@tests': resolve(__dirname, '..', 'tests', 'frontend'),
+      '@support': resolve(__dirname, '..', 'tests', 'support', 'frontend')
+    }
+  },
   server: {
     proxy: {
       '/api': {
