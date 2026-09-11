@@ -36,7 +36,7 @@ import { CELL_HEIGHT, CELL_WIDTH, CELL_WIDTH_MAX, GUTTER_LEFT, GUTTER_RIGHT, GUT
 const CELL_FILL_HEIGHT = CELL_HEIGHT - ROW_GAP;
 const CELL_FILL_WIDTH = CELL_WIDTH - COLUMN_GAP;
 import { buildRows, sortRows, ungroupedCount } from '@/pages/history-matrix/model/sortRows';
-import { CHRONOMAP_CSS, hidesVisuallyOnly } from '@support/layout';
+import { CHRONO_TOOLTIP_CSS, hidesVisuallyOnly } from '@support/layout';
 import {
   CURSOR_HALO_WIDTH,
   CURSOR_INK_WIDTH,
@@ -1210,7 +1210,7 @@ describe('readout placement', () => {
 
   it('drives the flip from a shift property, never from an upward pixel translate (V11)', () => {
     const css = readFileSync(
-      CHRONOMAP_CSS,
+      CHRONO_TOOLTIP_CSS,
       'utf-8'
     );
 

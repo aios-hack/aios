@@ -266,6 +266,25 @@ def _module_ast(path: Path) -> ast.Module:
     return ast.parse(path.read_text(encoding="utf-8"))
 
 
+def _context_module_ast(path: Path) -> ast.Module:
+    root = path.parent.parent
+    body: list[ast.stmt] = []
+    for source in sorted(root.rglob("*.py")):
+        if "__pycache__" in source.parts:
+            continue
+        body.extend(ast.parse(source.read_text(encoding="utf-8")).body)
+    return ast.Module(body=body, type_ignores=[])
+
+
+def _context_source(path: Path) -> str:
+    root = path.parent.parent
+    return chr(10).join(
+        source.read_text(encoding="utf-8")
+        for source in sorted(root.rglob("*.py"))
+        if "__pycache__" not in source.parts
+    )
+
+
 def _function_def(module: ast.Module, name: str) -> ast.FunctionDef:
     return next(
         node
@@ -275,7 +294,7 @@ def _function_def(module: ast.Module, name: str) -> ast.FunctionDef:
 
 
 def test_sigma_is_asked_for_only_on_the_final_recompute() -> None:
-    source = ast.unparse(_function_def(_module_ast(RUN_SOURCE), "run_search"))
+    source = ast.unparse(_function_def(_context_module_ast(RUN_SOURCE), "run_search"))
 
     assert "make_evaluator(env, with_sigma=True)" in source
     assert (

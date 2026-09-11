@@ -5,6 +5,7 @@ import { frontendPath, srcPath } from '@support/paths';
 import {
   BASE_STYLES_CSS,
   CHRONOMAP_CSS,
+  CHRONO_TOOLTIP_CSS,
   CONSOLE_SHELL_CSS,
   FIELD_MAP_CARD_DIR,
   PALETTE_CSS,
@@ -563,10 +564,7 @@ describe('the mode fills stay comfortable across a full-screen matrix', () => {
   });
 
   it('light: a mode label uses an ink dark enough to read, never the pale fill', () => {
-    const chronomapCss = readFileSync(
-      CHRONOMAP_CSS,
-      'utf-8'
-    );
+    const chronomapCss = readFileSync(CHRONO_TOOLTIP_CSS, 'utf-8');
     const block = chronomapCss.match(
       /\.chronomap-readout-mode\[data-mode='production'\]\s*\{[^}]*\}/
     )?.[0] ?? '';

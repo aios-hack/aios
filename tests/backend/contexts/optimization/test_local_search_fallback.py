@@ -2,6 +2,8 @@ import json
 from types import SimpleNamespace
 from unittest.mock import patch
 import pytest
+
+from backend.contexts.optimization.application import baseline_search
 from backend.contexts.optimization.application import search_use_case as search
 from datetime import date
 
@@ -84,10 +86,10 @@ def test_fallback_cannot_return_baseline_violating_case(tmp_path):
         model=None,
         lambda_=_lambda(),
     )
-    with patch.object(search, 'SEARCH_DIAGNOSTICS', diagnostics), patch.object(search, 'validate_static') as validate:
+    with patch.object(baseline_search, 'SEARCH_DIAGNOSTICS', diagnostics), patch.object(baseline_search, 'validate_static') as validate:
         validate.return_value = SimpleNamespace(ok=False, violations=('outage',))
         with pytest.raises(search.SearchRunError):
-            search._search_near_baseline(env, None, 3, {})
+            baseline_search._search_near_baseline(env, None, 3, {})
     recorded = json.loads(diagnostics.read_text(encoding='utf-8'))['evaluations'][0]
     assert not recorded['feasible']
     assert recorded['npv_predicted'] is None
@@ -106,9 +108,9 @@ def test_fallback_keeps_ood_guard(tmp_path):
         model=None,
         lambda_=_lambda(),
     )
-    with patch.object(search, 'SEARCH_DIAGNOSTICS', diagnostics), patch.object(search, 'validate_static') as validate, patch.object(search, '_repair_predicted_water_balance') as evaluate:
+    with patch.object(baseline_search, 'SEARCH_DIAGNOSTICS', diagnostics), patch.object(baseline_search, 'validate_static') as validate, patch.object(baseline_search, '_repair_predicted_water_balance') as evaluate:
         validate.return_value = SimpleNamespace(ok=True, violations=())
         evaluate.side_effect = search.OutOfDomainScheduleError(99, 'outside training')
         with pytest.raises(search.SearchRunError):
-            search._search_near_baseline(env, None, 3, {})
+            baseline_search._search_near_baseline(env, None, 3, {})
     assert not json.loads(diagnostics.read_text(encoding='utf-8'))['evaluations'][0]['feasible']

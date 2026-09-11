@@ -44,6 +44,25 @@ def _module_ast(path: Path) -> ast.Module:
     return ast.parse(path.read_text(encoding="utf-8"))
 
 
+def _context_module_ast(path: Path) -> ast.Module:
+    root = path.parent.parent
+    body: list[ast.stmt] = []
+    for source in sorted(root.rglob("*.py")):
+        if "__pycache__" in source.parts:
+            continue
+        body.extend(ast.parse(source.read_text(encoding="utf-8")).body)
+    return ast.Module(body=body, type_ignores=[])
+
+
+def _context_source(path: Path) -> str:
+    root = path.parent.parent
+    return chr(10).join(
+        source.read_text(encoding="utf-8")
+        for source in sorted(root.rglob("*.py"))
+        if "__pycache__" not in source.parts
+    )
+
+
 def _class_def(module: ast.Module, name: str) -> ast.ClassDef:
     for node in module.body:
         if isinstance(node, ast.ClassDef) and node.name == name:
@@ -135,7 +154,7 @@ def test_missing_anchor_is_none_and_marked_in_provenance() -> None:
 
 
 def test_absent_anchor_is_visible_in_environment_provenance() -> None:
-    load_environment = _function_def(_module_ast(SEARCH_SOURCE), "load_environment")
+    load_environment = _function_def(_context_module_ast(SEARCH_SOURCE), "load_environment")
     source = ast.unparse(load_environment)
 
     assert "_build_reference" in source
@@ -144,7 +163,7 @@ def test_absent_anchor_is_visible_in_environment_provenance() -> None:
 
 
 def test_evaluator_exposes_the_anchor() -> None:
-    make_evaluator = _function_def(_module_ast(SEARCH_SOURCE), "make_evaluator")
+    make_evaluator = _function_def(_context_module_ast(SEARCH_SOURCE), "make_evaluator")
     source = ast.unparse(make_evaluator)
 
     assert "evaluator.reference_schedule = env.reference_schedule" in source
@@ -167,7 +186,7 @@ class _Outcome:
 
 
 def _run_real_main(out: Path, outcome: _Outcome) -> dict[str, object]:
-    module = _module_ast(RUN_SOURCE)
+    module = _context_module_ast(RUN_SOURCE)
     main = _function_def(module, "main")
     namespace: dict[str, object] = {
         "sys": SimpleNamespace(argv=["search_run", "5"]),
@@ -225,7 +244,7 @@ def test_zero_is_written_only_when_zero_was_measured(tmp_path) -> None:
 
 
 def test_literal_zero_counts_are_gone_from_the_artifact_writer() -> None:
-    main = _function_def(_module_ast(RUN_SOURCE), "main")
+    main = _function_def(_context_module_ast(RUN_SOURCE), "main")
     source = ast.unparse(main)
 
     assert "'static_violations': 0" not in source
@@ -235,7 +254,7 @@ def test_literal_zero_counts_are_gone_from_the_artifact_writer() -> None:
 
 
 def test_selected_finalist_counts_reach_the_outcome() -> None:
-    run_search = _function_def(_module_ast(RUN_SOURCE), "run_search")
+    run_search = _function_def(_context_module_ast(RUN_SOURCE), "run_search")
     source = ast.unparse(run_search)
 
     assert "static_violations=len(check.violations)" in source
@@ -400,7 +419,7 @@ def _differential_names(physics) -> tuple[str, str]:
 
 
 def test_evaluator_calls_check_pair_not_check_prediction_alone() -> None:
-    module = _module_ast(SEARCH_SOURCE)
+    module = _context_module_ast(SEARCH_SOURCE)
     evaluator_source = ast.unparse(_function_def(module, "make_evaluator"))
     report_source = ast.unparse(_function_def(_module_ast(PHYSICS_SOURCE), "full_physics_report"))
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from backend.contexts.optimization.application.search_config import (
     SEARCH_DIAGNOSTICS,
 )
@@ -56,16 +58,18 @@ def candidate_card(
 def _write_diagnostics_tail(
     finalist_cards: Sequence[Mapping[str, object]],
     registry: "IncumbentRegistry",
+    path: Path | None = None,
 ) -> None:
-    if not SEARCH_DIAGNOSTICS.is_file():
+    journal = SEARCH_DIAGNOSTICS if path is None else path
+    if not journal.is_file():
         raise SearchRunError(
-            f"диагностика поиска {SEARCH_DIAGNOSTICS} не записана: "
+            f"диагностика поиска {journal} не записана: "
             "дописывать финалистов и реестр incumbent некуда"
         )
-    diagnostics = read_json(SEARCH_DIAGNOSTICS)
+    diagnostics = read_json(journal)
     diagnostics["finalists"] = [dict(card) for card in finalist_cards]
     diagnostics["incumbents"] = registry.as_list()
-    SEARCH_DIAGNOSTICS.write_text(
+    journal.write_text(
         json.dumps(diagnostics, ensure_ascii=False, indent=2, sort_keys=True),
         encoding="utf-8",
     )

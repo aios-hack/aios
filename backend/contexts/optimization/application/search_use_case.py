@@ -495,7 +495,7 @@ def run_search(
                 )
         if len(seen) >= FINALIST_CAP:
             break
-    _write_diagnostics_tail(finalist_cards, registry)
+    _write_diagnostics_tail(finalist_cards, registry, SEARCH_DIAGNOSTICS)
     if not finalists:
         return _search_near_baseline(env, evaluator, budget, provenance, registry)
 

@@ -47,6 +47,11 @@ export const COUNCIL_CSS = {
 };
 
 export const CHRONOMAP_CSS = pageUiPath('history-matrix', 'Chronomap', 'Chronomap.css');
+export const CHRONO_TOOLTIP_CSS = pageUiPath(
+  'history-matrix',
+  'ChronoTooltip',
+  'ChronoTooltip.css'
+);
 export const FIELD_PROJECTION_CSS = pageUiPath(
   'field-projection',
   'FieldProjection',
@@ -55,6 +60,7 @@ export const FIELD_PROJECTION_CSS = pageUiPath(
 export const WELLS_TABLE_CSS = pageUiPath('history-table', 'WellsTable', 'WellsTable.css');
 export const WALL_OF_LIVES_CSS = pageUiPath('history-wall', 'WallOfLives', 'WallOfLives.css');
 export const ABLATION_TABLE_CSS = pageUiPath('money-rank', 'AblationTable', 'AblationTable.css');
+export const ABLATION_CELLS_CSS = pageUiPath('money-rank', 'AblationTable', 'AblationCells.css');
 export const SELECTION_RINGS_CSS = srcPath(
   'entities',
   'wells',

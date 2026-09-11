@@ -33,7 +33,7 @@ def explain_term(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
             "knowledge base"
         )
     lang = str(arguments.get("lang") or context.lang)
-    found = knowledge.find_term(query)
+    found = knowledge.find_term(query, lang)
     if found is None:
         payload = {
             "id": None,
@@ -53,7 +53,7 @@ def explain_term(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
             payload=payload,
             provenance="general",
         )
-    payload = found.as_payload(lang)
+    payload = found.as_payload()
     return Card(
         type="glossary",
         title=str(payload["term"]),
@@ -70,18 +70,18 @@ def platform_guide(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
     query = arguments.get("query")
     screen = None
     if workspace and view:
-        screen = knowledge.screen(str(workspace), str(view))
+        screen = knowledge.screen(str(workspace), str(view), lang)
     if screen is None and query:
-        screen = knowledge.find_screen(str(query))
+        screen = knowledge.find_screen(str(query), lang)
     if screen is None and workspace:
-        screen = knowledge.find_screen(str(workspace))
+        screen = knowledge.find_screen(str(workspace), lang)
     if screen is None:
         raise ToolFailure(
             "no such screen exists in the console: the guide only covers the "
             "workspace/view pairs declared in ConsoleContext, and Jarvis does "
             "not invent routes"
         )
-    payload = screen.as_payload(lang)
+    payload = screen.as_payload()
     return Card(
         type="guide",
         title=str(payload["title"]),

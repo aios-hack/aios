@@ -14,6 +14,60 @@ heavy ML stack; install ``aios[ml]`` to train or load a checkpoint.
 
 from __future__ import annotations
 
+from backend.contexts.surrogate.application.validation import (
+    split_examples,
+    target_mae,
+)
+from backend.contexts.surrogate.domain.losses import (
+    _scenario_money,
+    _spearman,
+)
+from backend.contexts.surrogate.domain.vectorize import (
+    _targets,
+    _watercut_row,
+)
+
+
+from backend.contexts.surrogate.domain.model_types import (
+    EpochMetrics,
+    ModelConfig,
+    Standardizer,
+    TARGET_NAMES,
+    TrainingExample,
+    TrainingResult,
+    _NUMERIC_NAMES,
+    _WATERCUT_CEILING,
+)
+
+from backend.contexts.surrogate.infrastructure.checkpoints import (
+    _legacy_checkpoint_modules,
+)
+
+from backend.contexts.surrogate.application.validation import (
+    _validate,
+)
+
+from backend.contexts.surrogate.domain.batches import (
+    _Batches,
+    _ScenarioBatches,
+)
+
+from backend.contexts.surrogate.domain.losses import (
+    _elementwise_loss,
+    _money_weights,
+    _pairwise_ranking_loss,
+    _proxy_value,
+)
+
+from backend.contexts.surrogate.domain.vectorize import (
+    _example_tensors,
+    _features,
+)
+
+from backend.contexts.surrogate.domain.network import (
+    _NodeNetwork,
+)
+
 from backend.contexts.surrogate.domain.errors import (
     SurrogateModelError,
 )
@@ -21,26 +75,30 @@ from backend.contexts.surrogate.domain.errors import (
 import hashlib
 import json
 import math
-import sys
-import types
-from contextlib import contextmanager
-from dataclasses import asdict, dataclass
+from dataclasses import (
+    asdict,
+)
 from pathlib import Path
-from typing import Callable, Iterable, Mapping, MutableMapping, Sequence
+from typing import (
+    Callable,
+    MutableMapping,
+    Sequence,
+)
 
 import torch
-from torch import Tensor, nn
-from torch.utils.data import DataLoader, TensorDataset
+from torch import (
+    Tensor,
+)
 
 from backend.core.contracts import (
     Availability,
-    N_INTERVALS,
     OperatingStatus,
-    ResponseArtifact,
     Role,
 )
 
-from backend.contexts.surrogate.domain.features import SurrogateInput, WellStepFeatures
+from backend.contexts.surrogate.domain.features import (
+    SurrogateInput,
+)
 from backend.contexts.robustness.domain.ood import (
     ScoredPrediction,
     TrainingDomain,
@@ -52,21 +110,14 @@ from backend.contexts.surrogate.domain.raw_model_output import (
     RawWellStepPrediction,
 )
 
-TARGET_NAMES: tuple[str, ...] = (
-    "oil_mass_delta",
-    "liquid_volume_delta",
-    "injection_volume_delta",
-    "liquid_rate",
-    "injection_rate",
-    "bhp",
-)
 
 # Контракт (docs/context/08_contracts.md §5, 07_concept.md §5.1) требует
 # предсказывать раздельно факт добычи жидкости, обводнённость и приёмистость,
 # а нефть выводить как q_ж × (1 − обводнённость). Реализация задачи 34 вместо
 # этого предсказывала oil_mass_delta напрямую — то есть шестым независимым
 # таргетом ту величину, на которой висит 97% денег, и без связи с жидкостью.
-TARGET_PARAMETERIZATIONS: tuple[str, ...] = ("absolute", "watercut")
+
+
 WATERCUT_TARGET_NAMES: tuple[str, ...] = (
     "liquid_volume_delta",
     "watercut",
@@ -82,14 +133,11 @@ WATERCUT_TARGET_NAMES: tuple[str, ...] = (
 # использовал: поднять сценарий в порядке можно было, загнав обводнённость за
 # единицу, и обученная так модель дала Spearman −0.512 при ранге 0.908 на
 # валидации. Предел один и тот же во всех путях.
-_WATERCUT_CEILING = 1.0
+
 
 # False — без сводки, True/"mean" — средние, "rich" — плюс разброс, крайние
 # значения и раздельные средние по добывающим и нагнетательным.
-_SCENARIO_CONTEXTS: tuple[object, ...] = (False, True, "mean", "rich")
-_LOSSES: tuple[str, ...] = ("smooth_l1", "mse", "huber")
-_LR_SCHEDULES: tuple[str, ...] = ("none", "cosine")
-_SELECTION_CRITERIA: tuple[str, ...] = ("loss", "money", "rank")
+
 
 # Приросты накопленных величин, восстановленные из UNSMRY, могут уйти в минус
 # по двум разным причинам, и смешивать их нельзя.
@@ -119,884 +167,6 @@ _SELECTION_CRITERIA: tuple[str, ...] = ("loss", "money", "rank")
 # сразу, а если доля таких интервалов превысит `_BACKFLOW_SHARE_LIMIT`, падает
 # на сборке тензоров — замеренная доля 0.0031%, порог в 320 раз выше неё.
 _INFERENCE_BATCH_SIZE = 65_536
-_ROUNDOFF_TOLERANCE = 1e-3
-_BACKFLOW_FIELDS = frozenset({"oil_mass_delta"})
-_BACKFLOW_FLOOR = -1e3  # т за месяц; крупнее — это не переток, а баг
-_BACKFLOW_SHARE_LIMIT = 0.01
-
-_NUMERIC_NAMES: tuple[str, ...] = (
-    "setpoint_m3_per_day",
-    "effective_target_rate_m3_per_day",
-    "cumulative_target_liquid_m3",
-    "cumulative_target_injection_m3",
-    "cumulative_neighbor_injection_m3",
-    "current_neighbor_injection_m3_per_day",
-    "event_count",
-    "fixed_event_count",
-)
-
-
-@contextmanager
-def _legacy_checkpoint_modules():
-    """Map pre-refactor pickle names to the current package during loading.
-
-    Production checkpoints persist :class:`TrainingDomain` as
-    ``surrogate.ood.TrainingDomain``.  Importing that old package in the new
-    backend can accidentally execute an unrelated editable checkout.  The
-    mapping is deliberately narrow and restored immediately after
-    ``torch.load``.
-    """
-
-    from backend.ml.surrogate import ood as current_ood
-
-    names = ("surrogate", "surrogate.ood")
-    previous = {name: sys.modules.get(name) for name in names}
-    legacy_package = types.ModuleType("surrogate")
-    legacy_package.__path__ = []  # type: ignore[attr-defined]
-    legacy_package.ood = current_ood  # type: ignore[attr-defined]
-    sys.modules["surrogate"] = legacy_package
-    sys.modules["surrogate.ood"] = current_ood
-    try:
-        yield
-    finally:
-        for name in names:
-            old = previous[name]
-            if old is None:
-                sys.modules.pop(name, None)
-            else:
-                sys.modules[name] = old
-
-
-@dataclass(frozen=True, slots=True)
-class ModelConfig:
-    hidden_width: int = 128
-    hidden_layers: int = 3
-    well_embedding_dim: int = 16
-    dropout: float = 0.05
-    learning_rate: float = 2e-3
-    weight_decay: float = 1e-5
-    batch_size: int = 32_768
-    max_epochs: int = 80
-    patience: int = 10
-    seed: int = 20260816
-    # Денежная цена ошибки, ₽ на физическую единицу, в порядке TARGET_NAMES
-    # и со знаком (выручка положительна, opex отрицателен). Пустой кортеж
-    # отключает денежное взвешивание и возвращает равномерный smooth_l1.
-    # Значения обязан подать вызывающий из NormativeSet: ни один компонент
-    # не читает норматив мимо конфига (база знаний §11.1).
-    money_rub_per_unit: tuple[float, ...] = ()
-    money_weight_alpha: float = 0.7
-    money_weight_cap: float = 50.0
-    # Косинусное затухание и отбор по рангу проверены факторным
-    # экспериментом и отклонены: первое ухудшает сжатие разброса
-    # (недообученной сети нужно больше шагов, а не меньше), второй
-    # выбирает ту же эпоху, что и отбор по лоссу.
-    lr_schedule: str = "none"
-    select_by: str = "loss"
-    target_parameterization: str = "absolute"
-    oil_density_t_per_m3: float = 0.9131
-    loss: str = "smooth_l1"
-    huber_delta: float = 0.1
-    residual: bool = False
-    scenario_context: object = False
-    ranking_loss_weight: float = 0.0
-    ranking_top_weighted: bool = False
-    ranking_scenarios_per_batch: int = 48
-    # Полный сценарий — 23 072 узла; подвыборка ускоряет эпоху, но слишком
-    # малая оставляет её без данных: при 640 узлах эпоха видела 2.8% выборки.
-    ranking_nodes_per_scenario: int = 4096
-
-    def __post_init__(self) -> None:
-        if self.hidden_width < 1 or self.hidden_layers < 1:
-            raise SurrogateModelError("hidden_width/hidden_layers должны быть положительными")
-        if self.well_embedding_dim < 1:
-            raise SurrogateModelError("well_embedding_dim должен быть положительным")
-        if not (0.0 <= self.dropout < 1.0):
-            raise SurrogateModelError("dropout должен лежать в [0, 1)")
-        if self.learning_rate <= 0.0 or self.weight_decay < 0.0:
-            raise SurrogateModelError("learning_rate/weight_decay заданы неверно")
-        if self.batch_size < 1 or self.max_epochs < 1 or self.patience < 1:
-            raise SurrogateModelError("batch_size/max_epochs/patience должны быть положительными")
-        object.__setattr__(self, "money_rub_per_unit", tuple(self.money_rub_per_unit))
-        if self.money_rub_per_unit and len(self.money_rub_per_unit) != len(TARGET_NAMES):
-            raise SurrogateModelError(
-                f"money_rub_per_unit должен покрывать все {len(TARGET_NAMES)} целей"
-            )
-        if any(not math.isfinite(value) for value in self.money_rub_per_unit):
-            raise SurrogateModelError("money_rub_per_unit содержит нечисловой коэффициент")
-        if not 0.0 <= self.money_weight_alpha <= 1.0:
-            raise SurrogateModelError("money_weight_alpha должен лежать в [0, 1]")
-        if self.money_weight_cap < 1.0:
-            raise SurrogateModelError("money_weight_cap должен быть не меньше 1")
-        if self.lr_schedule not in _LR_SCHEDULES:
-            raise SurrogateModelError(f"lr_schedule: {' или '.join(_LR_SCHEDULES)}")
-        if self.select_by not in _SELECTION_CRITERIA:
-            raise SurrogateModelError(f"select_by: {', '.join(_SELECTION_CRITERIA)}")
-        if self.target_parameterization not in TARGET_PARAMETERIZATIONS:
-            raise SurrogateModelError(
-                f"target_parameterization: {' или '.join(TARGET_PARAMETERIZATIONS)}"
-            )
-        if not self.oil_density_t_per_m3 > 0.0:
-            raise SurrogateModelError("oil_density_t_per_m3 должна быть положительной")
-        if self.loss not in _LOSSES:
-            raise SurrogateModelError(f"loss: {', '.join(_LOSSES)}")
-        if self.scenario_context not in _SCENARIO_CONTEXTS:
-            raise SurrogateModelError(
-                "scenario_context: False, True, 'mean' или 'rich'"
-            )
-        if self.ranking_loss_weight < 0.0:
-            raise SurrogateModelError("ranking_loss_weight не может быть отрицательным")
-        if self.ranking_scenarios_per_batch < 2:
-            raise SurrogateModelError(
-                "ranking_scenarios_per_batch должен быть не меньше двух: "
-                "попарное сравнение требует пары"
-            )
-        if self.ranking_nodes_per_scenario < 1:
-            raise SurrogateModelError(
-                "ranking_nodes_per_scenario должен быть положительным"
-            )
-        if not self.huber_delta > 0.0:
-            raise SurrogateModelError("huber_delta должна быть положительной")
-
-
-@dataclass(frozen=True, slots=True)
-class Standardizer:
-    mean: tuple[float, ...]
-    scale: tuple[float, ...]
-
-    @classmethod
-    def fit(cls, values: Tensor) -> "Standardizer":
-        if values.ndim != 2 or values.shape[0] == 0:
-            raise SurrogateModelError("standardizer требует непустую матрицу")
-        mean = values.mean(dim=0)
-        scale = values.std(dim=0, unbiased=False)
-        scale = torch.where(scale > 1e-8, scale, torch.ones_like(scale))
-        return cls(tuple(mean.tolist()), tuple(scale.tolist()))
-
-    def transform(self, values: Tensor) -> Tensor:
-        mean = torch.tensor(self.mean, dtype=values.dtype, device=values.device)
-        scale = torch.tensor(self.scale, dtype=values.dtype, device=values.device)
-        return (values - mean) / scale
-
-    def inverse(self, values: Tensor) -> Tensor:
-        mean = torch.tensor(self.mean, dtype=values.dtype, device=values.device)
-        scale = torch.tensor(self.scale, dtype=values.dtype, device=values.device)
-        return values * scale + mean
-
-
-@dataclass(frozen=True, slots=True)
-class TrainingExample:
-    input: SurrogateInput
-    response: ResponseArtifact
-
-
-@dataclass(frozen=True, slots=True)
-class EpochMetrics:
-    epoch: int
-    train_loss: float
-    validation_loss: float
-    # Денежно-взвешенный валидационный лосс и ранговая корреляция сценарного
-    # денежного прокси. Нули означают, что взвешивание было отключено.
-    validation_money_loss: float = 0.0
-    validation_rank: float = 0.0
-    learning_rate: float = 0.0
-
-
-@dataclass(frozen=True, slots=True)
-class TrainingResult:
-    model: "TrajectorySurrogate"
-    history: tuple[EpochMetrics, ...]
-    best_epoch: int
-    dataset_hash: str
-    backflow_intervals: int = 0
-    backflow_worst_tonnes: float = 0.0
-    target_rows: int = 0
-
-
-class _NodeNetwork(nn.Module):
-    def __init__(
-        self,
-        numeric_width: int,
-        n_wells: int,
-        config: ModelConfig,
-    ) -> None:
-        super().__init__()
-        self.well_embedding = nn.Embedding(n_wells, config.well_embedding_dim)
-        width = numeric_width + config.well_embedding_dim
-        self.residual = config.residual
-        if self.residual:
-            # Остаточные блоки одинаковой ширины: градиент доходит до первых
-            # слоёв без затухания, поэтому глубина перестаёт мешать обучению.
-            self.stem = nn.Linear(width, config.hidden_width)
-            self.blocks = nn.ModuleList(
-                nn.Sequential(
-                    nn.LayerNorm(config.hidden_width),
-                    nn.Linear(config.hidden_width, config.hidden_width),
-                    nn.SiLU(),
-                    nn.Dropout(config.dropout),
-                    nn.Linear(config.hidden_width, config.hidden_width),
-                )
-                for _ in range(config.hidden_layers)
-            )
-            self.head = nn.Sequential(
-                nn.LayerNorm(config.hidden_width),
-                nn.Linear(config.hidden_width, len(TARGET_NAMES)),
-            )
-            self.body = None
-            return
-        layers: list[nn.Module] = []
-        for _ in range(config.hidden_layers):
-            layers.extend(
-                (
-                    nn.Linear(width, config.hidden_width),
-                    nn.SiLU(),
-                    nn.LayerNorm(config.hidden_width),
-                    nn.Dropout(config.dropout),
-                )
-            )
-            width = config.hidden_width
-        layers.append(nn.Linear(width, len(TARGET_NAMES)))
-        self.body = nn.Sequential(*layers)
-
-    def forward(self, numeric: Tensor, well_index: Tensor) -> Tensor:
-        embedded = self.well_embedding(well_index)
-        features = torch.cat((numeric, embedded), dim=1)
-        if not self.residual:
-            return self.body(features)
-        hidden = self.stem(features)
-        for block in self.blocks:
-            hidden = hidden + block(hidden)
-        return self.head(hidden)
-
-
-def _one_hot(value: object, members: Sequence[object]) -> list[float]:
-    return [1.0 if value is member else 0.0 for member in members]
-
-
-def _node_vector(node: WellStepFeatures) -> list[float]:
-    numeric = [math.log1p(float(getattr(node, name))) for name in _NUMERIC_NAMES]
-    static = [float(value) for value in node.static_values]
-    fraction = node.control_step / max(1, N_INTERVALS - 1)
-    phase = 2.0 * math.pi * fraction
-    return [
-        *numeric,
-        *static,
-        fraction,
-        math.sin(phase),
-        math.cos(phase),
-        *_one_hot(node.availability, tuple(Availability)),
-        *_one_hot(node.role, tuple(Role)),
-        *_one_hot(node.operating_status, tuple(OperatingStatus)),
-    ]
-
-
-def _validate_input(item: SurrogateInput) -> None:
-    expected = {(well, step) for well in item.wells for step in range(N_INTERVALS)}
-    actual = {(node.well, node.control_step) for node in item.nodes}
-    if actual != expected or len(item.nodes) != len(expected):
-        raise SurrogateModelError("SurrogateInput не покрывает wells × 224 без дублей")
-    if any(len(node.static_values) != len(item.static_feature_names) for node in item.nodes):
-        raise SurrogateModelError("static_values не совпадает со static_feature_names")
-
-
-def _scenario_summary(x: Tensor, item: SurrogateInput, *, mode: object) -> Tensor:
-    """Сводка сценария, одинаковая для всех его узлов.
-
-    `mean` — средние по всем узлам. `rich` добавляет разброс, крайние значения
-    и раздельные средние по добывающим и нагнетательным: фонд разнороден, и
-    среднее по нему смешивает две несравнимые популяции.
-    """
-    rows = x.shape[0]
-    blocks = [x.mean(dim=0, keepdim=True)]
-    if mode == "rich":
-        blocks.extend((x.std(dim=0, keepdim=True), x.amax(dim=0, keepdim=True)))
-        role_index = {role: index for index, role in enumerate(Role)}
-        for role in (Role.PROD, Role.INJ):
-            mask = torch.tensor(
-                [node.role is role for node in item.nodes], dtype=torch.bool
-            )
-            blocks.append(
-                x[mask].mean(dim=0, keepdim=True)
-                if bool(mask.any())
-                else torch.zeros(1, x.shape[1], dtype=x.dtype)
-            )
-    summary = torch.cat(blocks, dim=1)
-    return torch.nan_to_num(summary).expand(rows, -1)
-
-
-def _features(
-    item: SurrogateInput,
-    wells: tuple[str, ...],
-    *,
-    scenario_context: object = False,
-) -> tuple[Tensor, Tensor]:
-    """Признаки узлов одного сценария.
-
-    `scenario_context` дописывает к каждому узлу средние по всем узлам его
-    сценария. Без этого узел видит свою скважину, свой шаг и двух соседей
-    через λ — то есть из двадцати одного признака сценарий различают ровно
-    два, оба λ-производные. Обнуление этих двух роняет ранговую корреляцию по
-    ЧДД с +0.53 до −0.14, значит модель ранжирует сценарии почти
-    исключительно через них. Сводка даёт прямой канал вместо единственного
-    косвенного; считается по `item.nodes`, то есть точно по одному сценарию.
-    """
-    _validate_input(item)
-    if item.wells != wells:
-        raise SurrogateModelError(f"ось wells разошлась: {item.wells} != {wells}")
-    well_to_index = {well: index for index, well in enumerate(wells)}
-    x = torch.tensor([_node_vector(node) for node in item.nodes], dtype=torch.float32)
-    if scenario_context:
-        x = torch.cat((x, _scenario_summary(x, item, mode=scenario_context)), dim=1)
-    well_index = torch.tensor(
-        [well_to_index[node.well] for node in item.nodes], dtype=torch.long
-    )
-    return x, well_index
-
-
-def _watercut_row(
-    raw: Mapping[str, float], *, oil_density_t_per_m3: float
-) -> list[float]:
-    """Контрактный набор целей: нефть не предсказывается, а выводится.
-
-    Обводнённость определена только там, где течёт жидкость; при нулевом
-    объёме она произвольна, потому что нефть всё равно восстановится нулём,
-    и мы кладём ноль, чтобы не учить сеть шуму на закрытых интервалах.
-    """
-    liquid = raw["liquid_volume_delta"]
-    if liquid > 0.0:
-        oil_volume = raw["oil_mass_delta"] / oil_density_t_per_m3
-        watercut = 1.0 - oil_volume / liquid
-    else:
-        watercut = 0.0
-    return [
-        liquid,
-        watercut,
-        raw["injection_volume_delta"],
-        raw["liquid_rate"],
-        raw["injection_rate"],
-        raw["bhp"],
-    ]
-
-
-def _targets(
-    example: TrainingExample,
-    stats: MutableMapping[str, int] | None = None,
-    *,
-    parameterization: str = "absolute",
-    oil_density_t_per_m3: float = 0.9131,
-) -> Tensor:
-    from backend.contexts.reservoir.domain.horizon import HORIZON
-    item = example.input
-    interval = {
-        (row.well, row.control_step): row for row in example.response.interval_response
-    }
-    states = {
-        (row.well, row.deck_date_index): row for row in example.response.state_at_date
-    }
-    rows: list[list[float]] = []
-    for node in item.nodes:
-        try:
-            response = interval[(node.well, node.control_step)]
-            state = states[(node.well, HORIZON.history_offset + 1 + node.control_step)]
-        except KeyError as error:
-            raise SurrogateModelError(
-                f"отклик не покрывает ({node.well!r}, {node.control_step})"
-            ) from error
-        raw = {
-            "oil_mass_delta": response.oil_mass_delta,
-            "liquid_volume_delta": response.liquid_volume_delta,
-            "injection_volume_delta": response.injection_volume_delta,
-            "liquid_rate": state.liquid_rate,
-            "injection_rate": state.injection_rate,
-            "bhp": state.bhp,
-        }
-        for name, value in raw.items():
-            if not math.isfinite(value):
-                raise SurrogateModelError(
-                    f"нечисловая цель ({node.well!r}, {node.control_step}) "
-                    f"{name}={value!r}"
-                )
-            if value >= -_ROUNDOFF_TOLERANCE:
-                continue
-            if name not in _BACKFLOW_FIELDS or value < _BACKFLOW_FLOOR:
-                raise SurrogateModelError(
-                    f"отрицательная цель ({node.well!r}, {node.control_step}) "
-                    f"{name}={value!r}"
-                )
-            if stats is not None:
-                stats["backflow_intervals"] = stats.get("backflow_intervals", 0) + 1
-                stats["backflow_worst_milli"] = min(
-                    stats.get("backflow_worst_milli", 0), int(value * 1000)
-                )
-        values = (
-            _watercut_row(raw, oil_density_t_per_m3=oil_density_t_per_m3)
-            if parameterization == "watercut"
-            else list(raw.values())
-        )
-        rows.append([math.log1p(max(0.0, float(value))) for value in values])
-    return torch.tensor(rows, dtype=torch.float32)
-
-
-def _example_tensors(
-    examples: Sequence[TrainingExample],
-    wells: tuple[str, ...],
-    stats: MutableMapping[str, int] | None = None,
-    *,
-    parameterization: str = "absolute",
-    oil_density_t_per_m3: float = 0.9131,
-    scenario_context: bool = False,
-) -> tuple[Tensor, Tensor, Tensor]:
-    xs: list[Tensor] = []
-    indices: list[Tensor] = []
-    ys: list[Tensor] = []
-    counters: dict[str, int] = {}
-    for example in examples:
-        x, well_index = _features(
-            example.input, wells, scenario_context=scenario_context
-        )
-        xs.append(x)
-        indices.append(well_index)
-        ys.append(
-            _targets(
-                example,
-                counters,
-                parameterization=parameterization,
-                oil_density_t_per_m3=oil_density_t_per_m3,
-            )
-        )
-    if not xs:
-        raise SurrogateModelError("обучающая выборка пуста")
-    target = torch.cat(ys)
-    backflow = counters.get("backflow_intervals", 0)
-    share = backflow / max(1, target.shape[0])
-    if share > _BACKFLOW_SHARE_LIMIT:
-        raise SurrogateModelError(
-            f"перетоков {backflow} из {target.shape[0]} интервалов ({share:.3%}) — "
-            f"выше порога {_BACKFLOW_SHARE_LIMIT:.1%}; это уже не переток, "
-            "а расхождение в разборе отклика"
-        )
-    if stats is not None:
-        stats.update(counters)
-        stats["target_rows"] = int(target.shape[0])
-    return torch.cat(xs), torch.cat(indices), target
-
-
-def _elementwise_loss(
-    prediction: Tensor, target: Tensor, settings: "ModelConfig"
-) -> Tensor:
-    """Поэлементная невязка выбранной функцией потерь.
-
-    `smooth_l1` с beta=1 в стандартизованных целях почти везде квадратичен:
-    ошибка выше одного стандартного отклонения — редкость. То есть заявленная
-    устойчивость к выбросам не работает, и `huber` с малой дельтой даёт другой
-    режим, а `mse` — противоположный.
-    """
-    if settings.loss == "mse":
-        return (prediction - target) ** 2
-    if settings.loss == "huber":
-        return torch.nn.functional.huber_loss(
-            prediction, target, reduction="none", delta=settings.huber_delta
-        )
-    return torch.nn.functional.smooth_l1_loss(prediction, target, reduction="none")
-
-
-def _money_coefficients(
-    physical: Tensor,
-    *,
-    rub_per_unit: Tensor,
-    parameterization: str,
-    oil_density_t_per_m3: float,
-) -> Tensor:
-    """₽ за единицу каждой цели. При контрактной параметризации — не константа.
-
-    `rub_per_unit` всегда задан в физических константах порядка TARGET_NAMES:
-    маржа за тонну нефти, opex за м³ жидкости, opex за м³ закачки. Когда нефть
-    выводится из жидкости и обводнённости, цена ошибки по жидкости зависит от
-    того, сколько в ней нефти, а цена ошибки по обводнённости — от того,
-    сколько жидкости прошло. Это прямое дифференцирование build_cell_flows.
-    """
-    if parameterization != "watercut":
-        return rub_per_unit
-    liquid = physical[:, 0:1]
-    watercut = physical[:, 1:2].clamp(min=0.0, max=_WATERCUT_CEILING)
-    oil_margin = rub_per_unit[0]
-    opex_liquid = rub_per_unit[1]
-    opex_injection = rub_per_unit[2]
-    zeros = torch.zeros_like(liquid)
-    return torch.cat(
-        (
-            opex_liquid + (1.0 - watercut) * oil_density_t_per_m3 * oil_margin,
-            -liquid * oil_density_t_per_m3 * oil_margin,
-            opex_injection.expand_as(liquid),
-            zeros,
-            zeros,
-            zeros,
-        ),
-        dim=1,
-    )
-
-
-def _money_weights(
-    y: Tensor,
-    *,
-    scale: Tensor,
-    mean: Tensor,
-    rub_per_unit: Tensor,
-    alpha: float,
-    cap: float,
-    parameterization: str = "absolute",
-    oil_density_t_per_m3: float = 0.9131,
-) -> Tensor:
-    """Вес элемента лосса, пропорциональный рублёвой цене его ошибки.
-
-    Цели обучаются как log1p и стандартизуются, поэтому ошибка ε в
-    пространстве сети отвечает физической ошибке ε·scale·(1+v). Рубль же
-    линеен по физической величине: economics/npv.py build_cell_flows
-    умножает oil_mass_t, liquid_volume_m3 и injection_volume_m3 на скалярные
-    нормативы. Отсюда вес |₽/ед|·scale·(1+v), где (1+v) восстанавливается
-    как exp(y·scale + mean).
-
-    Без этого веса равномерный smooth_l1 минимизирует относительную ошибку и
-    уравнивает скважину на 1000 т со скважиной на 1 т, хотя в деньгах первая
-    стоит в тысячу раз дороже. Ровно отсюда бралось сжатие разброса ЧДД.
-    """
-    physical = torch.expm1(y * scale + mean).clamp_min(0.0)
-    coefficients = _money_coefficients(
-        physical,
-        rub_per_unit=rub_per_unit,
-        parameterization=parameterization,
-        oil_density_t_per_m3=oil_density_t_per_m3,
-    )
-    weight = coefficients.abs() * scale * torch.exp(y * scale + mean)
-    average = weight.mean()
-    if not bool(torch.isfinite(average)) or float(average) <= 0.0:
-        return torch.ones_like(y)
-    normalized = (weight / average).clamp(1.0 / cap, cap)
-    return alpha * normalized + (1.0 - alpha)
-
-
-def _ranks(values: Tensor) -> Tensor:
-    order = torch.argsort(values)
-    ranks = torch.empty_like(values)
-    _, inverse, counts = torch.unique_consecutive(values[order], return_inverse=True, return_counts=True)
-    average_positions = counts.cumsum(0).to(values.dtype) - (counts.to(values.dtype) + 1) / 2
-    ranks[order] = average_positions[inverse]
-    return ranks
-
-
-def _spearman(left: Tensor, right: Tensor) -> float:
-    """Ранговая корреляция со средними рангами связей и нулём для константы."""
-    if left.numel() < 2:
-        return 0.0
-    centred_left = _ranks(left) - (left.numel() - 1) / 2.0
-    centred_right = _ranks(right) - (right.numel() - 1) / 2.0
-    denominator = torch.sqrt(
-        (centred_left * centred_left).sum() * (centred_right * centred_right).sum()
-    )
-    if float(denominator) == 0.0:
-        return 0.0
-    return float((centred_left * centred_right).sum() / denominator)
-
-
-def _scenario_money(
-    standardized: Tensor,
-    scenario_index: Tensor,
-    scenario_count: int,
-    *,
-    scale: Tensor,
-    mean: Tensor,
-    rub_per_unit: Tensor,
-    parameterization: str = "absolute",
-    oil_density_t_per_m3: float = 0.9131,
-) -> Tensor:
-    """Сценарный денежный прокси: Σ ₽·физическая величина по всем узлам.
-
-    Это не ЧДД — нет дисконтирования, налога, capex ЭЦН и событийных затрат.
-    Но именно линейные по объёму статьи дают подавляющую часть разброса ЧДД
-    между сценариями, а прокси считается на том же проходе валидации, что и
-    лосс, то есть бесплатно. Он нужен только чтобы упорядочить сценарии.
-    """
-    physical = torch.expm1(standardized * scale + mean).clamp_min(0.0)
-    if parameterization == "watercut":
-        liquid = physical[:, 0]
-        watercut = physical[:, 1].clamp(min=0.0, max=_WATERCUT_CEILING)
-        oil = liquid * (1.0 - watercut) * oil_density_t_per_m3
-        value = (
-            oil * rub_per_unit[0]
-            + liquid * rub_per_unit[1]
-            + physical[:, 2] * rub_per_unit[2]
-        )
-    else:
-        # Та же дыра, что 8d6415f закрыл со стороны обводнённости, только с
-        # другой: в `absolute` нефть независима от жидкости, и прокси платит
-        # рублями за физически невозможную нефть. Ранговому лоссу этого
-        # достаточно, чтобы поднимать сценарии через неё.
-        oil = torch.minimum(physical[:, 0], physical[:, 1] * oil_density_t_per_m3)
-        value = oil * rub_per_unit[0] + (physical[:, 1:] * rub_per_unit[1:]).sum(dim=1)
-    totals = torch.zeros(scenario_count, dtype=value.dtype, device=value.device)
-    totals.index_add_(0, scenario_index, value)
-    return totals
-
-
-class _ScenarioBatches:
-    """Батчи, собранные из целых сценариев, а не из перемешанных узлов.
-
-    Ранговый член лосса сравнивает сценарии между собой, поэтому в батче их
-    должно быть несколько сразу. Из каждого сценария берётся случайная выборка
-    узлов с одинаковыми координатами во всех сценариях батча. Это снижает
-    шум состава фонда при попарном сравнении; несмещённость отдельной суммы
-    сама по себе не гарантирует сохранения порядка. Полные метки ЧДД
-    передаются отдельно через scenario_targets.
-    """
-
-    def __init__(
-        self,
-        tensors: tuple[Tensor, ...],
-        counts: Sequence[int],
-        *,
-        scenarios_per_batch: int,
-        nodes_per_scenario: int,
-        generator: torch.Generator,
-        scenario_targets: Tensor | None = None,
-    ) -> None:
-        self.tensors = tensors
-        self.scenarios_per_batch = scenarios_per_batch
-        self.nodes_per_scenario = nodes_per_scenario
-        self.generator = generator
-        self.scenario_targets = scenario_targets
-        if not counts or any(size <= 0 for size in counts) or len(set(counts)) != 1:
-            raise SurrogateModelError("ранговые батчи требуют одинаковые непустые оси сценариев")
-        if scenario_targets is not None and (
-            scenario_targets.shape != (len(counts),)
-            or not bool(torch.isfinite(scenario_targets).all())
-        ):
-            raise SurrogateModelError("ранговые цели не покрывают сценарии конечными числами")
-        offsets, start = [], 0
-        for size in counts:
-            offsets.append((start, size))
-            start += size
-        if start != tensors[0].shape[0]:
-            raise SurrogateModelError(
-                f"счётчики сценариев дают {start} строк против {tensors[0].shape[0]}"
-            )
-        self.offsets = offsets
-
-    def __iter__(self):
-        order = torch.randperm(len(self.offsets), generator=self.generator)
-        for position in range(0, len(order), self.scenarios_per_batch):
-            chosen = order[position : position + self.scenarios_per_batch]
-            if len(chosen) < 2:
-                continue
-            rows, groups = [], []
-            # Common well/step coordinates remove composition noise between
-            # schedules. Independent samples reversed ~34% of train pairs.
-            size = self.offsets[0][1]
-            take = min(self.nodes_per_scenario, size)
-            picked = torch.randperm(size, generator=self.generator)[:take]
-            for group, index in enumerate(chosen.tolist()):
-                start, size = self.offsets[index]
-                rows.append(picked + start)
-                groups.append(torch.full((take,), group, dtype=torch.long))
-            selection = torch.cat(rows)
-            yield (
-                *(tensor[selection] for tensor in self.tensors),
-                torch.cat(groups),
-                len(chosen),
-                *((self.scenario_targets[chosen],) if self.scenario_targets is not None else ()),
-            )
-
-
-def _standardize_scores(values: Tensor) -> Tensor:
-    """Нулевое среднее и единичный разброс; вырожденный случай не делит на ноль."""
-    centred = values - values.mean()
-    scale = torch.sqrt((centred * centred).mean() + 1e-12)
-    return centred / scale
-
-
-def _proxy_value(
-    standardized: Tensor,
-    scale: Tensor,
-    mean: Tensor,
-    rub_per_unit: Tensor,
-    settings: "ModelConfig",
-) -> Tensor:
-    """Денежная ценность каждого узла — то, что суммируется в сценарный прокси."""
-    physical = torch.expm1(standardized * scale + mean).clamp_min(0.0)
-    if settings.target_parameterization == "watercut":
-        liquid = physical[:, 0]
-        watercut = physical[:, 1].clamp(min=0.0, max=_WATERCUT_CEILING)
-        oil = liquid * (1.0 - watercut) * settings.oil_density_t_per_m3
-        return (oil * rub_per_unit[0] + liquid * rub_per_unit[1]
-                + physical[:, 2] * rub_per_unit[2])
-    # Тот же предел, что в сценарном прокси: нефть не дороже той, что физически
-    # помещается в предсказанную жидкость.
-    oil = torch.minimum(physical[:, 0], physical[:, 1] * settings.oil_density_t_per_m3)
-    return oil * rub_per_unit[0] + (physical[:, 1:] * rub_per_unit[1:]).sum(dim=1)
-
-
-def _pairwise_ranking_loss(
-    predicted: Tensor, actual: Tensor, *, top_weighted: bool = False
-) -> Tensor:
-    """Логистическая попарная невязка порядка сценариев.
-
-    Для каждой пары с различающимся фактом штраф равен softplus от разности,
-    взятой со знаком правильного порядка: пара, упорядоченная верно и с
-    запасом, не штрафуется, перевёрнутая — линейно по величине ошибки.
-
-    Оценки предварительно приводятся к нулевому среднему и единичному разбросу
-    внутри батча. Без этого сравниваются рубли порядка 1e9, softplus от такой
-    разности возвращает саму разность, и член в сто миллионов раз перекрывает
-    поштатный лосс — при любом весе, отчего веса 0.3, 1 и 3 давали неотличимый
-    результат и обучение не шло вовсе.
-    """
-    predicted = _standardize_scores(predicted)
-    difference = predicted.unsqueeze(0) - predicted.unsqueeze(1)
-    truth = actual.unsqueeze(0) - actual.unsqueeze(1)
-    mask = truth != 0
-    if not bool(mask.any()):
-        return predicted.sum() * 0.0
-    penalty = torch.nn.functional.softplus(
-        -difference[mask] * torch.sign(truth[mask])
-    )
-    if not top_weighted:
-        return penalty.mean()
-    # Для шортлиста важна верхушка: перепутать сотое место с сто первым стоит
-    # ровно ничего, а первое со вторым — весь смысл. Вес пары равен разнице
-    # ценностей 1/(1+позиция), как в NDCG: пары с участием лидеров получают
-    # на два порядка больший вес, чем пары из хвоста.
-    order = torch.argsort(actual, descending=True)
-    position = torch.empty_like(actual)
-    position[order] = torch.arange(
-        actual.numel(), dtype=actual.dtype, device=actual.device
-    )
-    gain = 1.0 / (1.0 + position)
-    weight = (gain.unsqueeze(0) - gain.unsqueeze(1)).abs()[mask]
-    total = weight.sum()
-    if float(total) <= 0.0:
-        return penalty.mean()
-    return (penalty * weight).sum() / total
-
-
-class _Batches:
-    """Нарезка батчей срезом вместо DataLoader.
-
-    `DataLoader` поверх `TensorDataset` выбирает элементы батча по одному и
-    склеивает их в Python: на батче 32768 это 3.66 с против 0.05 с у среза,
-    то есть больше половины эпохи уходило на нарезку, а не на обучение.
-    Перестановка берётся из переданного генератора, поэтому порядок остаётся
-    воспроизводимым по сиду.
-    """
-
-    def __init__(
-        self,
-        tensors: tuple[Tensor, ...],
-        *,
-        batch_size: int,
-        generator: torch.Generator | None = None,
-    ) -> None:
-        self.tensors = tensors
-        self.batch_size = batch_size
-        self.generator = generator
-        self.n_rows = tensors[0].shape[0]
-
-    def __iter__(self):
-        if self.generator is None:
-            for start in range(0, self.n_rows, self.batch_size):
-                stop = start + self.batch_size
-                yield tuple(tensor[start:stop] for tensor in self.tensors)
-            return
-        order = torch.randperm(self.n_rows, generator=self.generator)
-        for start in range(0, self.n_rows, self.batch_size):
-            index = order[start : start + self.batch_size]
-            yield tuple(tensor[index] for tensor in self.tensors)
-
-
-def _loss_on_loader(
-    network: _NodeNetwork,
-    loader: "_Batches | DataLoader",
-    device: torch.device,
-) -> float:
-    return _validate(network, loader, device).loss
-
-
-@dataclass(frozen=True, slots=True)
-class _ValidationOutcome:
-    loss: float
-    money_loss: float
-    rank: float
-
-
-def _validate(
-    network: _NodeNetwork,
-    loader: "_Batches | DataLoader",
-    device: torch.device,
-    *,
-    scale: Tensor | None = None,
-    mean: Tensor | None = None,
-    rub_per_unit: Tensor | None = None,
-    alpha: float = 0.0,
-    cap: float = 1.0,
-    scenario_index: Tensor | None = None,
-    scenario_count: int = 0,
-    parameterization: str = "absolute",
-    oil_density_t_per_m3: float = 0.9131,
-    settings: "ModelConfig | None" = None,
-    scenario_targets: Tensor | None = None,
-) -> _ValidationOutcome:
-    """Один проход валидации, отдающий все три критерия отбора чекпоинта."""
-    network.eval()
-    settings = settings or ModelConfig()
-    total = 0.0
-    money_total = 0.0
-    count = 0
-    weighted = rub_per_unit is not None and scale is not None and mean is not None
-    ranked = weighted and scenario_index is not None and scenario_count > 0
-    predicted_chunks: list[Tensor] = []
-    actual_chunks: list[Tensor] = []
-    with torch.no_grad():
-        for x, well_index, y in loader:
-            x = x.to(device)
-            well_index = well_index.to(device)
-            y = y.to(device)
-            prediction = network(x, well_index)
-            elementwise = _elementwise_loss(prediction, y, settings)
-            total += float(elementwise.sum().item())
-            if weighted:
-                weights = _money_weights(
-                    y, scale=scale, mean=mean, rub_per_unit=rub_per_unit,
-                    alpha=alpha, cap=cap, parameterization=parameterization,
-                    oil_density_t_per_m3=oil_density_t_per_m3,
-                )
-                money_total += float((elementwise * weights).sum().item())
-            if ranked:
-                predicted_chunks.append(prediction.cpu())
-                actual_chunks.append(y.cpu())
-            count += y.numel()
-    divisor = max(1, count)
-    loss = total / divisor
-    money_loss = money_total / divisor if weighted else loss
-    rank = 0.0
-    if ranked:
-        cpu_scale = scale.cpu()
-        cpu_mean = mean.cpu()
-        cpu_rub = rub_per_unit.cpu()
-        predicted_money = _scenario_money(
-            torch.cat(predicted_chunks), scenario_index, scenario_count,
-            scale=cpu_scale, mean=cpu_mean, rub_per_unit=cpu_rub,
-            parameterization=parameterization,
-            oil_density_t_per_m3=oil_density_t_per_m3,
-        )
-        actual_money = _scenario_money(
-            torch.cat(actual_chunks), scenario_index, scenario_count,
-            scale=cpu_scale, mean=cpu_mean, rub_per_unit=cpu_rub,
-            parameterization=parameterization,
-            oil_density_t_per_m3=oil_density_t_per_m3,
-        )
-        rank = _spearman(
-            predicted_money,
-            actual_money if scenario_targets is None else scenario_targets.to(predicted_money),
-        )
-    return _ValidationOutcome(loss=loss, money_loss=money_loss, rank=rank)
 
 
 class TrajectorySurrogate:
@@ -1514,53 +684,3 @@ class TrajectorySurrogate:
         return model
 
 
-def split_examples(
-    examples: Sequence[TrainingExample],
-    *,
-    validation_fraction: float = 0.15,
-    test_fraction: float = 0.15,
-    seed: int = 20260816,
-) -> tuple[tuple[TrainingExample, ...], tuple[TrainingExample, ...], tuple[TrainingExample, ...]]:
-    """Deterministic scenario-level split; nodes from one run never leak."""
-
-    if not (0.0 < validation_fraction < 1.0 and 0.0 < test_fraction < 1.0):
-        raise SurrogateModelError("validation_fraction/test_fraction должны лежать в (0, 1)")
-    if validation_fraction + test_fraction >= 1.0:
-        raise SurrogateModelError("на train не осталось сценариев")
-    if len(examples) < 7:
-        raise SurrogateModelError("для train/validation/test нужно хотя бы 7 сценариев")
-    generator = torch.Generator().manual_seed(seed)
-    order = torch.randperm(len(examples), generator=generator).tolist()
-    n_test = max(1, round(len(examples) * test_fraction))
-    n_validation = max(1, round(len(examples) * validation_fraction))
-    test_ids = set(order[:n_test])
-    validation_ids = set(order[n_test : n_test + n_validation])
-    train = tuple(item for index, item in enumerate(examples) if index not in test_ids | validation_ids)
-    validation = tuple(item for index, item in enumerate(examples) if index in validation_ids)
-    test = tuple(item for index, item in enumerate(examples) if index in test_ids)
-    return train, validation, test
-
-
-def target_mae(
-    model: TrajectorySurrogate,
-    examples: Iterable[TrainingExample],
-) -> dict[str, float]:
-    """Real-unit channel MAE for diagnostics; never used as the sole gate."""
-
-    totals = [0.0] * len(TARGET_NAMES)
-    count = 0
-    for example in examples:
-        predicted = model.predict(example.input).output
-        actual = torch.expm1(_targets(example))
-        estimate = torch.tensor(
-            [
-                [float(getattr(node, name)) for name in TARGET_NAMES]
-                for node in predicted.nodes
-            ]
-        )
-        error = (actual - estimate).abs().sum(dim=0)
-        totals = [total + float(value) for total, value in zip(totals, error)]
-        count += actual.shape[0]
-    if count == 0:
-        raise SurrogateModelError("метрики не считаются на пустом наборе")
-    return {name: total / count for name, total in zip(TARGET_NAMES, totals)}

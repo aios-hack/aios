@@ -67,6 +67,25 @@ def _module_ast(path: Path) -> ast.Module:
     return ast.parse(path.read_text(encoding="utf-8"))
 
 
+def _context_module_ast(path: Path) -> ast.Module:
+    root = path.parent.parent
+    body: list[ast.stmt] = []
+    for source in sorted(root.rglob("*.py")):
+        if "__pycache__" in source.parts:
+            continue
+        body.extend(ast.parse(source.read_text(encoding="utf-8")).body)
+    return ast.Module(body=body, type_ignores=[])
+
+
+def _context_source(path: Path) -> str:
+    root = path.parent.parent
+    return chr(10).join(
+        source.read_text(encoding="utf-8")
+        for source in sorted(root.rglob("*.py"))
+        if "__pycache__" not in source.parts
+    )
+
+
 def _function_def(module: ast.Module, name: str) -> ast.FunctionDef:
     for node in module.body:
         if isinstance(node, ast.FunctionDef) and node.name == name:
@@ -392,7 +411,7 @@ def test_baseline_run_marks_where_the_factor_came_from() -> None:
 
 
 def test_repair_margins_are_named_constants_not_literals() -> None:
-    source = RUN_SOURCE.read_text(encoding="utf-8")
+    source = _context_source(RUN_SOURCE)
 
     assert "WATER_REPAIR_MARGIN = 0.98" in source
     assert "WATER_REPAIR_CEILING = 0.95" in source
@@ -401,7 +420,7 @@ def test_repair_margins_are_named_constants_not_literals() -> None:
 
 def test_repair_reports_its_own_contribution_to_the_trace() -> None:
     source = ast.unparse(
-        _function_def(_module_ast(RUN_SOURCE), "_repair_predicted_water_balance")
+        _function_def(_context_module_ast(RUN_SOURCE), "_repair_predicted_water_balance")
     )
 
     assert "budget_trace" in source

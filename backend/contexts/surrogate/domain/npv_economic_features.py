@@ -3,10 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
-import math
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Literal
 
 import torch
@@ -14,8 +10,6 @@ from torch import Tensor
 
 from backend.core.contracts import N_INTERVALS
 
-from backend.contexts.surrogate.domain.features import SurrogateInput
-from backend.contexts.surrogate.application.model import _features
 from backend.contexts.surrogate.domain.npv_head import ScenarioNpvHeadError
 
 FORMAT = "aios.surrogate-scenario-npv-head.v1"

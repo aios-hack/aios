@@ -564,11 +564,13 @@ def test_an_unmeasured_opm_wallclock_is_marked_not_zeroed() -> None:
 
 
 def _run_source() -> ast.Module:
-    return ast.parse(
-        (Path(_src_search_use_case.__file__)).read_text(
-            encoding="utf-8"
-        )
-    )
+    root = Path(_src_search_use_case.__file__).parent.parent
+    body: list[ast.stmt] = []
+    for source in sorted(root.rglob("*.py")):
+        if "__pycache__" in source.parts:
+            continue
+        body.extend(ast.parse(source.read_text(encoding="utf-8")).body)
+    return ast.Module(body=body, type_ignores=[])
 
 
 def _run_function(name: str) -> ast.FunctionDef:

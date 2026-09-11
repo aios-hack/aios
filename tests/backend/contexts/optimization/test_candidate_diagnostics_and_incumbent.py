@@ -45,6 +45,25 @@ def _module_ast(path: Path) -> ast.Module:
     return ast.parse(path.read_text(encoding="utf-8"))
 
 
+def _context_module_ast(path: Path) -> ast.Module:
+    root = path.parent.parent
+    body: list[ast.stmt] = []
+    for source in sorted(root.rglob("*.py")):
+        if "__pycache__" in source.parts:
+            continue
+        body.extend(ast.parse(source.read_text(encoding="utf-8")).body)
+    return ast.Module(body=body, type_ignores=[])
+
+
+def _context_source(path: Path) -> str:
+    root = path.parent.parent
+    return chr(10).join(
+        source.read_text(encoding="utf-8")
+        for source in sorted(root.rglob("*.py"))
+        if "__pycache__" not in source.parts
+    )
+
+
 def _function_def(module: ast.Module, name: str) -> ast.FunctionDef:
     for node in module.body:
         if isinstance(node, ast.FunctionDef) and node.name == name:
@@ -137,7 +156,7 @@ def test_physics_counters_carry_flags_completeness_and_admissibility() -> None:
 
 
 def test_make_evaluator_fills_every_new_evaluation_field() -> None:
-    source = ast.unparse(_function_def(_module_ast(SEARCH_SOURCE), "make_evaluator"))
+    source = ast.unparse(_function_def(_context_module_ast(SEARCH_SOURCE), "make_evaluator"))
 
     assert "npv_parts=" in source
     assert "physics=MappingProxyType(physics_counters(physics))" in source
@@ -148,7 +167,7 @@ def test_make_evaluator_fills_every_new_evaluation_field() -> None:
 
 
 def test_evaluation_construction_names_all_four_fields() -> None:
-    module = _module_ast(SEARCH_SOURCE)
+    module = _context_module_ast(SEARCH_SOURCE)
     evaluator = _function_def(module, "make_evaluator")
     call = next(
         node
@@ -249,7 +268,7 @@ def test_a_candidate_that_failed_a_check_never_becomes_incumbent(
 
 
 def test_the_gate_scores_the_repaired_candidate_not_the_pre_repair_one() -> None:
-    source = ast.unparse(_function_def(_module_ast(RUN_SOURCE), "run_search"))
+    source = ast.unparse(_function_def(_context_module_ast(RUN_SOURCE), "run_search"))
 
     assert "incumbent_gate_passed(" in source
     assert "ood_score=evaluated.ood_score" in source
@@ -259,7 +278,7 @@ def test_the_gate_scores_the_repaired_candidate_not_the_pre_repair_one() -> None
 
 
 def test_only_a_gated_candidate_reaches_the_finalist_list() -> None:
-    module = _module_ast(RUN_SOURCE)
+    module = _context_module_ast(RUN_SOURCE)
     run_search = _function_def(module, "run_search")
     guarded = next(
         node
@@ -321,14 +340,13 @@ def test_the_registry_records_hash_npv_and_order() -> None:
     json.dumps(dumped, ensure_ascii=False, allow_nan=False)
 
 
-def test_the_registry_is_written_beside_the_diagnostics(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_registry_is_written_beside_the_diagnostics(tmp_path: Path) -> None:
     namespace = _run_namespace()
     path = tmp_path / "cmaes-diagnostics.json"
     path.write_text(
         json.dumps({"seed": 1, "evaluations": []}, ensure_ascii=False),
         encoding="utf-8",
     )
-    monkeypatch.setattr(_search_use_case, "SEARCH_DIAGNOSTICS", path)
     registry = namespace["IncumbentRegistry"]()
     registry.promote(
         stage="finalist",
@@ -343,7 +361,7 @@ def test_the_registry_is_written_beside_the_diagnostics(tmp_path: Path, monkeypa
         self_consistent=True,
     )
 
-    namespace["_write_diagnostics_tail"]([{"strategy": "finalist"}], registry)
+    namespace["_write_diagnostics_tail"]([{"strategy": "finalist"}], registry, path)
 
     written = json.loads(path.read_text(encoding="utf-8"))
     assert written["incumbents"][0]["schedule_hash"] == "hash-one"
@@ -446,7 +464,7 @@ def test_an_infinite_objective_lands_as_null_not_as_nan() -> None:
 
 def test_the_fallback_also_gates_on_physics_and_writes_the_registry() -> None:
     source = ast.unparse(
-        _function_def(_module_ast(RUN_SOURCE), "_search_near_baseline")
+        _function_def(_context_module_ast(RUN_SOURCE), "_search_near_baseline")
     )
 
     assert "_physics_admissible(physics)" in source
@@ -457,7 +475,7 @@ def test_the_fallback_also_gates_on_physics_and_writes_the_registry() -> None:
 
 
 def test_the_outcome_carries_the_incumbent_history_to_the_written_result() -> None:
-    module = _module_ast(RUN_SOURCE)
+    module = _context_module_ast(RUN_SOURCE)
     run_search = ast.unparse(_function_def(module, "run_search"))
     main = ast.unparse(_function_def(module, "main"))
 

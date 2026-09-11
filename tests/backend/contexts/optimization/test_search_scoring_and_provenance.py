@@ -147,6 +147,25 @@ def _module_ast(path: Path) -> ast.Module:
     return ast.parse(path.read_text(encoding="utf-8"))
 
 
+def _context_module_ast(path: Path) -> ast.Module:
+    root = path.parent.parent
+    body: list[ast.stmt] = []
+    for source in sorted(root.rglob("*.py")):
+        if "__pycache__" in source.parts:
+            continue
+        body.extend(ast.parse(source.read_text(encoding="utf-8")).body)
+    return ast.Module(body=body, type_ignores=[])
+
+
+def _context_source(path: Path) -> str:
+    root = path.parent.parent
+    return chr(10).join(
+        source.read_text(encoding="utf-8")
+        for source in sorted(root.rglob("*.py"))
+        if "__pycache__" not in source.parts
+    )
+
+
 def _function_def(module: ast.Module, name: str) -> ast.FunctionDef:
     for node in module.body:
         if isinstance(node, ast.FunctionDef) and node.name == name:
@@ -319,7 +338,7 @@ def test_a_head_without_a_calibration_blends_as_before(monkeypatch: pytest.Monke
 
 
 def test_load_environment_refuses_the_pair_before_any_candidate_is_scored() -> None:
-    source = ast.unparse(_function_def(_module_ast(SEARCH_SOURCE), "load_environment"))
+    source = ast.unparse(_function_def(_context_module_ast(SEARCH_SOURCE), "load_environment"))
 
     assert "npv_calibration_path" in source
     assert "_validate_npv_scoring_is_unambiguous(npv_head, npv_calibration)" in source
@@ -327,13 +346,13 @@ def test_load_environment_refuses_the_pair_before_any_candidate_is_scored() -> N
 
 
 def test_run_search_hands_the_calibration_to_the_environment() -> None:
-    source = ast.unparse(_function_def(_module_ast(RUN_SOURCE), "run_search"))
+    source = ast.unparse(_function_def(_context_module_ast(RUN_SOURCE), "run_search"))
 
     assert "npv_calibration_path=artifacts.npv_calibration" in source
 
 
 def test_both_return_paths_carry_the_strategy_and_the_equilibrium() -> None:
-    module = _module_ast(RUN_SOURCE)
+    module = _context_module_ast(RUN_SOURCE)
     run_search = ast.unparse(_function_def(module, "run_search"))
     fallback = ast.unparse(_function_def(module, "_search_near_baseline"))
 
@@ -640,7 +659,7 @@ def test_fallback_path_marks_the_equilibrium_as_not_claimed(
 
 
 def test_seeded_provenance_already_names_both_fields() -> None:
-    source = ast.unparse(_function_def(_module_ast(RUN_SOURCE), "run_search"))
+    source = ast.unparse(_function_def(_context_module_ast(RUN_SOURCE), "run_search"))
     seeded = source.split("calls = ")[0]
 
     assert "'search_strategy': 'cma-es'" in seeded
@@ -677,7 +696,7 @@ def test_an_unusable_cap_is_an_error_not_a_silent_default(value: str) -> None:
 
 
 def test_run_search_takes_the_caps_as_arguments() -> None:
-    module = _module_ast(RUN_SOURCE)
+    module = _context_module_ast(RUN_SOURCE)
     run_search = _function_def(module, "run_search")
     names = {argument.arg for argument in run_search.args.kwonlyargs}
 

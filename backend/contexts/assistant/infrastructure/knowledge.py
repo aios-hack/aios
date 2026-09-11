@@ -1,20 +1,36 @@
 from __future__ import annotations
 
-from backend.contexts.assistant.domain.errors import (
-    KnowledgeError,
-)
-
 import difflib
-import json
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
+
+from backend.contexts.assistant.domain.errors import KnowledgeError
+from backend.contexts.assistant.domain.knowledge import (
+    I18N_DIRECTORY,
+    LANGS,
+    Element,
+    ElementText,
+    Screen,
+    ScreenText,
+    Term,
+    TermText,
+    parse_element,
+    parse_element_text,
+    parse_screen,
+    parse_screen_text,
+    parse_term,
+    parse_term_text,
+    screen_id,
+)
+from backend.shared.json_io import read_json
 from backend.shared.settings import Settings
 
 KNOWLEDGE_ENV_VAR = "AIOS_JARVIS_KNOWLEDGE"
 FUZZY_CUTOFF = 0.78
-LANGS: tuple[str, ...] = ("ru", "en")
+DEFAULT_LANG = "ru"
+PROVENANCE = "knowledge"
 
 
 def default_knowledge_root() -> Path:
@@ -43,91 +59,117 @@ def normalize(text: str) -> str:
     return " ".join("".join(kept).split()).replace("ё", "е")
 
 
-@dataclass(frozen=True, slots=True)
-class Term:
-    id: str
-    term: Mapping[str, str]
-    aliases: tuple[str, ...]
-    definition: Mapping[str, str]
-    formula: str | None
-    unit: str | None
-    source: str
-    where_in_platform: tuple[Mapping[str, Any], ...]
-    related: tuple[str, ...]
-
-    def as_payload(self, lang: str) -> dict[str, Any]:
-        return {
-            "id": self.id,
-            "term": self.term.get(lang, self.term.get("ru", self.id)),
-            "term_all": dict(self.term),
-            "definition": self.definition.get(lang, self.definition.get("ru", "")),
-            "formula": self.formula,
-            "unit": self.unit,
-            "source": self.source,
-            "where_in_platform": [
-                {
-                    "workspace": place["workspace"],
-                    "view": place["view"],
-                    "what": place["what"].get(lang, place["what"].get("ru", "")),
-                    "spotlight": place.get("spotlight"),
-                }
-                for place in self.where_in_platform
-            ],
-            "related": list(self.related),
-            "provenance": "knowledge",
-        }
-
-
-@dataclass(frozen=True, slots=True)
-class Screen:
-    workspace: str
-    view: str
-    title: Mapping[str, str]
-    what: Mapping[str, str]
-    how_to_read: Mapping[str, str]
-    controls: tuple[Mapping[str, Any], ...]
-    questions: Mapping[str, Sequence[str]]
-
-    def as_payload(self, lang: str) -> dict[str, Any]:
-        return {
-            "workspace": self.workspace,
-            "view": self.view,
-            "title": self.title.get(lang, self.title.get("ru", "")),
-            "what": self.what.get(lang, self.what.get("ru", "")),
-            "how_to_read": self.how_to_read.get(lang, self.how_to_read.get("ru", "")),
-            "controls": [
-                {
-                    "label": control["label"].get(lang, control["label"].get("ru", "")),
-                    "spotlight": control["spotlight"],
-                    "hotkey": control.get("hotkey"),
-                }
-                for control in self.controls
-            ],
-            "questions": list(self.questions.get(lang, self.questions.get("ru", ()))),
-            "provenance": "knowledge",
-        }
-
-
 def _load(path: Path) -> Mapping[str, Any]:
     if not path.is_file():
         raise KnowledgeError(
             f"knowledge base file {path.name} not found at {path}: without it "
             "Jarvis cannot answer questions about terms or screens"
         )
-    try:
-        loaded = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as error:
-        raise KnowledgeError(
-            f"knowledge base file {path} does not parse as JSON: {error}"
-        ) from error
-    if not isinstance(loaded, dict):
-        raise KnowledgeError(
-            f"knowledge base file {path} is not a JSON object"
-        )
+    loaded = read_json(path)
+    if not isinstance(loaded, Mapping):
+        raise KnowledgeError(f"knowledge base file {path} is not a JSON object")
     return loaded
 
 
-class Knowledge:
+def _at(values: Sequence[str], index: int) -> str:
+    return values[index] if index < len(values) else ""
+
+
+@dataclass(frozen=True, slots=True)
+class LocalizedTerm:
+    term: Term
+    text: TermText
+
+    @property
+    def id(self) -> str:
+        return self.term.id
+
+    @property
+    def aliases(self) -> tuple[str, ...]:
+        return self.term.aliases
+
+    def as_payload(self) -> dict[str, Any]:
+        return {
+            "id": self.term.id,
+            "term": self.text.term,
+            "definition": self.text.definition,
+            "formula": self.term.formula,
+            "unit": self.term.unit,
+            "source": self.term.source,
+            "where_in_platform": [
+                place.payload(_at(self.text.where_in_platform, index))
+                for index, place in enumerate(self.term.where_in_platform)
+            ],
+            "related": list(self.term.related),
+            "provenance": PROVENANCE,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class LocalizedScreen:
+    screen: Screen
+    text: ScreenText
+
+    @property
+    def workspace(self) -> str:
+        return self.screen.workspace
+
+    @property
+    def view(self) -> str:
+        return self.screen.view
+
+    @property
+    def title(self) -> str:
+        return self.text.title
+
+    def as_payload(self) -> dict[str, Any]:
+        return {
+            "workspace": self.screen.workspace,
+            "view": self.screen.view,
+            "title": self.text.title,
+            "what": self.text.what,
+            "how_to_read": self.text.how_to_read,
+            "controls": [
+                {
+                    "label": _at(self.text.controls, index),
+                    "spotlight": control.spotlight,
+                    "hotkey": control.hotkey,
+                }
+                for index, control in enumerate(self.screen.controls)
+            ],
+            "questions": list(self.text.questions),
+            "provenance": PROVENANCE,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class LocalizedElement:
+    element: Element
+    text: ElementText
+
+    @property
+    def id(self) -> str:
+        return self.element.id
+
+    def as_payload(self) -> dict[str, Any]:
+        return {
+            "id": self.element.id,
+            "title": self.text.title,
+            "what": self.text.what,
+            "how_to_read": self.text.how_to_read,
+            "controls": [
+                {
+                    "label": _at(self.text.controls, index),
+                    "spotlight": control.spotlight,
+                    "hotkey": control.hotkey,
+                }
+                for index, control in enumerate(self.element.controls)
+            ],
+            "questions": list(self.text.questions),
+        }
+
+
+class KnowledgeStore:
     def __init__(self, root: Path | str | None = None) -> None:
         self._root = Path(root) if root is not None else default_knowledge_root()
         glossary = _load(self._root / "glossary.json")
@@ -135,38 +177,56 @@ class Knowledge:
         self._terms: dict[str, Term] = {}
         self._index: dict[str, str] = {}
         for raw in glossary.get("terms", ()):
-            term = Term(
-                id=str(raw["id"]),
-                term=dict(raw["term"]),
-                aliases=tuple(str(item) for item in raw.get("aliases", ())),
-                definition=dict(raw["definition"]),
-                formula=raw.get("formula"),
-                unit=raw.get("unit"),
-                source=str(raw["source"]),
-                where_in_platform=tuple(raw.get("where_in_platform", ())),
-                related=tuple(str(item) for item in raw.get("related", ())),
-            )
+            term = parse_term(raw)
             self._terms[term.id] = term
-            for key in (term.id, *term.term.values(), *term.aliases):
+            for key in (term.id, *term.aliases):
                 self._index.setdefault(normalize(key), term.id)
-        self._screens: dict[tuple[str, str], Screen] = {}
+        self._screens: dict[str, Screen] = {}
         for raw in guide.get("screens", ()):
-            screen = Screen(
-                workspace=str(raw["workspace"]),
-                view=str(raw["view"]),
-                title=dict(raw["title"]),
-                what=dict(raw["what"]),
-                how_to_read=dict(raw["how_to_read"]),
-                controls=tuple(raw.get("controls", ())),
-                questions={
-                    lang: tuple(values)
-                    for lang, values in raw.get("questions", {}).items()
-                },
+            screen = parse_screen(raw)
+            self._screens[screen_id(screen.workspace, screen.view)] = screen
+        self._elements: dict[str, Element] = {}
+        for raw in guide.get("elements", ()):
+            element = parse_element(raw)
+            self._elements[element.id] = element
+        self._texts: dict[str, dict[str, Any]] = {}
+        for lang in LANGS:
+            self._texts[lang] = self._load_language(lang)
+        for lang in LANGS:
+            for identifier, text in self._texts[lang]["terms"].items():
+                self._index.setdefault(normalize(text.term), identifier)
+
+    def _load_language(self, lang: str) -> dict[str, Any]:
+        base = self._root / I18N_DIRECTORY / lang
+        glossary = _load(base / "glossary.json")
+        guide = _load(base / "guide.json")
+        terms = {
+            identifier: parse_term_text(identifier, raw)
+            for identifier, raw in glossary.get("terms", {}).items()
+        }
+        screens = {
+            identifier: parse_screen_text(identifier, raw)
+            for identifier, raw in guide.get("screens", {}).items()
+        }
+        elements = {
+            identifier: parse_element_text(identifier, raw)
+            for identifier, raw in guide.get("elements", {}).items()
+        }
+        missing = sorted(set(self._terms) - set(terms))
+        if missing:
+            raise KnowledgeError(
+                f"knowledge base language {lang!r} has no text for terms {missing}"
             )
-            self._screens[(screen.workspace, screen.view)] = screen
-        self._elements: tuple[Mapping[str, Any], ...] = tuple(
-            guide.get("elements", ())
-        )
+        return {
+            "terms": terms,
+            "screens": screens,
+            "elements": elements,
+            "glossary_notice": str(glossary.get("notice") or ""),
+            "guide_notice": str(guide.get("notice") or ""),
+        }
+
+    def _lang(self, lang: str) -> str:
+        return lang if lang in self._texts else DEFAULT_LANG
 
     @property
     def root(self) -> Path:
@@ -180,71 +240,121 @@ class Knowledge:
     def screen_count(self) -> int:
         return len(self._screens)
 
-    def terms(self) -> tuple[Term, ...]:
-        return tuple(self._terms.values())
+    def notice(self, lang: str, catalog: str = "glossary") -> str:
+        key = "glossary_notice" if catalog == "glossary" else "guide_notice"
+        return str(self._texts[self._lang(lang)][key])
 
-    def screens(self) -> tuple[Screen, ...]:
-        return tuple(self._screens.values())
+    def localized(self, lang: str) -> tuple[LocalizedTerm, ...]:
+        texts = self._texts[self._lang(lang)]["terms"]
+        return tuple(
+            LocalizedTerm(term, texts[identifier])
+            for identifier, term in self._terms.items()
+        )
 
-    def elements(self) -> tuple[Mapping[str, Any], ...]:
-        return self._elements
+    def terms(self, lang: str = DEFAULT_LANG) -> tuple[LocalizedTerm, ...]:
+        return self.localized(lang)
+
+    def screens(self, lang: str = DEFAULT_LANG) -> tuple[LocalizedScreen, ...]:
+        texts = self._texts[self._lang(lang)]["screens"]
+        return tuple(
+            LocalizedScreen(screen, texts[identifier])
+            for identifier, screen in self._screens.items()
+            if identifier in texts
+        )
+
+    def elements(self, lang: str = DEFAULT_LANG) -> tuple[LocalizedElement, ...]:
+        texts = self._texts[self._lang(lang)]["elements"]
+        return tuple(
+            LocalizedElement(element, texts[identifier])
+            for identifier, element in self._elements.items()
+            if identifier in texts
+        )
 
     def spotlights(self) -> tuple[str, ...]:
         found: set[str] = set()
         for screen in self._screens.values():
             for control in screen.controls:
-                found.add(str(control["spotlight"]))
-        for element in self._elements:
-            for control in element.get("controls", ()):
-                found.add(str(control["spotlight"]))
+                found.add(control.spotlight)
+        for element in self._elements.values():
+            for control in element.controls:
+                found.add(control.spotlight)
         for term in self._terms.values():
             for place in term.where_in_platform:
-                spotlight = place.get("spotlight")
-                if spotlight:
-                    found.add(str(spotlight))
+                if place.spotlight:
+                    found.add(place.spotlight)
         return tuple(sorted(found))
 
-    def find_term(self, query: str) -> Term | None:
+    def term(self, identifier: str, lang: str = DEFAULT_LANG) -> LocalizedTerm | None:
+        found = self._terms.get(identifier)
+        if found is None:
+            return None
+        return LocalizedTerm(found, self._texts[self._lang(lang)]["terms"][identifier])
+
+    def find_term(self, query: str, lang: str = DEFAULT_LANG) -> LocalizedTerm | None:
         key = normalize(query)
         if not key:
             return None
         found = self._index.get(key)
-        if found is not None:
-            return self._terms[found]
-        for candidate, identifier in self._index.items():
-            if key in candidate.split() or candidate in key.split():
-                return self._terms[identifier]
-        close = difflib.get_close_matches(key, self._index, n=1, cutoff=FUZZY_CUTOFF)
-        if close:
-            return self._terms[self._index[close[0]]]
-        return None
+        if found is None:
+            for candidate, identifier in self._index.items():
+                if key in candidate.split() or candidate in key.split():
+                    found = identifier
+                    break
+        if found is None:
+            close = difflib.get_close_matches(key, self._index, n=1, cutoff=FUZZY_CUTOFF)
+            if close:
+                found = self._index[close[0]]
+        if found is None:
+            return None
+        return self.term(found, lang)
 
-    def screen(self, workspace: str, view: str) -> Screen | None:
-        return self._screens.get((workspace, view))
+    def screen(
+        self, workspace: str, view: str, lang: str = DEFAULT_LANG
+    ) -> LocalizedScreen | None:
+        identifier = screen_id(workspace, view)
+        found = self._screens.get(identifier)
+        texts = self._texts[self._lang(lang)]["screens"]
+        if found is None or identifier not in texts:
+            return None
+        return LocalizedScreen(found, texts[identifier])
 
-    def find_screen(self, query: str) -> Screen | None:
+    def find_screen(self, query: str, lang: str = DEFAULT_LANG) -> LocalizedScreen | None:
         key = normalize(query)
         if not key:
             return None
-        best: tuple[int, Screen] | None = None
-        for screen in self._screens.values():
+        best: tuple[int, LocalizedScreen] | None = None
+        for screen in self.screens(lang):
             score = 0
             haystacks = [
                 normalize(f"{screen.workspace} {screen.view}"),
-                *(normalize(value) for value in screen.title.values()),
+                normalize(screen.title),
             ]
-            for control in screen.controls:
-                haystacks.extend(
-                    normalize(value) for value in control["label"].values()
-                )
+            haystacks.extend(normalize(label) for label in screen.text.controls)
             for haystack in haystacks:
                 if key == haystack:
                     score += 10
                 elif key in haystack or haystack in key:
                     score += 4
                 else:
-                    words = set(key.split()) & set(haystack.split())
-                    score += len(words)
+                    score += len(set(key.split()) & set(haystack.split()))
             if score > 0 and (best is None or score > best[0]):
                 best = (score, screen)
         return best[1] if best is not None else None
+
+
+Knowledge = KnowledgeStore
+
+
+__all__ = [
+    "DEFAULT_LANG",
+    "FUZZY_CUTOFF",
+    "KNOWLEDGE_ENV_VAR",
+    "Knowledge",
+    "KnowledgeError",
+    "KnowledgeStore",
+    "LocalizedElement",
+    "LocalizedScreen",
+    "LocalizedTerm",
+    "default_knowledge_root",
+    "normalize",
+]

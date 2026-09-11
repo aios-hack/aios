@@ -16,7 +16,7 @@ import {
   type AblationSortKey
 } from '@/pages/money-rank/model/ablationSorting';
 import { NpvRank } from '@/pages/money-rank/ui/NpvRank/NpvRank';
-import { ABLATION_TABLE_CSS, hidesVisuallyOnly } from '@support/layout';
+import { ABLATION_CELLS_CSS, ABLATION_TABLE_CSS, hidesVisuallyOnly } from '@support/layout';
 import { publicPath, srcPath } from '@support/paths';
 
 const { ru } = dictionaries;
@@ -373,10 +373,7 @@ describe('ablation rows reveal in order', () => {
   });
 
   it('keeps the stagger delay after the animation shorthand that would reset it', () => {
-    const css = readFileSync(
-      ABLATION_TABLE_CSS,
-      'utf-8'
-    );
+    const css = readFileSync(ABLATION_CELLS_CSS, 'utf-8');
     const block = css.match(/\.abl-table tbody tr \{[^}]*\}/)?.[0] ?? '';
 
     expect(block).toContain('animation-delay');
@@ -385,10 +382,7 @@ describe('ablation rows reveal in order', () => {
   });
 
   it('turns the row reveal off when the reader asks for reduced motion', () => {
-    const css = readFileSync(
-      ABLATION_TABLE_CSS,
-      'utf-8'
-    );
+    const css = readFileSync(ABLATION_CELLS_CSS, 'utf-8');
     const reduced = css.match(
       /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/
     );

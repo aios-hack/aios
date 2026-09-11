@@ -1,20 +1,33 @@
 from __future__ import annotations
 
-from backend.contexts.assistant.domain.errors import (
-    SystemMapError,
-)
-
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
+
+from backend.contexts.assistant.domain.errors import SystemMapError
+from backend.contexts.assistant.domain.knowledge import (
+    I18N_DIRECTORY,
+    LANGS,
+    SYSTEM_KINDS,
+    SystemEdge,
+    SystemEdgeText,
+    SystemNode,
+    SystemNodeText,
+    edge_id,
+    parse_system_edge,
+    parse_system_edge_text,
+    parse_system_node,
+    parse_system_node_text,
+)
+from backend.shared.json_io import read_json
 from backend.shared.settings import Settings
 
 SYSTEM_ENV_VAR = "AIOS_JARVIS_SYSTEM"
 KNOWLEDGE_ENV_VAR = "AIOS_JARVIS_KNOWLEDGE"
 SYSTEM_FILE = "system.json"
-KINDS: tuple[str, ...] = ("ui", "service", "domain", "infra", "data", "doc")
+KINDS: tuple[str, ...] = SYSTEM_KINDS
 MAX_DEPTH = 2
+DEFAULT_LANG = "ru"
 
 
 def default_system_path() -> Path:
@@ -31,45 +44,83 @@ def default_system_path() -> Path:
         if candidate.is_file():
             return candidate
     raise SystemMapError(
-        "карта системы не найдена: укажите файл переменной окружения "
-        f"{SYSTEM_ENV_VAR} или запускайте из корня репозитория с "
-        f"frontend/public/jarvis/knowledge/{SYSTEM_FILE}"
+        "the system map was not found: name the file in the "
+        f"{SYSTEM_ENV_VAR} environment variable, or run from the repository "
+        f"root that holds frontend/public/jarvis/knowledge/{SYSTEM_FILE}"
     )
 
 
 @dataclass(frozen=True, slots=True)
 class Node:
-    id: str
-    label: Mapping[str, str]
-    kind: str
-    summary: Mapping[str, str]
-    doc: str | None
-    route: Mapping[str, Any] | None
-    files: tuple[str, ...]
+    node: SystemNode
+    text: Mapping[str, SystemNodeText]
 
-    def as_dict(self) -> dict[str, Any]:
+    @property
+    def id(self) -> str:
+        return self.node.id
+
+    @property
+    def kind(self) -> str:
+        return self.node.kind
+
+    @property
+    def doc(self) -> str | None:
+        return self.node.doc
+
+    @property
+    def route(self) -> Mapping[str, Any] | None:
+        return self.node.route
+
+    @property
+    def files(self) -> tuple[str, ...]:
+        return self.node.files
+
+    def label(self, lang: str = DEFAULT_LANG) -> str:
+        return self._text(lang).label
+
+    def summary(self, lang: str = DEFAULT_LANG) -> str:
+        return self._text(lang).summary
+
+    def _text(self, lang: str) -> SystemNodeText:
+        if lang in self.text:
+            return self.text[lang]
+        return self.text[DEFAULT_LANG]
+
+    def as_dict(self, lang: str = DEFAULT_LANG) -> dict[str, Any]:
         return {
-            "id": self.id,
-            "label": dict(self.label),
-            "kind": self.kind,
-            "summary": dict(self.summary),
-            "doc": self.doc,
-            "route": dict(self.route) if self.route else None,
-            "files": list(self.files),
+            "id": self.node.id,
+            "label": self.label(lang),
+            "kind": self.node.kind,
+            "summary": self.summary(lang),
+            "doc": self.node.doc,
+            "route": dict(self.node.route) if self.node.route else None,
+            "files": list(self.node.files),
         }
 
 
 @dataclass(frozen=True, slots=True)
 class Edge:
-    source: str
-    target: str
-    label: Mapping[str, str]
+    edge: SystemEdge
+    text: Mapping[str, SystemEdgeText]
 
-    def as_dict(self) -> dict[str, Any]:
+    @property
+    def source(self) -> str:
+        return self.edge.source
+
+    @property
+    def target(self) -> str:
+        return self.edge.target
+
+    def label(self, lang: str = DEFAULT_LANG) -> str:
+        if lang in self.text:
+            return self.text[lang].label
+        return self.text[DEFAULT_LANG].label
+
+    def as_dict(self, lang: str = DEFAULT_LANG) -> dict[str, Any]:
         return {
-            "from": self.source,
-            "to": self.target,
-            "label": dict(self.label),
+            "from": self.edge.source,
+            "to": self.edge.target,
+            "label": self.label(lang),
         }
 
 
@@ -78,51 +129,76 @@ class SystemMap:
         self._path = Path(path) if path is not None else default_system_path()
         if not self._path.is_file():
             raise SystemMapError(
-                f"карта системы {self._path} не найдена: без неё Джарвис не "
-                "может рассказать, из чего состоит платформа"
+                f"the system map {self._path} was not found: without it Jarvis "
+                "cannot say what the platform is made of"
             )
-        try:
-            loaded = json.loads(self._path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as error:
-            raise SystemMapError(
-                f"карта системы {self._path} не разбирается как JSON: {error}"
-            ) from error
-        if not isinstance(loaded, dict):
-            raise SystemMapError(f"карта системы {self._path} не объект JSON")
+        loaded = read_json(self._path)
+        if not isinstance(loaded, Mapping):
+            raise SystemMapError(f"the system map {self._path} is not a JSON object")
+        texts = self._load_texts()
         self._nodes: dict[str, Node] = {}
         for raw in loaded.get("nodes", ()):
-            kind = str(raw.get("kind"))
-            if kind not in KINDS:
+            parsed = parse_system_node(raw)
+            per_lang = {
+                lang: texts[lang]["nodes"][parsed.id]
+                for lang in texts
+                if parsed.id in texts[lang]["nodes"]
+            }
+            if DEFAULT_LANG not in per_lang:
                 raise SystemMapError(
-                    f"узел {raw.get('id')!r} карты системы имеет вид {kind!r}, "
-                    f"которого нет среди {', '.join(KINDS)}"
+                    f"the system map node {parsed.id!r} has no {DEFAULT_LANG} text"
                 )
-            node = Node(
-                id=str(raw["id"]),
-                label=dict(raw.get("label") or {}),
-                kind=kind,
-                summary=dict(raw.get("summary") or {}),
-                doc=str(raw["doc"]) if raw.get("doc") else None,
-                route=dict(raw["route"]) if raw.get("route") else None,
-                files=tuple(str(item) for item in raw.get("files", ())),
-            )
-            self._nodes[node.id] = node
-        self._edges: tuple[Edge, ...] = tuple(
-            Edge(
-                source=str(raw["from"]),
-                target=str(raw["to"]),
-                label=dict(raw.get("label") or {}),
-            )
-            for raw in loaded.get("edges", ())
-        )
+            self._nodes[parsed.id] = Node(parsed, per_lang)
+        edges: list[Edge] = []
+        for raw in loaded.get("edges", ()):
+            parsed = parse_system_edge(raw)
+            identifier = edge_id(parsed)
+            per_lang = {
+                lang: texts[lang]["edges"][identifier]
+                for lang in texts
+                if identifier in texts[lang]["edges"]
+            }
+            if DEFAULT_LANG not in per_lang:
+                raise SystemMapError(
+                    f"the system map edge {identifier!r} has no {DEFAULT_LANG} text"
+                )
+            edges.append(Edge(parsed, per_lang))
+        self._edges: tuple[Edge, ...] = tuple(edges)
         for edge in self._edges:
             for end in (edge.source, edge.target):
                 if end not in self._nodes:
                     raise SystemMapError(
-                        f"ребро {edge.source}→{edge.target} карты системы "
-                        f"ссылается на узел {end!r}, которого в карте нет"
+                        f"the system map edge {edge.source}->{edge.target} names "
+                        f"node {end!r}, which the map does not hold"
                     )
-        self._source = str(loaded.get("source") or self._path.name)
+        self._sources = {
+            lang: texts[lang]["source"] or self._path.name for lang in texts
+        }
+
+    def _load_texts(self) -> dict[str, dict[str, Any]]:
+        base = self._path.parent / I18N_DIRECTORY
+        texts: dict[str, dict[str, Any]] = {}
+        for lang in LANGS:
+            path = base / lang / SYSTEM_FILE
+            if not path.is_file():
+                continue
+            loaded = read_json(path)
+            texts[lang] = {
+                "nodes": {
+                    identifier: parse_system_node_text(identifier, raw)
+                    for identifier, raw in loaded.get("nodes", {}).items()
+                },
+                "edges": {
+                    identifier: parse_system_edge_text(identifier, raw)
+                    for identifier, raw in loaded.get("edges", {}).items()
+                },
+                "source": str(loaded.get("source") or ""),
+            }
+        if DEFAULT_LANG not in texts:
+            raise SystemMapError(
+                f"the system map has no {DEFAULT_LANG} text under {base}"
+            )
+        return texts
 
     @property
     def path(self) -> Path:
@@ -130,7 +206,7 @@ class SystemMap:
 
     @property
     def source(self) -> str:
-        return self._source
+        return self._sources[DEFAULT_LANG]
 
     @property
     def node_count(self) -> int:
@@ -159,12 +235,12 @@ class SystemMap:
         for node in self._nodes.values():
             if node.id.casefold() == key:
                 return node
-            for value in node.label.values():
-                if str(value).casefold().replace("ё", "е") == key:
+            for lang in node.text:
+                if node.label(lang).casefold().replace("ё", "е") == key:
                     return node
         for node in self._nodes.values():
             haystack = " ".join(
-                [node.id, *(str(value) for value in node.label.values())]
+                [node.id, *(node.label(lang) for lang in node.text)]
             ).casefold().replace("ё", "е")
             if key in haystack:
                 return node
@@ -179,7 +255,7 @@ class SystemMap:
         if node is None:
             known = ", ".join(sorted(self._nodes))
             raise SystemMapError(
-                f"узла {focus!r} нет в карте системы: известные узлы — {known}"
+                f"the system map has no node {focus!r}: known nodes are {known}"
             )
         limit = max(1, min(int(depth), MAX_DEPTH))
         reached = {node.id}
@@ -210,11 +286,9 @@ class SystemMap:
             node = self._nodes.get(node_id)
             if node is None:
                 continue
-            label = node.label.get(lang, node.label.get("ru", node.id))
-            summary = node.summary.get(lang, node.summary.get("ru", ""))
-            first = summary.split(". ")[0].strip()
+            first = node.summary(lang).split(". ")[0].strip()
             if first:
-                lines.append(f"{label} — {first}.")
+                lines.append(f"{node.label(lang)} — {first}.")
         return lines
 
 
@@ -231,3 +305,20 @@ def shared_system_map() -> SystemMap:
 def reset_shared_system_map() -> None:
     global _CACHED
     _CACHED = None
+
+
+__all__ = [
+    "DEFAULT_LANG",
+    "KINDS",
+    "KNOWLEDGE_ENV_VAR",
+    "MAX_DEPTH",
+    "SYSTEM_ENV_VAR",
+    "SYSTEM_FILE",
+    "Edge",
+    "Node",
+    "SystemMap",
+    "SystemMapError",
+    "default_system_path",
+    "reset_shared_system_map",
+    "shared_system_map",
+]

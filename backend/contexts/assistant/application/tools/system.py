@@ -65,8 +65,8 @@ def system_map(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
         raise ToolFailure(str(error)) from error
     payload: dict[str, Any] = {
         "focus": focus_id,
-        "nodes": [node.as_dict() for node in nodes],
-        "edges": [edge.as_dict() for edge in edges],
+        "nodes": [node.as_dict(lang) for node in nodes],
+        "edges": [edge.as_dict(lang) for edge in edges],
         "source": carte.source,
         "total_nodes": carte.node_count,
         "total_edges": carte.edge_count,
@@ -75,11 +75,7 @@ def system_map(context: ToolContext, arguments: Mapping[str, Any]) -> Card:
         title = _pick("map_all", lang)
     else:
         node = carte.node(focus_id)
-        label = (
-            node.label.get(lang, node.label.get("ru", focus_id))
-            if node is not None
-            else focus_id
-        )
+        label = node.label(lang) if node is not None else focus_id
         title = _pick("map_focus", lang, label=label)
     return Card(
         type="system-map",

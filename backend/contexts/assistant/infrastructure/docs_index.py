@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.assistant.domain.errors import KnowledgeError
+from backend.contexts.assistant.domain.knowledge import LANGS
+from backend.contexts.assistant.infrastructure.knowledge import KnowledgeStore
+
 from backend.contexts.assistant.domain.errors import (
     DocsIndexError,
 )
@@ -310,104 +314,124 @@ def chunks_of_plain(source: str, text: str, scope: str) -> list[Chunk]:
     ]
 
 
-def _term_text(entry: Mapping[str, Any]) -> tuple[str, str]:
-    term = entry.get("term") or {}
-    definition = entry.get("definition") or {}
-    names = " / ".join(str(value) for value in term.values() if value)
-    body_parts = [str(value) for value in definition.values() if value]
-    for key in ("formula", "unit", "source"):
-        value = entry.get(key)
+def _joined(values: Sequence[str]) -> str:
+    seen: list[str] = []
+    for value in values:
+        if value and value not in seen:
+            seen.append(value)
+    return " / ".join(seen)
+
+
+def _term_text(store: KnowledgeStore, identifier: str) -> tuple[str, str]:
+    per_lang = [store.term(identifier, lang) for lang in LANGS]
+    present = [item for item in per_lang if item is not None]
+    if not present:
+        return identifier, ""
+    term = present[0].term
+    names = _joined([item.text.term for item in present])
+    body_parts = [item.text.definition for item in present if item.text.definition]
+    for key, value in (("formula", term.formula), ("unit", term.unit), ("source", term.source)):
         if value:
             body_parts.append(f"{key}: {value}")
-    aliases = entry.get("aliases") or ()
-    if aliases:
-        body_parts.append("синонимы: " + ", ".join(str(item) for item in aliases))
-    return names or str(entry.get("id", "")), "\n".join(body_parts)
+    if term.aliases:
+        body_parts.append("синонимы: " + ", ".join(term.aliases))
+    return names or identifier, chr(10).join(body_parts)
 
 
-def _screen_text(entry: Mapping[str, Any]) -> tuple[str, str]:
-    title = entry.get("title") or {}
-    names = " / ".join(str(value) for value in title.values() if value)
+def _screen_text(store: KnowledgeStore, workspace: str, view: str) -> tuple[str, str]:
+    per_lang = [store.screen(workspace, view, lang) for lang in LANGS]
+    present = [item for item in per_lang if item is not None]
+    if not present:
+        return f"({workspace}/{view})", ""
+    names = _joined([item.text.title for item in present])
     parts: list[str] = []
-    for key in ("what", "how_to_read"):
-        section = entry.get(key) or {}
-        parts.extend(str(value) for value in section.values() if value)
-    for control in entry.get("controls", ()):
-        label = control.get("label") or {}
-        labels = " / ".join(str(value) for value in label.values() if value)
-        hotkey = control.get("hotkey")
-        spotlight = control.get("spotlight")
+    for item in present:
+        for value in (item.text.what, item.text.how_to_read):
+            if value:
+                parts.append(value)
+    controls = present[0].screen.controls
+    for index, control in enumerate(controls):
+        labels = _joined([_at_index(item.text.controls, index) for item in present])
         parts.append(
             f"элемент: {labels}"
-            + (f" — горячая клавиша {hotkey}" if hotkey else "")
-            + (f" — якорь {spotlight}" if spotlight else "")
+            + (f" — горячая клавиша {control.hotkey}" if control.hotkey else "")
+            + (f" — якорь {control.spotlight}" if control.spotlight else "")
         )
-    for values in (entry.get("questions") or {}).values():
-        parts.extend(str(item) for item in values)
-    workspace = entry.get("workspace")
-    view = entry.get("view")
-    return f"{names} ({workspace}/{view})", "\n".join(parts)
+    for item in present:
+        parts.extend(item.text.questions)
+    return f"{names} ({workspace}/{view})", chr(10).join(part for part in parts if part)
+
+
+def _element_text(store: KnowledgeStore, identifier: str) -> tuple[str, str]:
+    per_lang: list[Any] = []
+    for lang in LANGS:
+        for element in store.elements(lang):
+            if element.id == identifier:
+                per_lang.append(element)
+    if not per_lang:
+        return identifier, ""
+    names = _joined([item.text.title for item in per_lang])
+    parts: list[str] = []
+    for item in per_lang:
+        for value in (item.text.what, item.text.how_to_read):
+            if value:
+                parts.append(value)
+    controls = per_lang[0].element.controls
+    for index in range(len(controls)):
+        parts.append(_joined([_at_index(item.text.controls, index) for item in per_lang]))
+    return names or identifier, chr(10).join(part for part in parts if part)
+
+
+def _at_index(values: Sequence[str], index: int) -> str:
+    return values[index] if index < len(values) else ""
 
 
 def chunks_of_knowledge(root: Path) -> list[Chunk]:
+    try:
+        store = KnowledgeStore(root)
+    except KnowledgeError:
+        return []
     collected: list[Chunk] = []
-    glossary = root / "glossary.json"
-    if glossary.is_file():
-        loaded = read_json(glossary)
-        for entry in loaded.get("terms", ()):
-            heading, body = _term_text(entry)
-            if not body:
-                continue
-            collected.append(
-                Chunk(
-                    source="knowledge/glossary.json",
-                    heading=heading,
-                    anchor=slug(str(entry.get("id", heading))),
-                    text=f"{heading}\n{body}",
-                    numbers=tuple(numbers_in(body)),
-                    scope="knowledge",
-                )
+    for term in store.localized("ru"):
+        heading, body = _term_text(store, term.id)
+        if not body:
+            continue
+        collected.append(
+            Chunk(
+                source="knowledge/glossary.json",
+                heading=heading,
+                anchor=slug(term.id),
+                text=heading + chr(10) + body,
+                numbers=tuple(numbers_in(body)),
+                scope="knowledge",
             )
-    guide = root / "guide.json"
-    if guide.is_file():
-        loaded = read_json(guide)
-        for entry in loaded.get("screens", ()):
-            heading, body = _screen_text(entry)
-            collected.append(
-                Chunk(
-                    source="knowledge/guide.json",
-                    heading=heading,
-                    anchor=slug(f"{entry.get('workspace')}-{entry.get('view')}"),
-                    text=f"{heading}\n{body}",
-                    numbers=tuple(numbers_in(body)),
-                    scope="knowledge",
-                )
+        )
+    for screen in store.screens("ru"):
+        heading, body = _screen_text(store, screen.workspace, screen.view)
+        collected.append(
+            Chunk(
+                source="knowledge/guide.json",
+                heading=heading,
+                anchor=slug(f"{screen.workspace}-{screen.view}"),
+                text=heading + chr(10) + body,
+                numbers=tuple(numbers_in(body)),
+                scope="knowledge",
             )
-        for entry in loaded.get("elements", ()):
-            title = entry.get("title") or {}
-            names = " / ".join(str(value) for value in title.values() if value)
-            parts: list[str] = []
-            for key in ("what", "how_to_read"):
-                section = entry.get(key) or {}
-                parts.extend(str(value) for value in section.values() if value)
-            for control in entry.get("controls", ()):
-                label = control.get("label") or {}
-                parts.append(
-                    " / ".join(str(value) for value in label.values() if value)
-                )
-            body = "\n".join(part for part in parts if part)
-            if not body:
-                continue
-            collected.append(
-                Chunk(
-                    source="knowledge/guide.json",
-                    heading=names or str(entry.get("id", "")),
-                    anchor=slug(str(entry.get("id", names))),
-                    text=f"{names}\n{body}",
-                    numbers=tuple(numbers_in(body)),
-                    scope="knowledge",
-                )
+        )
+    for element in store.elements("ru"):
+        heading, body = _element_text(store, element.id)
+        if not body:
+            continue
+        collected.append(
+            Chunk(
+                source="knowledge/guide.json",
+                heading=heading,
+                anchor=slug(element.id),
+                text=heading + chr(10) + body,
+                numbers=tuple(numbers_in(body)),
+                scope="knowledge",
             )
+        )
     return collected
 
 

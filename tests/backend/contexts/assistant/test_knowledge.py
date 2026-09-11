@@ -50,26 +50,26 @@ def test_glossary_has_enough_terms(knowledge: Knowledge) -> None:
 
 
 def test_every_term_is_bilingual_with_a_source(knowledge: Knowledge) -> None:
-    for term in knowledge.terms():
-        for lang in LANGS:
-            assert term.term.get(lang), term.id
-            assert term.definition.get(lang), term.id
-        assert term.source, term.id
-        assert term.where_in_platform, term.id
+    for lang in LANGS:
+        for term in knowledge.localized(lang):
+            assert term.text.term, term.id
+            assert term.text.definition, term.id
+            assert term.term.source, term.id
+            assert term.term.where_in_platform, term.id
 
 
 def test_every_where_in_platform_route_exists(knowledge: Knowledge) -> None:
     for term in knowledge.terms():
-        for place in term.where_in_platform:
-            views = WORKSPACE_VIEWS.get(str(place["workspace"]))
+        for place in term.term.where_in_platform:
+            views = WORKSPACE_VIEWS.get(place.workspace)
             assert views is not None, (term.id, place)
-            assert str(place["view"]) in views, (term.id, place)
+            assert place.view in views, (term.id, place)
 
 
 def test_related_terms_all_resolve(knowledge: Knowledge) -> None:
     known = {term.id for term in knowledge.terms()}
     for term in knowledge.terms():
-        for related in term.related:
+        for related in term.term.related:
             assert related in known, (term.id, related)
 
 
@@ -90,21 +90,20 @@ def test_guide_covers_every_workspace_view(knowledge: Knowledge) -> None:
 
 
 def test_every_screen_is_bilingual(knowledge: Knowledge) -> None:
-    for screen in knowledge.screens():
-        for lang in LANGS:
-            assert screen.title.get(lang), screen.workspace
-            assert screen.what.get(lang), screen.workspace
-            assert screen.how_to_read.get(lang), screen.workspace
-            assert screen.questions.get(lang), screen.workspace
-        assert screen.controls, screen.workspace
-        for control in screen.controls:
-            for lang in LANGS:
-                assert control["label"].get(lang), control
-            assert control["spotlight"], control
+    for lang in LANGS:
+        for screen in knowledge.screens(lang):
+            assert screen.text.title, screen.workspace
+            assert screen.text.what, screen.workspace
+            assert screen.text.how_to_read, screen.workspace
+            assert screen.text.questions, screen.workspace
+            assert screen.screen.controls, screen.workspace
+            for index, control in enumerate(screen.screen.controls):
+                assert screen.text.controls[index], control
+                assert control.spotlight, control
 
 
 def test_extra_elements_are_present(knowledge: Knowledge) -> None:
-    identifiers = {str(element["id"]) for element in knowledge.elements()}
+    identifiers = {element.id for element in knowledge.elements()}
     assert identifiers == {"header", "player", "inspector", "command-palette"}
 
 
@@ -197,7 +196,13 @@ def test_knowledge_files_are_valid_json(knowledge_root: Path) -> None:
     for name in ("glossary.json", "guide.json"):
         payload = json.loads((knowledge_root / name).read_text(encoding="utf-8"))
         assert payload["version"] == 1
-        assert payload["notice"]["ru"] and payload["notice"]["en"]
+        assert "notice" not in payload
+    for lang in LANGS:
+        for name in ("glossary.json", "guide.json"):
+            payload = json.loads(
+                (knowledge_root / "i18n" / lang / name).read_text(encoding="utf-8")
+            )
+            assert payload["notice"]
 
 
 COMPENSATION_ARTIFACT = "data/compensation-base.json"
@@ -262,7 +267,7 @@ def test_new_terms_answer_without_a_language_model(
     term = knowledge.find_term(identifier)
     assert term is not None
     card = run_tool(
-        "explain_term", make(store, knowledge), {"query": term.term["ru"]}
+        "explain_term", make(store, knowledge), {"query": term.text.term}
     )
     assert card.provenance == "knowledge"
     assert card.payload["id"] == identifier
@@ -274,7 +279,7 @@ def test_compensation_violation_names_both_kinds_and_the_defaults(
 ) -> None:
     term = _term(knowledge, "COMPENSATION_UNDEFINED")
     for lang in LANGS:
-        text = term.definition[lang]
+        text = term.text.definition
         assert "COMPENSATION_OUT_OF_CORRIDOR" in text
         assert "COMPENSATION_UNDEFINED" in text
         assert "compensation_enforcement" in text
@@ -288,7 +293,7 @@ def test_compensation_defaults_match_the_contract(knowledge: Knowledge) -> None:
     assert policy.enforcement == "diagnostic"
     assert policy.scope == "field_and_groups"
     assert policy.hard is False
-    text = _term(knowledge, "COMPENSATION_UNDEFINED").definition["ru"]
+    text = _term(knowledge, "COMPENSATION_UNDEFINED").text.definition
     for scope in COMPENSATION_SCOPES:
         assert scope in text
     for enforcement in COMPENSATION_ENFORCEMENTS:
@@ -307,7 +312,7 @@ def test_quoted_base_numbers_match_the_artifact_on_disk(
 ) -> None:
     distribution = compensation_base["surface"]["distribution"]
     assert distribution["n_steps"] == 224
-    text = _term(knowledge, "компенсация базы").definition["ru"]
+    text = _term(knowledge, "компенсация базы").text.definition
     for name, quoted in QUOTED_SURFACE.items():
         assert round(distribution[name], 4) == quoted, name
         assert f"{quoted:.4f}" in text, name
@@ -322,7 +327,7 @@ def test_no_base_step_falls_into_the_assigned_corridor(
     assert len(steps) == 224
     inside = [step for step in steps if low <= step["value"] <= high]
     assert inside == []
-    text = _term(knowledge, "компенсация базы").definition["ru"]
+    text = _term(knowledge, "компенсация базы").text.definition
     assert "0.85" in text
     assert "1.15" in text
 
@@ -334,7 +339,7 @@ def test_quoted_reservoir_difference_matches_the_artifact(
     low, high = QUOTED_RESERVOIR_DIFFERENCE_PERCENT
     assert round(difference["min"] * 100.0, 2) == low
     assert round(difference["max"] * 100.0, 2) == high
-    text = _term(knowledge, "компенсация базы").definition["ru"]
+    text = _term(knowledge, "компенсация базы").text.definition
     assert "0.06" in text
     assert "0.29" in text
 
@@ -344,7 +349,7 @@ def test_external_water_term_states_the_default_and_the_flag(
 ) -> None:
     term = _term(knowledge, "external_water_m3_per_day")
     for lang in LANGS:
-        text = term.definition[lang]
+        text = term.text.definition
         assert "external_water_m3_per_day" in text
         assert "fraction_defaulted" in text
         assert "1.0" in text
@@ -381,7 +386,7 @@ def test_unlimited_water_with_water_keys_is_refused() -> None:
 def test_physics_gate_term_names_all_seven_invariants(knowledge: Knowledge) -> None:
     term = _term(knowledge, "физгейт")
     for lang in LANGS:
-        text = term.definition[lang]
+        text = term.text.definition
         for invariant in Invariant:
             assert invariant.value in text, (lang, invariant)
         assert "admissible" in text
@@ -401,7 +406,7 @@ def test_physics_gate_severities_match_the_module(knowledge: Knowledge) -> None:
     assert warnings == [Invariant.BHP_LIMIT]
     assert len(blocking) == 6
     assert len(list(Invariant)) == 7
-    text = _term(knowledge, "физгейт").definition["ru"]
+    text = _term(knowledge, "физгейт").text.definition
     assert "BHP_LIMIT" in text
     assert "предупреждение" in text
     assert "шесть" in text
