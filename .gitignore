@@ -43,3 +43,6 @@ frontend/.screens/
 Thumbs.db
 
 frontend/public/jarvis/references/
+
+artifacts/*/candidates.tar.gz
+artifacts/final-readiness-*/runs/

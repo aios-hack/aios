@@ -1,9 +1,0 @@
-{
-  "economics_config_hash": "44a24e2ac0c700ad50228a414c56235c948a4edea30a0cca34d0a2d6186ef2af",
-  "measured_npv": 2572738950.6450777,
-  "methodology_version_hash": "74f2872e1d1e52b0774454e92ebcf0030701c6fe21845de01a1b33e6917f984c",
-  "npv_methodology": 2572738950.6450777,
-  "sound": true,
-  "source_response_hash": "eb454b648484167c88d41182ff9b5d716a86c09838272e17ed9cbe2d2c948e85",
-  "source_run_id": "20260909T200954-a4d6cd1c82e4"
-}
