@@ -598,7 +598,84 @@ C-задачи выполняет тот агент, чей стек они за
   контекст/фичу/команду), `docs/BACKLOG.md` — запись о рефакторинге.
 - [ ] **C-13** Золотой прогон + живой Docker (§8.3).
 
-### 7.5 Волна 4 — координатор
+### 7.5 Волна 4 — уборка репозитория (решение владельца 11.09)
+
+Цель: чистый проект. Ни одного файла, который не нужен ни сборке, ни тестам, ни защите.
+Делается **после** волны 3, когда шимы удалены и имена устоялись — иначе уборка удалит то,
+на что ещё ссылаются мостики.
+
+**Замеры на 11.09 (сделаны координатором, брать как есть):**
+
+| Находка | Факт |
+|---|---|
+| `ui/web/` | **208 МБ** старого фронта со `node_modules` и `dist`; в индексе git **ноль файлов**, ссылок из кода, доков и compose — ноль. Каталог целиком мёртвый |
+| `to-delete/` | один файл `ab_money_loss.py`, в индексе, имя каталога говорит само за себя |
+| `.gitignore` | **четыре** файла: корневой, `frontend/.gitignore`, плюс автосоздаваемые в `.pytest_cache` и `.ruff_cache`. Нужен один в корне |
+| Индекс против правил | `out/` и `/data` перечислены в `.gitignore`, но **88 файлов** из них уже в индексе (попали до появления правил) — правило не действует на отслеживаемые файлы |
+| Служебные каталоги | `.claude/launch.json` в индексе несмотря на `.claude/`; `.impeccable/config.json` и `frontend/.impeccable/config.json` в индексе; в `frontend/src` шесть каталогов `.impeccable/` |
+| Корневые `.md` | 14 файлов, **613 КБ**: `FAQ.md` 119, `JARVIS_V2.md` 114, `JARVIS.md` 93, `REFACTOR_PLAN.md` 78, `SURROGATE_DEFENSE.md` 62, `SUBMISSION.md` 33, `SURROGATE_HANDOFF.md` 30, `ANSWERS.md` 21, `README.md` 18, `FINAL_RUNBOOK.md` 14, `RELEASE_SURROGATE_20260906.md` 10, `UNSEEN_CASE_2017.md` 10, `ARCHITECTURE.md` 7, `CLAUDE.md` 3 |
+| `artifacts/` | 177 МБ, 184 файла в индексе — но там лежит **пакет сдачи чемпиона**, трогать нельзя без разбора |
+| `dataset-main/` | выгрузки OPM (`.SMSPEC`, `.UNSMRY`) — данные прогонов, не код |
+
+**Что делаем**
+
+- [ ] **Z-01 Один `.gitignore` в корне.** Удалить `frontend/.gitignore`, перенести его правила
+  (`node_modules`, `dist`, `public/data`, `.screens`) в корневой с префиксом `frontend/`.
+  Кэш-каталоги (`.pytest_cache`, `.ruff_cache`) — в правила, их собственные файлы исчезнут
+  вместе с каталогами. Добавить: `.claude/`, `**/.impeccable/`, `ui/`, `to-delete/`,
+  `dataset-main/`, `*.tmp`, `.idea/`, `.vscode/`, `Thumbs.db`.
+- [ ] **Z-02 Убрать из индекса то, что ему не место.** `git rm -r --cached` для `.claude/launch.json`,
+  `.impeccable/config.json` (оба), `to-delete/`, и для 88 файлов `out/`+`data/`, **кроме**
+  тех, что реально нужны прогонам: `data/base_case/response.json`, `data/lambda-window-2007/lambda.json`,
+  `data/compensation-base.json`, `data/surrogate-production.json`, `data/release.json` —
+  эти пять читает боевой код, их оставить и **исключить из правила** явными `!`-строками.
+  Остальное (`data/water-feedback-submission/**`, `out/web-runs/**`, `out/*.tar.gz`) — из индекса.
+  Перед удалением каждого — проверить `grep` по коду и compose, что на файл никто не ссылается.
+- [ ] **Z-03 Удалить мёртвые каталоги с диска:** `ui/` (208 МБ), `to-delete/`, `__pycache__/`
+  в корне. `dataset-main/` — только из индекса и в игнор, файлы на диске оставить (это данные
+  прогона, они ещё нужны локально).
+- [ ] **Z-04 Документы — в `docs/`.** В корне остаются ровно четыре: `README.md` (как войти в
+  проект), `CLAUDE.md` (правила для агентов), `ARCHITECTURE.md` (структура после рефакторинга),
+  `LICENSE`. Остальные десять переезжают в репозиторий `docs/` (он отдельный, рядом):
+  `FAQ.md`, `JARVIS.md`, `JARVIS_V2.md`, `REFACTOR_PLAN.md`, `SUBMISSION.md`,
+  `SURROGATE_DEFENSE.md`, `SURROGATE_HANDOFF.md`, `ANSWERS.md`, `FINAL_RUNBOOK.md`,
+  `RELEASE_SURROGATE_20260906.md`, `UNSEEN_CASE_2017.md`. Переносить `git mv` внутрь `docs/`
+  и коммитить **в репозитории docs**, не в aios. В `README.md` — оглавление со ссылками на
+  новые места. `tests/architecture/shared/test_markdown_links.py` обновить под новые пути.
+  Внутри `backend/` и `frontend/` не должно остаться `.md`, кроме `frontend/PRODUCT.md`
+  (продуктовое описание, читается агентами) — его тоже в `docs/`, если после волны 3 на него
+  нет ссылок из кода.
+- [ ] **Z-05 Мёртвый код.** Найти и удалить: функции и классы, на которые нет ни одной ссылки
+  (кроме публичного API контекстов и `interfaces`), модули, которые никто не импортирует,
+  недостижимые ветки. Инструмент: `vulture` или собственный обход AST + `grep` по всему дереву,
+  результат проверять руками — динамические вызовы по имени (реестр инструментов Джарвиса,
+  реестр правил R0–R7) не должны попасть под нож. Сверка: `tests/golden/backend/api_surface.json`
+  — всё, что исчезает, перечислить в отчёте волны.
+- [ ] **Z-06 Мёртвые ключи локализации.** `i18n.test.ts` уже проверяет, что каждый ключ
+  используется — но только для литеральных `t('...')`. Прогнать полную проверку по обоим
+  языкам и всем 16+5 пространствам, удалить неиспользуемые ключи из `ru` и `en` синхронно.
+  Отдельно: ключи, оставшиеся от удалённых компонентов (`jarvis.stackLabel` уже находили).
+- [ ] **Z-07 Мёртвые стили.** Классы CSS, которых нет ни в одном `.tsx`, — удалить.
+  96 файлов стилей, проверять обходом: собрать все `className` и `data-*` из TSX, вычесть.
+  Осторожно с классами, которые ставятся через шаблонные строки.
+- [ ] **Z-08 Каталоги.** После Z-03 в корне должны остаться: `artifacts`, `backend`, `config`,
+  `data`, `docker`, `docs`, `frontend`, `out`, `scripts`, `tests`, `tools`. Каждый — с
+  однострочным объяснением в `README.md`. Если какой-то не объясняется — он лишний.
+- [ ] **Z-09 Форс-пуш без мусора.** После Z-01…Z-03: убедиться, что `git status` чист,
+  `git ls-files | wc -l` уменьшился, и запушить. **Историю не переписывать** (`filter-repo`
+  не применять) — 208 МБ `ui/` в истории не было, оно никогда не отслеживалось, а `out/`+`data/`
+  весят немного. Форс-пуш нужен только если история разошлась с удалённой.
+- [ ] **Z-10 Проверка.** Полные прогоны обоих стеков, `vite build`, сборка образа, `docker compose up`,
+  §8.3. Золотые снимки: `showcase.json`, `recordings.json`, `behaviour.json` обязаны совпасть —
+  уборка не имеет права менять поведение.
+
+**Чего не трогаем:** `artifacts/surrogate-hybrid-feedback4-ab-20260910/**` — это пакет сдачи с
+проверенным ЧДД чемпиона; `config/**`; `docker/**`; пять файлов `data/`, перечисленных в Z-02;
+`frontend/public/data/**` (витрина) и `frontend/public/jarvis/**` (знания и записи).
+
+---
+
+### 7.6 Волна 5 — координатор
 
 - [ ] **K-03** Полные прогоны обоих стеков, `npm run build`, образ, `docker compose up`, приёмка
   §8.3, аудит фронта `impeccable` + `ui-ux-pro-max` (визуальные регрессии после переноса CSS).
@@ -659,6 +736,10 @@ C-задачи выполняет тот агент, чей стек они за
 - `[A→координатор]` Базовый прогон на `d0e9ebc` — **3 failed, 2067 passed, 3 skipped**, а не 2070 passed: `test_fixture_replays_byte_for_byte[how-system-works|champion-run|how-to-verify]` падали до волны 1 (записи `jarvis/fixtures/*.jsonl` разошлись с `recordings.py` ещё в `c77d56a`). Волна 1 их не чинит и не ухудшает; зелёным для A считается ровно этот базис.
 - `[A→координатор]` `tests/architecture/test_markdown_links.py` покраснел от переносов агента B (`frontend/src/app/main.tsx`, `app/events.ts`, `ui/shared/layoutBox.ts` и ещё 7 ссылок в `ARCHITECTURE.md`, `JARVIS.md`, `JARVIS_V2.md`, `frontend/PRODUCT.md`). Ни одной ссылки на `backend/**` не сломано; правка `.md` — за координатором и B.
 - `[A→координатор]` В §3.1 заявлено 18 переменных окружения, по факту в бэкенде читаются 53 различных имени (68 чтений). `Settings` собран под все 53; список — `ENV_VARIABLES` в `backend/shared/settings.py`.
+- `[A→координатор]` C-01 выполнен агентом A по расширенному мандату: 158 тестов из 15 каталогов `backend/**/tests` + 16 из `tests/{application,presentation}` + `tests/test_web_cli.py` перенесены через `git mv` в `tests/backend/**` зеркально контекстам. В `backend/` ноль `test_*.py` и ноль каталогов `tests`. Деки → `tests/fixtures/decks`. Корневой `conftest.py` удалён: утилиты → `tests/support/backend/environment.py`, фикстуры → `tests/conftest.py`, `import conftest` — ноль.
+- `[A→координатор]` `SLOW_FILES`/`SLOW_DIRECTORIES` удалены, 40 файлов помечены `pytestmark` с `slow`/`opm`/`showcase`; `test_test_groups` переписан под декораторы. Три теста этого файла (`test_every_used_marker_is_declared`, `test_slow_entries_point_at_existing_paths`, `test_slow_paths_are_inside_declared_testpaths`) исчезли осознанно — они проверяли ровно те списки путей, которых больше нет; вместо них семь новых.
+- `[A→координатор]` `testpaths` = `["tests/backend", "tests/architecture"]`. Хрупкие `Path(__file__).parents[N]` в тестах заменены на `tests/support/backend/paths.py` (`REPO_ROOT`, `CONFIG_ROOT`, `DECKS_ROOT`, `OUT_ROOT`, `FRONTEND_PUBLIC`) — это же §5-требование для C-03, закрыто заранее.
+- `[A→координатор]` `test_no_parameter_bypass` сканировал `domain/{connectivity,policy,robustness,configuration}`. После переноса `core/contracts/config.py` → `contexts/constraints/domain/config.py` наивное отображение втянуло бы в скан `DEFAULT_NORMATIVES_2007` — канонический источник нормативов. Область скана сужена обратно до исходной (`normatives.py`, `schema.py`, `infrastructure/`), поведение теста не изменилось.
 
 - `[B→координатор]` §4.2 кладёт `state/TimelineContext`, `state/ScenarioContext`, `PlaybackContext` в `features/*`, но от них зависят `entities` (`useDataset`, `useHierarchyStep`, `wells/model/useSelectionHighlight`) — это ребро `entities → features` вверх. Контексты переехали в `entities/{timeline,scenarios}/model/`; после этого правило §2.2 выполняется без исключений.
 - `[B→координатор]` §4.2 оставляет `ViewStatus`/`ViewToolbar` в `widgets/console-shell/ui/`, но их импортируют все 11 страниц (ребро `pages → widgets` вверх). Оба компонента ушли в `shared/ui/` — они не знают ни одной фичи.
