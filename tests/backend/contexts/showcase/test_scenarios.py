@@ -19,6 +19,8 @@ from backend.contexts.showcase.application.scenarios import (
     export_scenarios_json,
 )
 
+pytestmark = [pytest.mark.slow, pytest.mark.showcase]
+
 ROBUSTNESS_FIELDS: tuple[str, ...] = (
     "ood_score",
     "ood_threshold",

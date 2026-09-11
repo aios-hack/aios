@@ -18,7 +18,9 @@ from backend.contexts.surrogate.domain.crm import (
     spearman,
 )
 
-from conftest import base_run_dir, base_run_output_dir, missing_reason
+from tests.support.backend.environment import base_run_dir, base_run_output_dir, missing_reason
+
+pytestmark = [pytest.mark.slow]
 
 
 def synthetic_response(

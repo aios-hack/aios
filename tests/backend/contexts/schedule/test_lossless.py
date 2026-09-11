@@ -6,7 +6,7 @@ import pytest
 from backend.core.contracts import ControlEvent, FixedDeckEvent, T0
 from backend.domain.schedule import LosslessEmitter, ScheduleParseError, parse_schedule
 
-from conftest import missing_reason, model_z_schedule
+from tests.support.backend.environment import missing_reason, model_z_schedule
 
 
 MODEL_Z_SCHEDULE = model_z_schedule()

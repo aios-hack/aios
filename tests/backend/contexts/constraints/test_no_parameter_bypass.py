@@ -11,14 +11,17 @@ from backend.contexts.constraints.domain.config import DEFAULT_NORMATIVES_2007
 
 from backend.domain.configuration import COMPONENT_SEEDS, GLOBAL_SEED_KEY
 from backend.contexts.constraints.domain.schema import DEFAULT_BUDGETS, default_seeds
+from tests.support.backend.paths import REPO_ROOT
 
 OWNED_PACKAGES: tuple[str, ...] = (
-    "domain/connectivity",
-    "domain/policy",
-    "domain/robustness",
-    "domain/configuration",
+    "backend/contexts/connectivity/domain",
+    "backend/contexts/policy/domain",
+    "backend/contexts/robustness/domain",
+    "backend/contexts/constraints/domain/normatives.py",
+    "backend/contexts/constraints/domain/schema.py",
+    "backend/contexts/constraints/infrastructure",
 )
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = REPO_ROOT
 
 NORMATIVE_VALUES: frozenset[float] = frozenset(
     {
@@ -37,11 +40,11 @@ NORMATIVE_VALUES: frozenset[float] = frozenset(
 )
 
 TECHNICAL_TOLERANCE_LITERALS: dict[str, frozenset[str]] = {
-    "domain/configuration/schema.py": frozenset(
+    "backend/contexts/constraints/domain/schema.py": frozenset(
         {"injection_shortfall_tolerance", "separation_floor_share"}
     ),
-    "domain/connectivity/groups.py": frozenset({"DEFAULT_QUANTILE_GRID"}),
-    "domain/policy/agents/pressure.py": frozenset({"APPROACH_FRACTION"}),
+    "backend/contexts/connectivity/domain/groups.py": frozenset({"DEFAULT_QUANTILE_GRID"}),
+    "backend/contexts/policy/domain/agents/pressure.py": frozenset({"APPROACH_FRACTION"}),
 }
 
 PERCENT_SCALE_VALUES: frozenset[float] = frozenset({100.0})
@@ -56,10 +59,13 @@ ALLOWED_IN_TESTS = "tests"
 def owned_sources() -> list[Path]:
     sources: list[Path] = []
     for package in OWNED_PACKAGES:
-        directory = ROOT / package
-        if not directory.exists():
+        target = ROOT / package
+        if target.is_file():
+            sources.append(target)
             continue
-        for path in directory.rglob("*.py"):
+        if not target.is_dir():
+            continue
+        for path in target.rglob("*.py"):
             if ALLOWED_IN_TESTS in path.parts:
                 continue
             sources.append(path)
@@ -144,8 +150,11 @@ def allowed_technical_tolerance_lines(path: Path) -> set[int]:
 def test_owned_packages_are_scanned() -> None:
     sources = owned_sources()
     assert sources
-    assert any(path.parts[-2] == "connectivity" for path in sources)
-    assert any(path.parts[-2] == "configuration" for path in sources)
+    covered = {path.as_posix() for path in sources}
+    assert any("/contexts/connectivity/" in name for name in covered)
+    assert any("/contexts/constraints/" in name for name in covered)
+    assert any("/contexts/policy/" in name for name in covered)
+    assert any("/contexts/robustness/" in name for name in covered)
 
 
 def test_no_normative_value_is_hardcoded_outside_the_config() -> None:
@@ -179,7 +188,7 @@ def test_no_deck_scale_literal_is_hardcoded() -> None:
 
 
 def test_every_normative_field_is_reachable_from_the_config() -> None:
-    from backend.domain.configuration.tests.conftest import a_hash
+    from tests.backend.contexts.constraints.conftest import a_hash
 
     from backend.domain.configuration import default_config
     from backend.core.contracts import DEFAULT_NORMATIVES_2007

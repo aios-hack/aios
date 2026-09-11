@@ -26,7 +26,7 @@ from backend.contexts.policy.domain.rules.r1 import held_target
 from backend.contexts.policy.domain.rules.r5 import corridor_bounds
 from backend.contexts.policy.domain.state import RuleContext
 from backend.contexts.policy.domain.theta import default_theta, make_theta
-from backend.domain.policy.tests.conftest import (
+from tests.backend.contexts.policy.conftest import (
     OIL_DENSITY_T_PER_M3,
     groups_of,
     influence_of,

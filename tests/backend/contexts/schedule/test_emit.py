@@ -13,7 +13,7 @@ from backend.contexts.schedule.application.emit import (
     round_trip,
 )
 
-from conftest import missing_reason, model_z_schedule
+from tests.support.backend.environment import missing_reason, model_z_schedule
 
 MODEL_Z_SCHEDULE = model_z_schedule()
 

@@ -6,7 +6,7 @@ import pytest
 
 from backend.contexts.reservoir.infrastructure.pvt import PvtError, PvtTables, load_pvt, parse_pvt
 
-from conftest import model_z_dir
+from tests.support.backend.environment import model_z_dir
 
 _SYNTHETIC = """
 -- заголовок из тНавигатора

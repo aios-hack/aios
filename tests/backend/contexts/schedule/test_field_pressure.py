@@ -39,6 +39,8 @@ from backend.contexts.schedule.domain.validate_dynamic import (
     validate_dynamic,
 )
 
+pytestmark = [pytest.mark.slow]
+
 N_INTERVALS: int = 3
 BASELINE_PRESSURE_BAR: float = 122.0
 

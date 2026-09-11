@@ -4,10 +4,11 @@ import pytest
 import torch
 
 from backend.contexts.surrogate.domain.npv_head import ScenarioNpvHead
+from tests.support.backend.paths import REPO_ROOT
 
 
 def test_loads_installed_production_npv_head() -> None:
-    root = Path(__file__).resolve().parents[4]
+    root = REPO_ROOT
     path = root / "data" / "model-production" / "physical" / "npv_head.pt"
     if not path.is_file():
         return

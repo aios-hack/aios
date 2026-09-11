@@ -42,8 +42,9 @@ from backend.contexts.optimization.application.scenario_baseline import (
     scenario_seed,
     worst_scenarios,
 )
+from tests.support.backend.paths import REPO_ROOT
 
-ROOT = Path(__file__).resolve().parents[3] / "application" / "optimization"
+ROOT = REPO_ROOT / "backend" / "contexts" / "optimization" / "application"
 
 BOUNDS = {"aggressiveness": (0.0, 100.0)}
 BUDGET = 120

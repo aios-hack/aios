@@ -29,15 +29,12 @@ from backend.contexts.connectivity.application.campaign import (
 from backend.contexts.connectivity.domain.doe import Level
 from backend.contexts.connectivity.domain.measure import load_lambda, measure, save_lambda
 
-from conftest import missing_reason, model_z_dir
+from tests.support.backend.environment import missing_reason, model_z_dir
 
 MODEL_Z = model_z_dir()
 BASE_RESPONSE = data_root() / "base_case" / "response.json"
 
-pytestmark = pytest.mark.skipif(
-    MODEL_Z is None or not BASE_RESPONSE.is_file(),
-    reason=missing_reason(f"дек Model_Z или отклик базового прогона ({BASE_RESPONSE})"),
-)
+pytestmark = [pytest.mark.skipif(MODEL_Z is None or not BASE_RESPONSE.is_file(), reason=missing_reason(f'дек Model_Z или отклик базового прогона ({BASE_RESPONSE})')), pytest.mark.slow]
 
 
 @dataclass(frozen=True, slots=True)

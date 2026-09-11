@@ -18,6 +18,8 @@ from backend.contexts.showcase.application.exporters.ablation_view import (
 )
 from tests.support.backend.showcase_fixtures import make_synthetic_artifact
 
+pytestmark = [pytest.mark.slow, pytest.mark.showcase]
+
 SEED = 20260815
 
 

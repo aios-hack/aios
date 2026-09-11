@@ -11,7 +11,10 @@ from backend.contexts.optimization.domain.observed_repair import (
 from backend.core.contracts import EventKind, FixedDeckEvent
 from backend.contexts.reservoir.domain.horizon import HORIZON
 from backend.domain.schedule import parse_schedule
-from tests.application.test_run_workflow import historical_schedule, historical_model_dir
+from tests.backend.contexts.runs.test_run_workflow import (
+    historical_schedule,
+    historical_model_dir,
+)
 
 
 def test_observed_water_caps_targets_and_bad_pressure_reduces_only_the_affected_control(tmp_path):

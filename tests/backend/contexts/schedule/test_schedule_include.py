@@ -25,7 +25,7 @@ from backend.infrastructure.opm import (
     render_schedule_include,
 )
 
-from conftest import missing_reason, model_z_dir
+from tests.support.backend.environment import missing_reason, model_z_dir
 
 MODEL_Z = model_z_dir()
 

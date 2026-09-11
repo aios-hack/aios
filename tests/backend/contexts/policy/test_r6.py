@@ -15,7 +15,13 @@ from backend.domain.policy import (
     make_theta,
 )
 from backend.contexts.policy.domain.rules import r6
-from backend.domain.policy.tests.conftest import influence_of, injector, memory_of, producer, state_of
+from tests.backend.contexts.policy.conftest import (
+    influence_of,
+    injector,
+    memory_of,
+    producer,
+    state_of,
+)
 
 CANDIDATE = "43"
 NEARLY_DEAD_WATERCUT = 0.985

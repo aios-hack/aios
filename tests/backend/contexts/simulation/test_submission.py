@@ -32,13 +32,17 @@ from backend.contexts.schedule.domain.build import deck_well_axis, initial_state
 from backend.contexts.schedule.domain.canonical import canonical_part_hash
 from backend.contexts.schedule.domain.validate_dynamic import _states_by_step
 
-from conftest import docker_unavailable_reason, missing_reason, model_z_dir
+from tests.support.backend.environment import (
+    docker_unavailable_reason,
+    missing_reason,
+    model_z_dir,
+)
 
 MODEL_Z = model_z_dir()
 WORK_ROOT = data_root() / "base_run"
 _SCHEDULE_INCLUDE = "Model_Z_sch.inc"
 
-pytestmark = pytest.mark.skipif(MODEL_Z is None, reason=missing_reason("каталог Model_Z"))
+pytestmark = [pytest.mark.skipif(MODEL_Z is None, reason=missing_reason('каталог Model_Z')), pytest.mark.slow, pytest.mark.opm]
 
 NORMATIVES = NormativeSet(**DEFAULT_NORMATIVES_2007, esp_catalog=ESP_CATALOG_2007)
 

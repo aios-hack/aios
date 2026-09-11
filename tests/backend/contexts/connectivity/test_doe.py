@@ -29,6 +29,8 @@ from backend.domain.connectivity import (
 )
 from backend.contexts.connectivity.domain.fund import ActiveFund
 
+pytestmark = [pytest.mark.slow]
+
 SEED = 7
 COVERAGE = 0.8
 WINDOW_BOUNDARIES: tuple[date, ...] = (

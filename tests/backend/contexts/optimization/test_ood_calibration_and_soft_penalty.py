@@ -35,8 +35,9 @@ from tools.ood_calibration import (
     write_artifact,
 )
 from backend.contexts.optimization.application import environment as _src_environment
+from tests.support.backend.paths import OUT_ROOT
 
-REAL_RUNS = Path(__file__).resolve().parents[4] / "out" / "web-runs"
+REAL_RUNS = OUT_ROOT / "web-runs"
 
 
 def _run_dir(root: Path, run_id: str, predicted: float, verified: float, score: float | None) -> Path:

@@ -38,7 +38,7 @@ from backend.contexts.economics.application.reference_parity import (
 )
 from backend.domain.schedule import parse_schedule
 
-from conftest import chdd_python_dir, missing_reason, model_z_schedule
+from tests.support.backend.environment import chdd_python_dir, missing_reason, model_z_schedule
 
 CHDD_PYTHON_DIR = chdd_python_dir()
 MODEL_Z_SCHEDULE = model_z_schedule()

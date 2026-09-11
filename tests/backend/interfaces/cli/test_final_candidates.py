@@ -1,6 +1,6 @@
 from backend.core.contracts import EventKind, hash_schedule
 from backend.interfaces.cli import final_campaign
-from tests.application.test_run_workflow import historical_schedule
+from tests.backend.contexts.runs.test_run_workflow import historical_schedule
 
 
 def test_local_search_is_reproducible_and_preserves_history_and_fixed_events(monkeypatch):

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import ast
 import tomllib
 from pathlib import Path
 
-import conftest
-from backend.core.paths import project_root
+import pytest
+
+from backend.shared.paths import project_root
 
 REQUIRED_MARKERS: tuple[str, ...] = ("slow", "opm", "showcase")
 
@@ -14,39 +16,89 @@ def pytest_config() -> dict[str, object]:
     return tomllib.loads(text)["tool"]["pytest"]["ini_options"]
 
 
-def test_default_run_excludes_the_slow_group() -> None:
+def declared_markers() -> set[str]:
     options = pytest_config()
-    addopts = options.get("addopts", "")
+    return {str(entry).split(":", 1)[0].strip() for entry in options.get("markers", [])}
+
+
+def collected_test_files() -> list[Path]:
+    found: list[Path] = []
+    for path in sorted(Path("tests").rglob("test_*.py")):
+        if "__pycache__" not in path.as_posix():
+            found.append(path)
+    return found
+
+
+def marks_used_in(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    used: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Attribute):
+            inner = node.value
+            if isinstance(inner.value, ast.Name) and inner.value.id == "pytest":
+                if inner.attr == "mark":
+                    used.add(node.attr)
+    return used
+
+
+def test_default_run_excludes_the_slow_group() -> None:
+    addopts = pytest_config().get("addopts", "")
+
     assert "not slow" in str(addopts), addopts
 
 
-def test_every_used_marker_is_declared() -> None:
-    options = pytest_config()
-    declared = {str(entry).split(":", 1)[0].strip() for entry in options.get("markers", [])}
-    assert set(REQUIRED_MARKERS) <= declared, declared
-    used: set[str] = set()
-    for _, marks in conftest.SLOW_FILES + conftest.SLOW_DIRECTORIES:
-        used.update(marks)
-    assert used <= declared, used - declared
+def test_the_required_markers_are_declared() -> None:
+    assert set(REQUIRED_MARKERS) <= declared_markers()
 
 
-def test_slow_entries_point_at_existing_paths() -> None:
-    root = project_root()
-    missing: list[str] = []
-    for relative, _ in conftest.SLOW_FILES:
-        if not (root / relative).is_file():
-            missing.append(relative)
-    for relative, _ in conftest.SLOW_DIRECTORIES:
-        if not (root / relative).is_dir():
-            missing.append(relative)
-    assert not missing, f"в списке медленных тестов есть несуществующие пути: {missing}"
+def test_every_marker_used_by_a_test_is_declared() -> None:
+    declared = declared_markers()
+    builtin = {"parametrize", "skipif", "skip", "xfail", "usefixtures", "filterwarnings"}
+    undeclared: dict[str, set[str]] = {}
+    for path in collected_test_files():
+        used = marks_used_in(path) - builtin - declared
+        if used:
+            undeclared[path.as_posix()] = used
+
+    assert not undeclared, f"незадекларированные маркеры: {undeclared}"
 
 
-def test_slow_paths_are_inside_declared_testpaths() -> None:
-    options = pytest_config()
-    testpaths = [str(entry) for entry in options.get("testpaths", [])]
-    orphans: list[str] = []
-    for relative, _ in conftest.SLOW_FILES + conftest.SLOW_DIRECTORIES:
-        if not any(relative == path or relative.startswith(path + "/") for path in testpaths):
-            orphans.append(relative)
-    assert not orphans, f"медленные пути вне testpaths: {orphans}"
+def test_the_slow_group_is_marked_by_decorators_not_by_a_path_list() -> None:
+    for name in ("conftest.py", "tests/conftest.py", "tests/support/backend/environment.py"):
+        path = project_root() / name
+        if not path.is_file():
+            continue
+        body = path.read_text(encoding="utf-8")
+        assert "SLOW_FILES" not in body, f"{name}: ручной список медленных файлов должен быть удалён"
+        assert "SLOW_DIRECTORIES" not in body, name
+
+
+def test_the_root_conftest_no_longer_holds_utilities() -> None:
+    assert not (project_root() / "conftest.py").is_file(), (
+        "утилиты переехали в tests/support/backend, корневой conftest.py не нужен"
+    )
+
+
+@pytest.mark.parametrize("marker", REQUIRED_MARKERS)
+def test_each_required_marker_is_actually_used(marker: str) -> None:
+    users = [path.as_posix() for path in collected_test_files() if marker in marks_used_in(path)]
+
+    assert users, f"маркер {marker} объявлен, но ни одним тестом не используется"
+
+
+def test_testpaths_are_the_two_roots_and_they_exist() -> None:
+    testpaths = [str(entry) for entry in pytest_config().get("testpaths", [])]
+
+    assert testpaths == ["tests/backend", "tests/architecture"], testpaths
+    for path in testpaths:
+        assert Path(path).is_dir(), path
+
+
+def test_no_test_lives_outside_the_shared_tests_root() -> None:
+    strays = [
+        path.as_posix()
+        for path in Path("backend").rglob("test_*.py")
+        if "__pycache__" not in path.as_posix()
+    ]
+
+    assert not strays, f"тесты в боевом пакете: {strays}"

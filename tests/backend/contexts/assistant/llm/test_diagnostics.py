@@ -22,7 +22,7 @@ from backend.contexts.assistant.infrastructure.llm.diagnostics import (
     detect_wct_rise_without_oil,
     diagnose,
 )
-from backend.contexts.assistant.infrastructure.llm.tests.conftest import (
+from tests.backend.contexts.assistant.llm.conftest import (
     INJECTOR,
     PRODUCER,
     PRODUCER_TWO,

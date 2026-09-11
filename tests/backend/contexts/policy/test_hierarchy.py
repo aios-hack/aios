@@ -33,7 +33,7 @@ from backend.domain.policy import (
     run_step,
     wells_without_group,
 )
-from backend.domain.policy.tests.conftest import (
+from tests.backend.contexts.policy.conftest import (
     groups_of,
     influence_of,
     injector,

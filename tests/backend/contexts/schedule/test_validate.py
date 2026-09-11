@@ -27,7 +27,7 @@ from backend.contexts.schedule.domain.validate import (
     validate_static,
 )
 
-from conftest import missing_reason, model_z_schedule
+from tests.support.backend.environment import missing_reason, model_z_schedule
 
 MODEL_Z_SCHEDULE = model_z_schedule()
 

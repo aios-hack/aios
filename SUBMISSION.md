@@ -81,11 +81,11 @@
 (`_esp_capex_by_cell` в `npv.py`, `tally_events` в `base_case.py`). Дисконтирование ведётся
 от `DISCOUNT_BASE_YEAR = 2007`, то есть первый управляемый месяц имеет множитель 1.0.
 
-**Чем это проверено.** `backend/domain/schedule/tests/test_control_period_submission.py`
+**Чем это проверено.** `tests/backend/contexts/schedule/test_control_period_submission.py`
 работает на настоящем `Model_Z` и утверждает: в сдаваемом файле нет дат раньше
 `t0`; управляющих дат ровно 225; добавление сохранённой истории побайтово
 восстанавливает полный include; оба слоя событий и канонический хеш совпадают
-с полным деком. `tests/application/test_run_workflow.py` проверяет то же самое на выходе
+с полным деком. `tests/backend/contexts/runs/test_run_workflow.py` проверяет то же самое на выходе
 `submit`. Round-trip нашего плана продолжает сходиться — `verify_schedule_round_trip`
 в `submit` по-прежнему обязателен, и пакет не пишется, если он не сошёлся.
 

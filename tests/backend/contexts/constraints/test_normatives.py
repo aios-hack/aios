@@ -14,7 +14,7 @@ from backend.domain.configuration import (
 )
 from backend.contexts.constraints.domain.normatives import METHODOLOGY_LOCKED
 
-from conftest import missing_reason, normatives_xlsx
+from tests.support.backend.environment import missing_reason, normatives_xlsx
 
 #: Путь-образец для структурных проверок `NormativeSource`: файл по нему не
 #: читается, проверяется лишь то, что источник отдаёт путь загрузчику как есть.

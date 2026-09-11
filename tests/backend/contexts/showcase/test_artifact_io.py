@@ -7,6 +7,9 @@ from backend.core.contracts import RunArtifact
 
 from backend.contexts.showcase.infrastructure.artifact_io import dump_bundle, load_bundle
 from tests.support.backend.showcase_fixtures import SYNTHETIC_PROVENANCE, make_synthetic_artifact
+import pytest
+
+pytestmark = [pytest.mark.slow, pytest.mark.showcase]
 
 
 def _dump_and_read(artifact: RunArtifact, path: Path) -> dict:

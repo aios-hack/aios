@@ -13,6 +13,8 @@ from backend.contexts.showcase.application.exporters.npv_view import (
     export_npv_json,
 )
 
+pytestmark = [pytest.mark.slow, pytest.mark.showcase]
+
 
 def test_values_taken_from_by_well_without_distortion() -> None:
     artifact = make_synthetic_artifact()

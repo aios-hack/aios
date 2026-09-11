@@ -39,9 +39,16 @@ from backend.core.contracts import (
 from backend.contexts.reservoir.domain.response import N_DECK_DATES
 
 
-from conftest import docker_unavailable_reason, missing_reason, model_z_dir
+from tests.support.backend.environment import (
+    docker_unavailable_reason,
+    missing_reason,
+    model_z_dir,
+)
+from tests.support.backend.paths import DECKS_ROOT
 
-DECKS = Path(__file__).resolve().parent / "decks"
+pytestmark = [pytest.mark.slow, pytest.mark.opm]
+
+DECKS = DECKS_ROOT
 
 # Через conftest, а не через parents[3]: см. тот же комментарий в test_runner.py.
 MODEL_Z = model_z_dir()

@@ -25,7 +25,7 @@ from backend.domain.economics import (
 from backend.contexts.economics.domain.decomposition import MACHINE_RELATIVE_TOLERANCE
 from backend.domain.schedule import parse_schedule
 
-from conftest import missing_reason, model_z_schedule
+from tests.support.backend.environment import missing_reason, model_z_schedule
 
 BASE_CASE_RESPONSE = (
     data_root() / "base_case" / "response.json"

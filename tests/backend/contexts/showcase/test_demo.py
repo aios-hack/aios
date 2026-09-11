@@ -47,7 +47,9 @@ from backend.contexts.showcase.application.scenarios import build_scenario_index
 from backend.contexts.showcase.application.exporters.timeline import build_timeline, build_trace
 from backend.contexts.reservoir.application.well_geometry import DEFAULT_DECK_PATH
 
-from conftest import missing_reason
+from tests.support.backend.environment import missing_reason
+
+pytestmark = [pytest.mark.slow, pytest.mark.showcase]
 
 VIEW_FILES = (
     "timeline.json",

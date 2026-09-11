@@ -26,11 +26,12 @@ from backend.contexts.simulation.infrastructure.preflight import (
     resolve_image_reference,
 )
 from backend.contexts.simulation.infrastructure.runner import OpmRunner
+from tests.support.backend.paths import REPO_ROOT as _REPO_ROOT
 
 IMAGE = "openporousmedia/opmreleases:latest"
 DIGEST = "openporousmedia/opmreleases@sha256:" + "a" * 64
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = _REPO_ROOT
 
 
 def _completed(

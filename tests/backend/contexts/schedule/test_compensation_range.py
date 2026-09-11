@@ -41,6 +41,8 @@ from tools.compensation_range import (
     distribution_of,
 )
 
+pytestmark = [pytest.mark.slow]
+
 WELLS: tuple[str, ...] = ("P1", "I1")
 N_INTERVALS: int = 2
 OIL_DENSITY_T_PER_M3: float = 0.9

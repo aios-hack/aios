@@ -56,7 +56,7 @@ frontend/src/jarvis/          Browser presentation: the second cube face, sphere
 backend/presentation/api/     HTTP boundary: service, handler, SSE framing, proxy into web.py.
 backend/application/jarvis/   Orchestrator, tools, knowledge base, number guard, sessions.
 backend/domain/*              Policy, economics, connectivity — read, never duplicated.
-backend/infrastructure/llm/   Chat providers: OpenRouter (primary), Anthropic (fallback).
+backend/contexts/assistant/infrastructure/llm/   Chat providers: OpenRouter (primary), Anthropic (fallback).
 backend/core/contracts        Shared types; nothing here is reinvented in the module.
 ```
 
@@ -64,7 +64,7 @@ The dependency direction is the project's own: `presentation → application →
 domain → core` and `application → infrastructure → core`. `application/jarvis`
 receives a `ChatClient` from the outside and imports neither `urllib`, `http`,
 nor `anthropic`; tools read artifacts through `backend/application/jarvis/artifacts.py`
-and reuse `backend/infrastructure/llm/explainer.py` and `diagnostics.py` instead of
+and reuse `backend/contexts/assistant/infrastructure/llm/explainer.py` and `diagnostics.py` instead of
 copying their logic. A test in `tests/` guards the layering.
 
 ### Service
@@ -112,7 +112,7 @@ frontend/src/jarvis/
 frontend/public/jarvis/
 backend/application/jarvis/
 backend/presentation/api/
-backend/infrastructure/llm/{chat,chat_events,openrouter,anthropic_chat,tools_format,provider,fake_chat}.py
+backend/contexts/assistant/infrastructure/llm/{chat,chat_events,openrouter,anthropic_chat,tools_format,provider,fake_chat}.py
 backend/presentation/cli/jarvis.py
 ```
 
@@ -121,7 +121,7 @@ and drop the four call sites that reference them: the proxy import and the two
 command in `docker/entrypoint.sh`, the `jarvis` service in
 `docker-compose.yml`, and the Jarvis mount points in `frontend/src/app/main.tsx`
 and `frontend/src/ui/WorkspaceNav/`. Nothing else in the backend imports the
-module: `backend/infrastructure/llm/client.py`, `explainer.py`, and `diagnostics.py`
+module: `backend/contexts/assistant/infrastructure/llm/client.py`, `explainer.py`, and `diagnostics.py`
 predate Jarvis and stay.
 
 ## Run command

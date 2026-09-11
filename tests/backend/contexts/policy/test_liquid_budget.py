@@ -18,7 +18,7 @@ from backend.domain.policy import (
 )
 from backend.contexts.policy.domain.budget import liquid_limit_for_step, production_floor_for_step
 from backend.contexts.policy.domain.rules import r2
-from backend.domain.policy.tests.conftest import (
+from tests.backend.contexts.policy.conftest import (
     groups_of,
     influence_of,
     injector,

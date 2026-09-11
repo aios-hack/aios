@@ -16,7 +16,7 @@ from backend.domain.policy import (
     esp_upgrade_cost_rub,
 )
 from backend.contexts.policy.domain.rules import r4
-from backend.domain.policy.tests.conftest import ESP_CATALOG, memory_of, producer, state_of
+from tests.backend.contexts.policy.conftest import ESP_CATALOG, memory_of, producer, state_of
 
 CLEAN = 0.30
 VERY_WET = 0.985

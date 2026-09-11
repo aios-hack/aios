@@ -18,14 +18,16 @@ from backend.core.contracts import (
 from backend.domain.schedule import parse_schedule
 
 
-from conftest import docker_unavailable_reason, missing_reason, model_z_dir
+from tests.support.backend.environment import (
+    docker_unavailable_reason,
+    missing_reason,
+    model_z_dir,
+)
 
 MODEL_Z = model_z_dir()
 OPM_IMAGE = os.environ.get("OPM_FLOW_IMAGE", "openporousmedia/opmreleases:latest")
 
-pytestmark = pytest.mark.skipif(
-    MODEL_Z is None, reason=missing_reason("каталог Model_Z")
-)
+pytestmark = [pytest.mark.skipif(MODEL_Z is None, reason=missing_reason('каталог Model_Z')), pytest.mark.slow, pytest.mark.opm]
 
 
 def _baseline_schedule(emitter: OpmDeckEmitter) -> Schedule:

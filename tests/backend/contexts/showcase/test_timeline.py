@@ -20,6 +20,8 @@ from backend.contexts.showcase.application.exporters.timeline import (
 )
 from backend.contexts.showcase.application.exporters import timeline as _src_timeline
 
+pytestmark = [pytest.mark.slow, pytest.mark.showcase]
+
 DENSITIES = {"10": 900.0, "11": 910.0, "12": 920.0, "13": 930.0, "14": 940.0}
 
 

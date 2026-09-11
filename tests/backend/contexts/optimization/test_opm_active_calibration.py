@@ -7,10 +7,11 @@ from backend.contexts.optimization.application.opm_active_calibration import (
     OpmActiveCalibrationError,
     WaterFamilyNpvCalibration,
 )
+from tests.support.backend.paths import REPO_ROOT
 
 
 def _load() -> WaterFamilyNpvCalibration:
-    root = Path(__file__).resolve().parents[4]
+    root = REPO_ROOT
     payload = json.loads((root / "config" / "opm-active-npv-calibration.json").read_text())
     return WaterFamilyNpvCalibration.load(
         root / "config" / "opm-active-npv-calibration.json",
@@ -38,7 +39,7 @@ def test_calibration_refuses_to_extrapolate_beyond_measured_raw_range() -> None:
 
 
 def test_calibration_is_bound_to_the_economic_head_version() -> None:
-    root = Path(__file__).resolve().parents[4]
+    root = REPO_ROOT
     with pytest.raises(OpmActiveCalibrationError, match="different economic head"):
         WaterFamilyNpvCalibration.load(
             root / "config" / "opm-active-npv-calibration.json",

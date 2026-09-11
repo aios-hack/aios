@@ -35,6 +35,8 @@ from backend.contexts.schedule.domain.validate_dynamic import (
     validate_dynamic,
 )
 
+pytestmark = [pytest.mark.slow]
+
 WELLS: tuple[str, ...] = ("P1", "I1", "P2", "I2")
 N_INTERVALS: int = 2
 

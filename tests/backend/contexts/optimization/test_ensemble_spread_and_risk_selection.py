@@ -34,6 +34,8 @@ from backend.contexts.surrogate.domain.raw_model_output import (
 from backend.contexts.optimization.application import environment as _environment
 from backend.contexts.optimization.application import search_use_case as _search_use_case
 
+pytestmark = [pytest.mark.slow]
+
 SEARCH_SOURCE = Path(_environment.__file__)
 RUN_SOURCE = Path(_search_use_case.__file__)
 RESPONSE = Path("data/base_case/response.json")

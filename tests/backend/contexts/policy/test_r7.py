@@ -23,7 +23,7 @@ from backend.domain.policy import (
     specs_for,
 )
 from backend.contexts.policy.domain.rules import r7
-from backend.domain.policy.tests.conftest import (
+from tests.backend.contexts.policy.conftest import (
     DECIDING_WELLS,
     deciding_context,
     memory_of,

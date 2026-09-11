@@ -9,8 +9,9 @@ from typing import Any
 import pytest
 
 from backend.core.contracts import ActiveControlMode, StateAtDate
+from backend.interfaces.cli.surrogate.tools import surrogate_metrics_report as _surrogate_metrics_report
 
-REPORT_SOURCE = Path(__file__).resolve().parents[1] / "surrogate_metrics_report.py"
+REPORT_SOURCE = Path(_surrogate_metrics_report.__file__)
 
 _EXTRACTED = (
     "_quantile",

@@ -27,6 +27,8 @@ from backend.contexts.schedule.domain.case_limits import (
     apply_case_limits_report,
 )
 
+pytestmark = [pytest.mark.slow]
+
 WELLS = ("W1", "W2")
 DATES = (date(2016, 1, 1), date(2017, 1, 1), date(2018, 1, 1), date(2019, 1, 1))
 DAYS_PER_STEP = 1.0

@@ -22,7 +22,7 @@ from backend.domain.schedule import (
 from backend.contexts.schedule.domain.lossless import LosslessBlock, ParsedSchedule
 from backend.contexts.schedule.domain.replay import _Fund, _apply_record
 
-from conftest import missing_reason, model_z_schedule
+from tests.support.backend.environment import missing_reason, model_z_schedule
 
 
 MODEL_Z_SCHEDULE = model_z_schedule()

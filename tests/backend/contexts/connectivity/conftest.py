@@ -7,7 +7,7 @@ import pytest
 
 from backend.domain.connectivity import DeckSchedule, FundHistory, build_fund_history, parse_deck_schedule
 
-from conftest import missing_reason, model_z_schedule
+from tests.support.backend.environment import missing_reason, model_z_schedule
 
 #: Явный путь к деку в обход поиска каталога docs. Нужен, когда дек лежит
 #: не сиблингом репозитория; обычная раскладка разрешается сама.

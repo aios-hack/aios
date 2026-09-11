@@ -31,6 +31,9 @@ from backend.contexts.schedule.domain.validate_dynamic import (
     validate_dynamic,
     verified_constraint_checks,
 )
+import pytest
+
+pytestmark = [pytest.mark.slow]
 
 OIL_DENSITY_T_PER_M3: float = 0.85
 N_STEPS: int = 3

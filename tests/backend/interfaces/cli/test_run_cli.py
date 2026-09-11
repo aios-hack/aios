@@ -22,10 +22,11 @@ from backend.interfaces.cli.run import (
     resolve_comparison_case,
     resolve_constraints,
 )
-from tests.application.test_run_workflow import prepare_submittable_run, sample_schedule
+from tests.backend.contexts.runs.test_run_workflow import prepare_submittable_run, sample_schedule
 from backend.shared.errors import ValidationError
+from tests.support.backend.paths import REPO_ROOT as _REPO_ROOT
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = _REPO_ROOT
 BASE_CASE = REPO_ROOT / "config" / "cases" / "base.json"
 DEFAULT_CONSTRAINTS = REPO_ROOT / "config" / "competition-constraints.json"
 

@@ -19,8 +19,9 @@ from backend.contexts.simulation.infrastructure.runner import (
     resolve_case,
     resolve_initiator,
 )
+from tests.support.backend.paths import REPO_ROOT as _REPO_ROOT
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = _REPO_ROOT
 COLD_REPEAT = REPO_ROOT / "scripts" / "cold_repeat.sh"
 
 _BASH_CANDIDATES = (

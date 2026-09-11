@@ -10,7 +10,7 @@ from backend.contexts.reservoir.infrastructure.opm_deck import (
     render_schedule_include,
     render_submission_history,
 )
-from conftest import model_z_dir, missing_reason
+from tests.support.backend.environment import model_z_dir, missing_reason
 
 MODEL_Z = model_z_dir()
 pytestmark = pytest.mark.skipif(MODEL_Z is None, reason=missing_reason("Model_Z"))

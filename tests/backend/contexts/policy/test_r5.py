@@ -8,7 +8,7 @@ from backend.core.contracts import EventKind, Rule
 
 from backend.domain.policy import RuleContext, RuleFlags, apply_rule, default_theta, make_theta
 from backend.contexts.policy.domain.rules import r5
-from backend.domain.policy.tests.conftest import groups_of, injector, producer, state_of
+from tests.backend.contexts.policy.conftest import groups_of, injector, producer, state_of
 
 GROUP = "G1"
 WELLS = (

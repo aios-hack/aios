@@ -29,8 +29,9 @@ from backend.contexts.constraints.domain.constraints import (
     constraint_source,
     source_key,
 )
+from tests.support.backend.paths import CONFIG_ROOT as _CONFIG_ROOT
 
-CONFIG_ROOT = Path(__file__).resolve().parents[4] / "config"
+CONFIG_ROOT = _CONFIG_ROOT
 
 
 def _write(tmp_path: Path, infrastructure: dict[str, object]) -> Path:

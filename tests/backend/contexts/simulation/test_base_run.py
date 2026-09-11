@@ -10,7 +10,11 @@ from backend.core.contracts import RunStatus
 from backend.core.paths import data_root
 
 
-from conftest import docker_unavailable_reason, missing_reason, model_z_dir
+from tests.support.backend.environment import (
+    docker_unavailable_reason,
+    missing_reason,
+    model_z_dir,
+)
 
 # Через conftest, а не через parents[3]: см. тот же комментарий в test_runner.py.
 MODEL_Z = model_z_dir()
@@ -21,13 +25,7 @@ DOCKER_REASON = docker_unavailable_reason()
 # прогон живёт в module-scoped фикстуре `report`, а её pytest создаёт раньше
 # функциональных. Отсутствие демона тогда не давало skip, а падало ошибкой
 # фикстуры с `flow завершился кодом 127`.
-pytestmark = [
-    pytest.mark.skipif(MODEL_Z is None, reason=missing_reason("каталог Model_Z")),
-    pytest.mark.skipif(
-        DOCKER_REASON is not None,
-        reason=f"приёмка задачи 7 требует настоящий OPM Flow; {DOCKER_REASON}",
-    ),
-]
+pytestmark = [pytest.mark.skipif(MODEL_Z is None, reason=missing_reason('каталог Model_Z')), pytest.mark.skipif(DOCKER_REASON is not None, reason=f'приёмка задачи 7 требует настоящий OPM Flow; {DOCKER_REASON}'), pytest.mark.slow, pytest.mark.opm]
 # Общий с продовым запуском кеш (§4.5): полный физический прогон Model_Z
 # занимает реальное время, повторный `pytest` с тем же ключом дека/расписания/
 # SummarySpec обязан попасть в кеш, а не гонять симулятор заново.

@@ -24,7 +24,7 @@ from backend.domain.policy import (
     to_payload,
     trace_hash,
 )
-from backend.domain.policy.tests.conftest import DECIDING_WELLS, deciding_context, state_of
+from tests.backend.contexts.policy.conftest import DECIDING_WELLS, deciding_context, state_of
 
 RUN_STEPS = (0, 1, 2)
 

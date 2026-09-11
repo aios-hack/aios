@@ -27,7 +27,7 @@ from backend.domain.policy import (
     specs_for,
 )
 from backend.contexts.policy.domain.theta import RESERVED_FOR_R7, total_budget_ok
-from backend.domain.policy.tests.conftest import DECIDING_WELLS, deciding_context, state_of
+from tests.backend.contexts.policy.conftest import DECIDING_WELLS, deciding_context, state_of
 
 DECIDING_STATE_WELLS = DECIDING_WELLS
 

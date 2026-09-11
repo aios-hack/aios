@@ -20,6 +20,8 @@ from backend.contexts.constraints.infrastructure.constraints_io import (
     constraints_to_json,
 )
 
+pytestmark = [pytest.mark.slow]
+
 
 def write_case(path: Path, document: dict[str, object]) -> Path:
     path.write_text(

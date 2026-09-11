@@ -54,7 +54,7 @@ MAE 42.61 млн ₽, P95 относительной ошибки 1.077%.
 
 **Сколько уровней.** Три, жёстко: `FIELD` → `GROUP` → `WELL`. Перечислены в `Level`,
 порядок вызова задан константой `LEVEL_ORDER`.
-→ `backend/domain/policy/levels.py`, `backend/domain/policy/agents/registry.py`
+→ `backend/domain/policy/levels.py`, `backend/contexts/policy/domain/agents/registry.py`
 
 **Что решает каждый:**
 
@@ -64,24 +64,24 @@ MAE 42.61 млн ₽, P95 относительной ошибки 1.077%.
 | `GROUP` | `GroupAllocator` | видит только скважины своего участка и его квоту; делегирует выбор уставок правилам R0…R7, **своей арифметики не имеет**; масштабирует запрос вниз, если правила запросили больше квоты |
 | `WELL` | `WellExecutor` | квантует уставку шагом задатчика, не выпускает отрицательных; держит потолок дебита жидкости методики; **накладывает вето** на решение внутри простоя скважины |
 
-→ `backend/domain/policy/agents/field.py`, `group.py`, `well.py`
+→ `backend/contexts/policy/domain/agents/field.py`, `group.py`, `well.py`
 
 **Как добавить нового.** Реализовать протокол `Agent` (`name`, `level`, `responsibilities`,
 метод `propose`) и добавить экземпляр в `DEFAULT_AGENTS`. Реестр при создании **отказывается**
 принять агента: без имени, с повторяющимся именем, **без описанной ответственности**
 («назвать его роль на защите будет нечем» — текст ошибки), с неизвестным уровнем или с рангом,
 уже занятым на этом уровне («кто кого ограничивает — не определено»).
-→ `backend/domain/policy/agents/registry.py`, `AgentRegistry.__post_init__`
+→ `backend/contexts/policy/domain/agents/registry.py`, `AgentRegistry.__post_init__`
 
 **Как агенты не спорят.** Предложения одного уровня сливаются `merge_proposals`: границы
 сходятся к более строгой (`tightened_by`), вето перебивает решения и обнуляет их, каждое
 ужесточение и каждое вето оставляет запись в трассе с именем автора.
-→ `backend/domain/policy/agents/base.py`
+→ `backend/contexts/policy/domain/agents/base.py`
 
 **Ни одна уставка не попадает в расписание мимо проекции** на жёсткие ограничения — это
 доказано не прогоном, а тестом, который читает исходник поиска и проверяет, что другой записи
 в `pending` в файле просто нет.
-→ `backend/domain/policy/tests/test_projection_gate.py`
+→ `tests/backend/contexts/policy/test_projection_gate.py`
 
 ---
 

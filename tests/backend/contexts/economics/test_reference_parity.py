@@ -29,7 +29,7 @@ from backend.contexts.economics.application.reference_parity import (
     run_reference,
 )
 
-from conftest import chdd_python_dir, missing_reason
+from tests.support.backend.environment import chdd_python_dir, missing_reason
 
 CHDD_PYTHON_DIR = chdd_python_dir()
 

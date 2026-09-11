@@ -25,7 +25,7 @@ from backend.contexts.policy.domain.agents import (
     Proposal,
     WellExecutor,
 )
-from backend.domain.policy.tests.conftest import (
+from tests.backend.contexts.policy.conftest import (
     groups_of,
     influence_of,
     injector,

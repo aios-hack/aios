@@ -20,11 +20,14 @@ from backend.contexts.showcase.application.exporters.hierarchy_view import (
     run_hierarchy_steps,
 )
 from backend.contexts.showcase.application.exporters import hierarchy_view as _hierarchy_view
+from tests.support.backend.paths import FRONTEND_PUBLIC
+
+pytestmark = [pytest.mark.slow, pytest.mark.showcase]
 
 TOLERANCE = 1e-6
 SOURCE = Path(_hierarchy_view.__file__)
 SHOWCASE = (
-    Path(__file__).resolve().parents[4] / "frontend" / "public" / "data"
+    FRONTEND_PUBLIC / "data"
 )
 
 

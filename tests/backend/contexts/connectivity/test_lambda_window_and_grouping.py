@@ -28,7 +28,7 @@ from backend.contexts.connectivity.domain.measure import (
     verify_artifact_id,
     window_applicability,
 )
-from backend.domain.connectivity.tests.test_lambda_provenance import (
+from tests.backend.contexts.connectivity.test_lambda_provenance import (
     MEASURED_AT,
     RUN_IDS,
     lambda_of,

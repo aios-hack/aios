@@ -8,13 +8,11 @@ from backend.infrastructure.opm import OpmDeckEmitter
 from backend.core.contracts import Rule, canonical_bytes, hash_schedule
 from backend.domain.schedule import build_schedule, deck_well_axis, hash_canonical_schedule, parse_schedule
 
-import conftest
+import tests.support.backend.environment as conftest
 
 MODEL_Z = conftest.model_z_dir()
 
-pytestmark = pytest.mark.skipif(
-    MODEL_Z is None, reason=conftest.missing_reason("Model_Z")
-)
+pytestmark = [pytest.mark.skipif(MODEL_Z is None, reason=conftest.missing_reason('Model_Z')), pytest.mark.slow]
 
 
 def _real_schedule():

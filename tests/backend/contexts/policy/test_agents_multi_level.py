@@ -31,7 +31,7 @@ from backend.contexts.policy.domain.agents.base import (
     merge_proposals,
 )
 from backend.contexts.policy.domain.agents.registry import rank_of
-from backend.domain.policy.tests.conftest import (
+from tests.backend.contexts.policy.conftest import (
     groups_of,
     influence_of,
     injector,

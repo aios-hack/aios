@@ -42,20 +42,6 @@ markers = [
     "showcase: читает многомегабайтные бандлы витрины из frontend/public/data",
 ]
 testpaths = [
-    "tests",
-    "backend/infrastructure/opm/tests",
-    "backend/domain/configuration/tests",
-    "backend/domain/connectivity/tests",
-    "backend/core/contracts/tests",
-    "backend/domain/economics/tests",
-    "backend/contexts/assistant/infrastructure/llm/tests",
-    "backend/application/optimization/tests",
-    "backend/domain/policy/tests",
-    "backend/domain/robustness/tests",
-    "backend/domain/schedule/tests",
-    "backend/ml/surrogate/tests",
-    "backend/presentation/ui_export/tests",
-    "backend/interfaces/cli/surrogate/tools/tests",
-    "backend/application/jarvis/tests",
-    "backend/presentation/api/tests",
+    "tests/backend",
+    "tests/architecture",
 ]

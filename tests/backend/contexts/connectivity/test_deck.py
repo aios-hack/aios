@@ -9,7 +9,7 @@ from backend.core.contracts import OperatingStatus, Role
 
 from backend.domain.connectivity import DeckSchedule, parse_deck_schedule
 
-from backend.domain.connectivity.tests.conftest import deck_path
+from tests.backend.contexts.connectivity.conftest import deck_path
 
 
 def test_wells_axis_is_lexicographic_and_complete(deck: DeckSchedule) -> None:

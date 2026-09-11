@@ -535,7 +535,7 @@ frontend/src/jarvis/            презентация в браузере: гр
 backend/presentation/api/       граница HTTP: сервер Джарвиса, SSE, прокси в web.py
 backend/application/jarvis/     оркестратор, инструменты, база знаний, сторож чисел, сессии
 backend/domain/*                правила, экономика, связность — читаются, не дублируются
-backend/infrastructure/llm/     провайдеры моделей: OpenRouter (основной), Anthropic (запасной)
+backend/contexts/assistant/infrastructure/llm/     провайдеры моделей: OpenRouter (основной), Anthropic (запасной)
 backend/core/contracts          общие типы — единственный источник, не переизобретать
 ```
 
@@ -661,7 +661,7 @@ backend/
   `AIOS_UI_DATA`. Сценарий — подпапка. Артефакты индексируются один раз при старте
   (скважина → шаги, шаг → строки, рёбра по узлу); перечитываются по `mtime`.
 - **Модель и провайдер.** Ключ — **OpenRouter**: один ключ на все модели, смена модели без
-  правки кода, и Джарвис не привязан к одному вендору. Слой `backend/infrastructure/llm/chat.py` задаёт
+  правки кода, и Джарвис не привязан к одному вендору. Слой `backend/contexts/assistant/infrastructure/llm/chat.py` задаёт
   протокол `ChatClient`; у него две реализации: `openrouter.py` (OpenAI-совместимый
   `/chat/completions`, `stream: true`, `tools`; на stdlib `urllib` со своим SSE-парсером, без
   SDK) и `anthropic_chat.py` поверх уже установленного `anthropic==0.40.0`. Оркестратор видит
@@ -800,7 +800,7 @@ backend/
 }
 ```
 
-`action` — необязателен; собирает бэкенд (`backend/application/jarvis/tools/actions.py`) по типу карточки.
+`action` — необязателен; собирает бэкенд (`backend/contexts/assistant/application/tools/actions.py`) по типу карточки.
 `provenance` — из `meta.provenance` артефакта-источника; для синтетики — как есть.
 
 ### 11.4 Действие консоли
@@ -843,7 +843,7 @@ interface ConsoleAction {
 | Агент | Владеет | Не трогает |
 |---|---|---|
 | **F** (фронт) | `frontend/src/jarvis/**`, `frontend/src/i18n/*/jarvis.json`, точки врезки из §9, `frontend/src/theme/*` (только добавление `--color-jarvis-*`), `frontend/vite.config.ts` (только proxy), `frontend/public/jarvis/references/**` | `backend/**`, `docker/**`, `docker-compose.yml`, `frontend/public/jarvis/fixtures/**`, `frontend/public/jarvis/knowledge/**` |
-| **B** (бэк) | `backend/application/jarvis/**`, `backend/presentation/api/**`, `backend/presentation/cli/jarvis.py`, `backend/infrastructure/llm/**` (кроме `client.py`), `frontend/public/jarvis/fixtures/**`, `frontend/public/jarvis/knowledge/**`, `docker/entrypoint.sh`, `docker-compose.yml`, `Dockerfile` (deps), `pyproject.toml`, `README.md` и `ARCHITECTURE.md` (раздел Джарвис) | остальной `frontend/**` |
+| **B** (бэк) | `backend/application/jarvis/**`, `backend/presentation/api/**`, `backend/presentation/cli/jarvis.py`, `backend/contexts/assistant/infrastructure/llm/**` (кроме `client.py`), `frontend/public/jarvis/fixtures/**`, `frontend/public/jarvis/knowledge/**`, `docker/entrypoint.sh`, `docker-compose.yml`, `Dockerfile` (deps), `pyproject.toml`, `README.md` и `ARCHITECTURE.md` (раздел Джарвис) | остальной `frontend/**` |
 
 Общее: этот файл. Правка контракта (§11) — сначала здесь, потом в коде, и с пометкой в
 отчёте, чтобы второй агент подстроился.
@@ -987,7 +987,7 @@ interface ConsoleAction {
 - [x] **B-20** `frontend/public/jarvis/knowledge/guide.json`: все экраны из `WORKSPACE_VIEWS` плюс шапка, плеер,
       инспектор, палитра; список `spotlight`-якорей согласован с F (F-24) и зафиксирован в
       этом файле. Тест покрытия экранов на обоих языках.
-- [x] **B-21** `knowledge.py` и `backend/application/jarvis/tools/knowledge.py`: `explain_term` (поиск по термину и
+- [x] **B-21** `knowledge.py` и `backend/contexts/assistant/application/tools/knowledge.py`: `explain_term` (поиск по термину и
       алиасам на двух языках, нечёткое совпадение, возврат `general` при промахе),
       `platform_guide` (по запросу или по текущему `workspace/view`). Тесты на попадание,
       алиас, опечатку, промах.

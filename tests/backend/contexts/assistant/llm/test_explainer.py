@@ -13,11 +13,7 @@ from backend.contexts.assistant.infrastructure.llm.explainer import (
     explain_decision,
     export_explanations_json,
 )
-from backend.contexts.assistant.infrastructure.llm.tests.conftest import (
-    INJECTOR,
-    PRODUCER,
-    make_artifact,
-)
+from tests.backend.contexts.assistant.llm.conftest import INJECTOR, PRODUCER, make_artifact
 
 
 def test_explain_decision_reconstructs_facts(schedule, trace_entry) -> None:

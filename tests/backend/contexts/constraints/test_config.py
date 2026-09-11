@@ -28,7 +28,7 @@ from backend.domain.configuration import (
 from backend.contexts.constraints.infrastructure.io import _as_jsonable
 from backend.contexts.constraints.domain.schema import validate
 
-from backend.domain.configuration.tests.conftest import GLOBAL_SEED, a_hash
+from tests.backend.contexts.constraints.conftest import GLOBAL_SEED, a_hash
 
 
 def test_every_section_of_the_contract_is_present(config: Config) -> None:

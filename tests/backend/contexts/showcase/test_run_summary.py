@@ -2,6 +2,9 @@ import json
 
 from backend.application.runs import RunManifest, WorkflowStatus
 from backend.contexts.showcase.application.run_summary import export_run_summary
+import pytest
+
+pytestmark = [pytest.mark.slow, pytest.mark.showcase]
 
 
 def test_run_summary_is_a_ui_readable_copy_of_the_manifest(tmp_path) -> None:

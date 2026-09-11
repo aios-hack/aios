@@ -5,6 +5,9 @@ from pathlib import Path
 from backend.contexts.simulation.infrastructure.dataset import DatasetGenerator
 from backend.contexts.reservoir.infrastructure.opm_deck import EmittedOpmDeck
 from backend.core.contracts import RunResult, RunStatus
+import pytest
+
+pytestmark = [pytest.mark.slow]
 
 
 def test_compaction_keeps_reloadable_summary_pair_and_rewrites_cache(

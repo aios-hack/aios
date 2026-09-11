@@ -76,7 +76,7 @@
 |---|---|---|
 | Связность λ между скважинами | **план эксперимента** на возмущённых прогонах OPM, регрессия по фактической приёмистости | `backend/domain/connectivity/estimator.py`, `backend/domain/connectivity/measure.py` |
 | Ранжирование **кандидатов расписания** по ожидаемому ЧДД | суррогат | `backend/ml/surrogate/model.py`, `backend/ml/surrogate/npv_head.py` |
-| Отсев недопустимых режимов | проекция на жёсткие ограничения и валидаторы | `backend/domain/policy/agents/projection.py`, `backend/domain/schedule/validate_dynamic.py` |
+| Отсев недопустимых режимов | проекция на жёсткие ограничения и валидаторы | `backend/contexts/policy/domain/agents/projection.py`, `backend/domain/schedule/validate_dynamic.py` |
 | Финальное значение ЧДД | OPM Flow + эталонная методика организаторов | `backend/infrastructure/opm/runner.py` |
 
 λ входит в суррогат как **признак на входе** (агрегаты связности в `ScheduleFeatureizer`), а не как
@@ -251,13 +251,13 @@
 
 ### Что реально в коде на 04.09
 
-Реестр агентов лежит в `backend/domain/policy/agents/registry.py`. В нём сейчас **три** агента:
+Реестр агентов лежит в `backend/contexts/policy/domain/agents/registry.py`. В нём сейчас **три** агента:
 
 | Агент | Уровень | Ответственность (дословно из кода) | Файл |
 |---|---|---|---|
-| `FieldCoordinator` | FIELD | читает лимит закачки поля из `Constraints`, а не назначает его сам; считает спрос участка на воду правилом R1 по измеренной λ; раздаёт квоты участкам пропорционально спросу, не превышая лимит поля | `backend/domain/policy/agents/field.py` |
-| `GroupAllocator` | GROUP | видит только скважины своего участка и его квоту; делегирует выбор уставок правилам R0…R7, своей арифметики не имеет; масштабирует запрос участка вниз, если правила запросили больше квоты | `backend/domain/policy/agents/group.py` |
-| `WellExecutor` | WELL | квантует уставку шагом задатчика и не выпускает отрицательных значений; держит потолок дебита жидкости Методики для `SET_LRAT`; накладывает вето на решение, попавшее внутрь простоя скважины | `backend/domain/policy/agents/well.py` |
+| `FieldCoordinator` | FIELD | читает лимит закачки поля из `Constraints`, а не назначает его сам; считает спрос участка на воду правилом R1 по измеренной λ; раздаёт квоты участкам пропорционально спросу, не превышая лимит поля | `backend/contexts/policy/domain/agents/field.py` |
+| `GroupAllocator` | GROUP | видит только скважины своего участка и его квоту; делегирует выбор уставок правилам R0…R7, своей арифметики не имеет; масштабирует запрос участка вниз, если правила запросили больше квоты | `backend/contexts/policy/domain/agents/group.py` |
+| `WellExecutor` | WELL | квантует уставку шагом задатчика и не выпускает отрицательных значений; держит потолок дебита жидкости Методики для `SET_LRAT`; накладывает вето на решение, попавшее внутрь простоя скважины | `backend/contexts/policy/domain/agents/well.py` |
 
 Формулировки в таблице — это не пересказ, а поле `responsibilities` каждого агента. Реестр их
 проверяет: агент без имени, без описанной ответственности или с дублирующимся именем не собирается
@@ -266,7 +266,7 @@
 
 ### Протокол
 
-Контракт агента — `backend/domain/policy/agents/base.py`:
+Контракт агента — `backend/contexts/policy/domain/agents/base.py`:
 
 ```python
 class Agent(Protocol):
@@ -281,8 +281,8 @@ class Agent(Protocol):
 что тогда нельзя восстановить, какое правило породило какую уставку.
 
 Единственный шлюз между предложением и расписанием — `project_to_hard_constraints` в
-`backend/domain/policy/agents/projection.py`. Ни один агент не пишет уставку мимо него; это
-проверяет тест `backend/domain/policy/tests/test_projection_gate.py`.
+`backend/contexts/policy/domain/agents/projection.py`. Ни один агент не пишет уставку мимо него; это
+проверяет тест `tests/backend/contexts/policy/test_projection_gate.py`.
 
 Порядок вызова на шаге фиксирован уровнями: `LEVEL_ORDER = (FIELD, GROUP, WELL)`.
 
@@ -759,8 +759,8 @@ limit(добытая вода) = external_water_m3_per_day + reinjection_fractio
 
 ### Ось 1: архитектурная — добавить агента
 
-Точка расширения: протокол `Agent` в `backend/domain/policy/agents/base.py` и реестр
-`AgentRegistry` в `backend/domain/policy/agents/registry.py`.
+Точка расширения: протокол `Agent` в `backend/contexts/policy/domain/agents/base.py` и реестр
+`AgentRegistry` в `backend/contexts/policy/domain/agents/registry.py`.
 
 Чтобы добавить агента, нужно ровно два действия:
 
@@ -771,7 +771,7 @@ limit(добытая вода) = external_water_m3_per_day + reinjection_fractio
 прописывается вручную. Реестр сам отвергает агента без описанной ответственности — то есть
 документация ролей не может разойтись с кодом.
 
-Проверяется тестом `backend/domain/policy/tests/test_agents_registry.py`.
+Проверяется тестом `tests/backend/contexts/policy/test_agents_registry.py`.
 
 Что мы говорим честно: доказательство «добавили агента, ядро не тронули» будет полным, когда
 `PressureAgent` и `GeologyAgent` реально появятся через эту точку. Сегодня в реестре три агента
@@ -783,7 +783,7 @@ limit(добытая вода) = external_water_m3_per_day + reinjection_fractio
 
 | Аргумент | Проверка |
 |---|---|
-| В доменном слое нет захардкоженных параметров кейса | тест `backend/domain/configuration/tests/test_no_parameter_bypass.py` — запрещает магические константы в обход схемы конфигурации |
+| В доменном слое нет захардкоженных параметров кейса | тест `tests/backend/contexts/constraints/test_no_parameter_bypass.py` — запрещает магические константы в обход схемы конфигурации |
 | Ограничения кейса — данные, а не код | `Constraints` в `backend/core/contracts/constraints.py`: годовые лимиты по закачке, жидкости, обводнённости, полы по добыче, простои скважин, блок `infrastructure` |
 | Кейс читается из файла одной командой | `run full --case` с файлом кейса, см. `backend/presentation/cli/run.py` |
 | Направление зависимостей не даёт инфраструктуре решать бизнес-правила | тест `tests/architecture/test_layers.py` |
@@ -838,16 +838,16 @@ limit(добытая вода) = external_water_m3_per_day + reinjection_fractio
 | Браузер | `frontend/src/jarvis/` | вторая грань куба, сфера, сцены из карточек |
 | HTTP-граница | `backend/presentation/api/` | отдельный сервис на порту 8010, SSE-поток `text/event-stream`, маршруты `/api/jarvis/health`, `/ask`, `/cancel` |
 | Оркестратор и инструменты | `backend/application/jarvis/` | сессии, промпт, база знаний, сторож чисел |
-| Провайдеры чата | `backend/infrastructure/llm/` | OpenRouter основной (`openrouter.py`), Anthropic резервный (`anthropic_chat.py`), плюс `fake_chat.py` для тестов |
+| Провайдеры чата | `backend/contexts/assistant/infrastructure/llm/` | OpenRouter основной (`openrouter.py`), Anthropic резервный (`anthropic_chat.py`), плюс `fake_chat.py` для тестов |
 
-**13 инструментов**, которые модель может вызвать (`backend/application/jarvis/tools/schemas.py`):
+**13 инструментов**, которые модель может вызвать (`backend/contexts/assistant/application/tools/schemas.py`):
 `well_snapshot`, `well_series`, `field_metrics`, `field_events`, `rank_wells`, `connectivity`,
 `find_patterns`, `explain_decision`, `decision_journal`, `rule_impact`, `compare_scenarios`,
 `explain_term`, `platform_guide`.
 
 Смысл этого списка: LLM **не считает** — она запрашивает уже посчитанные числа через типизированные
 инструменты. Аргументы инструмента валидируются по схеме, неизвестное поле отклоняется
-(`backend/application/jarvis/tools/registry.py`, `validate_arguments`).
+(`backend/contexts/assistant/application/tools/registry.py`, `validate_arguments`).
 
 ### Сторож чисел
 
@@ -1136,7 +1136,7 @@ OPM нашёл 2655 нарушений суммарно, и ни у одного
 
 | Что | Статус |
 |---|---|
-| Реестр агентов, протокол, точка расширения | **есть**: `backend/domain/policy/agents/registry.py`, три агента |
+| Реестр агентов, протокол, точка расширения | **есть**: `backend/contexts/policy/domain/agents/registry.py`, три агента |
 | Функциональные агенты (вода, давление, геология, риск, экономика как отдельные объекты) | **нет.** Функции живут внутри правил и модулей верификации |
 | Экран «Совет» на настоящих данных | **есть** (09.09). Журнал совета в витрине (`hierarchy-index.json` плюс файл на каждый шаг в `frontend/public/data/base/hierarchy/`; с 11.09 он режется по шагам, чтобы первый экран не тянул 7.4 МБ) имеет `provenance: "policy-hierarchy-trace"`, `synthetic: false`, `lambda_measured: true`, привязан к прогону `20260816T200926-8b4da543d1ed` и хешу отклика. Это настоящий журнал решений: уровни поля, участка и скважины получены прогоном политики на отклике сценария, 224 шага, три агента |
 | Абляция правил | **не выполнена**, но и не подделана: `frontend/public/data/ablation.json` имеет `provenance: "ablation-not-run"`, `synthetic: false`. Файл честно говорит «не считалось», а не показывает выдуманные числа |

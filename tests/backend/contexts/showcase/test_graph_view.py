@@ -12,6 +12,9 @@ from backend.contexts.showcase.application.exporters.graph_view import (
     build_lambda_graph,
     export_graph_json,
 )
+import pytest
+
+pytestmark = [pytest.mark.slow, pytest.mark.showcase]
 
 _PLACEHOLDER_HASH = "0" * 64
 

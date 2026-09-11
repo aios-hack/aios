@@ -16,6 +16,8 @@ from backend.contexts.showcase.application.exporters.compensation_view import (
 from tests.support.backend.showcase_fixtures import make_synthetic_artifact
 from backend.contexts.showcase.application.exporters.timeline import build_timeline
 
+pytestmark = [pytest.mark.slow, pytest.mark.showcase]
+
 DEFAULT_POLICY = CompensationPolicy(None, None, "diagnostic", "field_and_groups")
 
 

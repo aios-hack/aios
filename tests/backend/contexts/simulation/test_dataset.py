@@ -29,13 +29,11 @@ from backend.contexts.reservoir.infrastructure.opm_deck import EmittedOpmDeck
 from backend.contexts.simulation.infrastructure.runner import deck_hashes
 from backend.core.contracts import RunResult, RunStatus, Schedule
 
-import conftest
+import tests.support.backend.environment as conftest
 
 MODEL_Z = conftest.model_z_dir()
 
-pytestmark = pytest.mark.skipif(
-    MODEL_Z is None, reason=conftest.missing_reason("Model_Z")
-)
+pytestmark = [pytest.mark.skipif(MODEL_Z is None, reason=conftest.missing_reason('Model_Z')), pytest.mark.slow]
 
 SEED = 20260816
 

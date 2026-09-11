@@ -4,7 +4,7 @@ import pytest
 
 from backend.contexts.reservoir.application.deck import load_completions, load_wellheads
 
-from conftest import missing_reason, model_z_schedule
+from tests.support.backend.environment import missing_reason, model_z_schedule
 
 DECK_PATH: Path | None = model_z_schedule()
 

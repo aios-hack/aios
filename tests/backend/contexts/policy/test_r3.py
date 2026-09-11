@@ -17,7 +17,7 @@ from backend.domain.policy import (
     make_theta,
 )
 from backend.contexts.policy.domain.rules import r0, r3
-from backend.domain.policy.tests.conftest import memory_of, producer, state_of
+from tests.backend.contexts.policy.conftest import memory_of, producer, state_of
 
 AT_THRESHOLD_WATERCUT = 0.968955
 CLEARLY_LOSING_WATERCUT = 0.995

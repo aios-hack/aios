@@ -19,6 +19,8 @@ from backend.contexts.showcase.application.scenarios import (
     export_scenarios_json,
 )
 
+pytestmark = [pytest.mark.slow, pytest.mark.showcase]
+
 ALL_SEVEN: tuple[str, ...] = PHYSICS_INVARIANTS
 
 PARTIAL_REPORT: dict[str, object] = {

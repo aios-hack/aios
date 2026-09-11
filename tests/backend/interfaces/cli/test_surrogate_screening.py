@@ -13,7 +13,7 @@ from backend.interfaces.cli.surrogate.screen import (
     water_margins,
     known_schedule_hashes,
 )
-from tests.application.test_run_workflow import historical_schedule
+from tests.backend.contexts.runs.test_run_workflow import historical_schedule
 
 
 def test_screen_keeps_ood_gate_and_requires_explicit_experiment():

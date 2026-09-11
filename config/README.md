@@ -796,7 +796,7 @@ PYTHONPATH=. python tools/lambda_compare.py <старый> <новый>
 
 ### Что уже подключено
 
-`backend/presentation/cli/surrogate_tools/surrogate_metrics_report.py`:
+`backend/interfaces/cli/surrogate/tools/surrogate_metrics_report.py`:
 загружает набор через `load_frozen_holdout` до всякого счёта, сверяет им
 обе популяции (`held_out` по хешам сплита тензоров и `optimizer_manifold` по
 `canonical_schedule_hash` из `result.json`) вызовом

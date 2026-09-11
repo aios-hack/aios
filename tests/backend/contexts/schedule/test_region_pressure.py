@@ -40,6 +40,8 @@ from backend.contexts.schedule.domain.validate_dynamic import (
     verified_constraint_checks,
 )
 
+pytestmark = [pytest.mark.slow]
+
 N_INTERVALS: int = 3
 BASELINE_PRESSURE_BAR: float = 122.0
 DECK_REGIONS: tuple[int, ...] = (1, 2, 3, 4, 5)

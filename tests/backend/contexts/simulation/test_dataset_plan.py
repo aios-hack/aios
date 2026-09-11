@@ -19,13 +19,11 @@ from backend.contexts.simulation.domain.perturbation_design import (
 from backend.core.contracts import EventKind, MAX_LRAT_M3_PER_DAY, Role, Schedule, hash_schedule
 from backend.domain.schedule import validate_static
 
-import conftest
+import tests.support.backend.environment as conftest
 
 MODEL_Z = conftest.model_z_dir()
 
-pytestmark = pytest.mark.skipif(
-    MODEL_Z is None, reason=conftest.missing_reason("Model_Z")
-)
+pytestmark = [pytest.mark.skipif(MODEL_Z is None, reason=conftest.missing_reason('Model_Z')), pytest.mark.slow]
 
 SEED = 20260816
 

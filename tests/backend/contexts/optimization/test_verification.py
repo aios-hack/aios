@@ -40,8 +40,9 @@ from backend.contexts.optimization.application.verification import (
     run_verification_loop,
     trust_region_objective,
 )
+from tests.support.backend.paths import REPO_ROOT
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = REPO_ROOT / "backend" / "contexts" / "optimization" / "application"
 
 BOUNDS = {"x": (0.0, 100.0)}
 

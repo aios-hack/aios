@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-import conftest
+import tests.support.backend.environment as conftest
 from backend.core.paths import project_root
 
 

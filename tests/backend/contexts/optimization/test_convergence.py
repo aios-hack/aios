@@ -39,8 +39,9 @@ from backend.contexts.optimization.domain.convergence import (
     trust_was_justified,
 )
 from backend.contexts.optimization.application.verification import CandidateCheck, RoundReport
+from tests.support.backend.paths import REPO_ROOT
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = REPO_ROOT / "backend" / "contexts" / "optimization" / "domain"
 
 
 def _theta(value: float) -> Theta:

@@ -498,7 +498,7 @@ canvas'ов — не присваивать `canvas.width`, если разме�
 
 | Агент | Владеет | Не трогает |
 |---|---|---|
-| **A** — бэкенд Джарвиса | `backend/application/jarvis/**`, `backend/infrastructure/llm/**`, `backend/presentation/api/**`, `backend/presentation/cli/jarvis.py`, `frontend/public/jarvis/knowledge/**`, `pyproject.toml`, `docker-compose.yml`, `docker/entrypoint.sh`, `JARVIS.md` §5, §10, §11 | фронт |
+| **A** — бэкенд Джарвиса | `backend/application/jarvis/**`, `backend/contexts/assistant/infrastructure/llm/**`, `backend/presentation/api/**`, `backend/presentation/cli/jarvis.py`, `frontend/public/jarvis/knowledge/**`, `pyproject.toml`, `docker-compose.yml`, `docker/entrypoint.sh`, `JARVIS.md` §5, §10, §11 | фронт |
 | **B** — фронт Джарвиса | `frontend/src/jarvis/**`, `frontend/src/i18n/*/jarvis.json`, `frontend/vite.config.ts`, `frontend/src/theme/tokens.*.css` только `--color-jarvis-*`, `--size-sphere-*`, `--color-map-*` не его | `views/**`, `app/**`, `ui/**` |
 | **C** — консоль | `frontend/src/views/**`, `frontend/src/app/**`, `frontend/src/ui/**`, `frontend/src/state/**`, `frontend/src/data/**`, `frontend/src/i18n/*/*.json` кроме `jarvis.json`, `frontend/src/theme/**` кроме токенов B, `backend/presentation/ui_export/**`, `JarvisStage.tsx/.css` только в части `#console-overlay` (по согласованию с B) | `jarvis/**` кроме оговорённого |
 
@@ -774,7 +774,7 @@ C — `WORKSPACE_VIEWS`); тип `compare` с объектами (A шлёт, B 
   с указанием искомого пути. Карточка `physics` появится, когда прогон запишет отчёт.
 - `[A→координатор]` `run_history`/`run_detail`/`compare_runs` читают и `out/runs`, и
   `out/web-runs` (§3.3), но `RunStore` из `artifacts.py` знает только `out/runs`. Второй
-  корень добавлен в `backend/application/jarvis/tools/run_history.py`, переменная `AIOS_JARVIS_WEB_RUNS`.
+  корень добавлен в `backend/contexts/assistant/application/tools/run_history.py`, переменная `AIOS_JARVIS_WEB_RUNS`.
 - `[A→координатор]` `tests/architecture/test_markdown_links.py` падает на пяти ссылках
   самого `JARVIS_V2.md` в §3.3 и §9.3: два относительных пути до карты системы (реальный
   файл — `frontend/public/jarvis/knowledge/system.json`), путь до пакета сдачи внутри

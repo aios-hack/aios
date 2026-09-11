@@ -6,7 +6,9 @@ from backend.contexts.schedule.domain.case_limits import (
     CaseLimitsForecastRequired,
     apply_case_limits,
 )
-from tests.application.test_run_workflow import sample_schedule
+from tests.backend.contexts.runs.test_run_workflow import sample_schedule
+
+pytestmark = [pytest.mark.slow]
 
 
 def dense_schedule():

@@ -33,7 +33,7 @@ from backend.domain.economics import (
 )
 from backend.domain.economics import normatives_io
 
-from conftest import missing_reason, normatives_xlsx
+from tests.support.backend.environment import missing_reason, normatives_xlsx
 
 NORMATIVES = NormativeSet(**DEFAULT_NORMATIVES_2007, esp_catalog=ESP_CATALOG_2007)
 POLICIES = Policies(

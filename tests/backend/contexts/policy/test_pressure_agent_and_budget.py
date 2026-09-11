@@ -51,7 +51,7 @@ from backend.contexts.policy.domain.budget import (
 )
 from backend.contexts.policy.domain.levels import Level
 from backend.contexts.policy.domain.trace import trace_hash
-from backend.domain.policy.tests.conftest import (
+from tests.backend.contexts.policy.conftest import (
     OIL_DENSITY_T_PER_M3,
     groups_of,
     influence_of,

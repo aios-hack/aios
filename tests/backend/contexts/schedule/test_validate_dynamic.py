@@ -35,7 +35,7 @@ from backend.contexts.constraints.domain.constraints import (
 from backend.domain.schedule import load_schedule
 from backend.contexts.schedule.domain.validate import ViolationKind
 
-from conftest import base_run_dir, base_run_output_dir, missing_reason
+from tests.support.backend.environment import base_run_dir, base_run_output_dir, missing_reason
 from backend.contexts.schedule.domain.validate_dynamic import (
     ACHIEVEMENT_THRESHOLD,
     DYNAMIC_VIOLATION_KINDS,
@@ -49,6 +49,8 @@ from backend.contexts.schedule.domain.validate_dynamic import (
     check_response_axes,
     validate_dynamic,
 )
+
+pytestmark = [pytest.mark.slow]
 
 
 def producer(setpoint: float = 50.0) -> WellState:

@@ -14,7 +14,7 @@ from backend.contexts.showcase.application.base_artifact import (
     build_base_artifact,
 )
 
-from conftest import missing_reason, model_z_dir, model_z_schedule
+from tests.support.backend.environment import missing_reason, model_z_dir, model_z_schedule
 
 MODEL_Z_DIR = model_z_dir()
 MODEL_Z_SCHEDULE = model_z_schedule()

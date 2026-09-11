@@ -6,59 +6,9 @@ import shutil
 import subprocess
 from pathlib import Path
 
-import pytest
 
 DOCS_ROOT_ENV_VAR = "AIOS_DOCS_ROOT"
 BASE_RUN_ENV_VAR = "AIOS_BASE_RUN_DIR"
-
-SLOW_DIRECTORIES: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("backend/domain/schedule/tests", ("slow",)),
-    ("backend/presentation/ui_export/tests", ("slow", "showcase")),
-)
-
-SLOW_FILES: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("backend/infrastructure/opm/tests/test_submission.py", ("slow", "opm")),
-    ("backend/infrastructure/opm/tests/test_base_run.py", ("slow", "opm")),
-    ("backend/infrastructure/opm/tests/test_cache.py", ("slow", "opm")),
-    ("backend/infrastructure/opm/tests/test_runner.py", ("slow", "opm")),
-    ("backend/infrastructure/opm/tests/test_response_loader.py", ("slow", "opm")),
-    ("backend/infrastructure/opm/tests/test_opm_deck.py", ("slow", "opm")),
-    ("backend/infrastructure/opm/tests/test_dataset_opm.py", ("slow", "opm")),
-    ("backend/infrastructure/opm/tests/test_dataset.py", ("slow",)),
-    ("backend/infrastructure/opm/tests/test_dataset_plan.py", ("slow",)),
-    ("backend/infrastructure/opm/tests/test_dataset_compaction.py", ("slow",)),
-    ("backend/domain/connectivity/tests/test_doe.py", ("slow",)),
-    ("backend/domain/connectivity/tests/test_campaign.py", ("slow",)),
-    ("backend/ml/surrogate/tests/test_crm.py", ("slow",)),
-    ("backend/core/contracts/tests/test_hash_canon.py", ("slow",)),
-    (
-        "backend/application/optimization/tests/test_ensemble_spread_and_risk_selection.py",
-        ("slow",),
-    ),
-)
-
-
-def _marks_for(relative: str) -> tuple[str, ...]:
-    for name, marks in SLOW_FILES:
-        if relative == name:
-            return marks
-    for name, marks in SLOW_DIRECTORIES:
-        if relative.startswith(name + "/"):
-            return marks
-    return ()
-
-
-def pytest_collection_modifyitems(
-    config: pytest.Config, items: list[pytest.Item]
-) -> None:
-    root = repo_root()
-    for item in items:
-        try:
-            relative = Path(str(item.fspath)).resolve().relative_to(root).as_posix()
-        except ValueError:
-            continue
-        for mark in _marks_for(relative):
-            item.add_marker(getattr(pytest.mark, mark))
 
 
 MODEL_Z_SCHEDULE_RELATIVE = Path("models") / "Model_Z" / "Model_Z_sch.inc"
@@ -70,10 +20,10 @@ def _candidate_roots() -> tuple[Path, ...]:
     from_env = os.environ.get(DOCS_ROOT_ENV_VAR)
     if from_env:
         return (Path(from_env),)
-    here = Path(__file__).resolve()
+    root = repo_root()
     return tuple(
         candidate
-        for parent in here.parents[0:3]
+        for parent in (root, root.parent, root.parent.parent)
         for candidate in (parent / "docs", parent / "docs-src")
     )
 
@@ -193,3 +143,21 @@ def docker_unavailable_reason() -> str | None:
         tail = detail[-1] if detail else "нет ответа от демона"
         return f"демон Docker недоступен: {tail}"
     return None
+
+
+__all__ = [
+    "BASE_RUN_ENV_VAR",
+    "DOCS_ROOT_ENV_VAR",
+    "base_run_dir",
+    "base_run_missing_reason",
+    "base_run_output_dir",
+    "chdd_python_dir",
+    "docker_unavailable_reason",
+    "docs_path",
+    "docs_root",
+    "missing_reason",
+    "model_z_dir",
+    "model_z_schedule",
+    "normatives_xlsx",
+    "repo_root",
+]
