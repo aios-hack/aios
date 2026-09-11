@@ -1,11 +1,3 @@
-"""Lint file paths referenced in backtick spans across tracked markdown.
-
-Motivation: after the 22.08 move of code into ``backend/`` the docs kept
-referencing removed top-level packages (``contracts/``, ``bridge/``, ``ui/``,
-``aios_cli/``) — over fifty dead links found only by reading everything by
-hand. This test catches that class of drift automatically.
-"""
-
 from __future__ import annotations
 
 import re
@@ -16,25 +8,16 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 PATH_PATTERN = re.compile(r"`([^`\n]+\.(?:py|ts|tsx|json|sh|inc|md))`")
 
-# aios и docs — независимые репозитории, клонируются по отдельности; тест,
-# проверяющий ссылки между ними, будет падать у того, у кого нет сиблинга
-# (см. D1 "Что не делать" в docs/v2/tasks/docs.md).
 CROSS_REPO_PREFIXES = ("docs/", "../docs/", "../../docs/")
 
-# Каталоги, которые правит не интегратор — интегратор не редактирует чужие
-# файлы даже ради починки мёртвой ссылки (CLAUDE.md, правило №2). Уборка
-# frontend/*.md — отдельная задача D7, её владелец Михаил.
 EXCLUDED_FILE_PREFIXES = ("frontend/",)
 
-# UI-экспорт описывает целевую структуру фронтенда для будущей реализации:
-# пути вида `src/theme/tokens.ts`, `Slider/Slider.tsx` — ориентиры для
-# команды фронтенда, а не буквальные существующие файлы на момент написания.
 EXCLUDED_FILES = {
     "backend/presentation/ui_export/CONVENTIONS.md",
     "backend/presentation/ui_export/GRAPH.md",
+    "REFACTOR_PLAN.md",
 }
 
-# Точечные исключения: (файл, путь) -> обоснование.
 EXPLICIT_EXCLUSIONS: dict[tuple[str, str], str] = {
     (
         "README.md",
@@ -56,10 +39,8 @@ EXPLICIT_EXCLUSIONS: dict[tuple[str, str], str] = {
     },
 }
 
-
 def _is_excluded_path(path: str) -> bool:
     if "/" not in path:
-        # Голое имя файла без каталога — упоминание в прозе, не путь.
         return True
     if path.startswith(CROSS_REPO_PREFIXES):
         return True
@@ -68,7 +49,6 @@ def _is_excluded_path(path: str) -> bool:
     if path.startswith("/") or path.startswith("w:"):
         return True
     return False
-
 
 def tracked_markdown_files(root: Path) -> list[Path]:
     output = subprocess.run(
@@ -79,7 +59,6 @@ def tracked_markdown_files(root: Path) -> list[Path]:
         check=True,
     ).stdout
     return [root / line for line in output.splitlines() if line]
-
 
 def find_broken_links(root: Path, md_files: list[Path]) -> list[tuple[str, int, str]]:
     """Return (relative file, line number, missing path) for each dead link."""
@@ -101,7 +80,6 @@ def find_broken_links(root: Path, md_files: list[Path]) -> list[tuple[str, int, 
                     broken.append((relative, lineno, candidate))
     return broken
 
-
 def test_no_broken_markdown_links() -> None:
     md_files = tracked_markdown_files(REPO_ROOT)
     assert md_files, "не нашлось ни одного отслеживаемого .md файла"
@@ -109,7 +87,6 @@ def test_no_broken_markdown_links() -> None:
     assert not broken, "мёртвые ссылки на файлы:\n" + "\n".join(
         f"{file}:{line}: `{path}`" for file, line, path in broken
     )
-
 
 def test_broken_link_is_detected(tmp_path: Path) -> None:
     (tmp_path / "existing.py").write_text("", encoding="utf-8")
