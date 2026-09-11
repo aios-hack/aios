@@ -25,7 +25,7 @@ from backend.presentation.ui_export.ablation_view import (
 )
 from backend.presentation.ui_export.artifact_io import dump_bundle
 from backend.presentation.ui_export.base_artifact import build_base_artifact, real_meta
-from backend.presentation.ui_export.deck import load_wellheads
+from backend.presentation.ui_export.deck import load_oil_density_by_well, load_wellheads
 from backend.presentation.ui_export.demo_artifact import (
     DEMO_PROVENANCE,
     DEMO_SEED,
@@ -57,6 +57,17 @@ BASE_ID = "base"
 WHATIF_ID = "whatif-injection-cut"
 DEFAULT_OUT_DIR: Path = project_root() / "frontend" / "public" / "data"
 _DEFAULT_DENSITY = 860.0
+
+
+def _oil_densities(wells: Any) -> dict[str, float]:
+    from backend.infrastructure.resources import model_z_dir
+
+    names = tuple(wells)
+    try:
+        measured = load_oil_density_by_well(names, model_z_dir())
+    except (FileNotFoundError, ValueError, OSError):
+        return {well: _DEFAULT_DENSITY for well in names}
+    return {well: measured.get(well, _DEFAULT_DENSITY) for well in names}
 
 DEMO_ROBUSTNESS: dict[str, ScenarioRobustness] = {
     BASE_ID: ScenarioRobustness(
@@ -174,7 +185,7 @@ def export_scenario(
 
     meta_by_kind = meta_by_kind or {kind: demo_meta(kind) for kind in SCENARIO_KINDS}
     out_dir.mkdir(parents=True, exist_ok=True)
-    densities = {well: _DEFAULT_DENSITY for well in artifact.schedule.meta.wells}
+    densities = _oil_densities(artifact.schedule.meta.wells)
     written = [
         export_timeline_json(artifact, densities, out_dir / "timeline.json"),
         export_graph_json(artifact, out_dir / "graph.json"),
@@ -402,7 +413,7 @@ def build_demo(
     _stamp(scenarios_path, {"provenance": "mixed", "synthetic": None, "kind": "scenarios"})
     written.extend([base_bundle, whatif_bundle, scenarios_path])
 
-    densities = {well: _DEFAULT_DENSITY for well in base.schedule.meta.wells}
+    densities = _oil_densities(base.schedule.meta.wells)
     script_path = export_demo_script_json(
         build_timeline(base, densities),
         build_trace(base),

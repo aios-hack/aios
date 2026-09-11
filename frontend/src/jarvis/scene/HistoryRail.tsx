@@ -16,7 +16,10 @@ export const HistoryRail = ({ scenes, activeIndex, onSelect }: HistoryRailProps)
   const { lang, t } = useI18n();
   const [hover, setHover] = useState<number | null>(null);
   const listRef = useRef<HTMLOListElement>(null);
-  const count = scenes.length;
+  const beads = scenes
+    .map((scene, index) => ({ scene, index }))
+    .filter((entry) => entry.scene.question.trim().length > 0);
+  const count = beads.length;
 
   useEffect(() => {
     const node = listRef.current?.querySelector<HTMLElement>('[data-active="true"]');
@@ -41,25 +44,38 @@ export const HistoryRail = ({ scenes, activeIndex, onSelect }: HistoryRailProps)
     return () => node.removeEventListener('wheel', onWheel);
   }, [onWheel]);
 
+  const step = (delta: number) => {
+    const at = beads.findIndex((entry) => entry.index === activeIndex);
+    const next = beads[(at < 0 ? 0 : at) + delta];
+    if (next !== undefined) {
+      onSelect(next.index);
+    }
+  };
+
   const onKeyDown = (event: KeyboardEvent<HTMLOListElement>) => {
     if (event.key === 'ArrowRight') {
       event.preventDefault();
-      onSelect(activeIndex + 1);
+      step(1);
       return;
     }
     if (event.key === 'ArrowLeft') {
       event.preventDefault();
-      onSelect(activeIndex - 1);
+      step(-1);
       return;
     }
     if (event.key === 'Home') {
       event.preventDefault();
-      onSelect(0);
+      if (beads[0] !== undefined) {
+        onSelect(beads[0].index);
+      }
       return;
     }
     if (event.key === 'End') {
       event.preventDefault();
-      onSelect(count - 1);
+      const last = beads[count - 1];
+      if (last !== undefined) {
+        onSelect(last.index);
+      }
     }
   };
 
@@ -72,12 +88,14 @@ export const HistoryRail = ({ scenes, activeIndex, onSelect }: HistoryRailProps)
         tabIndex={0}
         aria-label={t('jarvis.railLabel')}
         aria-activedescendant={
-          activeIndex >= 0 && activeIndex < count ? `jarvis-bead-${activeIndex}` : undefined
+          beads.some((entry) => entry.index === activeIndex)
+            ? `jarvis-bead-${activeIndex}`
+            : undefined
         }
         onKeyDown={onKeyDown}
       >
         <HistoryThread count={count} />
-        {scenes.map((scene, index) => {
+        {beads.map(({ scene, index }) => {
           const active = index === activeIndex;
           const glyphs = glyphsOf(scene.cards.map((entry) => entry.card.type));
           const caption = (scene.caption ?? scene.captionDraft).split('\n')[0];

@@ -148,6 +148,30 @@ export const briefingUrl = (
   return `${BRIEFING_URL}?${params.toString()}`;
 };
 
+export const BRIEFING_SCENE_ID = 'briefing';
+
+const briefingFailure = (
+  code: string,
+  scenario: string,
+  step: number
+): JarvisEvent[] => [
+  {
+    type: 'scene',
+    scene_id: BRIEFING_SCENE_ID,
+    question: '',
+    context: {
+      scenario,
+      step,
+      date: '',
+      selected_well: null,
+      workspace: 'overview',
+      view: 'fund'
+    },
+    ts: new Date().toISOString()
+  },
+  { type: 'error', code, message: '' }
+];
+
 export const fetchBriefing = async (
   sessionId: string,
   lang: string,
@@ -161,7 +185,11 @@ export const fetchBriefing = async (
       method: 'GET'
     });
     if (!response.ok) {
-      return [];
+      return briefingFailure(
+        response.status === 503 ? 'no-api-key' : 'upstream',
+        scenario,
+        step
+      );
     }
     const body = await response.text();
     const { frames } = parseSseChunk(body.endsWith(BLANK) ? body : body + BLANK);
@@ -174,6 +202,6 @@ export const fetchBriefing = async (
     }
     return collected;
   } catch {
-    return [];
+    return briefingFailure('upstream', scenario, step);
   }
 };

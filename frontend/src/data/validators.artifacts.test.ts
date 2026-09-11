@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 import {
   isAblationFile,
   isGraphFile,
-  isHierarchyFile,
   isHierarchyIndexFile,
   isHierarchyStepFile,
   isMapLayerFile,

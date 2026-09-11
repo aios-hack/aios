@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Iterator
+from typing import Iterable, Iterator
 
 def _expand(fields: list[str]) -> list[str | None]:
     out: list[str | None] = []
@@ -59,3 +59,21 @@ def load_completions(path: str | Path) -> dict[str, list[tuple[int, int, int, in
         )
         completions.setdefault(well, []).append(cell)
     return completions
+
+def load_oil_density_by_well(
+    wells: Iterable[str], model_dir: str | Path
+) -> dict[str, float]:
+    from backend.infrastructure.opm.response_loader import load_density_by_pvtnum
+    from backend.infrastructure.opm.summary import build_summary_plan
+
+    density_by_region = load_density_by_pvtnum(model_dir)
+    plan = build_summary_plan(Path(model_dir), sorted(set(wells)))
+    by_well: dict[str, float] = {}
+    for connection in plan.connections:
+        density = density_by_region.get(connection.pvt_region)
+        if density is None:
+            continue
+        by_well.setdefault(connection.well, density)
+    if not by_well:
+        raise ValueError("плотности нефти по скважинам не восстановлены из дека")
+    return by_well
