@@ -173,9 +173,8 @@ bash scripts/cold_repeat.sh --run-id <id>                                 # хо
 | `frontend` | React-интерфейс |
 | `tests` | архитектурные и сквозные проверки |
 
-Подробности — в [ARCHITECTURE.md](ARCHITECTURE.md). Точная форма данных — в
-[backend/core/contracts/README.md](backend/core/contracts/README.md); исполняемым источником
-истины остаются типы Python рядом с ним.
+Подробности — в [ARCHITECTURE.md](ARCHITECTURE.md). Точная форма данных задаётся типами
+Python в `domain`-слое каждого контекста: они и есть источник истины.
 
 ## Джарвис
 
@@ -246,7 +245,6 @@ OPENROUTER_API_KEY=sk-or-... docker compose up jarvis web
 |---|---|
 | [README.md](README.md) | как войти в проект: запуск, окружение, структура |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | слои `backend/`, границы и правила зависимостей |
-| [CLAUDE.md](CLAUDE.md) | правила для агентов |
 | [SUBMISSION.md](SUBMISSION.md) | сдача: архитектура, устройство суррогата, сквозной прогон, ограничения |
 | [FAQ.md](FAQ.md) | подробные ответы по решению: методология, замеры, перенос на реальный объект |
 | LICENSE | лицензия |
