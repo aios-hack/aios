@@ -1,5 +1,3 @@
-"""Schedule-only features for the reservoir surrogate."""
-
 from backend.contexts.surrogate.application.adapter import AdapterError, ResponseAdapter
 from backend.contexts.surrogate.domain.features import (
     FeatureContext,

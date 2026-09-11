@@ -76,3 +76,9 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
+
+.council-source {
+  border-color: var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}

@@ -1,4 +1,3 @@
-"""Retrospective ranking audit; OOD scores are diagnostic, never feasibility evidence."""
 import argparse
 import json
 import math

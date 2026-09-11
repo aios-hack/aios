@@ -1,4 +1,3 @@
-"""Bind a validated density guard to an existing production manifest."""
 from __future__ import annotations
 
 import argparse

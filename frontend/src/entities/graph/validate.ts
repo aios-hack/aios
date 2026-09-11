@@ -40,8 +40,8 @@ const isGraphMeta = (data: unknown): boolean =>
   GRAPH_META_NUMBERS.every((key) => isNum(data[key])) &&
   isOptionalStr(data.kind) &&
   isOptionalStr(data.provenance) &&
-  isOptionalStr(data.notice_ru) &&
-  isOptionalStr(data.notice_en);
+  isOptionalStr(data.notice) &&
+  isOptionalStr(data.notice_key);
 
 const isGraphLayout = (data: unknown): boolean =>
   isRecord(data) && isNum(data.size) && isNum(data.seed);

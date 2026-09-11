@@ -1,5 +1,3 @@
-"""Schedule — расписание управления. README.md §2."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -14,16 +12,7 @@ N_CONTROL_DATES = HORIZON.n_intervals + 1
 N_INTERVALS = HORIZON.n_intervals
 T0 = HORIZON.t0
 
-# Жёсткий потолок Методики: «Дебит жидкости добывающей скважины свыше
-# 500 м³/сут не допускается». Эталонный расчётчик на таком входе не считает,
-# а падает с ошибкой и перечисляет нарушившие скважины. Проверка стоит здесь,
-# в конструкторе события, а не только в validate_static: попытка на сдаче
-# одна, и узнать об этом от проверяющей стороны нельзя.
-# В базовом деке максимум 110 м³/сут — нарушить потолок способен только
-# наш оптимизатор.
 MAX_LRAT_M3_PER_DAY = 500.0
-
-
 
 
 class Availability(Enum):
@@ -55,19 +44,14 @@ _VALUE_REQUIRED = {EventKind.SET_LRAT, EventKind.SET_RATE}
 
 @dataclass(frozen=True, slots=True)
 class WellState:
-    """Состояние скважины. README.md §2 «Состояние скважины»."""
 
     availability: Availability
     role: Role
     operating_status: OperatingStatus
-    setpoint: float  # м³/сут
+    setpoint: float
 
     def __post_init__(self) -> None:
         if self.availability is Availability.NOT_COMMISSIONED:
-            # Нормализация фиксирована (аудит 14.08, README.md §2): без неё
-            # два корректных сериализатора дают разные байты для одной и той
-            # же невведённой скважины, и canonical_schedule_hash перестаёт
-            # быть каноническим.
             if self.role is not Role.NONE:
                 raise ValueError("NOT_COMMISSIONED требует role=NONE")
             if self.operating_status is not OperatingStatus.SHUT:
@@ -78,29 +62,20 @@ class WellState:
 
 @dataclass(frozen=True, slots=True)
 class FixedDeckEvent:
-    """Неуправляемый оператор дека внутри горизонта — перфорации, WPIMULT и т.п.
 
-    Не решение агента: переносится в эмитированный файл как есть (README.md §2).
-
-    Поддерживаются обе выданные организаторами ревизии: стандартный
-    `COMPDAT` с индексами ячеек и `COMPDATMD` по measured depth. Оба являются
-    фиксированным слоем и не могут быть изменены агентом.
-    """
-
-    control_step: int  # 0…224 — фиксированные события деком не ограничены
+    control_step: int
     well: str
-    operator: str  # "COMPDAT", "WPIMULT", ...
-    raw_args: tuple[str, ...]  # аргументы оператора как в исходном деке
+    operator: str
+    raw_args: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
 class ControlEvent:
-    """Управляющее решение. README.md §2 «Управляющее событие»."""
 
-    control_step: int  # 0…223 — 224 это terminal_state, решений не несёт
+    control_step: int
     well: str
     kind: EventKind
-    value: float | None = None  # м³/сут
+    value: float | None = None
 
     def __post_init__(self) -> None:
         if not (0 <= self.control_step <= N_INTERVALS - 1):
@@ -131,7 +106,7 @@ class ScheduleMeta:
     t0: date = T0
     n_control_dates: int = N_CONTROL_DATES
     n_intervals: int = N_INTERVALS
-    wells: tuple[str, ...] = field(default_factory=tuple)  # лексикографический порядок
+    wells: tuple[str, ...] = field(default_factory=tuple)
     history_prefix_hash: str = ""
     fixed_events_hash: str = ""
     control_events_hash: str = ""
@@ -140,7 +115,6 @@ class ScheduleMeta:
 
 @dataclass(frozen=True, slots=True)
 class Schedule:
-    """Каноническое расписание, оба слоя. README.md §2."""
 
     meta: ScheduleMeta
     initial_state: Mapping[str, WellState]

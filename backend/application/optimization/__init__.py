@@ -1,13 +1,3 @@
-"""Граница θ → OptimizerResult и поиск, который её двигает.
-
-Спецификация: docs/context/08_contracts.md §6.1, contracts/policy.py.
-
-`interface` — сама граница (задача 37): единственное, что видит оптимизатор.
-`search` — CMA-ES поверх неё (задача 38): выбор семейства обоснован в
-докстринге модуля, и он обратим — `optimize` зависит только от
-`ObjectiveFunction`.
-"""
-
 from __future__ import annotations
 
 from backend.contexts.optimization.domain.interface import (

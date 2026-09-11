@@ -1,8 +1,3 @@
-"""Freeze a cheap ranking and an unranked control BEFORE buying OPM labels.
-
-Only prepares two runs. It never verifies feasibility or promotes a champion.
-OOD experimentation is explicit and cannot silently replace the normal gate.
-"""
 import argparse
 import hashlib
 import json
@@ -67,7 +62,6 @@ def known_schedule_hashes(runs, champion):
 
 
 def transfer_fraction(schedule, donor, receiver, fraction):
-    """Conserve commanded injection on every date, including low-rate dates."""
     if not 0 < fraction <= 1 or donor == receiver:
         raise ValueError("distinct wells and a fraction in (0,1] required")
     rates = {(e.control_step, e.well): e.value for e in schedule.control_events if e.kind is EventKind.SET_RATE}
@@ -243,7 +237,6 @@ def main(argv=None):
         schedules[digest] = schedule
         (args.out / "candidates" / f"{digest}.json").write_bytes(canonical_bytes(schedule))
         print(json.dumps(row), flush=True)
-    # The file is frozen before any new OPM observation exists.
     if trajectory is not None and args.trajectory_ranking == "hybrid":
         try:
             add_hybrid_scores(rows)
@@ -268,8 +261,6 @@ def main(argv=None):
             run_id = f"candidate-{next_id + offset:03d}"
             if (runs / run_id).exists():
                 raise ValueError("refusing to overwrite a run")
-            # CPU-only screening must not probe Docker and record an unresolved
-            # tag when Docker is unavailable. Verification enforces this digest.
             provenance = replace(anchor.provenance, deck_hash=None, git_commit=git_commit(),
                                  search_strategy=f"experimental-screen-{arm}", seed=str(args.seed),
                                  npv_head_version=head.version,

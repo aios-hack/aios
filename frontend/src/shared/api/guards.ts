@@ -50,6 +50,6 @@ export const isArtifactMeta = (value: unknown): boolean =>
     isStr(value.provenance) &&
     (isAbsent(value.synthetic) || isBool(value.synthetic)) &&
     (isAbsent(value.seed) || isNum(value.seed)) &&
-    isOptionalStr(value.notice_ru) &&
-    isOptionalStr(value.notice_en));
+    isOptionalStr(value.notice) &&
+    isOptionalStr(value.notice_key));
 

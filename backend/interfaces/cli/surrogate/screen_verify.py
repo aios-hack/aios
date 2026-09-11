@@ -1,4 +1,3 @@
-"""Buy one OPM label for a previously frozen screening experiment."""
 import argparse
 import hashlib
 import json

@@ -1,5 +1,3 @@
-"""Locations of organizer-supplied files used by runtime workflows."""
-
 from __future__ import annotations
 
 from pathlib import Path

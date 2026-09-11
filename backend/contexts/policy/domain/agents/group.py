@@ -1,5 +1,3 @@
-"""Распорядитель участка: делит квоту участка между своими скважинами."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass

@@ -1,8 +1,3 @@
-"""Local warm-start adaptation with historical replay and scenario-level splits.
-
-Research checkpoints only: never updates the production manifest or OOD gate.
-The local test label has been inspected historically, so this is not a blind test.
-"""
 import argparse
 import hashlib
 import json
@@ -126,7 +121,6 @@ def main(argv=None):
                   "replay_validation": blob["identities"]["validation"][:args.validation_scenarios],
                   "local_train": args.local_train, "local_validation": args.local_validation,
                   "local_test": [args.local_test]}
-    # Hold test tensors and labels closed until all arm selection is finished.
     featureizer = ScheduleFeatureizer()
     local = {}
     for run_id in identities["local_train"] + identities["local_validation"]:

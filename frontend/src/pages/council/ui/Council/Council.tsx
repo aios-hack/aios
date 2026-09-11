@@ -3,6 +3,7 @@ import type { HierarchyIndexFile, HierarchyStep } from '@/entities/hierarchy/typ
 import { useDataset, useHierarchyStep } from '@/entities';
 import { useI18n } from '@/shared/i18n/I18nContext';
 import { useTimeline } from '@/entities/timeline/model/TimelineContext';
+import { noticeTextOf } from '@/shared/api/notice';
 import { ViewStatus } from '@/shared/ui/ViewStatus';
 import { CouncilControls } from '@/pages/council/ui/CouncilControls/CouncilControls';
 import { GroupLevel } from '@/pages/council/ui/GroupLevel/GroupLevel';
@@ -73,6 +74,7 @@ const CouncilReady = ({ data, step }: ReadyProps) => {
 
   const synthetic = data.meta?.synthetic === true;
   const provenance = data.meta?.provenance ?? null;
+  const notice = noticeTextOf(t, data.meta);
 
   return (
     <section className="council" data-step={step.control_step}>
@@ -85,6 +87,11 @@ const CouncilReady = ({ data, step }: ReadyProps) => {
               ? t('council.synthetic.bodyUnknown')
               : t('council.synthetic.body', { provenance })}
           </span>
+        </p>
+      )}
+      {notice !== null && (
+        <p className="council-notice council-source" role="note" data-testid="council-source">
+          {notice}
         </p>
       )}
       <GroupLevel

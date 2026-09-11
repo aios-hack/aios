@@ -282,9 +282,29 @@ describe('validators cover the fields consumers dereference', () => {
   it('rejects a notice that is not a string the notice would render', () => {
     expect(
       isTimelineFile(
-        timeline({ meta: { kind: 'timeline', provenance: 'synthetic-demo', notice_ru: 7 } })
+        timeline({ meta: { kind: 'timeline', provenance: 'synthetic-demo', notice: 7 } })
       )
     ).toBe(false);
+  });
+
+  it('rejects a notice key that is not a string the catalog could look up', () => {
+    expect(
+      isTimelineFile(
+        timeline({ meta: { kind: 'timeline', provenance: 'synthetic-demo', notice_key: 7 } })
+      )
+    ).toBe(false);
+    expect(
+      isTimelineFile(
+        timeline({
+          meta: {
+            kind: 'timeline',
+            provenance: 'synthetic-demo',
+            notice: 'text',
+            notice_key: 'showcase.notice.demo'
+          }
+        })
+      )
+    ).toBe(true);
   });
 
   it('rejects a trace whose metadata block is malformed', () => {

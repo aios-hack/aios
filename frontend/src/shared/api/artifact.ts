@@ -3,6 +3,6 @@ export interface ArtifactMeta {
   provenance: string;
   synthetic?: boolean;
   seed?: number;
-  notice_ru?: string;
-  notice_en?: string;
+  notice?: string;
+  notice_key?: string;
 }

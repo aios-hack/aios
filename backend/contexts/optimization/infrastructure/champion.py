@@ -1,4 +1,3 @@
-"""Persist only OPM-verified improvements under identical scoring conditions."""
 from __future__ import annotations
 
 import json

@@ -1,12 +1,3 @@
-"""Role timeline shared by data preparation code.
-
-The response loader reconstructs only availability, operating status, and
-setpoint.  Role has a separate lifecycle: a well can be commissioned by the
-immutable fixed layer and a producer can later be converted to injection by a
-managed event.  Keeping that logic explicit prevents consumers from assuming
-that the response loader's private timeline exposes a role method.
-"""
-
 from __future__ import annotations
 
 from bisect import bisect_right
@@ -40,8 +31,6 @@ def build_role_timelines(schedule: Schedule) -> dict[str, RoleTimeline]:
             changes[event.well].append((event.control_step, 0, Role.INJ))
     for event in schedule.control_events:
         if event.kind is EventKind.CONVERT_INJ:
-            # Managed events are emitted after the immutable fixed layer at
-            # the same control step, so conversion wins any same-step tie.
             changes[event.well].append((event.control_step, 1, Role.INJ))
 
     timelines: dict[str, RoleTimeline] = {}

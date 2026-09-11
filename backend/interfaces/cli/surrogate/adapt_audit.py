@@ -1,4 +1,3 @@
-"""Evaluate a frozen adaptation winner against production, without deploying it."""
 import argparse
 import json
 import time

@@ -1,5 +1,3 @@
-"""Executable OPM campaign for measuring reservoir connectivity."""
-
 from __future__ import annotations
 
 import time

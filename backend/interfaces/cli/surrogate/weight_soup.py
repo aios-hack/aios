@@ -1,4 +1,3 @@
-"""Interpolate parent/adapted weights and select a bounded-forgetting research model."""
 import argparse
 import copy
 import json

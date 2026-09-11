@@ -1,8 +1,3 @@
-"""Controlled historical sampler comparison; never promotes a checkpoint.
-
-Pass the ordinary surrogate_train_tensors arguments after --sampling.
-The legacy sampler is available only in this experiment, not production.
-"""
 from __future__ import annotations
 
 import argparse

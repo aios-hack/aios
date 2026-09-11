@@ -1,5 +1,3 @@
-"""Fail-closed provenance contract for exact scenario-NPV training targets."""
-
 from __future__ import annotations
 
 import hashlib
@@ -44,7 +42,6 @@ def _is_sha256(value: object) -> bool:
 
 
 def validate_target_provenance(provenance: object) -> str:
-    """Validate completeness and return the canonical target provenance hash."""
 
     if not isinstance(provenance, dict):
         raise TypeError("target provenance must be an object")

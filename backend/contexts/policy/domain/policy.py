@@ -1,5 +1,3 @@
-"""Theta, OptimizerResult и Trace — решения политики. README.md §8."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -21,9 +19,6 @@ class Rule(Enum):
 
 @dataclass(frozen=True, slots=True)
 class Theta:
-    """Вектор подгоняемых параметров, не более 10 суммарно по всем
-    правилам, с объявленными границами. Единственное, что видит
-    оптимизатор на входе."""
 
     values: dict[str, float]
     bounds: dict[str, tuple[float, float]]
@@ -39,25 +34,21 @@ class Theta:
 @dataclass(frozen=True, slots=True)
 class ScenarioViolation:
     scenario_id: str
-    regret: float  # просадка ЧДД против сценарного бейзлайна
-    what: str  # что нарушено
+    regret: float
+    what: str
 
 
 @dataclass(frozen=True, slots=True)
 class OptimizerResult:
-    """Не скаляр — иначе исполнитель вынужден свернуть ограничение
-    устойчивости в штраф, что запрещено (§13.3 базы знаний)."""
 
-    objective: float  # ЧДД по Методике на номинальном сценарии
-    feasible: bool  # выполнены ограничения батареи и Constraints
+    objective: float
+    feasible: bool
     violations_by_scenario: tuple[ScenarioViolation, ...]
-    provenance: dict[str, str]  # хеши суррогата, Groups, датасета, seed
+    provenance: dict[str, str]
 
 
 @dataclass(frozen=True, slots=True)
 class TraceEntry:
-    """Одна запись на сработавшее правило. control_step 0…223 —
-    control_step=224 (terminal_state) решений не несёт."""
 
     control_step: int
     well: str

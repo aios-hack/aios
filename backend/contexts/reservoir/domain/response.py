@@ -1,5 +1,3 @@
-"""StateAtDate и IntervalResponse — отклик по скважинам, два типа. README.md §3."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -12,7 +10,6 @@ N_INTERVALS = HORIZON.n_intervals
 
 
 class ActiveControlMode(Enum):
-    """5 значений, не 2 (исправлено 14.08). README.md §3a, §4.3 базы знаний."""
 
     RATE_TARGET = "RATE_TARGET"
     BHP_LIMITED = "BHP_LIMITED"
@@ -23,42 +20,26 @@ class ActiveControlMode(Enum):
 
 @dataclass(frozen=True, slots=True)
 class StateAtDate:
-    """Мгновенные величины на дату дека. Ось — deck_date_index 0…370.
 
-    Не диагностический тип: liquid_rate/injection_rate деньгообразующие —
-    вход в определение действующего фонда и переходов состояния (§3.2
-    базы знаний), а через них в содержание фонда, событийные затраты и
-    EspStateMachine. Только bhp и active_control_mode — диагностика.
-    """
-
-    deck_date_index: int  # 0…370
+    deck_date_index: int
     well: str
-    liquid_rate: float  # м³/сут, фактический WLPR, не цель
-    oil_rate: float  # т/сут, фактический WOMR
-    injection_rate: float  # м³/сут, фактический WWIR, не цель
-    thp: float  # бар, WTHP — устьевое; обязательная колонка входа эталона
-    bhp: float  # бар, WBHP — забойное
-    well_efficiency: float  # WEFF; в экономику не входит, во входном файле обязателен
+    liquid_rate: float
+    oil_rate: float
+    injection_rate: float
+    thp: float
+    bhp: float
+    well_efficiency: float
     active_control_mode: ActiveControlMode
 
 
 @dataclass(frozen=True, slots=True)
 class IntervalResponse:
-    """Помесячные объёмы. Ось — control_step 0…223. Деньгообразующий тип.
 
-    Вычисление — два шага, порядок обязателен (README.md §3b):
-      1. raw_diff[i] = cumulative[i+1] − cumulative[i], i=0…369, строго
-         внутри (well,) — терминальная строка i=370 в raw_diff не входит;
-      2. IntervalResponse[k] = raw_diff[146 + k], k=0…223 — переиндексация.
-    Сам тип не хранит deck_date_index нигде: ось дека существует только
-    внутри шага 1, до проекции.
-    """
-
-    control_step: int  # 0…223
+    control_step: int
     well: str
-    oil_mass_delta: float  # т
-    liquid_volume_delta: float  # м³
-    injection_volume_delta: float  # м³
+    oil_mass_delta: float
+    liquid_volume_delta: float
+    injection_volume_delta: float
 
     def __post_init__(self) -> None:
         if not (0 <= self.control_step <= N_INTERVALS - 1):
@@ -68,27 +49,6 @@ class IntervalResponse:
 
 
 def is_excluded_by_negative_rule(response: IntervalResponse) -> bool:
-    """Исключается ли строка из экономического расчёта целиком.
-
-    Правило эталонного расчётчика (версия `7.0.2-negative-row-filter`): если
-    хотя бы один из трёх месячных приростов отрицателен, строка выбрасывается
-    полностью — не даёт ни объёмов, ни действующего фонда, ни переходов
-    состояния, ни событийных затрат. Не обнуляется, а именно выбрасывается:
-    обнулённая строка сделала бы скважину остановленной и начислила 1.0 млн
-    за переход, выброшенная не делает ничего.
-
-    **Зачем это нам, если у нас приростов такого знака не будет.** Правило —
-    заплатка под ошибку экспортного скрипта организаторов
-    (models/Model_Z/USER/Model_Z/script_1.py): `.diff()` считается по всему
-    dataframe без группировки по скважине, поэтому на каждой из 102 границ
-    между скважинами прирост уходит в минус, а `shift(-1)` сажает его на
-    последнюю строку предыдущей скважины — дату 01.09.2025. Проверяющая
-    сторона эти 102 строки выбрасывает. Наш загрузчик считает приросты
-    правильно, внутри скважины, и его последний интервал будет корректным и
-    неотрицательным — поэтому фильтр обязан применяться **явно**, иначе мы
-    сойдёмся с физикой и разойдёмся с проверяющей стороной на один месяц по
-    каждой скважине. Разбор — docs/context/04_models.md §5.
-    """
     return (
         response.liquid_volume_delta < 0
         or response.oil_mass_delta < 0
@@ -97,7 +57,6 @@ def is_excluded_by_negative_rule(response: IntervalResponse) -> bool:
 
 
 def watercut(response: IntervalResponse, oil_density_t_per_m3: float) -> float:
-    """1 − (oil_mass_delta / ρ) / liquid_volume_delta. Не канал, потребитель."""
     if response.liquid_volume_delta == 0:
         raise ValueError("liquid_volume_delta=0: обводнённость не определена")
     return 1 - (response.oil_mass_delta / oil_density_t_per_m3) / response.liquid_volume_delta
@@ -105,12 +64,6 @@ def watercut(response: IntervalResponse, oil_density_t_per_m3: float) -> float:
 
 @dataclass(frozen=True, slots=True)
 class StatePair:
-    """Join на интервал k: response[k], current_state[k], previous_state[k].
-
-    README.md §3c. current_state — StateAtDate[147+k] (конец интервала),
-    previous_state — StateAtDate[146+k] (начало). Переход между ними —
-    то, что стоит денег (§3.2 базы знаний).
-    """
 
     control_step: int
     response: IntervalResponse
@@ -123,13 +76,6 @@ def join_by_control_step(
     states_at_date: dict[tuple[int, str], StateAtDate],
     well: str,
 ) -> list[StatePair]:
-    """Строит тройку (response, current_state, previous_state) для всех k=0…223.
-
-    `previous_state[0]` — StateAtDate[146], последняя историческая дата
-    перед управлением. `current_state[223]` — StateAtDate[370], последняя
-    дата дека. Приёмочный тест обязателен на k=0, произвольном k и k=223
-    (README.md §3c) — off-by-one на границах типичный тест не ловит.
-    """
     pairs = []
     for k in range(N_INTERVALS):
         pairs.append(

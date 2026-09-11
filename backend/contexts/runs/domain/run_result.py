@@ -7,10 +7,10 @@ from backend.contexts.economics.domain.economics import NpvTable
 from backend.contexts.reservoir.domain.response import IntervalResponse, StateAtDate
 
 SUMMARY_EXPORT_KEYS = (
-    "WLPT", "WOMT", "WWIT",  # накопленные
-    "WLPR", "WOMR", "WWIR",  # мгновенные дебиты и приёмистость
-    "WTHP", "WBHP",  # устьевое и забойное давление
-    "WEFF",  # в экономику не входит, но колонка входного файла обязательна
+    "WLPT", "WOMT", "WWIT",
+    "WLPR", "WOMR", "WWIR",
+    "WTHP", "WBHP",
+    "WEFF",
 )
 
 OPM_WELL_SUMMARY_KEYS = (
@@ -63,10 +63,10 @@ class RunResult:
 
     run_id: str
     status: RunStatus
-    deck_hash: str  # только статическая часть дека, ключ кеша §4.5
-    canonical_schedule_hash: str  # единственное имя, см. hashing.py
+    deck_hash: str
+    canonical_schedule_hash: str
     summary_hash: str
-    artifacts: tuple[str, ...]  # пути, вне git
+    artifacts: tuple[str, ...]
     wallclock_seconds: float
     message: str
 
@@ -80,8 +80,8 @@ class OpmRunArtifact(RunResult):
 @dataclass(frozen=True, slots=True)
 class ResponseArtifact:
 
-    source_run_id: str  # обязан равняться OpmRunArtifact.run_id
-    response_hash: str  # хеш канонической сериализации обоих типов
+    source_run_id: str
+    response_hash: str
     state_at_date: tuple[StateAtDate, ...]
     interval_response: tuple[IntervalResponse, ...]
 
@@ -90,11 +90,11 @@ class ResponseArtifact:
 class FinalNpvArtifact:
 
     npv_table: NpvTable
-    npv_methodology: float  # рубли, то самое число, которое заявляется
-    source_run_id: str  # тот же OpmRunArtifact.run_id
-    source_response_hash: str  # тот же ResponseArtifact.response_hash
-    economics_config_hash: str  # хеш policies+normatives, не Config целиком
-    methodology_version_hash: str  # хеш версии кода Economics
+    npv_methodology: float
+    source_run_id: str
+    source_response_hash: str
+    economics_config_hash: str
+    methodology_version_hash: str
 
     def __post_init__(self) -> None:
         if self.npv_methodology != self.npv_table.npv_methodology:

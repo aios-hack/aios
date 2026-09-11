@@ -1,7 +1,3 @@
-"""Generate OPM trials from measured water availability and pressure violations.
-
-These are proposals, not feasibility guarantees: flow must be simulated again.
-"""
 from dataclasses import replace
 import math
 
@@ -11,11 +7,6 @@ from backend.domain.schedule import canonicalize
 
 
 def production_from_observation(schedule, response, constraints, *, scale=1.25, pressure_margin=10.0):
-    """Raise attained liquid targets only where measured producer pressure has room.
-
-    Injection and fixed events stay unchanged. This is an OPM proposal, not a
-    guarantee: changed production can alter pressure and water at other wells.
-    """
     from backend.contexts.reservoir.domain.horizon import HORIZON
     if not math.isfinite(scale) or scale <= 1 or not math.isfinite(pressure_margin) or pressure_margin < 0:
         raise ValueError("scale must exceed 1 and pressure margin must be nonnegative and finite")
@@ -32,7 +23,6 @@ def production_from_observation(schedule, response, constraints, *, scale=1.25, 
 
 
 def commissioning_controls(schedule):
-    """Control a new well after its immutable commissioning event, on the same date."""
     events = list(schedule.control_events)
     present = {(e.control_step, e.well, e.kind) for e in events}
     for fixed in schedule.fixed_deck_events:
@@ -59,8 +49,6 @@ def repair_from_observation(schedule, response, control_dates, constraints, *, w
     if not 0 <= water_margin < 1 or density <= 0:
         raise ValueError("water margin must be in [0,1), density must be positive")
     schedule = commissioning_controls(schedule)
-    # Grow from a feasible plan using measured water, retaining its production
-    # controls but allowing injection to rise up to the original target ceilings.
     if injection_reference is not None:
         injection_reference = commissioning_controls(injection_reference)
         reference = {(e.control_step, e.well, e.kind): e for e in injection_reference.control_events}

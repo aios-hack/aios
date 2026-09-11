@@ -48,17 +48,6 @@ def apply(state: PolicyState, context: RuleContext, theta: Theta) -> RuleOutcome
         if context.memory.of(well).converted_to_injection:
             continue
         if well not in influence.injectors:
-            # Предельная ценность воды для этой скважины не определена: в окне
-            # замера λ она добывала, поэтому в матрицу как нагнетательная не
-            # попала и попасть не могла. Прежний `continue` делал из этого
-            # запрет: чтобы правило разрешило перевести скважину в
-            # нагнетательные, она должна была уже быть нагнетательной. Восемь
-            # скважин базового дека под этот круг и попали — на прогоне G7 у
-            # нас один перевод против девяти базовых и 395 м³/сут недокачки.
-            #
-            # Судить самим не на чем, поэтому следуем деку: он переводит эту
-            # скважину на известном шаге, и отсутствие замера не основание
-            # решить иначе. Ровно та же логика, что у R1 с уставкой вне окна.
             baseline_step = context.baseline_conversion_step.get(well)
             if baseline_step is None or state.control_step < baseline_step:
                 continue

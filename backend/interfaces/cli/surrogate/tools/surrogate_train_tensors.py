@@ -1,5 +1,3 @@
-"""Train a production surrogate checkpoint from versioned tensor artifacts."""
-
 from __future__ import annotations
 
 import argparse
@@ -134,9 +132,6 @@ def main() -> int:
         raise FileExistsError("output-dir уже содержит модель; выберите новый каталог")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     print(f"загрузка {args.tensors}", flush=True)
-    # `mmap=True` оставляет тензоры на диске: страницы подгружаются по мере
-    # чтения и вытесняются под давлением, а не держат резидентно 2.7 ГБ.
-    # Без этого прогон был убит нехваткой памяти трижды подряд.
     with _legacy_checkpoint_modules():
         blob = torch.load(args.tensors, weights_only=False, mmap=True)
     tensor_format = blob.get("format")
@@ -145,8 +140,6 @@ def main() -> int:
         "aios.surrogate-tensors-watercut.v1",
     ):
         raise RuntimeError(f"неподдержанный tensor artifact: {tensor_format!r}")
-    # Параметризация принадлежит целям, а не флагу командной строки: обучить
-    # `absolute` на watercut-целях значит перепутать каналы молча.
     from_tensors = blob.get("target_parameterization", "absolute")
     parameterization = args.target_parameterization or from_tensors
     if parameterization != from_tensors:
@@ -157,9 +150,6 @@ def main() -> int:
         raise RuntimeError("production train запрещён на пилотном feature context")
     tensors = blob["tensors"]
     counts = blob["counts"]
-    # Обучению нужны train и validation; test лежит в том же артефакте и
-    # занимает 2.4 млн узлов впустую. На 24 ГБ машины это не мелочь: прогон
-    # был убит нехваткой памяти, когда рядом считал OPM.
     tensors.pop("test", None)
     npv_targets = {}
     labels_hash = None
@@ -181,9 +171,6 @@ def main() -> int:
     for bucket in ("train", "validation"):
         x, well_index, y = tensors[bucket]
         if bucket == "train" and args.scenario_fraction < 1.0:
-            # Резать надо по сценариям, а не по узлам: половина узлов каждого
-            # сценария — это не половина обучающей выборки, а 490 покалеченных
-            # траекторий. Единица сплита здесь такая же, как везде.
             n_scenarios = len(blob["identities"][bucket])
             per = len(x) // n_scenarios
             keep = max(1, int(round(n_scenarios * args.scenario_fraction)))
@@ -222,10 +209,6 @@ def main() -> int:
         ),
         dataset_hash=blob["dataset_hash"],
     )
-    # Источник лежит в mmap, поэтому резидентной остаётся только
-    # отмасштабированная копия: сырые страницы читаются один раз и
-    # вытесняются. Масштабирование намеренно не in-place — писать в mmap
-    # значило бы менять артефакт на диске.
     scaled = {}
     for bucket in list(prepared):
         x, well_index, y = prepared.pop(bucket)

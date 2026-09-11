@@ -1,11 +1,9 @@
-"""Shared interpretation of fixed well commissioning controls."""
 from __future__ import annotations
 
 import math
 
 from backend.core.contracts import Availability, EventKind, OperatingStatus, Role, WellState
 
-# Shut the old producer target before conversion, then set injection.
 CONTROL_ORDER = {
     EventKind.SET_LRAT: 0,
     EventKind.CONVERT_INJ: 1,

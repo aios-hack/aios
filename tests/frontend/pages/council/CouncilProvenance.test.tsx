@@ -7,6 +7,8 @@ import { isHierarchyFile } from '@/entities';
 import { I18nProvider } from '@/shared/i18n/I18nContext';
 import { TimelineProvider } from '@/entities/timeline/model/TimelineContext';
 import { Council } from '@/pages/council/ui/Council/Council';
+import ruShowcase from '@/shared/i18n/locales/ru/showcase.json';
+import enShowcase from '@/shared/i18n/locales/en/showcase.json';
 
 const STEP_COUNT = 2;
 
@@ -173,5 +175,53 @@ describe('council states where its data came from', () => {
 
   it('keeps accepting a hierarchy file with no synthetic flag', () => {
     expect(isHierarchyFile(hierarchyFixture())).toBe(true);
+  });
+});
+
+describe('council states which showcase notice the artifact carries', () => {
+  it('says nothing when the artifact carries no notice', async () => {
+    hierarchyPayload = hierarchyFixture({ kind: 'hierarchy', provenance: 'policy-hierarchy-trace' });
+    const view = await renderCouncil();
+    expect(view.queryByTestId('council-source')).toBeNull();
+  });
+
+  it('renders the catalog text for a notice key rather than the served string', async () => {
+    hierarchyPayload = hierarchyFixture({
+      kind: 'hierarchy',
+      provenance: 'policy-hierarchy-trace',
+      notice: 'a stale string the exporter baked in',
+      notice_key: 'showcase.notice.hierarchy'
+    });
+    const view = await renderCouncil();
+    expect(view.getByTestId('council-source').textContent).toBe(
+      ruShowcase['notice.hierarchy']
+    );
+  });
+
+  it('follows the console language without reloading the artifact', async () => {
+    localStorage.setItem('aios-lang', 'en');
+    hierarchyPayload = hierarchyFixture({
+      kind: 'hierarchy',
+      provenance: 'policy-hierarchy-trace',
+      notice: 'a stale string the exporter baked in',
+      notice_key: 'showcase.notice.hierarchy'
+    });
+    const view = await renderCouncil();
+    expect(view.getByTestId('council-source').textContent).toBe(
+      enShowcase['notice.hierarchy']
+    );
+  });
+
+  it('falls back to the served string when the key is not in the catalog', async () => {
+    hierarchyPayload = hierarchyFixture({
+      kind: 'hierarchy',
+      provenance: 'policy-hierarchy-trace',
+      notice: 'a notice only the exporter knows',
+      notice_key: 'showcase.notice.invented_by_a_newer_backend'
+    });
+    const view = await renderCouncil();
+    expect(view.getByTestId('council-source').textContent).toBe(
+      'a notice only the exporter knows'
+    );
   });
 });

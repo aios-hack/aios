@@ -1,4 +1,3 @@
-"""Compare a saved measured run with the available organizer calculator."""
 import argparse
 import hashlib
 import json
@@ -28,7 +27,6 @@ def main(argv=None):
     parser.add_argument("--run-dir", type=Path, required=True)
     args = parser.parse_args(argv)
     run = args.run_dir
-    # Includes the saved-horizon guard. Set AIOS_HORIZON_PATH before Python.
     load_run_request(run.parent, run.name)
     manifest = read_json(run / 'manifest.json')
     normatives_path = normatives_xlsx()

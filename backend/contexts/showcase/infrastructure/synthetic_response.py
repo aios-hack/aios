@@ -77,10 +77,6 @@ def interval_rows(
 ) -> tuple[IntervalResponse, ...]:
     rows: list[IntervalResponse] = []
     base = {well: rng.between(0.7, 1.3) for well in wells}
-    # Доля нефти в жидкости различается по скважинам: без этого обводнённость
-    # у всего фонда одинакова и узел-мерник не несёт информации. Диапазон даёт
-    # обводнённость примерно от 0.55 у свежих до 0.95 у промытых к концу
-    # горизонта — тот разброс, ради которого мерник и рисуется.
     oil_share = {well: rng.between(0.14, 0.42) for well in wells}
     for step in range(n_intervals):
         decline = 1.0 - 0.45 * (step / max(1, n_intervals - 1))

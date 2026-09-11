@@ -1,5 +1,3 @@
-"""Исполнитель скважины: квантование, потолки, вето на время простоя."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass

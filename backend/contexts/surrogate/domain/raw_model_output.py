@@ -1,15 +1,3 @@
-"""Raw surrogate prediction shape — task 33's contract with task 34.
-
-Owned entirely by ``surrogate/``, not ``contracts/``: only the adapter
-(``surrogate.adapter``, this task) and the model that produces this shape
-(task 34, not built yet) ever see it. It is deliberately narrow — one node
-per ``(well, control_step)`` carrying only the six numeric channels the
-adapter needs (docs/context/08_contracts.md §5.1.1): the model never emits
-``oil_rate`` (achievability-trap, §5.1.1) or ``active_control_mode``
-(diagnostic-only, derived by the adapter via the same fallback rule
-``bridge.response_loader`` uses when ``WMCTL`` is unavailable).
-"""
-
 from __future__ import annotations
 
 import math
@@ -20,22 +8,15 @@ from backend.core.contracts import N_INTERVALS
 
 @dataclass(frozen=True, slots=True)
 class RawWellStepPrediction:
-    """One ``(well, control_step)`` node of the model's raw output.
-
-    ``oil_mass_delta``/``liquid_volume_delta``/``injection_volume_delta`` map
-    straight onto ``IntervalResponse`` (money target, §5.1.1: predicted as
-    volume, not rate×days). ``liquid_rate``/``injection_rate``/``bhp`` map
-    onto the predicted half of ``StateAtDate`` (§5.1).
-    """
 
     well: str
-    control_step: int  # 0…223, contracts.N_INTERVALS axis
-    oil_mass_delta: float  # т
-    liquid_volume_delta: float  # м³
-    injection_volume_delta: float  # м³
-    liquid_rate: float  # м³/сут
-    injection_rate: float  # м³/сут
-    bhp: float  # бар
+    control_step: int
+    oil_mass_delta: float
+    liquid_volume_delta: float
+    injection_volume_delta: float
+    liquid_rate: float
+    injection_rate: float
+    bhp: float
 
     def __post_init__(self) -> None:
         if not (0 <= self.control_step <= N_INTERVALS - 1):
@@ -59,13 +40,6 @@ class RawWellStepPrediction:
 
 @dataclass(frozen=True, slots=True)
 class RawModelOutput:
-    """Model output for one candidate schedule, all wells, all 224 steps.
-
-    ``canonical_schedule_hash`` pins the prediction to the schedule it was
-    made for — the adapter checks it against ``hash_schedule(schedule)``, not
-    trusted blindly. ``nodes`` carries no ordering requirement: the adapter
-    re-keys by ``(well, control_step)`` itself.
-    """
 
     canonical_schedule_hash: str
     wells: tuple[str, ...]

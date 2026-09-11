@@ -1,0 +1,11 @@
+{
+  "notice.ablation_absent": "No ablation was run: the NPV contribution of each rule is not measured. Only the enabled flag is reported, the file carries no money values",
+  "notice.champion": "Our plan: NPV and trajectory are confirmed by OPM Flow; the raw surrogate estimate is shown separately and marked OOD",
+  "notice.demo": "Demonstration data, not a computed result",
+  "notice.graph_lambda_absent": "OPM baseline run, but connectivity λ is not measured: the perturbation series was never run, no edges",
+  "notice.graph_lambda_measured": "Real result: OPM baseline run, connectivity λ measured by a design-of-experiments series of perturbed runs",
+  "notice.hierarchy": "Real decision log: field, group and well levels come from a policy run (policy/hierarchy.run_step) over the scenario response",
+  "notice.plan": "Our plan: θ* found by CMA-ES; response predicted by a three-member surrogate ensemble and NPV by a separate economic head. Not OPM-confirmed",
+  "notice.plan_unstable": "Our plan: θ* found by CMA-ES; response predicted by a three-member surrogate ensemble and NPV by a separate economic head. Not OPM-confirmed; policy fixed point is unstable",
+  "notice.real": "Real result: OPM baseline run with zero retiming, reference NPV methodology"
+}

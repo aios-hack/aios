@@ -1,5 +1,3 @@
-"""Translate a domain connectivity experiment into OPM dataset scenarios."""
-
 from __future__ import annotations
 
 from backend.contexts.connectivity.application.campaign import CampaignSetup, level_factor
@@ -14,7 +12,6 @@ from backend.contexts.simulation.domain.perturbation_design import (
 
 
 def specs_of(plan: DoEPlan, batch: int, first_step: int = 0) -> tuple[PerturbationSpec, ...]:
-    """Turn domain DoE rows into executable OPM dataset scenarios."""
     return tuple(
         PerturbationSpec(
             scenario_id=f"lambda-b{batch}-{row.run_index:04d}",

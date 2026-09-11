@@ -1,4 +1,3 @@
-"""Read canonical schedules without depending on a presentation layer."""
 from __future__ import annotations
 import json
 from datetime import date
@@ -66,5 +65,4 @@ def _load_schedule(data: dict[str, Any]) -> Schedule:
 
 
 def load_schedule_json(path: str | Path) -> Schedule:
-    """Load a canonical schedule written by the run workflow."""
     return _load_schedule(read_json(Path(path)))

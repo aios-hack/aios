@@ -10,12 +10,6 @@ from backend.core.contracts import RunArtifact
 
 def build_npv_by_well(artifact: RunArtifact) -> dict[str, Any]:
     table = artifact.npv_table
-    # `by_well` spans the whole horizon, so its `df` is intentionally NaN in
-    # the production economics table.  In that case the discounted field tax
-    # is exact at `by_year` level and is allocated between wells pro-rata to
-    # their already allocated (undiscounted) income tax.  This keeps both UI
-    # columns finite and their field totals exact without inventing a single
-    # horizon-wide discount factor.
     discounted_field_tax = sum(
         items.income_tax * items.df for items in table.by_year.values()
     )
