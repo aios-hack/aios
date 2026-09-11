@@ -184,7 +184,6 @@ class SubmissionReport:
 
 
 class RunWorkflow:
-
     def __init__(self, runs_root: Path) -> None:
         self.runs_root = runs_root
 

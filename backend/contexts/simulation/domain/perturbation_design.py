@@ -1,26 +1,3 @@
-"""План возмущений для датасета «расписание → отклик». Задача 30, контракт §9.1.
-
-План описывается декларативно, отдельно от прогонов: `PerturbationPlan` — это
-кортеж `PerturbationSpec`, каждый из которых материализуется в `Schedule`
-детерминированной функцией от базового расписания. Покрытие видов событий
-проверяется на плане, без единого обращения к OPM.
-
-Четыре обязательных вида (§9.1):
-
-- `LEVELS` — LHS по уровням уставок: масштабирование базовых целей внутри
-  окна, стратифицированное латинским гиперкубом по скважинам;
-- `UNREACHABLE` — заведомо недостижимые уставки: цель поднимается настолько
-  выше исторического максимума скважины, что та упирается в BHP-предел
-  (§5.4: без этого модель выучит тождество «цель = факт»);
-- `SHUTDOWN` — автономные остановки и последующие запуски, которых в базовом
-  расписании нет ни одной (все 30 `SHUT` — добывающая сторона перевода);
-- `CONVERSION` — переводы под закачку как событие: базовый перевод снимается
-  или оставляется. Даты переводов не двигаются, пока
-  `allow_conversion_retiming = false` (решение 14.08, §9.1).
-
-Литералов шкал здесь нет: горизонт берётся из `Schedule.meta`, уровни и даты
-переводов — из базового расписания.
-"""
 
 from __future__ import annotations
 
@@ -53,8 +30,6 @@ _SCHEDULE_INCLUDE = "Model_Z_sch.inc"
 
 
 class PerturbationFamily(Enum):
-    """Виды сценариев из таблицы §9.1. `BASELINE` — неперекошенная опора."""
-
     BASELINE = "BASELINE"
     LEVELS = "LEVELS"
     UNREACHABLE = "UNREACHABLE"
@@ -64,8 +39,6 @@ class PerturbationFamily(Enum):
 
 @dataclass(frozen=True, slots=True)
 class LevelPerturbation:
-    """Множитель к базовой уставке скважины, действующий с шага `from_step`."""
-
     well: str
     from_step: int
     factor: float
@@ -73,8 +46,6 @@ class LevelPerturbation:
 
 @dataclass(frozen=True, slots=True)
 class UnreachableTarget:
-    """Абсолютная уставка выше исторического максимума скважины."""
-
     well: str
     from_step: int
     setpoint: float
@@ -82,12 +53,6 @@ class UnreachableTarget:
 
 @dataclass(frozen=True, slots=True)
 class ShutdownWindow:
-    """Автономная остановка на [from_step, to_step) и запуск на `to_step`.
-
-    `to_step == n_intervals` означает остановку до конца горизонта — запуска
-    внутри горизонта нет.
-    """
-
     well: str
     from_step: int
     to_step: int
@@ -95,12 +60,6 @@ class ShutdownWindow:
 
 @dataclass(frozen=True, slots=True)
 class ConversionToggle:
-    """Событие перевода под закачку: снять базовый перевод или оставить.
-
-    Дата не переносится (`allow_conversion_retiming = false`): возмущается
-    только наличие события на своей базовой дате.
-    """
-
     well: str
     control_step: int
     enabled: bool
@@ -108,8 +67,6 @@ class ConversionToggle:
 
 @dataclass(frozen=True, slots=True)
 class PerturbationSpec:
-    """Один сценарий плана — вход материализации, а не готовое расписание."""
-
     scenario_id: str
     family: PerturbationFamily
     seed: int
@@ -129,8 +86,6 @@ class PerturbationSpec:
 
 @dataclass(frozen=True, slots=True)
 class PlanConfig:
-    """Параметры плана. Все доли и множители — конфигурация, не литералы шкал."""
-
     n_level_scenarios: int = 24
     n_unreachable_scenarios: int = 8
     n_shutdown_scenarios: int = 8
@@ -168,11 +123,6 @@ class PlanConfig:
 
 @dataclass(frozen=True, slots=True)
 class BaselineProfile:
-    """То, что план знает о базовом расписании: роли, уровни, даты переводов.
-
-    Выводится из самого `Schedule`, ни одно число не вписано руками.
-    """
-
     wells: tuple[str, ...]
     n_intervals: int
     producers: tuple[str, ...]
@@ -187,13 +137,10 @@ class BaselineProfile:
 
 
 def _well_sort_key(well: str) -> str:
-    """Лексикографический порядок — канон `bridge.OpmDeckEmitter.source_wells` (G2)."""
     return well
 
 
 def baseline_profile(schedule: Schedule) -> BaselineProfile:
-    """Собирает профиль базового расписания без обращения к деку и симулятору."""
-
     meta: ScheduleMeta = schedule.meta
     conversion_steps: dict[str, int] = {}
     for event in schedule.control_events:
@@ -249,16 +196,6 @@ def baseline_profile(schedule: Schedule) -> BaselineProfile:
 def dataset_base_schedule(
     model_dir: Path | str, emitter: OpmDeckEmitter | None = None
 ) -> Schedule:
-    """Опорное расписание генератора: канонический `Schedule` на оси эмитера.
-
-    `schedule.load_schedule` даёт оба слоя и, главное, непустой
-    `initial_state` — без него `validate_static` не знает роли скважин и
-    отбраковывает любой сценарий как адресованный вне оси. Ось скважин
-    переставляется в лексикографический порядок `WELSPECS`: `OpmDeckEmitter`
-    принимает только её (§4.2), а `deck_well_axis` сортирует численно.
-    Множества скважин при этом обязаны совпадать — иначе это разные модели.
-    """
-
     model_dir = Path(model_dir)
     emitter = emitter or OpmDeckEmitter(model_dir)
     loaded = load_schedule(model_dir / _SCHEDULE_INCLUDE, provenance="Model_Z baseline")
@@ -287,8 +224,6 @@ def dataset_base_schedule(
 
 @dataclass(frozen=True, slots=True)
 class PerturbationPlan:
-    """План эксперимента целиком. Хеш плана входит в provenance датасета (§9.2)."""
-
     config: PlanConfig
     seed: int
     specs: tuple[PerturbationSpec, ...] = field(default_factory=tuple)
@@ -319,8 +254,6 @@ def _sample_wells(rng: random.Random, wells: Sequence[str], fraction: float) -> 
 
 
 def _latin_hypercube(rng: random.Random, n_points: int, low: float, high: float) -> list[float]:
-    """Одномерная стратификация: по одному значению из каждого из n слоёв."""
-
     if n_points <= 0:
         return []
     width = (high - low) / n_points
@@ -455,12 +388,6 @@ def build_plan(
     seed: int,
     config: PlanConfig | None = None,
 ) -> PerturbationPlan:
-    """Детерминированный план: тот же `seed` и та же база дают тот же `plan_hash`.
-
-    Ни одного прогона не запускается — покрытие видов событий проверяется
-    прямо здесь (§9.1), до того как на сценарии потрачено машинное время.
-    """
-
     config = config or PlanConfig()
     profile = baseline_profile(schedule)
     if not profile.conversion_steps:
@@ -514,8 +441,6 @@ REQUIRED_FAMILIES: frozenset[PerturbationFamily] = frozenset(
 def _missing_families(
     specs: Iterable[PerturbationSpec], config: PlanConfig
 ) -> frozenset[PerturbationFamily]:
-    """Вид считается покрытым, только если его сценарии несут возмущения."""
-
     covered: set[PerturbationFamily] = set()
     for spec in specs:
         if spec.family is PerturbationFamily.LEVELS and spec.levels:
@@ -533,8 +458,6 @@ def _missing_families(
 
 @dataclass(frozen=True, slots=True)
 class MaterializedSchedule:
-    """Расписание сценария плюс доля недостижимых уставок для метаданных (§9.2)."""
-
     spec: PerturbationSpec
     schedule: Schedule
     unreachable_fraction: float
@@ -552,17 +475,6 @@ def _dense_index(
 def materialize(
     base: Schedule, spec: PerturbationSpec, *, provenance: str | None = None
 ) -> MaterializedSchedule:
-    """Плотный `Schedule` сценария: возмущается управление, фиксированный слой — нет.
-
-    Каждое возмущение применяется поверх базового плотного слоя, шаг за шагом:
-    базовые уставки перекладываются, статусы переписываются под окна остановок,
-    снятый перевод отменяет `CONVERT_INJ`, и скважина остаётся добывающей до
-    конца горизонта на своей последней доконверсионной уставке — плотность
-    слоя сохраняется, иначе `OpmDeckEmitter` не соберёт дек. Фиксированные
-    события дека (`COMPDAT`, `WPIMULT`, ввод скважин) переносятся как есть —
-    §9.1 запрещает возмущать программу ввода.
-    """
-
     profile = baseline_profile(base)
     levels = {item.well: item for item in spec.levels}
     unreachable = {item.well: item for item in spec.unreachable}
@@ -596,16 +508,12 @@ def materialize(
         for event in well_events:
             if event.kind in (EventKind.SET_LRAT, EventKind.SET_RATE):
                 if convert and event.kind is not EventKind.SET_RATE:
-                    # На шаге перевода SET_LRAT 0.0 — закрытие добывающей
-                    # стороны, а цель нового нагнетателя несёт SET_RATE.
                     continue
                 if after_dropped_conversion and event.kind is EventKind.SET_RATE:
                     continue
                 target = event
             elif event.kind in (EventKind.OPEN, EventKind.SHUT):
                 if convert:
-                    # На шаге перевода SHUT принадлежит закрываемой
-                    # добывающей стороне; статус нового нагнетателя — OPEN.
                     continue
                 status_kind = event.kind
 
@@ -646,19 +554,11 @@ def materialize(
             window.from_step <= step < window.to_step
             for window in shutdowns.get(well, ())
         )
-        # Шаг перевода из окна остановки исключается: закрыть скважину и
-        # тем же шагом открыть её нагнетателем — противоречивое состояние,
-        # а не сценарий. Перевод как событие возмущается семейством
-        # CONVERSION, не SHUTDOWN.
         if shut_here and not convert:
             status_kind = EventKind.SHUT
             value = 0.0
 
         if convert:
-            # Порядок и состав внутри шага перевода — как в каноническом
-            # базовом расписании (§2.3): CONVERT_INJ, нулевая уставка
-            # закрываемой добывающей стороны, режим нагнетателя, оба статуса
-            # (OPEN нового нагнетателя и SHUT добывающей стороны).
             events.append(ControlEvent(control_step=step, well=well, kind=EventKind.CONVERT_INJ))
             events.append(ControlEvent(control_step=step, well=well, kind=EventKind.SET_LRAT, value=0.0))
             events.append(ControlEvent(control_step=step, well=well, kind=EventKind.SET_RATE, value=value))
@@ -691,8 +591,6 @@ def materialize(
 
 
 def commissioned_wells(schedule: Schedule) -> tuple[str, ...]:
-    """Скважины, доступные на t0 — те, кому вообще можно адресовать событие."""
-
     return tuple(
         sorted(
             (

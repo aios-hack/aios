@@ -1,4 +1,3 @@
-"""Bounded surrogate search with OPM finalists and a durable verified incumbent."""
 from __future__ import annotations
 
 import argparse
@@ -48,7 +47,6 @@ from backend.shared.json_io import read_json
 
 
 def local_candidates(schedule, lambda_, count, seed):
-    """Connectivity transfers and rate changes over several time scales."""
     rng = random.Random(seed)
     yield schedule
     for donor, receiver, volume in _injection_transfer_plan(lambda_, schedule, count // 3):
@@ -124,8 +122,6 @@ def main(argv=None):
         npv_head_path=artifacts.npv_head, npv_calibration_path=artifacts.npv_calibration,
         scenario_ood_path=artifacts.scenario_ood, lambda_path=selection.path,
         constraints=constraints, ood_threshold=resolve_ood_threshold().value,
-        # Mixed controls cannot satisfy injection-only differential tests.
-        # This evaluator proposes OPM trials; it never certifies a submission.
         physics_gate=False,
         )
         validate_runtime_economic_head(artifacts, env.npv_head)
@@ -157,8 +153,6 @@ def main(argv=None):
     records = read_json(record_path) if args.resume and record_path.is_file() else []
     incumbent = None
     if args.resume:
-        # Recover a completed verification after interruption between saving the
-        # run and updating the campaign journal (also supports isolated trials).
         recorded_ids = {item.get("run_id") for item in records}
         for directory in sorted((args.root / "runs").glob("candidate-*")):
             economics_path = directory / "economics/result.json"
@@ -233,7 +227,6 @@ def main(argv=None):
             raise RuntimeError("Search and verification groups differ")
         save_groups(grouping, args.root / "runs" / run_id / "inputs/groups.json")
         print(f"OPM {attempted}/{args.opm_budget}: {label}, {digest}", flush=True)
-        # Unexpected runtime failures stop the campaign; the last champion stays on disk.
         run_dir = args.root / "runs" / run_id
         def measure(schedule, root):
             result = verify_schedule(schedule, root, constraints=constraints, groups=env.groups)
@@ -250,7 +243,6 @@ def main(argv=None):
                 "economics_config_hash": economics["economics_config_hash"],
                 "methodology_version_hash": economics["methodology_version_hash"]}
         if manifest.sound:
-            # Assemble and verify before promoting, so champion always has a usable package.
             report = workflow.submit(run_id, model_z_dir())
             if not all(line.passed for line in check_submission(report.directory)):
                 raise RuntimeError("submission selfcheck failed")
@@ -281,7 +273,6 @@ def main(argv=None):
             try:
                 repaired, evaluation, _, _ = _repair_predicted_water_balance(env, evaluator, candidate)
                 repaired = expressible(repaired)
-                # Rank the exact schedule that will go to OPM, after include normalization.
                 scored = evaluator(repaired)
                 score = scored.npv
                 impossible = ("NON_NEGATIVE", "WATERCUT_RANGE", "CUMULATIVE_MONOTONIC", "SHUT_WELL_FLOW")

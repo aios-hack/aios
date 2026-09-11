@@ -1,4 +1,3 @@
-"""Password-protected read-only dashboard for long Model_Z cycles."""
 
 from __future__ import annotations
 
@@ -18,42 +17,12 @@ from typing import Any, Sequence
 from backend.shared.settings import Settings
 
 
-_HTML = r"""<!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AIOS · Model_Z cycle</title>
-<style>
-:root{color-scheme:dark;--bg:#070b12;--panel:#0e1521;--line:#213149;--muted:#8290a7;--text:#edf3ff;--cyan:#43d9d0;--blue:#619bff;--amber:#ffbc57;--red:#ff667a;--green:#6ee7a8}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 12% -10%,#13233c 0,transparent 35%),var(--bg);color:var(--text);font:14px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}
-main{width:min(1440px,calc(100% - 32px));margin:0 auto;padding:28px 0 48px}.top{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:22px}.eyebrow{color:var(--cyan);letter-spacing:.16em;text-transform:uppercase;font-size:11px}.title{font:600 clamp(28px,4vw,48px)/1.05 Inter,system-ui,sans-serif;margin:6px 0}.sub{color:var(--muted)}.live{display:flex;gap:9px;align-items:center;color:var(--green);padding-top:8px}.dot{width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 16px currentColor;animation:p 1.6s infinite}@keyframes p{50%{opacity:.35}}
-.tabs{display:flex;gap:8px;overflow:auto;margin:0 0 16px}.tab{appearance:none;border:1px solid var(--line);background:#0b121d;color:var(--muted);border-radius:10px;padding:10px 14px;font:inherit;white-space:nowrap;cursor:pointer}.tab.active{color:var(--text);border-color:var(--cyan);box-shadow:inset 0 -2px var(--cyan)}.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}.card{background:linear-gradient(180deg,rgba(19,29,44,.96),rgba(12,18,29,.96));border:1px solid var(--line);border-radius:14px;padding:18px;min-width:0;box-shadow:0 14px 38px #0004}.hero{grid-column:span 8}.system{grid-column:span 4}.half{grid-column:span 6}.full{grid-column:1/-1}.label{color:var(--muted);font-size:11px;letter-spacing:.12em;text-transform:uppercase}.big{font:600 clamp(34px,5vw,58px)/1 Inter,system-ui,sans-serif;margin:12px 0 6px}.big small{font-size:.32em;color:var(--muted)}
-.bar{height:10px;background:#070b12;border:1px solid #1b2a40;border-radius:99px;overflow:hidden;margin:18px 0 8px}.fill{height:100%;width:0;background:linear-gradient(90deg,var(--blue),var(--cyan));transition:width .5s}.row{display:flex;justify-content:space-between;gap:12px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px}.stat{border-left:2px solid var(--line);padding-left:10px}.value{font-size:20px;margin-top:4px}.meter{margin-top:14px}.meter .bar{height:6px;margin:6px 0}.families{display:grid;gap:12px;margin-top:16px}.family-line{display:grid;grid-template-columns:120px 1fr 60px;gap:12px;align-items:center}.family-line .bar{margin:0;height:7px}.table{width:100%;border-collapse:collapse;margin-top:12px}.table td,.table th{padding:9px 8px;border-bottom:1px solid #1b2739;text-align:left}.table th{color:var(--muted);font-weight:400;font-size:11px}.ok{color:var(--green)}.bad{color:var(--red)}.warn{color:var(--amber)}canvas{width:100%;height:220px;margin-top:12px}.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:14px}.metric{background:#09101a;border:1px solid #1b2a40;border-radius:10px;padding:12px}.metric b{display:block;font-size:19px;margin-top:5px}.training-state{font:600 clamp(24px,3vw,38px)/1.15 Inter,system-ui,sans-serif;margin:10px 0}.error{color:var(--red);white-space:pre-wrap;margin-top:12px}.muted{color:var(--muted)}@media(max-width:900px){.hero,.system,.half{grid-column:1/-1}.top{display:block}.stats{grid-template-columns:1fr 1fr}.family-line{grid-template-columns:90px 1fr 50px}}
-</style></head><body><main>
-<div class="top"><div><div class="eyebrow">Reservoir surrogate telemetry</div><h1 class="title">Model_Z training cycle</h1><div class="sub" id="updated">Подключение…</div></div><div class="live"><span class="dot"></span><span id="stage">LIVE</span></div></div>
-<nav class="tabs" id="tabs" aria-label="Этапы вычислительного цикла"></nav>
-<div class="grid">
-<section class="card hero"><div class="label">OPM Flow · прогресс плана</div><div class="big"><span id="done">—</span><small> / <span id="target">—</span></small></div><div class="bar"><div class="fill" id="progress"></div></div><div class="row muted"><span id="percent">—</span><span id="eta">ETA —</span></div><div class="stats"><div class="stat"><div class="label">Активно</div><div class="value" id="active">—</div></div><div class="stat"><div class="label">Ошибки</div><div class="value" id="failed">—</div></div><div class="stat"><div class="label">Медиана</div><div class="value" id="median">—</div></div></div></section>
-<section class="card system"><div class="label">Сервер</div><div class="meter"><div class="row"><span>Load / CPU</span><span id="cpu">—</span></div><div class="bar"><div class="fill" id="cpuBar"></div></div></div><div class="meter"><div class="row"><span>RAM</span><span id="ram">—</span></div><div class="bar"><div class="fill" id="ramBar"></div></div></div><div class="meter"><div class="row"><span>Disk</span><span id="disk">—</span></div><div class="bar"><div class="fill" id="diskBar"></div></div></div><div class="stats"><div class="stat"><div class="label">vCPU</div><div class="value" id="cores">—</div></div><div class="stat"><div class="label">Контейнеры</div><div class="value" id="containers">—</div></div><div class="stat"><div class="label">Датасет</div><div class="value" id="size">—</div></div></div></section>
-<section class="card half"><div class="label">Семейства сценариев</div><div class="families" id="families"></div></section>
-<section class="card half"><div class="label">Последние завершённые</div><table class="table"><thead><tr><th>Сценарий</th><th>Тип</th><th>Время</th><th>Статус</th></tr></thead><tbody id="recent"></tbody></table></section>
-<section class="card full"><div class="label">Статус обучения модели</div><div class="training-state" id="trainingState">Ожидает запуска</div><div class="metrics" id="trainingDetails"></div><div class="error" id="trainingError"></div></section>
-<section class="card half"><div class="label">Train / validation loss</div><canvas id="loss" width="900" height="250"></canvas><div class="muted" id="epoch">Обучение ещё не началось</div></section>
-<section class="card half"><div class="label">Holdout-метрики</div><div class="metrics" id="metrics"><div class="muted">Появятся после обучения и оценки.</div></div></section>
-</div></main>
-<script>
-const $=id=>document.getElementById(id), fmt=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(n), pct=x=>`${fmt(100*x)}%`;
-function duration(s){if(s==null||!isFinite(s))return '—';let h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?`${h}ч ${m}м`:`${m}м`}
-function setBar(id,x){$(id).style.width=`${Math.max(0,Math.min(100,100*x))}%`}
-function drawLoss(rows){const c=$('loss'),g=c.getContext('2d'),w=c.width,h=c.height;g.clearRect(0,0,w,h);g.strokeStyle='#213149';g.lineWidth=1;for(let i=1;i<5;i++){let y=i*h/5;g.beginPath();g.moveTo(0,y);g.lineTo(w,y);g.stroke()}if(!rows.length)return;let vals=rows.flatMap(r=>[r.train_loss,r.validation_loss]),lo=Math.min(...vals),hi=Math.max(...vals);if(hi===lo)hi=lo+1;function line(key,color){g.strokeStyle=color;g.lineWidth=3;g.beginPath();rows.forEach((r,i)=>{let x=rows.length===1?0:i*w/(rows.length-1),y=h-12-(r[key]-lo)/(hi-lo)*(h-24);i?g.lineTo(x,y):g.moveTo(x,y)});g.stroke()}line('train_loss','#619bff');line('validation_loss','#43d9d0')}
-function metric(label,value){return `<div class="metric"><span class="label">${label}</span><b>${value}</b></div>`}
-function loss(v){return v==null?'—':Number(v).toExponential(4)}
-let selected=null,last=null;
-function render(d){last=d;if(!selected||!d.stages.some(x=>x.id===selected))selected=d.active_stage;let s=d.stages.find(x=>x.id===selected)||d.stages[0],ds=s.dataset,tr=s.training||{history:[],metrics:null},modelTr=(d.stages.find(x=>x.id==='combined-700')||{}).training||{history:[],metrics:null};$('tabs').innerHTML=d.stages.map(x=>`<button class="tab ${x.id===selected?'active':''}" data-id="${x.id}">${x.title} · ${x.status}</button>`).join('');document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{selected=b.dataset.id;render(last)});let p=ds.target?ds.completed/ds.target:0;
-$('updated').textContent=`Обновлено ${new Date(d.now).toLocaleString('ru-RU')} · ${ds.plan_hash||'plan pending'}`;$('stage').textContent=s.status.toUpperCase();$('done').textContent=fmt(ds.completed);$('target').textContent=fmt(ds.target);$('percent').textContent=pct(p);setBar('progress',p);$('eta').textContent=`ETA ${duration(ds.eta_seconds)}`;$('active').textContent=s.id===d.active_stage?d.runtime.active_runs:0;$('failed').textContent=ds.failed;$('median').textContent=duration(ds.median_wallclock_seconds);
-$('cpu').textContent=`${fmt(d.system.load1)} / ${d.system.cores}`;setBar('cpuBar',d.system.load1/d.system.cores);$('ram').textContent=`${fmt(d.system.memory_used_gib)} / ${fmt(d.system.memory_total_gib)} GiB`;setBar('ramBar',d.system.memory_fraction);$('disk').textContent=`${fmt(d.system.disk_used_gib)} / ${fmt(d.system.disk_total_gib)} GiB`;setBar('diskBar',d.system.disk_fraction);$('cores').textContent=d.system.cores;$('containers').textContent=d.runtime.docker_containers;$('size').textContent=`${fmt(ds.size_gib)} GiB`;
-$('families').innerHTML=Object.entries(ds.families).map(([k,v])=>`<div class="family-line"><span>${k}</span><div class="bar"><div class="fill" style="width:${ds.completed?100*v/ds.completed:0}%"></div></div><span>${v}</span></div>`).join('')||'<div class="muted">Ожидает запуска</div>';$('recent').innerHTML=ds.recent.map(x=>`<tr><td>${x.scenario_id}</td><td>${x.family}</td><td>${duration(x.wallclock_seconds)}</td><td class="${x.status==='OK'?'ok':'bad'}">${x.status}</td></tr>`).join('');
-drawLoss(tr.history);$('trainingState').textContent=modelTr.phase_label||'Ожидает запуска';$('trainingState').className=`training-state ${modelTr.failed?'bad':modelTr.complete?'ok':'warn'}`;$('trainingDetails').innerHTML=metric('Фаза',modelTr.phase||'—')+metric('Эпоха',`${modelTr.current_epoch||0} / ${modelTr.max_epochs||'—'}`)+metric('Лучшая эпоха',modelTr.best_epoch||'—')+metric('Train loss',loss(modelTr.train_loss))+metric('Validation loss',loss(modelTr.validation_loss))+metric('Best validation',loss(modelTr.best_validation_loss));$('trainingError').textContent=modelTr.error||'';$('epoch').textContent=tr.history.length?`Эпоха ${tr.history.at(-1).epoch} · best ${tr.best_epoch||'—'}`:modelTr.phase_label||'Обучение ещё не началось';let m=tr.metrics;$('metrics').innerHTML='<div class="muted">Появятся после обучения и оценки.</div>';if(m){let rank=m.ranking||{},state=m.state_mean_per_scenario||{},ood=m.ood||{};$('metrics').innerHTML=metric('Spearman ЧДД',fmt(rank.spearman_rank_correlation))+metric('Precision@1',fmt((rank.precision_at_k||{})['1']))+metric('Regret@1',fmt((rank.regret_at_k_rub||{})['1'])+' ₽')+metric('ACTIVE/SHUT',pct(state.active_shut_accuracy||0))+metric('BHP MAE',fmt(state.bhp_mae_bar)+' bar')+metric('OOD outside',`${ood.n_scenarios_outside||0} / ${ood.n_scenarios||0}`)}}
-async function refresh(){try{let r=await fetch('/api/status',{cache:'no-store'});if(!r.ok)throw Error(r.status);render(await r.json())}catch(e){$('updated').textContent=`Нет связи: ${e}`;$('stage').textContent='OFFLINE'}}refresh();setInterval(refresh,5000);
-</script></body></html>"""
+TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
+DASHBOARD_TEMPLATE = TEMPLATE_DIR / "dashboard.html"
+
+
+def dashboard_html() -> str:
+    return DASHBOARD_TEMPLATE.read_text(encoding="utf-8")
 
 
 def _run(command: Sequence[str]) -> str:
@@ -373,7 +342,7 @@ def _handler(root: Path, username: str, password: str):
                 self.end_headers()
                 return
             if self.path == "/":
-                payload = _HTML.encode("utf-8")
+                payload = dashboard_html().encode("utf-8")
                 self._headers(HTTPStatus.OK, "text/html; charset=utf-8")
                 self.wfile.write(payload)
                 return

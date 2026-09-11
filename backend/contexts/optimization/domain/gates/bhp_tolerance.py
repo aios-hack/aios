@@ -37,7 +37,6 @@ DEFAULT_SURROGATE_METRICS = "out/surrogate-metrics.json"
 
 @dataclass(frozen=True, slots=True)
 class BhpTolerance:
-
     delta_bar: float | None
     origin: str
     source: str

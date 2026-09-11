@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from backend.contexts.optimization.application.baseline_search import (
     _peak_step_production,
 )
@@ -163,6 +165,7 @@ from backend.shared.resources import chdd_python_dir, model_z_dir
 from backend.contexts.constraints.application.cases import load_case
 from backend.contexts.constraints.infrastructure.constraints_io import constraints_hash
 
+logger = logging.getLogger(__name__)
 
 
 def run_search(
@@ -338,9 +341,8 @@ def run_search(
         )
         if npv > calls["best"]:
             calls["best"] = npv
-            print(
+            logger.info(
                 f"  оценка {calls['n']:3d}: новый максимум {npv / 1e9:.3f} млрд",
-                flush=True,
             )
         return OptimizerResult(
             objective=npv,
@@ -349,21 +351,19 @@ def run_search(
             provenance=provenance,
         )
 
-    print(
+    logger.info(
         f"CMA-ES: параметров 10, бюджет {budget} оценок, потолок неподвижной "
         f"точки в поиске {search_cap}, seed {SEED}",
-        flush=True,
     )
     started = time.monotonic()
     report = optimize(
         objective, search_start, seed=seed, max_evaluations=budget
     )
     elapsed = time.monotonic() - started
-    print(
+    logger.info(
         f"поиск закончен за {elapsed / 60:.1f} мин, оценок {report.evaluations}, "
         f"поколений {report.generations}, останов: {report.stop_reason}, "
         f"допустимых найдено: {report.feasible_found}",
-        flush=True,
     )
     SEARCH_DIAGNOSTICS.parent.mkdir(parents=True, exist_ok=True)
     SEARCH_DIAGNOSTICS.write_text(
@@ -404,7 +404,7 @@ def run_search(
     finalists = []
     finalist_cards: list[dict[str, object]] = []
     seen: set[tuple[tuple[str, float], ...]] = set()
-    print("\nполный пересчёт лучших допустимых θ:", flush=True)
+    logger.info("\nполный пересчёт лучших допустимых θ:")
     for candidate in ranked:
         signature = tuple(sorted(candidate.theta.values.items()))
         if signature in seen:
@@ -420,7 +420,7 @@ def run_search(
             )
             check = validate_static(repaired_schedule, env.constraints)
         except (OutOfDomainScheduleError, PhysicallyImpossibleScheduleError) as error:
-            print(f"  finalist rejected: {error}", flush=True)
+            logger.info(f"  finalist rejected: {error}")
             continue
         surrogate_blocking = surrogate_blocking_violations(
             dynamic.blocking_violations, env.constraints, bhp_tolerance
@@ -456,14 +456,13 @@ def run_search(
                 ood_exceedances=finalist_exceedances,
             )
         )
-        print(
+        logger.info(
             f"  ЧДД {final.npv / 1e9:8.3f} млрд, итераций {final.iterations:2d}, "
             f"self-consistent={final.self_consistent}, OOD={evaluated.ood_score}, "
             f"water-repair={repair_rounds}, static={len(check.violations)}, "
             f"dynamic-blocking={len(surrogate_blocking)}, "
             f"physics-admissible={admissible}, "
             f"BHP-to-OPM={len(dynamic.blocking_violations) - len(surrogate_blocking)}",
-            flush=True,
         )
         if passed:
             finalists.append(
@@ -510,15 +509,14 @@ def run_search(
         predicted_sigma,
     ) = select_finalist(finalists, RISK_AVERSION_BETA)
     delta = 100.0 * (predicted_npv - BASE_NPV) / BASE_NPV
-    print(
+    logger.info(
         f"\nθ*: ЧДД {predicted_npv / 1e9:.3f} млрд ({delta:+.1f}% к базовому), "
         f"нарушений validate_static: {len(check.violations)}, "
         f"блокирующих surrogate validate_dynamic: {len(surrogate_blocking)}, "
         f"событий {check.n_control_events}, "
         f"сошлось: {final.converged}, самосогласовано: {final.self_consistent}",
-        flush=True,
     )
-    print(f"canonical_schedule_hash: {schedule_hash}", flush=True)
+    logger.info(f"canonical_schedule_hash: {schedule_hash}")
 
     run_budget = close_run_clock(report.evaluations)
     return SearchOutcome(

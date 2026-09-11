@@ -45,7 +45,6 @@ def _validate(
     settings: "ModelConfig | None" = None,
     scenario_targets: Tensor | None = None,
 ) -> _ValidationOutcome:
-    """Один проход валидации, отдающий все три критерия отбора чекпоинта."""
     network.eval()
     settings = settings or ModelConfig()
     total = 0.0

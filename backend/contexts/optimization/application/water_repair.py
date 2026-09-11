@@ -30,7 +30,6 @@ def _repair_predicted_water_balance(
     rounds: int = 8,
     budget_trace: list[dict[str, object]] | None = None,
 ):
-
     policy = water_supply_policy(env.constraints)
     if not policy.enabled:
         evaluated = evaluator(schedule)

@@ -1,10 +1,3 @@
-"""Feature construction for task 32.
-
-The featureizer deliberately has no response/simulator argument.  Dynamic
-features are derived from one :class:`contracts.Schedule`; the only other
-inputs are immutable deck-derived context (calendar, history prefix and well
-static data) and measured, date-scoped ``Lambda`` matrices.
-"""
 
 from __future__ import annotations
 
@@ -51,11 +44,6 @@ _MONTHS = {
     "DEC": 12,
 }
 _EVENT_ORDER = {
-    # A conversion batch contains the old producer's zero LRAT and the new
-    # injector's RATE at one control step.  Apply the close while the well is
-    # still PROD, then change role, then apply the injector target.  The
-    # canonical/hash order puts CONVERT_INJ first, but that serialization
-    # order is not a valid state-transition order for feature construction.
     EventKind.SET_LRAT: 0,
     EventKind.CONVERT_INJ: 1,
     EventKind.SET_RATE: 2,
@@ -66,13 +54,6 @@ _EVENT_ORDER = {
 
 @dataclass(frozen=True, slots=True)
 class HistoryTargets:
-    """Deck-derived target state immediately before ``Schedule.meta.t0``.
-
-    These are target, not simulated, volumes.  They are explicit because the
-    canonical Schedule intentionally stores the immutable 1994--2006 prefix
-    only by hash.
-    """
-
     target_liquid_m3: float
     target_injection_m3: float
     event_count: int
@@ -90,8 +71,6 @@ class HistoryTargets:
 
 @dataclass(frozen=True, slots=True)
 class FeatureContext:
-    """Immutable non-simulator inputs shared by all candidate schedules."""
-
     control_dates: tuple[date, ...]
     history_start: date
     history_prefix_hash: str
@@ -102,8 +81,6 @@ class FeatureContext:
 
 @dataclass(frozen=True, slots=True)
 class WellStepFeatures:
-    """One node of the ``control_step × well`` feature tensor."""
-
     control_step: int
     interval_start: date
     interval_end: date
@@ -126,8 +103,6 @@ class WellStepFeatures:
 
 @dataclass(frozen=True, slots=True)
 class LambdaEdgeFeature:
-    """A full measured producer<-injector edge for its applicable window."""
-
     control_step: int
     producer: str
     injector: str
@@ -140,8 +115,6 @@ class LambdaEdgeFeature:
 
 @dataclass(frozen=True, slots=True)
 class SurrogateInput:
-    """Deterministic full-trajectory input; contains no simulated response."""
-
     canonical_schedule_hash: str
     wells: tuple[str, ...]
     static_feature_names: tuple[str, ...]
@@ -273,13 +246,6 @@ def history_targets_from_deck(
     *,
     t0: date = T0,
 ) -> tuple[date, Mapping[str, HistoryTargets]]:
-    """Integrate target rates in the immutable deck prefix, without OPM.
-
-    The first DATES record is the start of target accumulation (01.11.1994
-    for Model_Z).  Events at ``t0`` are intentionally excluded: they belong
-    to the two-layer Schedule and are applied by :class:`ScheduleFeatureizer`.
-    """
-
     ordered_wells = tuple(wells)
     if len(set(ordered_wells)) != len(ordered_wells):
         raise FeatureError("ось wells содержит дубликаты")
@@ -372,8 +338,6 @@ def _apply_control(state: _MutableState, event: ControlEvent) -> None:
 
 
 class ScheduleFeatureizer:
-    """Materialize deterministic full-trajectory surrogate features."""
-
     def transform(self, schedule: Schedule, context: FeatureContext) -> SurrogateInput:
         wells = tuple(schedule.meta.wells)
         if not wells or len(set(wells)) != len(wells):

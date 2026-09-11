@@ -38,7 +38,6 @@ def _scenario_ood_excess(
 def _enforce_scenario_ood(
     model_input, model, domain: ScenarioDensityDomain | None
 ) -> None:
-
     exceeded = _scenario_ood_excess(model_input, model, domain)
     if exceeded is None:
         return
@@ -85,7 +84,6 @@ def _ood_threshold_excess(
 
 
 def _enforce_ood_threshold(ood: OodScore, threshold: float | None) -> None:
-
     exceeded = _ood_threshold_excess(ood, threshold)
     if exceeded is None:
         return

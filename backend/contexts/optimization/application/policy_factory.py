@@ -59,13 +59,11 @@ _HISTORY_DECK_OFFSET = HORIZON.history_offset
 
 @dataclass(frozen=True, slots=True)
 class PolicyFeedback:
-
     response: ResponseArtifact
     schedule: Schedule
 
 
 def _commission_steps(schedule: Schedule) -> dict[str, int]:
-
     steps: dict[str, int] = {}
     for well, state in schedule.initial_state.items():
         if state.role is not Role.NONE:
@@ -80,7 +78,6 @@ def _flow_start_steps(
     schedule: Schedule,
     initial_rates: Mapping[str, tuple[float, float, float]] | None = None,
 ) -> dict[str, int]:
-
     commissioned = _commission_steps(schedule)
     first_completion: dict[str, int] = {}
     for event in schedule.fixed_deck_events:
@@ -173,7 +170,6 @@ def _build_policy_state(
 def _group_injection_offtake(
     state: PolicyState, groups: Groups
 ) -> tuple[dict[str, float], dict[str, float]]:
-
     by_group = observations_by_group(state, groups)
     injection: dict[str, float] = {}
     offtake: dict[str, float] = {}
@@ -225,7 +221,6 @@ def _advance_memory(state: PolicyState, context: RuleContext, *, esp_catalog) ->
 
 
 def _physical_caps(schedule: Schedule) -> tuple[dict[str, float], float]:
-
     per_well: dict[str, float] = {}
     by_step_injection: dict[int, float] = {}
     for event in schedule.control_events:
@@ -290,7 +285,6 @@ def _outage_events(
 
 
 def _baseline_conversion_steps(schedule: Schedule) -> dict[str, int]:
-
     steps: dict[str, int] = {}
     for event in schedule.control_events:
         if event.kind is EventKind.CONVERT_INJ:
@@ -311,7 +305,6 @@ def _emit_dense_layer(
     hard: HardConstraints,
     projection: Projection = project_to_hard_constraints,
 ) -> None:
-
     for well in state.wells:
         role = current_role.get(well, Role.PROD)
         target_kind = EventKind.SET_RATE if role is Role.INJ else EventKind.SET_LRAT
@@ -348,7 +341,6 @@ def _close_producing_side_on_conversion(
     hard: HardConstraints,
     projection: Projection = project_to_hard_constraints,
 ) -> None:
-
     converted = {
         event.well for event in decisions if event.kind is EventKind.CONVERT_INJ
     }
@@ -369,7 +361,6 @@ def make_policy(
     command_margin: float | None = None,
     symmetric_damper: bool = True,
 ):
-
     command_margin = (
         (
             WATER_COMMAND_SAFETY_FACTOR

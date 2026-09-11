@@ -1,11 +1,3 @@
-"""Lossless-представление ``Model_Z_sch.inc``.
-
-Семантика и исходные байты намеренно разделены. Парсер извлекает события,
-которые нужны следующим стадиям работы с расписанием, но каждый разобранный
-блок хранит исходный байтовый срез. Поэтому эмит без изменений не пытается
-восстановить авторское форматирование и гарантированно возвращает его как
-есть: вместе с комментариями, ``1*``, пробелами и окончаниями строк.
-"""
 
 from __future__ import annotations
 
@@ -43,13 +35,6 @@ _TOKEN_RE = re.compile(rb"'([^']*)'|([^\s/]+)")
 
 @dataclass(frozen=True, slots=True)
 class LosslessBlock:
-    """Один известный блок и его исходные байты.
-
-    Блок ``WCON*`` может смешивать слои: первое появление скважины внутри
-    горизонта является фиксированным вводом, а строки уже введённого фонда
-    описывают управление.
-    """
-
     keyword: str
     raw: bytes
     deck_date_index: int | None
@@ -64,8 +49,6 @@ LosslessChunk = bytes | LosslessBlock
 
 @dataclass(frozen=True, slots=True)
 class ParsedSchedule:
-    """Lossless-дерево файла и две семантические последовательности событий."""
-
     chunks: tuple[LosslessChunk, ...]
     blocks: tuple[LosslessBlock, ...]
     dates: tuple[date, ...]
@@ -75,14 +58,10 @@ class ParsedSchedule:
 
     @property
     def fixed_blocks(self) -> tuple[LosslessBlock, ...]:
-        """Блоки, в которых есть хотя бы одно фиксированное событие."""
-
         return tuple(block for block in self.blocks if block.fixed_deck_events)
 
 
 class LosslessEmitter:
-    """Эмиттер исходного представления без нормализации."""
-
     @staticmethod
     def emit(schedule: ParsedSchedule) -> bytes:
         return b"".join(
@@ -149,13 +128,6 @@ def _float(value: str, keyword: str, well: str) -> float:
 
 
 def parse_schedule(raw: bytes) -> ParsedSchedule:
-    """Разобрать байты ``Model_Z_sch.inc`` без нормализации представления.
-
-    Неизвестные и структурные части файла остаются непрозрачными байтовыми
-    фрагментами. Семантически разбираются только даты и операторы фонда,
-    необходимые контракту расписания.
-    """
-
     if not isinstance(raw, bytes):
         raise TypeError("parse_schedule принимает bytes; читайте файл через Path.read_bytes()")
 
@@ -253,9 +225,6 @@ def parse_schedule(raw: bytes) -> ParsedSchedule:
                         value = _float(record[4], keyword, well)
                         new_role = "INJ"
 
-                    # The last control date is the terminal observation.  Its
-                    # source block remains in the lossless tree, but there is
-                    # no following interval to which a command could apply.
                     in_control_interval = (
                         control_step is not None and control_step < N_INTERVALS
                     )

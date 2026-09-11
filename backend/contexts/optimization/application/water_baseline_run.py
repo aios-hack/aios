@@ -53,7 +53,6 @@ def _project_injection_to_reference_water(
     oil_density_t_per_m3: float,
     water_safety_factor: float,
 ) -> Schedule:
-
     available = {
         step: water_safety_factor
         * _interval_produced_water_rate_m3_per_day(

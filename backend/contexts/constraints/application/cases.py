@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.constraints.infrastructure.constraints_io import (
+    YEAR_SECTIONS,
+)
+
 from backend.contexts.constraints.domain.errors import (
     CaseError,
 )

@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from typing import Callable, Sequence, TextIO
 
+from backend.interfaces.logging_setup import configure
 from backend.shared.errors import (
     AiosError,
     ConfigurationError,
@@ -40,6 +41,7 @@ def exit_code_for(error: AiosError) -> int:
 
 def run(main: Callable[..., int | None], argv: Sequence[str] | None = None, stderr: TextIO | None = None) -> int:
     stream = sys.stderr if stderr is None else stderr
+    configure()
     try:
         result = main() if argv is None else main(argv)
     except AiosError as error:

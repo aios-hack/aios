@@ -1,51 +1,3 @@
-"""Детектор выхода за обучающий диапазон — задача 35, §5.2.
-
-«Возвращается вместе с прогнозом, **всегда, не опцией**. Организаторы
-назвали его критерием масштабируемости [10.08 35:40]».
-
-Это требование к форме выхода, и здесь оно выполнено типом, а не
-договорённостью: `ScoredPrediction` не собирается без `ood`, обоих полей
-обязательных, — модель, вернувшая прогноз без оценки, не проходит
-конструктор. Приёмка проверяет именно это, а не то, что кто-то помнит
-позвать детектор.
-
-## Что именно детектируется
-
-Вход суррогата выводится из одного `Schedule` и не содержит ни одного числа
-от симулятора (задача 32). Значит и обучающая область — это область
-**расписаний**, а не откликов, и «выход за диапазон» проверяется по тем же
-признакам, которыми модель кормится: уставки, накопления, закачка соседей,
-статика скважины и три категориальных состояния.
-
-Область запоминается двумя способами, потому что признаки двух разных родов:
-
-- **числовые** — интервалом `[low, high]`, замеренным по обучающей выборке;
-  оценка равна тому, на сколько ширин интервала значение вышло наружу;
-- **категориальные** (`Availability`, `Role`, `OperatingStatus`) — множеством
-  встреченных значений; невиданное значение это не «далеко», а «вне» — у
-  такой точки оценка бесконечна, и никакой порог `τ` её не пропустит.
-
-## Максимум, а не среднее
-
-`ood_score` — максимум по узлам и признакам, и это не деталь реализации.
-Экстраполяция по одной скважине из 103 при усреднении растворяется в
-нулях: 1/103 от порога, то есть «внутри области» при том, что модель по
-этой скважине не видела ничего похожего. Область доверия §10.2 (`ood_score
-≤ τ`) осмысленна только при худшем-случайном агрегировании.
-
-По той же причине оценка сопровождается `worst` и полным списком выходов:
-цикл верификации обязан уметь сказать не только «кандидат вне области», но
-и какая скважина на каком шаге его туда вывела.
-
-## Нулевой ширины интервал
-
-Признак, у которого в обучении было ровно одно значение, ширины не имеет.
-Делить на неё нельзя, а объявить любое отклонение бесконечным — значит
-отвергнуть всё. Такой признак сравнивается на точное равенство: совпало —
-ноль, не совпало — бесконечность, как у категориального. Это честнее
-любого подобранного эпсилона: обучающая выборка про соседние значения
-действительно ничего не знает.
-"""
 
 from __future__ import annotations
 
@@ -60,9 +12,6 @@ from dataclasses import dataclass
 from backend.contexts.surrogate.domain.features import SurrogateInput, WellStepFeatures
 from backend.contexts.surrogate.domain.raw_model_output import RawModelOutput
 
-# Числовые признаки узла. Имена совпадают с полями WellStepFeatures — это
-# не косметика: имя признака уезжает в диагностику цикла верификации, и
-# сверять его с исходным полем должно быть можно глазами, без словаря.
 NUMERIC_FEATURES: tuple[str, ...] = (
     "setpoint_m3_per_day",
     "effective_target_rate_m3_per_day",
@@ -83,8 +32,6 @@ CATEGORICAL_FEATURES: tuple[str, ...] = (
 
 @dataclass(frozen=True, slots=True)
 class FeatureRange:
-    """Замеренный интервал одного числового признака."""
-
     name: str
     low: float
     high: float
@@ -101,19 +48,14 @@ class FeatureRange:
 
     @property
     def degenerate(self) -> bool:
-        """В обучении признак принимал ровно одно значение."""
-
         return self.width == 0.0
 
     def exceedance(self, value: float) -> float:
-        """На сколько ширин интервала значение вышло наружу. Внутри — ноль."""
-
         if not math.isfinite(value):
             return math.inf
         if self.low <= value <= self.high:
             return 0.0
         if self.degenerate:
-            # Ширины нет — соседние значения обучающей выборке неизвестны.
             return math.inf
         distance = self.low - value if value < self.low else value - self.high
         return distance / self.width
@@ -121,13 +63,6 @@ class FeatureRange:
 
 @dataclass(frozen=True, slots=True)
 class TrainingDomain:
-    """Обучающая область: что модель видела.
-
-    `schedule_hashes` — provenance, не украшение: область, замеренная на
-    одном датасете, не описывает другой, и `OptimizerResult.provenance`
-    (§6.1) обязан уметь связать `ood_score` с версией датасета.
-    """
-
     ranges: tuple[FeatureRange, ...]
     categories: tuple[tuple[str, frozenset[str]], ...]
     static_feature_names: tuple[str, ...]
@@ -153,8 +88,6 @@ class TrainingDomain:
 
 @dataclass(frozen=True, slots=True)
 class Exceedance:
-    """Один выход за диапазон: где, какой признак, на сколько."""
-
     feature: str
     well: str
     control_step: int
@@ -166,14 +99,6 @@ class Exceedance:
 
 @dataclass(frozen=True, slots=True)
 class OodScore:
-    """Оценка выхода за обучающий диапазон.
-
-    `score` — максимум по всем узлам и признакам: ноль означает, что
-    кандидат целиком внутри области, положительное — на сколько ширин
-    интервала вышел худший признак, `inf` — встретилось невиданное
-    категориальное значение или признак с нулевой шириной изменился.
-    """
-
     score: float
     exceedances: tuple[Exceedance, ...]
     n_nodes: int
@@ -183,8 +108,6 @@ class OodScore:
         return self.exceedances[0] if self.exceedances else None
 
     def inside(self, tau: float) -> bool:
-        """Область доверия §10.2: кандидат допустим, пока `ood_score ≤ τ`."""
-
         if tau < 0.0:
             raise OodError(f"порог области доверия τ={tau} отрицателен")
         return self.score <= tau
@@ -192,13 +115,6 @@ class OodScore:
 
 @dataclass(frozen=True, slots=True)
 class ScoredPrediction:
-    """Прогноз и его `ood_score`, неразделимо.
-
-    §5.2 требует, чтобы детектор возвращался вместе с прогнозом всегда, а
-    не опцией. Здесь это обеспечено конструктором: у обоих полей нет
-    значения по умолчанию, и прогноз без оценки собрать нечем.
-    """
-
     output: RawModelOutput
     ood: OodScore
 
@@ -223,13 +139,6 @@ def _static_names(inputs: Sequence[SurrogateInput]) -> tuple[str, ...]:
 
 
 def fit_domain(inputs: Sequence[SurrogateInput]) -> TrainingDomain:
-    """Замерить обучающую область по входам датасета.
-
-    Берутся именно `SurrogateInput` — то, чем модель кормится, — а не
-    отклики: вход суррогата не содержит ни одного числа от симулятора
-    (задача 32), и область обязана быть областью того же пространства.
-    """
-
     if not inputs:
         raise OodError("обучающая область не строится по пустой выборке")
 
@@ -283,13 +192,6 @@ def fit_domain(inputs: Sequence[SurrogateInput]) -> TrainingDomain:
 
 
 def score(candidate: SurrogateInput, domain: TrainingDomain) -> OodScore:
-    """Оценить, насколько кандидат выходит за обучающую область.
-
-    Возвращается всегда: точка внутри области получает `score = 0.0` и
-    пустой список выходов, а не `None`. Отсутствие оценки и оценка «внутри»
-    — разные вещи, и потребитель не должен их различать по `is None`.
-    """
-
     if candidate.static_feature_names != domain.static_feature_names:
         raise OodError(
             "состав статических признаков кандидата не совпадает с обучающим: "
@@ -338,8 +240,6 @@ def score(candidate: SurrogateInput, domain: TrainingDomain) -> OodScore:
             allowed = domain.categories_of(name)
             value = _categorical(node, name)
             if value not in allowed:
-                # Невиданная категория — не «далеко», а «вне»: расстояния
-                # между значениями перечисления не существует.
                 exceedances.append(
                     Exceedance(
                         feature=name,
@@ -363,27 +263,14 @@ def score(candidate: SurrogateInput, domain: TrainingDomain) -> OodScore:
 def predict_with_score(
     output: RawModelOutput, candidate: SurrogateInput, domain: TrainingDomain
 ) -> ScoredPrediction:
-    """Единственный способ выпустить прогноз наружу.
-
-    Функция существует, чтобы у вызывающей стороны не было короткого пути
-    «вернуть только `RawModelOutput`»: §5.2 требует оценку всегда, и
-    удобная дверь мимо неё — то самое, чем «не опцией» превращается в
-    «опцию» через две недели.
-    """
-
     return ScoredPrediction(output=output, ood=score(candidate, domain))
 
 
 def worst_offenders(assessment: OodScore, limit: int = 5) -> tuple[Exceedance, ...]:
-    """Первые `limit` выходов по убыванию — то, что цикл верификации
-    показывает человеку, когда кандидат отвергнут областью доверия."""
-
     if limit < 1:
         raise OodError(f"limit={limit} < 1")
     return assessment.exceedances[:limit]
 
 
 def domain_of_inputs(inputs: Iterable[SurrogateInput]) -> TrainingDomain:
-    """`fit_domain` для ленивого источника: датасет отдаёт входы потоком."""
-
     return fit_domain(tuple(inputs))

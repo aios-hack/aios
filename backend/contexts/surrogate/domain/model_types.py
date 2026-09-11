@@ -47,7 +47,7 @@ _ROUNDOFF_TOLERANCE = 1e-3
 _BACKFLOW_FIELDS = frozenset({"oil_mass_delta"})
 
 
-_BACKFLOW_FLOOR = -1e3  # т за месяц; крупнее — это не переток, а баг
+_BACKFLOW_FLOOR = -1e3
 
 
 _BACKFLOW_SHARE_LIMIT = 0.01
@@ -77,18 +77,9 @@ class ModelConfig:
     max_epochs: int = 80
     patience: int = 10
     seed: int = 20260816
-    # Денежная цена ошибки, ₽ на физическую единицу, в порядке TARGET_NAMES
-    # и со знаком (выручка положительна, opex отрицателен). Пустой кортеж
-    # отключает денежное взвешивание и возвращает равномерный smooth_l1.
-    # Значения обязан подать вызывающий из NormativeSet: ни один компонент
-    # не читает норматив мимо конфига (база знаний §11.1).
     money_rub_per_unit: tuple[float, ...] = ()
     money_weight_alpha: float = 0.7
     money_weight_cap: float = 50.0
-    # Косинусное затухание и отбор по рангу проверены факторным
-    # экспериментом и отклонены: первое ухудшает сжатие разброса
-    # (недообученной сети нужно больше шагов, а не меньше), второй
-    # выбирает ту же эпоху, что и отбор по лоссу.
     lr_schedule: str = "none"
     select_by: str = "loss"
     target_parameterization: str = "absolute"
@@ -100,8 +91,6 @@ class ModelConfig:
     ranking_loss_weight: float = 0.0
     ranking_top_weighted: bool = False
     ranking_scenarios_per_batch: int = 48
-    # Полный сценарий — 23 072 узла; подвыборка ускоряет эпоху, но слишком
-    # малая оставляет её без данных: при 640 узлах эпоха видела 2.8% выборки.
     ranking_nodes_per_scenario: int = 4096
 
     def __post_init__(self) -> None:
@@ -193,8 +182,6 @@ class EpochMetrics:
     epoch: int
     train_loss: float
     validation_loss: float
-    # Денежно-взвешенный валидационный лосс и ранговая корреляция сценарного
-    # денежного прокси. Нули означают, что взвешивание было отключено.
     validation_money_loss: float = 0.0
     validation_rank: float = 0.0
     learning_rate: float = 0.0

@@ -1,4 +1,3 @@
-"""Deployable block-balanced polynomial kernel for direct scenario NPV."""
 
 from __future__ import annotations
 
@@ -26,14 +25,8 @@ from backend.contexts.surrogate.domain.npv_economic_features import (
 
 FORMAT = "aios.surrogate-block-npv-head.v1"
 LEGACY_IMPLEMENTATION_HASHES = {
-    # Backend import relocation only; inference parity checked on real schedules.
     "c95a68493476fea29baf1527fc16d3fa8178a13f47c79551cee701dd02e5ea68",
     "dd97cba949a664eafe4c45900777e1dfd805b63b015109e0c4bb7ff47fcf9bfb",
-    # 95f3dc77 — состояние до того, как проверка признакового провенанса стала
-    # принимать `LEGACY_FEATURE_PROVENANCE_HASHES`. Правка тронула только сам
-    # список принимаемых хешей и импорт: ни ядро блоков, ни веса, ни
-    # предсказание не менялись, поэтому головы, обученные до неё, остаются
-    # валидными.
     "95f3dc77460ccbf578a5f1c96b66fc24fa45de0ecaf7fe898f0ba2cb46ed4ca2",
 }
 Mode = Literal["joint", "additive"]
@@ -480,8 +473,6 @@ def validate_direct_npv_head_context(
     context_dataset_hash: str,
     feature_context_sha256: str,
 ) -> None:
-    """Validate legacy or augmented corrected heads against one feature context."""
-
     expected_context = getattr(head, "feature_context_sha256", "")
     if expected_context:
         if expected_context != feature_context_sha256:
@@ -491,8 +482,6 @@ def validate_direct_npv_head_context(
 
 
 def direct_npv_feature_set(head: object) -> str:
-    """Return the scenario vector width required by either deployable head type."""
-
     if isinstance(head, BlockKernelNpvHead):
         return "economic"
     feature_set = getattr(head, "feature_set", None)

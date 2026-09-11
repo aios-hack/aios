@@ -13,16 +13,6 @@ from torch import (
 
 
 class _ScenarioBatches:
-    """Батчи, собранные из целых сценариев, а не из перемешанных узлов.
-
-    Ранговый член лосса сравнивает сценарии между собой, поэтому в батче их
-    должно быть несколько сразу. Из каждого сценария берётся случайная выборка
-    узлов с одинаковыми координатами во всех сценариях батча. Это снижает
-    шум состава фонда при попарном сравнении; несмещённость отдельной суммы
-    сама по себе не гарантирует сохранения порядка. Полные метки ЧДД
-    передаются отдельно через scenario_targets.
-    """
-
     def __init__(
         self,
         tensors: tuple[Tensor, ...],
@@ -62,8 +52,6 @@ class _ScenarioBatches:
             if len(chosen) < 2:
                 continue
             rows, groups = [], []
-            # Common well/step coordinates remove composition noise between
-            # schedules. Independent samples reversed ~34% of train pairs.
             size = self.offsets[0][1]
             take = min(self.nodes_per_scenario, size)
             picked = torch.randperm(size, generator=self.generator)[:take]
@@ -81,15 +69,6 @@ class _ScenarioBatches:
 
 
 class _Batches:
-    """Нарезка батчей срезом вместо DataLoader.
-
-    `DataLoader` поверх `TensorDataset` выбирает элементы батча по одному и
-    склеивает их в Python: на батче 32768 это 3.66 с против 0.05 с у среза,
-    то есть больше половины эпохи уходило на нарезку, а не на обучение.
-    Перестановка берётся из переданного генератора, поэтому порядок остаётся
-    воспроизводимым по сиду.
-    """
-
     def __init__(
         self,
         tensors: tuple[Tensor, ...],

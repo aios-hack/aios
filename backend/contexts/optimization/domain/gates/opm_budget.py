@@ -23,7 +23,6 @@ OPM_BUDGET_JOURNAL = "out/opm-budget.jsonl"
 
 @dataclass(frozen=True, slots=True)
 class RunBudget:
-
     wallclock_seconds: float
     surrogate_evaluations: int
     opm_runs: int

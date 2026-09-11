@@ -1,13 +1,3 @@
-"""Канонизация Schedule и трёхсоставной canonical_schedule_hash.
-
-Порядок событий, снятие точных дубликатов и отклонение конфликтов заданы
-инвариантами 1 и 2 (`contracts/README.md` §2), формула хеша — §1.6.
-
-**Задача G2, 20.08.** До этой даты здесь была отдельная строгая
-реализация RFC 8785 (JCS), потому что `contracts.hashing.canonical_bytes`
-считался приближением. Приближения больше нет: `contracts.hashing` сам —
-строгий JCS, этот модуль его переиспользует, а не дублирует.
-"""
 
 from __future__ import annotations
 
@@ -47,7 +37,6 @@ _DIGEST_BYTES = 32
 
 
 def _well_sort_key(well: str) -> str:
-    """Лексикографический порядок — канон `bridge.OpmDeckEmitter.source_wells`."""
     return well
 
 
@@ -75,8 +64,6 @@ def canonical_part_hash(value: Any) -> str:
 
 
 def normalize_well_state(state: WellState) -> WellState:
-    """Невведённая скважина всегда role=NONE, SHUT, 0.0 (§2 «Состояние скважины»)."""
-
     if state.availability is Availability.NOT_COMMISSIONED:
         if (
             state.role is Role.NONE
@@ -146,16 +133,12 @@ def canonicalize_control_events(
 def canonicalize_fixed_events(
     events: Sequence[FixedDeckEvent],
 ) -> tuple[FixedDeckEvent, ...]:
-    """Порядок фиксированного слоя — исходный порядок дека внутри шага (§1.6)."""
-
     indexed = list(enumerate(events))
     indexed.sort(key=lambda item: _fixed_event_key(item[0], item[1]))
     return tuple(event for _, event in indexed)
 
 
 def canonicalize(schedule: Schedule) -> Schedule:
-    """Каноническое расписание: нормализованные состояния и оба слоя в порядке §2."""
-
     wells = schedule.meta.wells or tuple(sorted(schedule.initial_state, key=_well_sort_key))
     initial_state = normalize_initial_state(schedule.initial_state, wells)
     control_events = canonicalize_control_events(schedule.control_events)
@@ -185,8 +168,6 @@ def canonical_hash_parts(schedule: Schedule) -> tuple[str, str, str]:
 
 
 def hash_canonical_schedule(schedule: Schedule) -> str:
-    """SHA256(SHA256(part1) ‖ SHA256(part2) ‖ SHA256(part3)) на сырых дайджестах."""
-
     canonical = canonicalize(schedule)
     digest = hashlib.sha256(
         canonical_digest(canonical.initial_state)

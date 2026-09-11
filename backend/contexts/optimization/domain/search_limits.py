@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 
-
 BASE_NPV = 11_873_122_324.91
 
 

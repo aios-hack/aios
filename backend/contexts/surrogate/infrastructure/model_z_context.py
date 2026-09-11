@@ -1,11 +1,3 @@
-"""Build and persist the real Model_Z feature context for task 34.
-
-The lambda matrix is estimated only from OPM responses in the training
-split.  For every control step, scenario means are removed before the
-regression, so the matrix captures response to changed injection rather
-than the common 18-year field trend.  Two disjoint scenario batches are fit
-independently; their correlation is stored as lambda stability.
-"""
 
 from __future__ import annotations
 
@@ -220,7 +212,6 @@ def _batch_tensors(
         )
     x = torch.tensor(injection_rows, dtype=torch.float64)
     y = torch.tensor(liquid_rows, dtype=torch.float64)
-    # Remove the common field trend separately on every control step.
     x = x - x.mean(dim=0, keepdim=True)
     y = y - y.mean(dim=0, keepdim=True)
     return x.reshape(-1, len(injectors)), y.reshape(-1, len(producers))
@@ -234,7 +225,7 @@ def _fit_matrix(x: torch.Tensor, y: torch.Tensor) -> tuple[torch.Tensor, int, fl
     ridge = max(1e-9, float(torch.trace(gram)) / max(1, gram.shape[0]) * 1e-4)
     regularized = gram + ridge * torch.eye(gram.shape[0], dtype=gram.dtype)
     weights = torch.linalg.solve(regularized, normalized.T @ y) / scale[:, None]
-    weights = weights.clamp_min(0.0).T  # producers × injectors
+    weights = weights.clamp_min(0.0).T
     rank = int(torch.linalg.matrix_rank(normalized).item())
     singular = torch.linalg.svdvals(normalized)
     positive = singular[singular > 1e-10]

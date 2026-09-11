@@ -1,4 +1,3 @@
-"""Direct scenario-level NPV head over schedule-only surrogate features."""
 
 from __future__ import annotations
 
@@ -27,24 +26,6 @@ FEATURE_PROVENANCE_FILES = (
     "backend/ml/surrogate/npv_economic_features.py",
 )
 
-# Хеш берётся по целым файлам, поэтому меняется от любой правки в них — вплоть
-# до комментария, — хотя признаки головы собирает единственная импортируемая
-# отсюда функция `model._features`. `surrogate/model.py` — 1449 строк под
-# активной разработкой, так что ложное срабатывание неизбежно и повторяемо.
-# Список ниже — тот же приём, что `LEGACY_IMPLEMENTATION_HASHES` в
-# `npv_block_head.py`: явный, проверяемый, с указанием, какая правка покрыта.
-#
-# Запись добавляется только после доказательства, что признаковая поверхность
-# не изменилась. Способ доказательства — сравнить исходники функций, а не
-# файлы:
-#
-#     ast.get_source_segment для `_features` и `_scenario_summary`
-#     до и после правки обязан совпасть байт в байт.
-#
-# 0071d65d — состояние до предела «нефть не больше жидкости в объёме»
-# (`predict`, `_scenario_money`, `_proxy_value`). Сравнение показало, что
-# изменились ровно эти три функции; `_features` и `_scenario_summary`
-# идентичны, то есть вход головы прежний.
 LEGACY_FEATURE_PROVENANCE_HASHES = {
     "0071d65d57e16ada366585177aadd2235074022d094cc156ab72b00b22d6ad7c",
 }
@@ -61,8 +42,6 @@ def feature_implementation_hash() -> str:
 
 
 def _economic_event_vector(grid: Tensor) -> Tensor:
-    """Exact schedule-state events relevant to event CAPEX/OPEX and timing."""
-
     n_wells = grid.shape[1]
     available = grid[:, :, 15] > 0.5
     opened = grid[:, :, 19] > 0.5
@@ -154,8 +133,6 @@ def scenario_feature_vector(
     n_wells: int,
     feature_set: FeatureSet = "full",
 ) -> Tensor:
-    """Collapse one complete schedule tensor into a scenario representation."""
-
     if x.ndim != 2 or x.shape[1] < BASE_FEATURES:
         raise ScenarioNpvHeadError(
             f"ожидался x[:, >={BASE_FEATURES}], получено {x.shape}"

@@ -14,13 +14,6 @@ from torch import (
 def _elementwise_loss(
     prediction: Tensor, target: Tensor, settings: "ModelConfig"
 ) -> Tensor:
-    """Поэлементная невязка выбранной функцией потерь.
-
-    `smooth_l1` с beta=1 в стандартизованных целях почти везде квадратичен:
-    ошибка выше одного стандартного отклонения — редкость. То есть заявленная
-    устойчивость к выбросам не работает, и `huber` с малой дельтой даёт другой
-    режим, а `mse` — противоположный.
-    """
     if settings.loss == "mse":
         return (prediction - target) ** 2
     if settings.loss == "huber":
@@ -37,14 +30,6 @@ def _money_coefficients(
     parameterization: str,
     oil_density_t_per_m3: float,
 ) -> Tensor:
-    """₽ за единицу каждой цели. При контрактной параметризации — не константа.
-
-    `rub_per_unit` всегда задан в физических константах порядка TARGET_NAMES:
-    маржа за тонну нефти, opex за м³ жидкости, opex за м³ закачки. Когда нефть
-    выводится из жидкости и обводнённости, цена ошибки по жидкости зависит от
-    того, сколько в ней нефти, а цена ошибки по обводнённости — от того,
-    сколько жидкости прошло. Это прямое дифференцирование build_cell_flows.
-    """
     if parameterization != "watercut":
         return rub_per_unit
     liquid = physical[:, 0:1]
@@ -77,19 +62,6 @@ def _money_weights(
     parameterization: str = "absolute",
     oil_density_t_per_m3: float = 0.9131,
 ) -> Tensor:
-    """Вес элемента лосса, пропорциональный рублёвой цене его ошибки.
-
-    Цели обучаются как log1p и стандартизуются, поэтому ошибка ε в
-    пространстве сети отвечает физической ошибке ε·scale·(1+v). Рубль же
-    линеен по физической величине: economics/npv.py build_cell_flows
-    умножает oil_mass_t, liquid_volume_m3 и injection_volume_m3 на скалярные
-    нормативы. Отсюда вес |₽/ед|·scale·(1+v), где (1+v) восстанавливается
-    как exp(y·scale + mean).
-
-    Без этого веса равномерный smooth_l1 минимизирует относительную ошибку и
-    уравнивает скважину на 1000 т со скважиной на 1 т, хотя в деньгах первая
-    стоит в тысячу раз дороже. Ровно отсюда бралось сжатие разброса ЧДД.
-    """
     physical = torch.expm1(y * scale + mean).clamp_min(0.0)
     coefficients = _money_coefficients(
         physical,
@@ -115,7 +87,6 @@ def _ranks(values: Tensor) -> Tensor:
 
 
 def _spearman(left: Tensor, right: Tensor) -> float:
-    """Ранговая корреляция со средними рангами связей и нулём для константы."""
     if left.numel() < 2:
         return 0.0
     centred_left = _ranks(left) - (left.numel() - 1) / 2.0
@@ -139,13 +110,6 @@ def _scenario_money(
     parameterization: str = "absolute",
     oil_density_t_per_m3: float = 0.9131,
 ) -> Tensor:
-    """Сценарный денежный прокси: Σ ₽·физическая величина по всем узлам.
-
-    Это не ЧДД — нет дисконтирования, налога, capex ЭЦН и событийных затрат.
-    Но именно линейные по объёму статьи дают подавляющую часть разброса ЧДД
-    между сценариями, а прокси считается на том же проходе валидации, что и
-    лосс, то есть бесплатно. Он нужен только чтобы упорядочить сценарии.
-    """
     physical = torch.expm1(standardized * scale + mean).clamp_min(0.0)
     if parameterization == "watercut":
         liquid = physical[:, 0]
@@ -157,10 +121,6 @@ def _scenario_money(
             + physical[:, 2] * rub_per_unit[2]
         )
     else:
-        # Та же дыра, что 8d6415f закрыл со стороны обводнённости, только с
-        # другой: в `absolute` нефть независима от жидкости, и прокси платит
-        # рублями за физически невозможную нефть. Ранговому лоссу этого
-        # достаточно, чтобы поднимать сценарии через неё.
         oil = torch.minimum(physical[:, 0], physical[:, 1] * oil_density_t_per_m3)
         value = oil * rub_per_unit[0] + (physical[:, 1:] * rub_per_unit[1:]).sum(dim=1)
     totals = torch.zeros(scenario_count, dtype=value.dtype, device=value.device)
@@ -169,7 +129,6 @@ def _scenario_money(
 
 
 def _standardize_scores(values: Tensor) -> Tensor:
-    """Нулевое среднее и единичный разброс; вырожденный случай не делит на ноль."""
     centred = values - values.mean()
     scale = torch.sqrt((centred * centred).mean() + 1e-12)
     return centred / scale
@@ -182,7 +141,6 @@ def _proxy_value(
     rub_per_unit: Tensor,
     settings: "ModelConfig",
 ) -> Tensor:
-    """Денежная ценность каждого узла — то, что суммируется в сценарный прокси."""
     physical = torch.expm1(standardized * scale + mean).clamp_min(0.0)
     if settings.target_parameterization == "watercut":
         liquid = physical[:, 0]
@@ -190,8 +148,6 @@ def _proxy_value(
         oil = liquid * (1.0 - watercut) * settings.oil_density_t_per_m3
         return (oil * rub_per_unit[0] + liquid * rub_per_unit[1]
                 + physical[:, 2] * rub_per_unit[2])
-    # Тот же предел, что в сценарном прокси: нефть не дороже той, что физически
-    # помещается в предсказанную жидкость.
     oil = torch.minimum(physical[:, 0], physical[:, 1] * settings.oil_density_t_per_m3)
     return oil * rub_per_unit[0] + (physical[:, 1:] * rub_per_unit[1:]).sum(dim=1)
 
@@ -199,18 +155,6 @@ def _proxy_value(
 def _pairwise_ranking_loss(
     predicted: Tensor, actual: Tensor, *, top_weighted: bool = False
 ) -> Tensor:
-    """Логистическая попарная невязка порядка сценариев.
-
-    Для каждой пары с различающимся фактом штраф равен softplus от разности,
-    взятой со знаком правильного порядка: пара, упорядоченная верно и с
-    запасом, не штрафуется, перевёрнутая — линейно по величине ошибки.
-
-    Оценки предварительно приводятся к нулевому среднему и единичному разбросу
-    внутри батча. Без этого сравниваются рубли порядка 1e9, softplus от такой
-    разности возвращает саму разность, и член в сто миллионов раз перекрывает
-    поштатный лосс — при любом весе, отчего веса 0.3, 1 и 3 давали неотличимый
-    результат и обучение не шло вовсе.
-    """
     predicted = _standardize_scores(predicted)
     difference = predicted.unsqueeze(0) - predicted.unsqueeze(1)
     truth = actual.unsqueeze(0) - actual.unsqueeze(1)
@@ -222,10 +166,6 @@ def _pairwise_ranking_loss(
     )
     if not top_weighted:
         return penalty.mean()
-    # Для шортлиста важна верхушка: перепутать сотое место с сто первым стоит
-    # ровно ничего, а первое со вторым — весь смысл. Вес пары равен разнице
-    # ценностей 1/(1+позиция), как в NDCG: пары с участием лидеров получают
-    # на два порядка больший вес, чем пары из хвоста.
     order = torch.argsort(actual, descending=True)
     position = torch.empty_like(actual)
     position[order] = torch.arange(

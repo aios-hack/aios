@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.policy.domain.rules.r7 import (
+    MONTHS_PER_YEAR,
+)
+
 from backend.contexts.economics.domain.errors import (
     EconomicsError,
 )

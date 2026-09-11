@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from backend.contexts.optimization.application.water_repair import (
     _repair_predicted_water_balance,
 )
@@ -57,9 +59,10 @@ from backend.contexts.schedule.domain.validate_dynamic import (
 )
 from backend.shared.json_io import read_json
 
+logger = logging.getLogger(__name__)
+
 
 def _search_theta(constraints) -> Theta:
-
     base = default_theta()
     corridor = compensation_policy(constraints)
     if not corridor.enabled:
@@ -233,7 +236,7 @@ def _search_near_baseline(
                 ood_exceedances=ood_exceedances,
             )
         )
-        print(f'локальный вариант {index + 1}/{budget}: допустим={not violations}, ЧДД={npv}', flush=True)
+        logger.info(f'локальный вариант {index + 1}/{budget}: допустим={not violations}, ЧДД={npv}')
     diagnostics = read_json(SEARCH_DIAGNOSTICS)
     diagnostics['fallback_budget'] = budget
     diagnostics['evaluations'].extend(records)

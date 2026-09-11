@@ -1,22 +1,7 @@
-"""Реальный `RunArtifact` базового прогона Model_Z. Задача G3.
-
-Заменяет `"provenance": "synthetic-demo"` на данные настоящего расчёта:
-`schedule`, `state_at_date`, `interval_response` и `npv_table` берутся из
-отклика настоящего прогона OPM (`aios/data/base_case/response.json`,
-собирается задачей G1 — `bridge.run_base_case` → `save_response_artifact`)
-и настоящей экономики (`economics.analyze_base_case`).
-
-`groups`/`lambda_` — не настоящая оценка связности. Измерить λ честно
-можно только серией прогонов с отклонениями закачки (`connectivity`,
-ортогональный план экспериментов) — такой серии нет, один базовый прогон
-её не даёт. Здесь — тривиальная, но не фиктивная заглушка: одна группа на
-весь фонд, нулевая матрица влияния той же формы, что у настоящей `Lambda`
-(producers × injectors), хеши посчитаны настоящими
-`connectivity.groups.lambda_hash`/`group_hash`, а не RNG. Не выдаётся за
-измерение — `matrix` заполнена нулями, а не подобранными числами.
-"""
 
 from __future__ import annotations
+
+from backend.contexts.showcase.application.notices import apply_notice, notice_fields
 
 import hashlib
 from dataclasses import dataclass
@@ -56,51 +41,22 @@ class BaseArtifactResult:
 
 
 def real_meta(kind: str, result: BaseArtifactResult) -> dict[str, Any]:
-    """Метаданные вида в бандле базового прогона.
-
-    Граф связности выделен отдельно и намеренно. Отклик, ЧДД и трасса
-    действительно посчитаны на прогоне OPM, а λ — нет: она заглушка
-    `_trivial_connectivity`, потому что серия возмущённых прогонов не
-    выполнялась ни разу. Код измерения при этом готов и закрыт задачами
-    первой версии (`DoEPlanner` 25, амплитуда 27, `LambdaEstimator` 28,
-    `Groups` 29) — но их приёмки прошли на синтетической матрице, не на
-    прогонах, и отдельной задачи «получить λ из настоящих прогонов» нет ни
-    в одной очереди. Пометка об этом жила только в докстринге этого
-    модуля, куда зритель интерфейса не заглядывает, — и витрина показывала
-    пустой граф под подписью «Настоящий расчёт». Признак вынесен в сами
-    метаданные: `lambda_measured` читается интерфейсом наравне с
-    `synthetic`, и пока он ложный, граф обязан говорить о себе правду.
-    """
-
     meta: dict[str, Any] = {
         "provenance": REAL_PROVENANCE,
         "synthetic": False,
         "kind": kind,
         "source_run_id": result.source_run_id,
         "response_hash": result.response_hash,
-        "notice_ru": REAL_NOTICE_RU,
-        "notice_en": REAL_NOTICE_EN,
+        **notice_fields("showcase.notice.real"),
     }
     if kind == "graph":
         meta["lambda_measured"] = result.lambda_measured
-        if not result.lambda_measured:
-            meta["notice_ru"] = (
-                "Базовый прогон OPM, но связность λ не измерена: серия возмущённых "
-                "прогонов не выполнялась, рёбер нет"
-            )
-            meta["notice_en"] = (
-                "OPM baseline run, but connectivity λ is not measured: the perturbation "
-                "series was never run, no edges"
-            )
-        else:
-            meta["notice_ru"] = (
-                "Настоящий расчёт: базовый прогон OPM, связность λ измерена планом "
-                "эксперимента на возмущённых прогонах"
-            )
-            meta["notice_en"] = (
-                "Real result: OPM baseline run, connectivity λ measured by a "
-                "design-of-experiments series of perturbed runs"
-            )
+        apply_notice(
+            meta,
+            "showcase.notice.graph_lambda_measured"
+            if result.lambda_measured
+            else "showcase.notice.graph_lambda_absent",
+        )
     return meta
 
 
@@ -110,8 +66,6 @@ def _economics_config_hash(normatives: NormativeSet, policies: Policies) -> str:
 
 
 def _trivial_connectivity(schedule) -> tuple[Lambda, Groups]:
-    """Групповая заглушка честной формы — см. докстринг модуля."""
-
     wells = schedule.meta.wells
     roles = {well: schedule.initial_state[well].role for well in wells}
     producers = tuple(well for well in wells if roles[well] is Role.PROD)
@@ -147,19 +101,6 @@ def build_base_artifact(
     model_dir: Path,
     lambda_path: Path | str | None = None,
 ) -> BaseArtifactResult:
-    """Настоящий `RunArtifact` базового прогона. `NotImplementedError`-стиль:
-
-    падает с понятной ошибкой, если `response_path` не существует, вместо
-    того чтобы тихо подменить синтетикой (`economics.load_response_artifact`
-    уже так и делает).
-
-    `lambda_path` — измеренная λ кампании `connectivity/campaign.py`. Пока
-    её не передали, связность остаётся заглушкой из докстринга модуля, и
-    метаданные графа честно несут `lambda_measured: false`. Переданный путь
-    к несуществующему файлу — ошибка, а не повод вернуться к заглушке
-    молча: витрина не должна показывать нули под видом замера.
-    """
-
     artifact = load_response_artifact(response_path)
     raw = (Path(model_dir) / _SCHEDULE_INCLUDE).read_bytes()
     parsed = parse_schedule(raw)
@@ -190,8 +131,6 @@ def build_base_artifact(
         groups=groups,
         lambda_=lambda_,
         constraints=Constraints(),
-        # Нет цикла политика-суррогат для базового прогона (нулевая
-        # перекладка) — нечему не сойтись. См. докстринг модуля.
         converged=True,
         self_consistent=True,
         final_npv=None,

@@ -16,13 +16,11 @@ _CACHEABLE_STATUSES = frozenset({RunStatus.OK, RunStatus.NOT_CONVERGED})
 
 
 def cache_key(deck_hash: str, canonical_schedule_hash: str, summary_hash: str) -> str:
-
     payload = f"{deck_hash}:{canonical_schedule_hash}:{summary_hash}".encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
 
 
 class RunCache:
-
     def __init__(self, cache_root: Path | str) -> None:
         self.cache_root = Path(cache_root).resolve()
         self.cache_root.mkdir(parents=True, exist_ok=True)
@@ -34,7 +32,6 @@ class RunCache:
     def lookup(
         self, deck_hash: str, canonical_schedule_hash: str, summary_hash: str
     ) -> RunResult | None:
-
         path = self._entry_path(deck_hash, canonical_schedule_hash, summary_hash)
         try:
             raw = path.read_text(encoding="utf-8")
@@ -64,7 +61,6 @@ class RunCache:
         return result
 
     def store(self, result: RunResult) -> None:
-
         if result.status not in _CACHEABLE_STATUSES:
             return
         path = self._entry_path(
@@ -86,7 +82,6 @@ class RunCache:
 
 
 class CachingOpmRunner:
-
     def __init__(self, runner: OpmRunner, cache: RunCache) -> None:
         self._runner = runner
         self._cache = cache
@@ -99,7 +94,6 @@ class CachingOpmRunner:
         run_id: str | None = None,
         flow_args: Sequence[str] | None = None,
     ) -> RunResult:
-
         try:
             hashes = deck_hashes(deck, schedule)
         except (OpmRunnerError, OSError, ValueError):
@@ -125,7 +119,6 @@ class CachingOpmRunner:
         run_id: str | None = None,
         flow_args: Sequence[str] | None = None,
     ) -> RunResult:
-
         cached = self._cache.lookup(deck_hash, canonical_schedule_hash, summary_hash)
         if cached is not None:
             return cached

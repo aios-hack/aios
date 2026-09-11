@@ -10,6 +10,7 @@ from backend.contexts.assistant.infrastructure.docs_index import (
     load_index,
 )
 from backend.contexts.assistant.infrastructure.knowledge import Knowledge
+from backend.contexts.assistant.application.briefing_cache import BRIEFING_TTL, BriefingCache
 from backend.contexts.assistant.application.orchestrator import Event, Orchestrator
 from backend.contexts.assistant.domain.session import SessionStore
 from backend.contexts.assistant.infrastructure.session_store import SessionDisk, SessionDiskError
@@ -28,7 +29,6 @@ DEV_ORIGINS: tuple[str, ...] = (
 MAX_BODY_BYTES = 16 * 1024
 MAX_AUDIO_BYTES = 2 * 1024 * 1024
 AUDIO_ROUTE = "/api/jarvis/transcribe"
-BRIEFING_TTL = 60.0
 
 
 class JarvisService:
@@ -63,7 +63,7 @@ class JarvisService:
         self._env = env
         self._tts = tts if tts is not None else TtsEngine()
         self._stt = stt if stt is not None else SttEngine(env)
-        self._briefings: dict[tuple[str, int, str], tuple[float, list[dict[str, Any]]]] = {}
+        self._briefings = BriefingCache(self._clock, BRIEFING_TTL)
         if orchestrator is None:
             self._build()
 
@@ -195,14 +195,13 @@ class JarvisService:
     ) -> list[dict[str, Any]]:
         key = (console.scenario, console.step or -1, console.lang)
         cached = self._briefings.get(key)
-        moment = self._clock()
-        if cached is not None and moment - cached[0] < BRIEFING_TTL:
-            return cached[1]
-        events: list[dict[str, Any]] = []
-        for event in self.orchestrator.briefing(session_id, console):
-            events.append(event.as_dict())
-        self._briefings[key] = (moment, events)
-        return events
+        if cached is not None:
+            return cached
+        events = [
+            event.as_dict()
+            for event in self.orchestrator.briefing(session_id, console)
+        ]
+        return self._briefings.put(key, events)
 
 
 def console_context(payload: Mapping[str, Any]) -> ConsoleContext:

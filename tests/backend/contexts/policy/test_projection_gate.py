@@ -1,10 +1,3 @@
-"""Шлюз проекции: ни одна уставка не попадает в расписание мимо неё.
-
-Протокол §5.2 плана: агенты предлагают, проекция отсекает, OPM решает.
-Часть проверок читает исходник `schedule_search.py` — единственность точки
-входа в расписание нельзя доказать одним прогоном, её надо доказать тем,
-что другой записи в `pending` в файле просто нет.
-"""
 
 from __future__ import annotations
 
@@ -79,8 +72,6 @@ def _enclosing_function(tree: ast.Module, lineno: int) -> str:
 
 
 def _substitutable_names(tree: ast.Module, name: str) -> set[str]:
-    """Имена, которые вызывающий может подменить: свои и захваченные извне."""
-
     chain: list[ast.FunctionDef] = []
     target = next(
         node

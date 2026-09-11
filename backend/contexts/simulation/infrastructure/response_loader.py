@@ -1,35 +1,3 @@
-"""ResponseLoader — читает бинарные артефакты OPM Flow в ResponseArtifact.
-
-contracts/README.md §3, §6; docs/context/08_contracts.md §4.1.1, §4.3.
-
-Формат SMSPEC/UNSMRY (ECLIPSE binary summary) в проекте нигде не документирован
-и не разбирался раньше — всё, что реализовано ниже, проверено настоящими
-прогонами OPM Flow 2026.04 (не документацией по памяти):
-
-- Fortran unformatted record ``[4 байта BE длина][payload][4 байта BE длина]``,
-  заголовок ключевого слова — всегда один такой record из 16 байт
-  (``keyword(8s)+count(u32 BE)+type(4s)``), данные — один или несколько
-  отдельных records, режутся по границе блока (105 элементов для CHAR, 1000
-  для INTE/REAL/DOUB/LOGI — константы из ``opm-common/opm/io/eclipse/
-  EclIOdata.hpp``, не придуманы).
-- Порядок колонок ``SMSPEC``/``UNSMRY`` не совпадает с порядком объявления
-  секции SUMMARY в деке (OPM переупорядочивает) — единственный надёжный
-  способ найти колонку: ``(KEYWORDS[i], WGNAMES[i], NUMS[i])``. Для
-  well-векторов ``NUMS[i]=0``, для connection-векторов (``COPT``/``COPR``)
-  ``NUMS[i]`` — 1-based натуральный индекс ячейки, та же формула, что уже
-  проверена в ``bridge.summary._grid_index``.
-- ``UNSMRY`` — последовательность ``SEQHDR``/``MINISTEP``/``PARAMS``.
-  ``SEQHDR`` инкрементируется на каждый report step (запрошенная
-  DATES/TSTEP дата), но между двумя ``SEQHDR`` может быть несколько
-  ``MINISTEP``/``PARAMS`` — солвер режет шаг для сходимости. Значение на
-  report-дату — последний ``PARAMS`` перед следующим ``SEQHDR`` (или EOF).
-  ``deck_date_index`` — порядковый номер группы ``SEQHDR`` (0-based), не
-  разбор даты.
-- ``WOMT``/``WOMR`` не читаются Flow 2026.04 (см. задачу 3) и
-  восстанавливаются из ``COPT``/``COPR`` с плотностью PVTNUM подключения.
-
-Полная методика проверки — журнал сессии; здесь описан только результат.
-"""
 
 from __future__ import annotations
 
@@ -67,14 +35,10 @@ from backend.contexts.reservoir.domain.response import N_DECK_DATES
 from backend.contexts.reservoir.infrastructure.summary import _TOKEN_RE, SummaryPlan, _grid_index
 
 
-# --- бинарный слой: Fortran-record reader, работает на любом ECLIPSE-файле ---
-
 _ELEMENTS_PER_BLOCK = {"INTE": 1000, "REAL": 1000, "DOUB": 1000, "LOGI": 1000, "CHAR": 105}
 
 
 def _iter_fortran_records(path: Path) -> Iterator[bytes]:
-    """[len(u32 BE)][payload][len(u32 BE)] — Fortran unformatted sequential."""
-
     data = path.read_bytes()
     pos = 0
     size = len(data)
@@ -93,12 +57,6 @@ def _iter_fortran_records(path: Path) -> Iterator[bytes]:
 
 
 def _iter_keyword_arrays(records: Iterator[bytes]) -> Iterator[tuple[str, str, list]]:
-    """(keyword, type, values) — по одному ключевому слову за раз.
-
-    Данные могут занимать несколько records подряд (см. ``_ELEMENTS_PER_BLOCK``);
-    все они собираются в один список до возврата.
-    """
-
     for header in records:
         keyword = header[:8].decode("ascii").strip()
         (count,) = struct.unpack_from(">I", header, 8)
@@ -129,8 +87,6 @@ def _iter_keyword_arrays(records: Iterator[bytes]) -> Iterator[tuple[str, str, l
 
 @dataclass(frozen=True, slots=True)
 class _SmSpecIndex:
-    """Позиция каждой колонки PARAMS по (keyword, wgname, nums) + размер сетки."""
-
     n_vectors: int
     nx: int
     ny: int
@@ -168,8 +124,6 @@ def _read_smspec(path: Path) -> _SmSpecIndex:
 
 
 def _read_unsmry_report_rows(path: Path, n_vectors: int) -> list[tuple[float, ...]]:
-    """Один ряд PARAMS на report step — последний MINISTEP перед следующим SEQHDR."""
-
     rows: list[tuple[float, ...]] = []
     current: tuple[float, ...] | None = None
     seen_seqhdr = False
@@ -195,12 +149,7 @@ def _read_unsmry_report_rows(path: Path, n_vectors: int) -> list[tuple[float, ..
     return rows
 
 
-# --- плотность PVTNUM: DENSITY из Model_Z_props.inc ---
-
-
 def load_density_by_pvtnum(model_dir: Path | str) -> dict[int, float]:
-    """Плотность нефти (кг/м³) по PVTNUM из DENSITY. §4.3: восстановление WOMT/WOMR."""
-
     props_path = Path(model_dir).resolve() / "Model_Z_props.inc"
     if not props_path.is_file():
         raise FileNotFoundError(props_path)
@@ -211,10 +160,10 @@ def load_density_by_pvtnum(model_dir: Path | str) -> dict[int, float]:
     densities: list[float] = []
     for line in lines[starts[0] + 1 :]:
         if not line.strip():
-            break  # пустая строка — конец блока
+            break
         body = line.split(b"--", 1)[0].strip()
         if not body:
-            continue  # строка целиком комментарий (напр. шапка колонок) — не конец блока
+            continue
         if not body.endswith(b"/"):
             raise ResponseLoaderError(f"{props_path}: запись DENSITY не закрыта '/': {body!r}")
         tokens = [
@@ -228,8 +177,6 @@ def load_density_by_pvtnum(model_dir: Path | str) -> dict[int, float]:
         raise ResponseLoaderError(f"{props_path}: DENSITY не содержит записей")
     return {pvtnum: density for pvtnum, density in enumerate(densities, start=1)}
 
-
-# --- сборочный слой: report row + SummaryPlan + плотности -> значения по скважине ---
 
 _KG_PER_TONNE = 1000.0
 
@@ -281,7 +228,6 @@ def _build_well_rows(
                 raise ResponseLoaderError(f"{well}: вектор {key} отсутствует в SMSPEC")
         well_columns[well] = columns
 
-    # Каждая запись — (колонка COPT, колонка COPR, плотность т/м³) для одного подключения.
     connection_columns: dict[str, list[tuple[int, int, float]]] = {}
     for well, connections in connections_by_well.items():
         entries: list[tuple[int, int, float]] = []
@@ -323,28 +269,19 @@ def _build_well_rows(
     return rows
 
 
-# --- Schedule: минимальная реплика состояния скважины, нужна только для
-#     active_control_mode (WMCTL==0 -> SHUT/NOT_COMMISSIONED, и факт/цель
-#     fallback, если WMCTL целиком недоступен). Не ProductionLedger — тот
-#     считает деньги, это чужая задача; здесь только то, что нужно loader'у.
-
-_RATE_CODES = frozenset({1, 2, 3, 4, 5, 9})  # ORAT/WRAT/GRAT/LRAT/RESV/CRAT
-_PRESSURE_CODES = frozenset({6, 7})  # THP/BHP
+_RATE_CODES = frozenset({1, 2, 3, 4, 5, 9})
+_PRESSURE_CODES = frozenset({6, 7})
 _GROUP_CODE = -1
-_NO_ACTIVE_CONTROL_CODE = 0  # SHUT/STOP/не найдена в динамике — Summary.cpp::well_control_mode
-# -10 (WMCtlUnk) и любой другой нераспознанный код падают в UNKNOWN ниже, без
-# отдельной константы — множество нераспознанных кодов не перечислимо.
+_NO_ACTIVE_CONTROL_CODE = 0
 
 _ACHIEVEMENT_THRESHOLD = 0.999
 _PRODUCER_BHP_LIMIT_BAR = 50.0
 _INJECTOR_BHP_LIMIT_BAR = 300.0
-_BHP_LIMIT_TOLERANCE_BAR = 5.0  # [выбор]: точный допуск в 08_contracts.md §4.3 не назван числом
+_BHP_LIMIT_TOLERANCE_BAR = 5.0
 
 
 @dataclass(frozen=True, slots=True)
 class _WellTimeline:
-    """Состояние скважины по Schedule на любой control_step 0…223 (или раньше)."""
-
     baseline_available: bool
     baseline_operating_status: OperatingStatus
     baseline_setpoint: float
@@ -373,7 +310,6 @@ class _WellTimeline:
 
 
 def _build_well_timelines(schedule: Schedule) -> dict[str, _WellTimeline]:
-    # Fixed commissioning precedes managed controls at the same step.
     events_by_well: dict[str, list[tuple[int, int, object]]] = {}
     for event in schedule.fixed_deck_events:
         if event.operator in {"WCONPROD", "WCONINJE"}:
@@ -405,7 +341,6 @@ def _build_well_timelines(schedule: Schedule) -> dict[str, _WellTimeline]:
                 status_values.append(
                     OperatingStatus.OPEN if event.kind is EventKind.OPEN else OperatingStatus.SHUT
                 )
-                # Retain support for schedules representing commissioning by OPEN.
                 if event.kind is EventKind.OPEN and first_commission is None:
                     first_commission = step
             elif event.kind in (EventKind.SET_LRAT, EventKind.SET_RATE):
@@ -425,8 +360,6 @@ def _build_well_timelines(schedule: Schedule) -> dict[str, _WellTimeline]:
 
 
 def _control_step_for_date(deck_date_index: int) -> int | None:
-    """control_step, чьё решение действует на эту дату; None — до начала горизонта (§1.2)."""
-
     if deck_date_index < N_DECK_DATES - N_INTERVALS - 1:
         return None
     return deck_date_index - (N_DECK_DATES - N_INTERVALS)
@@ -441,8 +374,6 @@ def _fallback_control_mode(
     injection_rate: float,
     bhp: float,
 ) -> ActiveControlMode:
-    """§4.3: правило факт/цель, применяется только когда WMCTL целиком недоступен."""
-
     if not commissioned:
         return ActiveControlMode.NOT_COMMISSIONED
     if operating_status is OperatingStatus.SHUT:
@@ -479,7 +410,7 @@ def _resolve_control_mode(
             return ActiveControlMode.BHP_LIMITED
         if code == _NO_ACTIVE_CONTROL_CODE:
             return ActiveControlMode.SHUT if commissioned else ActiveControlMode.NOT_COMMISSIONED
-        return ActiveControlMode.UNKNOWN  # -10 (WMCtlUnk) или нераспознанный код
+        return ActiveControlMode.UNKNOWN
 
     if control_step is None or timeline is None:
         return ActiveControlMode.UNKNOWN
@@ -491,9 +422,6 @@ def _resolve_control_mode(
         injection_rate=well_row.injection_rate,
         bhp=well_row.bhp,
     )
-
-
-# --- контрактный слой: здесь и только здесь проверяются оси 371/224 ---
 
 
 def _build_state_at_date(
@@ -540,12 +468,9 @@ def _build_interval_response(
         oil_mass_cum = [report_rows[d][well].oil_mass_cum for d in range(N_DECK_DATES)]
         liquid_cum = [report_rows[d][well].liquid_cum for d in range(N_DECK_DATES)]
         injection_cum = [report_rows[d][well].injection_cum for d in range(N_DECK_DATES)]
-        # Шаг 1 (§4.1.1): raw_diff[i] = cum[i+1]-cum[i], i=0..369, строго внутри скважины;
-        # терминальная строка i=370 в raw_diff не входит.
         oil_mass_diff = [oil_mass_cum[i + 1] - oil_mass_cum[i] for i in range(N_DECK_DATES - 1)]
         liquid_diff = [liquid_cum[i + 1] - liquid_cum[i] for i in range(N_DECK_DATES - 1)]
         injection_diff = [injection_cum[i + 1] - injection_cum[i] for i in range(N_DECK_DATES - 1)]
-        # Шаг 2: IntervalResponse[k] = raw_diff[146+k], k=0..223 — простая переиндексация.
         for k in range(N_INTERVALS):
             i = N_DECK_DATES - N_INTERVALS - 1 + k
             result.append(
@@ -592,12 +517,6 @@ def _find_artifact(paths: Sequence[str], suffix: str) -> Path:
 
 
 class ResponseLoader:
-    """Читает SMSPEC/UNSMRY успешного RunResult в ResponseArtifact.
-
-    contracts/README.md §3, §6. Неуспешный ``RunResult`` не может дать
-    отклик — падает сразу, не пытается угадать частичный результат.
-    """
-
     def load(
         self,
         run_result: RunResult,

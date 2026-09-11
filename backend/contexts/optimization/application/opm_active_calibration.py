@@ -1,10 +1,3 @@
-"""Local active-learning correction backed by hash-pinned OPM observations.
-
-This is deliberately not a universal replacement for the economic head.  It
-is valid only inside ``water_baseline_run``: baseline production controls with
-injection projected from measured produced water.  Outside the measured raw
-NPV interval it returns no corrected number and a positive domain score.
-"""
 
 from __future__ import annotations
 

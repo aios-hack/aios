@@ -65,7 +65,6 @@ def default_max_workers() -> int:
 
 @dataclass(frozen=True, slots=True)
 class RunMetadata:
-
     scenario_id: str
     family: PerturbationFamily
     seed: int
@@ -133,7 +132,6 @@ class RunMetadata:
 
 @dataclass(frozen=True, slots=True)
 class DatasetSample:
-
     schedule: Schedule
     response: ResponseArtifact | None
     metadata: RunMetadata
@@ -141,14 +139,12 @@ class DatasetSample:
 
 @dataclass(frozen=True, slots=True)
 class SkippedScenario:
-
     spec: PerturbationSpec
     report: ValidationReport
 
 
 @dataclass(frozen=True, slots=True)
 class DatasetBuildReport:
-
     dataset_hash: str
     plan_hash: str
     samples: tuple[DatasetSample, ...] = field(default_factory=tuple)
@@ -173,7 +169,6 @@ class DatasetBuildReport:
 
 
 def dataset_hash(plan: PerturbationPlan, metadata: Iterable[RunMetadata]) -> str:
-
     keys = sorted(
         {
             f"{item.scenario_id}:{item.canonical_schedule_hash}:"
@@ -186,7 +181,6 @@ def dataset_hash(plan: PerturbationPlan, metadata: Iterable[RunMetadata]) -> str
 
 
 class DatasetManifest:
-
     def __init__(self, path: Path | str) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -218,7 +212,6 @@ class DatasetManifest:
 
 
 class DatasetGenerator:
-
     def __init__(
         self,
         model_dir: Path | str,
@@ -280,7 +273,6 @@ class DatasetGenerator:
     def prepare(
         self, plan: PerturbationPlan
     ) -> tuple[tuple[MaterializedSchedule, ...], tuple[SkippedScenario, ...]]:
-
         base = self.base_schedule()
         accepted: list[MaterializedSchedule] = []
         skipped: list[SkippedScenario] = []
@@ -298,7 +290,6 @@ class DatasetGenerator:
         return self.dataset_root / "decks" / material.spec.scenario_id
 
     def emit_deck(self, material: MaterializedSchedule) -> EmittedOpmDeck:
-
         destination = self._deck_dir(material)
         if destination.exists() and any(destination.iterdir()):
             shutil.rmtree(destination)
@@ -357,7 +348,6 @@ class DatasetGenerator:
         response_hash: str,
         scenario_id: str | None = None,
     ) -> RunResult:
-
         self.retain_schedule(scenario_id or result.run_id, deck)
         if result.status is not RunStatus.OK or len(response_hash) != 64:
             raise DatasetError(
@@ -421,7 +411,6 @@ class DatasetGenerator:
         *,
         limit: int | None = None,
     ) -> DatasetBuildReport:
-
         started = datetime.now(timezone.utc)
         accepted, skipped = self.prepare(plan)
         self._write_plan(plan)
@@ -556,5 +545,4 @@ class DatasetGenerator:
 
 
 def schedule_keys(samples: Sequence[DatasetSample]) -> tuple[str, ...]:
-
     return tuple(hash_schedule(sample.schedule) for sample in samples)

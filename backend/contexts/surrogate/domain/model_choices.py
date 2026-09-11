@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 
-
 TARGET_PARAMETERIZATIONS: tuple[str, ...] = ("absolute", "watercut")
 
 

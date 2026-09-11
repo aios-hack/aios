@@ -11,8 +11,6 @@ from backend.contexts.assistant.infrastructure.system_map import (
     SystemMap,
     SystemMapError,
     default_system_path,
-    reset_shared_system_map,
-    shared_system_map,
 )
 
 
@@ -27,6 +25,4 @@ __all__ = [
     "SystemMap",
     "SystemMapError",
     "default_system_path",
-    "reset_shared_system_map",
-    "shared_system_map",
 ]

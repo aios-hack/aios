@@ -24,8 +24,6 @@ from backend.core.contracts import (
 )
 
 
-
-
 def missing_invariants(report: PhysicsReport) -> tuple[str, ...]:
     evaluated = {invariant.value for invariant in report.evaluated}
     return tuple(
@@ -49,7 +47,6 @@ def _enforce_physics(
     enabled: bool,
     baseline: Mapping[str, int] | None = None,
 ) -> None:
-
     if not enabled or report.admissible:
         return
     if not report.complete:
@@ -141,8 +138,6 @@ def full_physics_report(
         n_nodes=single.n_nodes,
         n_wells=single.n_wells,
     )
-
-
 
 
 def physics_counters(report: PhysicsReport) -> dict[str, int]:

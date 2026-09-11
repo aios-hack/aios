@@ -1,13 +1,10 @@
-"""Export the hash-pinned, OPM-confirmed champion to the web UI.
-
-The raw economic-head estimate remains visible as an explicitly OOD forecast;
-the only submitted number is reconstructed from the exact persisted OPM
-response and the same reference economics tract used during verification.
-"""
 
 from __future__ import annotations
 
-import json
+from backend.contexts.showcase.application.notices import (
+    notice_fields,
+)
+
 from pathlib import Path
 
 from backend.contexts.optimization.application.verification_run import LAMBDA, _load_constraints
@@ -133,14 +130,7 @@ def main() -> int:
         "economic_ood_threshold": champion["economic_ood_threshold"],
         "opm_npv_rub": champion["opm_npv_rub"],
         "water": champion["water"],
-        "notice_ru": (
-            "Наш план: ЧДД и траектория подтверждены OPM Flow; "
-            "raw-прогноз суррогата показан отдельно и помечен OOD"
-        ),
-        "notice_en": (
-            "Our plan: NPV and trajectory are confirmed by OPM Flow; the raw "
-            "surrogate estimate is shown separately and marked OOD"
-        ),
+        **notice_fields("showcase.notice.champion"),
     }
     written = export_scenario(
         artifact,

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.showcase.application.notices import (
+    notice_fields,
+)
+
 import json
 from pathlib import Path
 from typing import Any
@@ -90,7 +94,6 @@ DEMO_ROBUSTNESS: dict[str, ScenarioRobustness] = {
 def confirmed_base_robustness(
     npv_rub: float, source_run_id: str
 ) -> ScenarioRobustness:
-
     measured = DEMO_ROBUSTNESS[BASE_ID]
     return ScenarioRobustness(
         ood_score=measured.ood_score,
@@ -114,8 +117,7 @@ def demo_meta(kind: str) -> dict[str, Any]:
         "synthetic": True,
         "seed": DEMO_SEED,
         "kind": kind,
-        "notice_ru": DEMO_NOTICE_RU,
-        "notice_en": DEMO_NOTICE_EN,
+        **notice_fields("showcase.notice.demo"),
     }
 
 
@@ -131,7 +133,6 @@ HIERARCHY_NOTICE_EN = (
 
 
 def hierarchy_meta(artifact: RunArtifact) -> dict[str, Any]:
-
     return {
         "provenance": HIERARCHY_PROVENANCE,
         "synthetic": False,
@@ -140,8 +141,7 @@ def hierarchy_meta(artifact: RunArtifact) -> dict[str, Any]:
             weight != 0.0 for row in artifact.lambda_.matrix for weight in row
         ),
         "agent_registry": list(DEFAULT_REGISTRY.names()),
-        "notice_ru": HIERARCHY_NOTICE_RU,
-        "notice_en": HIERARCHY_NOTICE_EN,
+        **notice_fields("showcase.notice.hierarchy"),
     }
 
 
@@ -186,7 +186,6 @@ SCENARIO_KINDS: tuple[str, ...] = (
 def export_scenario(
     artifact: RunArtifact, out_dir: Path, meta_by_kind: dict[str, dict[str, Any]] | None = None
 ) -> list[Path]:
-
     meta_by_kind = meta_by_kind or {kind: demo_meta(kind) for kind in SCENARIO_KINDS}
     out_dir.mkdir(parents=True, exist_ok=True)
     densities = _oil_densities(artifact.schedule.meta.wells)
@@ -230,7 +229,6 @@ def _role_and_status(step: dict[str, Any]) -> dict[str, tuple[str, str, str]]:
 def field_events(
     timeline: dict[str, Any], trace: dict[str, dict[str, list[dict[str, Any]]]]
 ) -> list[dict[str, Any]]:
-
     steps = timeline["steps"]
     events: list[dict[str, Any]] = []
     previous = _role_and_status(steps[0])
@@ -280,7 +278,6 @@ def _pick_spread(events: list[dict[str, Any]], count: int) -> list[dict[str, Any
 def build_demo_script(
     timeline: dict[str, Any], trace: dict[str, dict[str, list[dict[str, Any]]]]
 ) -> dict[str, Any]:
-
     available = field_events(timeline, trace)
     by_type: dict[str, list[dict[str, Any]]] = {}
     for event in available:

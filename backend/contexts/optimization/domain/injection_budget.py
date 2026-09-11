@@ -67,7 +67,6 @@ UNCONSTRAINED_BUDGET_M3_PER_DAY = float("inf")
 
 @dataclass(frozen=True, slots=True)
 class InjectionBudget:
-
     control_step: int
     limit_m3_per_day: float
     binding_source: str
@@ -95,7 +94,6 @@ def injection_budget_for_step(
     physical_limit_m3_per_day: float | None = None,
     command_margin: float = 1.0,
 ) -> InjectionBudget:
-
     if not 0.0 < command_margin <= 1.0:
         raise ScheduleSearchError(
             f"control_step={control_step}: запас команды закачки должен лежать "
@@ -156,7 +154,6 @@ def _field_limit_for_step(
     control_step: int,
     produced_water_by_step: Sequence[float],
 ) -> float:
-
     return injection_budget_for_step(
         control_step=control_step,
         constraints=constraints,
@@ -176,7 +173,6 @@ def _scale_step_injection_to_limit(
     hard: HardConstraints = UNCONSTRAINED_WELLS,
     projection: Projection = project_to_hard_constraints,
 ) -> float:
-
     keys = [
         key
         for key in pending
@@ -222,7 +218,6 @@ def _damped_value(prior: float, proposed: float) -> float:
 def _relax_rate_layer(
     previous: Schedule, proposed: Schedule, *, symmetric: bool = True
 ) -> Schedule:
-
     rate_kinds = (EventKind.SET_LRAT, EventKind.SET_RATE)
     previous_rates = {
         (event.control_step, event.well, event.kind): float(event.value or 0.0)
@@ -265,7 +260,6 @@ def admit_candidate(
     hard: HardConstraints,
     projection: Projection = project_to_hard_constraints,
 ) -> ControlEvent:
-
     admitted = projection(event, hard)
     pending[(admitted.control_step, admitted.well, admitted.kind)] = admitted
     return admitted

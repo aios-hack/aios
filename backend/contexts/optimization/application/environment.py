@@ -66,7 +66,6 @@ from backend.contexts.optimization.domain.provenance import (
 )
 
 
-
 from backend.contexts.optimization.domain.errors import (
     ScheduleSearchError,
 )
@@ -129,7 +128,6 @@ _SCHEDULE_INCLUDE = "Model_Z_sch.inc"
 
 
 def _trivial_connectivity(schedule: Schedule) -> tuple[Lambda, Groups]:
-
     wells = schedule.meta.wells
     roles = {well: schedule.initial_state[well].role for well in wells}
     producers = tuple(well for well in wells if roles[well] is Role.PROD)
@@ -203,7 +201,6 @@ def load_environment(
     ood_penalty_per_unit: float = 0.0,
     lambda_strict: bool | None = None,
 ) -> SearchEnvironment:
-
     strict_lambda = _lambda_strict_enabled() if lambda_strict is None else lambda_strict
     case_constraints = Constraints() if constraints is None else constraints
     water_supply_policy(case_constraints)

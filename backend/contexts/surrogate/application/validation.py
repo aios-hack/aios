@@ -5,7 +5,6 @@ from backend.contexts.surrogate.domain.validation_pass import (
 )
 
 
-
 from backend.contexts.surrogate.domain.model_types import (
     TARGET_NAMES,
     TrainingExample,
@@ -31,8 +30,6 @@ def split_examples(
     test_fraction: float = 0.15,
     seed: int = 20260816,
 ) -> tuple[tuple[TrainingExample, ...], tuple[TrainingExample, ...], tuple[TrainingExample, ...]]:
-    """Deterministic scenario-level split; nodes from one run never leak."""
-
     if not (0.0 < validation_fraction < 1.0 and 0.0 < test_fraction < 1.0):
         raise SurrogateModelError("validation_fraction/test_fraction должны лежать в (0, 1)")
     if validation_fraction + test_fraction >= 1.0:
@@ -55,8 +52,6 @@ def target_mae(
     model: "TrajectorySurrogate",
     examples: Iterable[TrainingExample],
 ) -> dict[str, float]:
-    """Real-unit channel MAE for diagnostics; never used as the sole gate."""
-
     totals = [0.0] * len(TARGET_NAMES)
     count = 0
     for example in examples:

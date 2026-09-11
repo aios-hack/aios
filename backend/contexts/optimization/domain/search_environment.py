@@ -34,7 +34,6 @@ from backend.contexts.surrogate.domain.npv_head import ScenarioNpvHead
 
 @dataclass(frozen=True, slots=True)
 class SearchEnvironment:
-
     base_schedule: Schedule
     real_history: ResponseArtifact
     normatives: NormativeSet

@@ -1,18 +1,13 @@
-"""Trainable full-trajectory reservoir surrogate (task 34).
-
-The model consumes :class:`surrogate.features.SurrogateInput`, so no
-simulator-derived value can leak into inference.  Each ``(well, step)`` node
-is mapped to the six raw channels required by :class:`ResponseAdapter`.
-History is represented by the cumulative target features and the measured
-lambda aggregates produced by ``ScheduleFeatureizer``; a learned well
-embedding captures stable per-well effects.
-
-PyTorch is an optional dependency.  Keeping this module out of
-``surrogate.__init__`` lets the deterministic core of AIOS run without the
-heavy ML stack; install ``aios[ml]`` to train or load a checkpoint.
-"""
 
 from __future__ import annotations
+
+from backend.contexts.surrogate.domain.model_choices import (
+    TARGET_PARAMETERIZATIONS,
+    _LOSSES,
+    _LR_SCHEDULES,
+    _SCENARIO_CONTEXTS,
+    _SELECTION_CRITERIA,
+)
 
 from backend.contexts.surrogate.application.validation import (
     split_examples,
@@ -111,13 +106,6 @@ from backend.contexts.surrogate.domain.raw_model_output import (
 )
 
 
-# Контракт (docs/context/08_contracts.md §5, 07_concept.md §5.1) требует
-# предсказывать раздельно факт добычи жидкости, обводнённость и приёмистость,
-# а нефть выводить как q_ж × (1 − обводнённость). Реализация задачи 34 вместо
-# этого предсказывала oil_mass_delta напрямую — то есть шестым независимым
-# таргетом ту величину, на которой висит 97% денег, и без связи с жидкостью.
-
-
 WATERCUT_TARGET_NAMES: tuple[str, ...] = (
     "liquid_volume_delta",
     "watercut",
@@ -126,52 +114,12 @@ WATERCUT_TARGET_NAMES: tuple[str, ...] = (
     "injection_rate",
     "bhp",
 )
-# Обводнённость выше единицы означала бы отрицательную добычу. В измеренных
-# целях такое встречается — это перетоки, артефакт разбора UNSMRY, — но ни
-# предсказывать, ни оценивать их нельзя: контракт отрицательную нефть отвергает.
-# Потолок 1.5 в денежном прокси оказался дырой, которую ранговый лосс нашёл и
-# использовал: поднять сценарий в порядке можно было, загнав обводнённость за
-# единицу, и обученная так модель дала Spearman −0.512 при ранге 0.908 на
-# валидации. Предел один и тот же во всех путях.
 
 
-# False — без сводки, True/"mean" — средние, "rich" — плюс разброс, крайние
-# значения и раздельные средние по добывающим и нагнетательным.
-
-
-# Приросты накопленных величин, восстановленные из UNSMRY, могут уйти в минус
-# по двум разным причинам, и смешивать их нельзя.
-#
-# Первая — представление: UNSMRY хранит накопления 4-байтными float, вычитание
-# двух близких значений даёт хвост порядка 1e-7 от самого накопления.
-#
-# Вторая — физика. Масса нефти собирается из COPT по подключениям, а у почти
-# остановленной скважины подключения могут работать в обратную сторону: замер
-# на прогоне `20260817T104426-70e8e055e519`, скважина 44, интервал 219 —
-# `oil_rate = -0.1177` т/сут при `liquid_rate = 0.65` м³/сут, отрицательный
-# COPR у 10 из 14 подключений, накопление падает на 3.53 т. Это переток нефти
-# обратно в пласт, и OPM сообщает о нём честно. По всему датасету из 732
-# прогонов таких интервалов 502 из 16 150 400 (0.0031%), худший -15.84 т, и
-# только по массе нефти: жидкость и закачка отрицательными не становятся
-# нигде. Считать долю нужно с SMSPEC каждого прогона: один общий индекс
-# колонок на весь датасет даёт неверные значения.
-#
-# Переток — не добыча, поэтому целью берётся ноль. Эталонный расчётчик такую
-# строку выбрасывает из экономики целиком (`is_excluded_by_negative_rule`,
-# contracts/response.py), то есть её вклад в ЧДД тоже нулевой; предсказать
-# отрицательный прирост модель всё равно не может, потому что выход идёт через
-# `log1p`/`expm1` и неотрицателен по построению.
-#
-# Глушить любой минус нельзя, иначе исчезает защита от настоящей ошибки
-# в разборе UNSMRY. Поэтому защит две: ниже `_BACKFLOW_FLOOR` обучение падает
-# сразу, а если доля таких интервалов превысит `_BACKFLOW_SHARE_LIMIT`, падает
-# на сборке тензоров — замеренная доля 0.0031%, порог в 320 раз выше неё.
 _INFERENCE_BATCH_SIZE = 65_536
 
 
 class TrajectorySurrogate:
-    """Neural predictor with mandatory OOD score and stable checkpoint id."""
-
     CHECKPOINT_FORMAT = "aios.surrogate.node-trajectory.v1"
 
     def __init__(
@@ -300,18 +248,6 @@ class TrajectorySurrogate:
         train_npv_rub: Tensor | None = None,
         validation_npv_rub: Tensor | None = None,
     ) -> TrainingResult:
-        """Обучение по готовым тензорам, без списка `TrainingExample`.
-
-        Нужно там, где примеры не помещаются в память: на 700 прогонах Model_Z
-        одни отклики занимают около 15 ГБ (43 млн объектов Python), тогда как
-        тензоры тех же данных — 2.8 ГБ. Вызывающий строит тензоры потоком,
-        освобождая отклик сразу после каждого сценария, и передаёт сюда только
-        их. `fit` остаётся прежним и делегирует сюда же, поэтому расхождения
-        между двумя путями обучения быть не может.
-
-        Тензоры целей ожидаются **уже приведёнными** скейлерами модели —
-        ровно так, как это делает `fit`.
-        """
         settings = model.config
         target_stats = {} if target_stats is None else target_stats
         selected_device = torch.device(
@@ -385,9 +321,6 @@ class TrajectorySurrogate:
             else None
         )
 
-        # Денежная разметка целей. Пустой money_rub_per_unit оставляет
-        # равномерный smooth_l1 и отбор по валидационному лоссу — поведение,
-        # которым обучен чекпоинт задачи 34.
         weighted = bool(settings.money_rub_per_unit)
         target_scale = torch.tensor(
             model.target_scaler.scale, dtype=train_y.dtype, device=selected_device
@@ -442,8 +375,6 @@ class TrajectorySurrogate:
                 else:
                     loss = _elementwise_loss(prediction, y, settings).mean()
                 if ranking:
-                    # Shared coordinates reduce composition noise. Exact
-                    # full-scenario labels, when provided, determine the order.
                     money = torch.zeros(
                         n_groups, dtype=prediction.dtype, device=prediction.device
                     )
@@ -487,9 +418,6 @@ class TrajectorySurrogate:
             current_lr = float(optimizer.param_groups[0]["lr"])
             if scheduler is not None:
                 scheduler.step()
-            # Критерий отбора — всегда «меньше лучше». Ранговый берётся со
-            # знаком минус: суррогат сдаёт порядок сценариев, а не поштатную
-            # MSE, и argmin по шумному лоссу выбирал удачную флуктуацию.
             if criterion == "rank":
                 score = -outcome.rank
             elif criterion == "money":
@@ -538,8 +466,6 @@ class TrajectorySurrogate:
         return predict_with_score(self._predict_output(candidate), candidate, self.domain)
 
     def _predict_output(self, candidate: SurrogateInput) -> RawModelOutput:
-        """Physical prediction without OOD scoring for ensemble orchestration."""
-
         if candidate.static_feature_names != self.static_feature_names:
             raise SurrogateModelError("статика кандидата не совпадает с checkpoint")
         x, well_index = _features(
@@ -550,19 +476,12 @@ class TrajectorySurrogate:
     def _predict_output_from_features(
         self, candidate: SurrogateInput, x: Tensor, well_index: Tensor
     ) -> RawModelOutput:
-        """Decode an already featureized candidate (shared by an ensemble)."""
-
         if candidate.static_feature_names != self.static_feature_names:
             raise SurrogateModelError("статика кандидата не совпадает с checkpoint")
         x = self.input_scaler.transform(x)
         self.network.eval()
         chunks: list[Tensor] = []
         with torch.no_grad():
-            # Training batch size is an optimization hyperparameter, not an
-            # inference contract. A complete Model Z scenario has about 23k
-            # rows; replaying it in tiny training batches made every
-            # fixed-point evaluation needlessly expensive. The network uses
-            # row-local LayerNorm, so larger inference batches are equivalent.
             batch_size = max(self.config.batch_size, _INFERENCE_BATCH_SIZE)
             for start in range(0, len(x), batch_size):
                 stop = start + batch_size
@@ -574,8 +493,6 @@ class TrajectorySurrogate:
         nodes: list[RawWellStepPrediction] = []
         for source, values in zip(candidate.nodes, decoded.tolist()):
             if watercut_mode:
-                # Нефть выводится тождеством контракта, а не предсказывается:
-                # это гарантирует согласованность с жидкостью по построению.
                 liquid, watercut, injection, liquid_rate, injection_rate, bhp = values
                 watercut = min(max(watercut, 0.0), _WATERCUT_CEILING)
                 oil = liquid * (1.0 - watercut) * self.config.oil_density_t_per_m3
@@ -611,15 +528,6 @@ class TrajectorySurrogate:
         )
 
     def _fingerprint(self, config: dict | None = None) -> str:
-        """Отпечаток весов и метаданных checkpoint.
-
-        `config` передаётся только при проверке загруженного файла: там
-        берётся словарь, записанный при сохранении, а не `asdict` текущего
-        `ModelConfig`. Иначе любое новое поле конфига с умолчанием меняет
-        отпечаток и объявляет повреждёнными все ранее обученные модели,
-        включая `model-task34-700`, на котором держатся G5 и G7.
-        """
-
         digest = hashlib.sha256()
         metadata = {
             "format": self.CHECKPOINT_FORMAT,

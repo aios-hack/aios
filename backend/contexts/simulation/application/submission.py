@@ -1,32 +1,3 @@
-"""Задача 62, звено А (§10.5): один сервис, `Schedule*` → `FinalNpvArtifact`
-с доказуемым происхождением.
-
-```
-validate_static(Schedule*) == []                       ── гейт до эмита
-OpmDeckEmitter → OPM-дек, content_hash_opm
-CachingOpmRunner → OpmRunArtifact, требуется status == OK
-ResponseLoader → ResponseArtifact
-validate_dynamic == []
-Economics → FinalNpvArtifact
-```
-
-Шесть обязательных тождеств таблицы §10.5 проверяются здесь явно, а не
-полагаются на то, что пайплайн «и так» их не нарушит: неявная
-корректность — то, из-за чего звено А вообще понадобилось.
-
-**Считаются все шесть и всегда, даже когда первое уже провалилось.** Отчёт,
-обрывающийся на первом расхождении, не даёт понять, одна ли вещь сломана
-или цепочка разошлась целиком, — а второй попытки сдачи организаторы не
-дают [Онб.14]. Исключение бросается один раз, в конце, и перечисляет все
-причины сразу. Единственный досрочный обрыв — `validate_static`: за ним
-идёт прогон OPM ценой в 10–20 минут, и гонять его для уже отклонённого
-расписания незачем.
-
-Не строит `SubmissionArtifact` (звено Б) — формат `wells_schedule.inc` не
-подтверждён организаторами (§3.1, задача 62B). Когда подтвердят —
-отдельная функция в этом же модуле, использующая тот же
-`canonical_schedule_hash` как связующий идентификатор между звеньями.
-"""
 
 from __future__ import annotations
 
@@ -73,8 +44,6 @@ _SCHEDULE_INCLUDE = "Model_Z_sch.inc"
 
 @dataclass(frozen=True, slots=True)
 class IdentityCheck:
-    """Одно тождество §10.5: имя, вердикт и что именно разошлось."""
-
     name: str
     holds: bool
     detail: str
@@ -82,14 +51,6 @@ class IdentityCheck:
 
 @dataclass(frozen=True, slots=True)
 class SubmissionResult:
-    """Полный след звена А: каждый шаг тракта, не только конечный артефакт.
-
-    `response`, `dynamic_report` и `final_npv` равны `None` ровно тогда,
-    когда цепочка до них не дошла — несошедшийся прогон отклика не даёт, а
-    без отклика не считается ни динамика, ни деньги. Подставлять сюда
-    правдоподобную заглушку запрещено правилом 6 репозитория.
-    """
-
     static_report: ValidationReport
     opm_run: OpmRunArtifact
     response: ResponseArtifact | None
@@ -103,9 +64,6 @@ class SubmissionResult:
 
     @property
     def sound(self) -> bool:
-        """Можно ли заявлять число: чистая статика, чистая динамика,
-        `status == OK` и все шесть тождеств."""
-
         return (
             self.static_report.ok
             and self.dynamic_report is not None
@@ -117,8 +75,6 @@ class SubmissionResult:
 
     @property
     def npv_methodology(self) -> float:
-        """Заявляемое число. Недоступно, пока цепочка не прошла целиком."""
-
         if not self.sound or self.final_npv is None:
             raise SubmissionTractError(
                 "цепочка сдачи не прошла, заявлять число нечем: "
@@ -128,8 +84,6 @@ class SubmissionResult:
 
 
 def _failure_summary(result: SubmissionResult) -> str:
-    """Все причины провала разом, а не первая попавшаяся."""
-
     reasons: list[str] = []
     if not result.static_report.ok:
         reasons.append(
@@ -157,10 +111,6 @@ def _run(
     emitter = OpmDeckEmitter(model_dir)
     deck_dir = work_root / "deck"
     if deck_dir.exists():
-        # Эмит детерминирован по (model_dir, schedule) — пересборка не меняет
-        # результат (`bridge.base_run.run_base_case` делает то же самое),
-        # без очистки повторный вызов на тот же work_root падает на непустой
-        # destination (`OpmDeckEmitter.emit`).
         shutil.rmtree(deck_dir)
     deck = emitter.emit(schedule, deck_dir)
 
@@ -182,10 +132,6 @@ def _run(
         content_hash_opm=deck.content_hash_opm,
     )
 
-    # Тождества здесь не проверяются и прогон не обрывается: их считает
-    # `_identities` — все шесть и всегда, чтобы отчёт показывал, одна ли вещь
-    # сломана или цепочка разошлась целиком. Единственное, что решается тут, —
-    # можно ли вообще читать отклик: у несошедшегося прогона его нет.
     if opm_run.status is not RunStatus.OK:
         return opm_run, None
 
@@ -203,12 +149,6 @@ def _identities(
     expected_economics_hash: str,
     expected_methodology_hash: str,
 ) -> tuple[IdentityCheck, ...]:
-    """Все шесть тождеств таблицы §10.5, считаются всегда и целиком.
-
-    Обрыв на первом расхождении не даёт понять, одна ли вещь сломана или
-    цепочка разошлась вся, — а вторую попытку сдачи организаторы не дают.
-    """
-
     recomputed = hash_schedule(schedule)
     checks = [
         IdentityCheck(
@@ -315,27 +255,8 @@ def submit_schedule(
     oil_density_t_per_m3: float | None = None,
     groups: Groups | None = None,
 ) -> SubmissionResult:
-    """`Schedule*` → `FinalNpvArtifact`, все шесть тождеств §10.5 проверены.
-
-    `strict=True` (умолчание) — при непройденном звене А бросает
-    `SubmissionTractError`, перечисляя **все** причины сразу.
-    `strict=False` возвращает тот же `SubmissionResult` без исключения:
-    нужно, когда цепочку разбирают, а не сдают — `result.sound` говорит,
-    можно ли заявлять число, `result.failed_identities` — что именно
-    разошлось.
-
-    `deck_dates`/`t0_deck_date_index` не аргументы — это свойства дека
-    Model_Z (371 календарная дата, историческая часть неизменна), не
-    конкретного `Schedule*`: берутся из `model_dir`, не из вызывающего
-    кода, чтобы их нельзя было передать рассинхронизированными.
-    """
-
     static_report = validate_static(schedule, constraints)
     if not static_report.ok:
-        # Единственное место, где цепочка обрывается досрочно, и обрыв здесь
-        # осознан: следующий шаг — прогон OPM ценой в 10–20 минут, а расписание
-        # уже отклонено. Дальше по тракту обрывов нет, там отчёт собирается
-        # целиком.
         raise SubmissionTractError(
             f"validate_static(Schedule*) == [] не выполнено: "
             f"{len(static_report.violations)} нарушений, первое — "
@@ -345,15 +266,6 @@ def submit_schedule(
     opm_run, response = _run(schedule, model_dir, work_root, use_cache=use_cache)
 
     parsed = parse_schedule((Path(model_dir) / _SCHEDULE_INCLUDE).read_bytes())
-    # report_undershoot=False: BHP_LIMITED — законный режим контроля, не
-    # нарушение («скважина упёрлась в предел 50/300 бар, цель недостигнута»,
-    # docs/context/08_contracts.md §8.1). Недостижение цели из-за настоящего
-    # физического предела — не то, что ловит гейт «не нарушает динамические
-    # ограничения»; для этого есть отдельные BHP_BELOW_PRODUCER_LIMIT/
-    # BHP_ABOVE_INJECTOR_LIMIT и BHP_LIMITED_WITHOUT_UNDERSHOOT (реальная
-    # нестыковка — режим BHP_LIMITED без просадки факта). Недостижение
-    # остаётся в отчёте как диагностика (`dynamic_report.undershooting()`),
-    # не как блокирующее нарушение.
     dynamic_report = None
     final_npv = None
     expected_economics_hash = economics_config_hash(config)
@@ -369,9 +281,6 @@ def submit_schedule(
             report_undershoot=False,
             groups=groups,
         )
-        # ЧДД считается и при грязной динамике: заявлять его нельзя (`sound`
-        # будет ложным), но в отчёте видно, какое именно число получилось бы —
-        # без этого нарушение динамики и ошибка в деньгах неразличимы.
         analysis = analyze_base_case(
             response,
             parsed.dates,

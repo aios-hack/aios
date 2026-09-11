@@ -1,50 +1,3 @@
-"""CRM — базовая линия суррогата. Задача 31, docs/context/08_contracts.md §5.5.
-
-CRM (Capacitance-Resistance Model) здесь не физическая основа решения:
-`07_concept.md` §5.1.3 закрыл этот вопрос — связность измеряется планом
-эксперимента, а не выводится моделью. CRM остаётся ровно двумя вещами:
-
-1. **Базовой линией.** Порог, который обязана бить любая модель, иначе она
-   отвергается. Считается за день, без внешних зависимостей.
-2. **Источником ограничения материального баланса.** Закачанная вода не
-   может дойти до соседей в объёме больше закачанного — у CRM это условие
-   на коэффициенты аллокации, и здесь оно накладывается **в ходе подгонки**,
-   а не проверкой постфактум.
-
-Модель на интервале управления `k` для добывающей `p`:
-
-    liquid[p][k] = base[p] + Σ_i f[p][i] * filtered_injection[i][k]
-
-`f[p][i]` — коэффициент аллокации: доля воды нагнетательной `i`, доходящая
-до `p`. `filtered_injection` — закачка, пропущенная через апериодическое
-звено первого порядка с временной константой `tau` (это и есть «capacitance»
-CRM: пласт отвечает на закачку не мгновенно).
-
-**Два ограничения, оба физические, оба несущие.**
-
-- `f[p][i] >= 0`: вода не может отбирать жидкость у соседа. Без него
-  подгонка на 42 свободных коэффициента запоминает обучающий кусок и
-  разваливается на отложенном (замерено: holdout R² −5.3 против +0.87).
-- `Σ_p f[p][i] <= 1`: материальный баланс по столбцу. Ограничение по
-  столбцу, а не по строке — делится вода одной нагнетательной между
-  добывающими, а не наоборот. Накладывается внутри цикла подгонки:
-  пересчёт коэффициентов уже сошедшейся неограниченной подгонки ломает
-  прогноз (замерено: R² −2.56), потому что base[p] остаётся подогнанным
-  под непересчитанные коэффициенты.
-
-**Качество меряется на отложенной части, не на обучающей.** Ось времени
-режется на префикс (подгонка) и суффикс (замер): `train_intervals`
-интервалов на подгонку, остальные на замер. Метрики считаются только на
-суффиксе; метрики на префиксе возвращаются отдельным полем — они не
-приёмка, а диагностика переобучения.
-
-Метрики те же, что потом обязан показать суррогат (§5.5): ранговая
-корреляция Спирмена, R², MAE и медианная относительная ошибка. Сравнение
-делается функцией `compare_to_baseline`.
-
-Оси и типы — контрактные: на вход `IntervalResponse[224]`, никаких
-собственных представлений отклика.
-"""
 
 from __future__ import annotations
 
@@ -68,8 +21,6 @@ _MIN_TAU = 1e-6
 
 @dataclass(frozen=True, slots=True)
 class CrmSplit:
-    """Разрез оси времени на подгонку и замер. Суффикс — отложенная часть."""
-
     train_intervals: int
     n_intervals: int
 
@@ -97,8 +48,6 @@ class CrmSplit:
 
 @dataclass(frozen=True, slots=True)
 class CrmMetrics:
-    """Метрики одного куска оси времени. Те же величины меряет суррогат."""
-
     n_points: int
     r2: float
     mae: float
@@ -108,8 +57,6 @@ class CrmMetrics:
 
 @dataclass(frozen=True, slots=True)
 class CrmModel:
-    """Подогнанная базовая линия: аллокация, отклик пласта, разрез оси."""
-
     producers: tuple[str, ...]
     injectors: tuple[str, ...]
     allocation: tuple[tuple[float, ...], ...]
@@ -139,8 +86,6 @@ class CrmModel:
 
 @dataclass(frozen=True, slots=True)
 class CrmEvaluation:
-    """Результат приёмки: отложенная часть — приёмка, обучающая — диагностика."""
-
     model: CrmModel
     holdout: CrmMetrics
     train: CrmMetrics
@@ -194,8 +139,6 @@ def _pearson(left: Sequence[float], right: Sequence[float]) -> float:
 
 
 def spearman(left: Sequence[float], right: Sequence[float]) -> float:
-    """Ранговая корреляция — сдаваемая метрика §5.2, со связками через средний ранг."""
-
     if len(left) != len(right):
         raise CrmError("ранговая корреляция требует совпадающих длин")
     return _pearson(_rank(left), _rank(right))
@@ -259,8 +202,6 @@ def _series_by_well(
 
 
 class CrmBaseline:
-    """Подгонка CRM на настоящем отклике и честный замер на отложенной части."""
-
     def __init__(
         self,
         *,
@@ -424,8 +365,6 @@ class CrmBaseline:
 def predict_liquid(
     model: CrmModel, injection_by_well: Mapping[str, Sequence[float]], n_intervals: int
 ) -> dict[str, tuple[float, ...]]:
-    """Прогноз помесячных объёмов жидкости под произвольную программу закачки."""
-
     missing = [well for well in model.injectors if well not in injection_by_well]
     if missing:
         raise CrmError(f"нет программы закачки для нагнетательных: {sorted(missing)}")
@@ -450,8 +389,6 @@ def predict_liquid(
 
 @dataclass(frozen=True, slots=True)
 class BaselineComparison:
-    """Сравнение суррогата с базовой линией на одних и тех же метриках."""
-
     baseline: CrmMetrics
     candidate: CrmMetrics
     beats_baseline: bool
@@ -461,8 +398,6 @@ class BaselineComparison:
 def compare_to_baseline(
     baseline: CrmMetrics, candidate: CrmMetrics
 ) -> BaselineComparison:
-    """§5.5: модель обязана бить CRM по ранговой корреляции, иначе отвергается."""
-
     if baseline.n_points != candidate.n_points:
         raise CrmError(
             "сравнение с базовой линией требует одной и той же выборки: "

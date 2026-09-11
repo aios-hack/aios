@@ -1,4 +1,3 @@
-"""Validation-selected averaging ensemble for physical trajectory models."""
 
 from __future__ import annotations
 
@@ -82,9 +81,6 @@ class TrajectoryEnsemble:
         ).hexdigest()
 
     def predict(self, candidate: SurrogateInput) -> ScoredPrediction:
-        # All members are required to share the exact same training domain in
-        # __post_init__. Score the candidate once: doing the identical Python
-        # scan for every member tripled latency without adding information.
         x, well_index = _features(
             candidate,
             self.wells,

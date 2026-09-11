@@ -18,5 +18,16 @@
     "api_surface.json: no public symbol disappears; renames must be listed in the wave report",
     "errors.json: every name survives or maps to a documented replacement",
     "cli.json: exit codes may change from 1 to the codes in plan section 3.4; messages become English"
+  ],
+  "refreshed": [
+    {
+      "at": "2026-09-11 after wave 2",
+      "files": [
+        "showcase.json",
+        "recordings.json",
+        "knowledge.json"
+      ],
+      "why": "showcase.json was captured on a locally regenerated showcase that never entered the index; hierarchy-index.json and the per-step split existed only on disk. recordings track the document corpus, which the plan edits changed. knowledge.json reflects the deliberate language split."
+    }
   ]
 }

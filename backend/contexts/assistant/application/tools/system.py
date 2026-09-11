@@ -8,7 +8,6 @@ from backend.contexts.assistant.infrastructure.artifacts import RunError, RunRec
 from backend.contexts.assistant.infrastructure.system_map import (
     SystemMap,
     SystemMapError,
-    shared_system_map,
 )
 from backend.contexts.assistant.application.tools.context import Card, ToolContext, ToolFailure
 from backend.contexts.assistant.application.tools.patterns import find_patterns
@@ -37,7 +36,7 @@ def _map(context: ToolContext) -> SystemMap:
     if context.system is not None:
         return context.system
     try:
-        return shared_system_map()
+        return SystemMap()
     except SystemMapError as error:
         raise ToolFailure(str(error)) from error
 

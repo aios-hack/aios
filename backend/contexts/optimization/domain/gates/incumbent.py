@@ -11,7 +11,6 @@ FINALIST_CAP = 4
 
 @dataclass(frozen=True, slots=True)
 class IncumbentRecord:
-
     sequence: int
     stage: str
     schedule_hash: str
@@ -43,7 +42,6 @@ class IncumbentRecord:
 
 
 class IncumbentRegistry:
-
     def __init__(self) -> None:
         self._records: list[IncumbentRecord] = []
 

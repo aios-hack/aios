@@ -723,16 +723,25 @@ def load_index(
     return index
 
 
-_CACHED: DocsIndex | None = None
+class DocsIndexCache:
+    def __init__(self) -> None:
+        self._index: DocsIndex | None = None
+
+    def get(self) -> DocsIndex:
+        if self._index is None:
+            self._index = load_index()
+        return self._index
+
+    def clear(self) -> None:
+        self._index = None
+
+
+PROCESS_DOCS_CACHE = DocsIndexCache()
 
 
 def shared_index() -> DocsIndex:
-    global _CACHED
-    if _CACHED is None:
-        _CACHED = load_index()
-    return _CACHED
+    return PROCESS_DOCS_CACHE.get()
 
 
 def reset_shared_index() -> None:
-    global _CACHED
-    _CACHED = None
+    PROCESS_DOCS_CACHE.clear()

@@ -1,13 +1,3 @@
-"""Reproducible task-34 training entry point for the real Model_Z dataset.
-
-The command reconstructs the versioned perturbation plan, loads successful
-OPM responses through :class:`bridge.dataset.DatasetGenerator`, performs a
-scenario-level split, estimates lambda strictly on the training split, and
-trains the full-trajectory neural surrogate.  The held-out report contains
-real-unit target errors, OOD diagnostics, NPV ranking, watercut, and the
-money-producing ``StateAtDate`` metrics.  It never labels synthetic data as
-a quality measurement.
-"""
 
 from __future__ import annotations
 
@@ -71,8 +61,6 @@ def split_samples(
     test_fraction: float,
     seed: int,
 ) -> Split:
-    """Split whole scenarios before any response-derived context is fit."""
-
     if len(samples) < 8:
         raise TrainingCommandError("для train/validation/test нужно хотя бы 8 прогонов")
     if not (0.0 < validation_fraction < 1.0 and 0.0 < test_fraction < 1.0):
@@ -109,10 +97,6 @@ def _examples(
             raise TrainingCommandError(
                 f"сценарий {sample.metadata.scenario_id} не содержит ResponseArtifact"
             )
-        # Per-edge lambda rows are already aggregated into the two neighbour
-        # features on every node.  The current node MLP does not consume the
-        # raw edge list; dropping it avoids retaining tens of millions of
-        # redundant Python objects for a 200-scenario Model_Z dataset.
         model_input = replace(
             featureizer.transform(sample.schedule, artifact.context),
             lambda_edges=(),
@@ -276,14 +260,6 @@ def evaluate(
 
 
 def money_rub_per_unit(normatives: NormativeSet) -> tuple[float, ...]:
-    """₽ на физическую единицу для каждой цели, в порядке TARGET_NAMES.
-
-    Коэффициенты сняты напрямую с economics/npv.py build_cell_flows: выручка,
-    вычеты и opex по нефти линейны по oil_mass_t, opex жидкости — по
-    liquid_volume_m3, opex закачки — по injection_volume_m3. Дебиты и забойное
-    давление ни в одну денежную статью не входят и получают ноль: они нужны
-    модели ради физики и режимных голов, но рублёвой цены ошибки не имеют.
-    """
     linear = {
         "oil_mass_delta": (
             normatives.price_oil_rub_per_t

@@ -1,4 +1,3 @@
-"""Inference runtime for the deployed direct scenario-level NPV head."""
 
 from __future__ import annotations
 
@@ -35,8 +34,6 @@ def scenario_feature_vector(
     n_wells: int,
     feature_set: FeatureSet = "full",
 ) -> Tensor:
-    """Collapse the complete 224 x well schedule tensor exactly as at training."""
-
     if x.ndim != 2 or x.shape[1] < BASE_FEATURES:
         raise ScenarioNpvHeadError(
             f"ожидался x[:, >={BASE_FEATURES}], получено {x.shape}"
@@ -156,9 +153,6 @@ class ScenarioNpvHead:
             raise ScenarioNpvHeadError(
                 "NPV head нужны минимум два training center для domain gate"
             )
-        # Independent min/max checks miss unseen combinations of otherwise
-        # familiar controls.  Measure joint support in the exact standardized
-        # scenario-feature space consumed by the economic kernel.
         distances = torch.cdist(self.centers, self.centers) / math.sqrt(width)
         distances.fill_diagonal_(math.inf)
         radius = float(distances.amin(dim=1).amax())
@@ -170,13 +164,9 @@ class ScenarioNpvHead:
 
     @property
     def domain_radius_rms(self) -> float:
-        """Largest leave-one-out training-neighbour distance in RMS units."""
-
         return self._domain_radius_rms
 
     def domain_distance_vectors(self, vectors: Tensor) -> Tensor:
-        """Distance to joint training support in standardized RMS units."""
-
         if vectors.ndim != 2 or vectors.shape[1:] != self.feature_mean.shape:
             raise ScenarioNpvHeadError(
                 f"feature vectors {vectors.shape} несовместимы с {self.feature_mean.shape}"
@@ -187,8 +177,6 @@ class ScenarioNpvHead:
         ).amin(dim=1)
 
     def domain_score_vectors(self, vectors: Tensor) -> Tensor:
-        """Zero inside joint train support; relative excess outside it."""
-
         return (self.domain_distance_vectors(vectors) / self._domain_radius_rms - 1.0).clamp_min(
             0.0
         )
@@ -209,8 +197,6 @@ class ScenarioNpvHead:
         return prediction
 
     def predict_with_domain(self, candidate: SurrogateInput) -> tuple[float, float]:
-        """Return economic prediction and its mandatory joint OOD score."""
-
         if candidate.static_feature_names != self.static_feature_names:
             raise ScenarioNpvHeadError("статика кандидата не совпадает с NPV head")
         x, well_index = _features(candidate, self.wells, scenario_context=False)

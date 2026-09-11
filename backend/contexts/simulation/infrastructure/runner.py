@@ -67,7 +67,6 @@ _EXTENDED_LENGTH_UNC_PREFIX = "\\\\?\\UNC\\"
 
 
 def mount_path(path: Path | str) -> str:
-
     text = str(path)
     if text.startswith(_EXTENDED_LENGTH_UNC_PREFIX):
         return "\\\\" + text[len(_EXTENDED_LENGTH_UNC_PREFIX):]
@@ -178,19 +177,16 @@ def record_budget_entry(result: RunResult, *, journal: Path | None = None) -> No
 
 @dataclass(frozen=True, slots=True)
 class DeckHashes:
-
     deck_hash: str
     canonical_schedule_hash: str
     summary_hash: str
 
 
 def summary_spec_hash(spec: SummarySpec) -> str:
-
     return hashlib.sha256(canonical_bytes(spec)).hexdigest()
 
 
 def static_deck_hash(deck: EmittedOpmDeck) -> str:
-
     variable = {deck.schedule_file.resolve(), deck.summary_file.resolve()}
     static = [path for path in deck.input_files if path.resolve() not in variable]
     if len(static) != len(deck.input_files) - len(variable):
@@ -202,7 +198,6 @@ def static_deck_hash(deck: EmittedOpmDeck) -> str:
 
 
 def deck_hashes(deck: EmittedOpmDeck, schedule: Schedule) -> DeckHashes:
-
     return DeckHashes(
         deck_hash=static_deck_hash(deck),
         canonical_schedule_hash=hash_schedule(schedule),
@@ -211,7 +206,6 @@ def deck_hashes(deck: EmittedOpmDeck, schedule: Schedule) -> DeckHashes:
 
 
 def _tail(path: Path, *, max_lines: int = 15, max_chars: int = 2000) -> str:
-
     try:
         lines = [
             line.rstrip()
@@ -225,7 +219,6 @@ def _tail(path: Path, *, max_lines: int = 15, max_chars: int = 2000) -> str:
 
 
 def _unrecovered_iteration_limit_failure(path: Path) -> bool:
-
     try:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
@@ -240,7 +233,6 @@ def _unrecovered_iteration_limit_failure(path: Path) -> bool:
 
 
 def _first_marker(path: Path, markers: Sequence[str]) -> str | None:
-
     try:
         with path.open("r", encoding="utf-8", errors="replace") as log:
             for line in log:
@@ -253,7 +245,6 @@ def _first_marker(path: Path, markers: Sequence[str]) -> str | None:
 
 
 class OpmRunner:
-
     def __init__(
         self,
         work_root: Path | str,
@@ -290,7 +281,6 @@ class OpmRunner:
         run_id: str | None = None,
         flow_args: Sequence[str] | None = None,
     ) -> RunResult:
-
         run_id = run_id or self.new_run_id()
         started = time.perf_counter()
         try:
@@ -327,7 +317,6 @@ class OpmRunner:
         run_id: str | None = None,
         flow_args: Sequence[str] | None = None,
     ) -> RunResult:
-
         run_id = run_id or self.new_run_id()
         started = time.perf_counter()
 
@@ -420,7 +409,6 @@ class OpmRunner:
 
     @staticmethod
     def new_run_id() -> str:
-
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
         return f"{stamp}-{uuid.uuid4().hex[:12]}"
 
@@ -457,7 +445,6 @@ class OpmRunner:
         ]
 
     def _force_remove_container(self, container: str) -> None:
-
         try:
             subprocess.run(
                 [self.docker_binary, "rm", "-f", container],
@@ -471,7 +458,6 @@ class OpmRunner:
 
 
 def _collect_artifacts(workdir: Path | None) -> tuple[str, ...]:
-
     if workdir is None:
         return ()
     try:

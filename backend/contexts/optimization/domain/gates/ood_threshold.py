@@ -26,7 +26,6 @@ CONSERVATIVE_OOD_THRESHOLD = 0.0
 
 @dataclass(frozen=True, slots=True)
 class OodThreshold:
-
     value: float
     origin: str
     calibrated: bool

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from backend.contexts.optimization.domain.errors import (
     ComparisonError,
     VerificationGuardError,
@@ -66,6 +68,8 @@ from backend.contexts.runs.infrastructure.provenance import git_commit, opm_imag
 
 from backend.shared.paths import data_root
 from backend.shared.json_io import read_json
+
+logger = logging.getLogger(__name__)
 
 LAMBDA = data_root() / "lambda-window-2007/lambda.json"
 RESPONSE = data_root() / "base_case/response.json"
@@ -884,7 +888,7 @@ def main() -> int:
         repaired_prediction = evaluator(schedule)
         repair_rounds = 0
         actual_hash = hash_schedule(schedule)
-        print('Проверяется сохранённый план без повторной генерации политики.', flush=True)
+        print('Проверяется сохранённый план без повторной генерации политики.')
     else:
         theta = Theta(values=dict(saved["theta"]), bounds=default_theta().bounds)
         started = time.monotonic()

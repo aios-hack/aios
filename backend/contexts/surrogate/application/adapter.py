@@ -1,35 +1,3 @@
-"""Model output adapter — task 33.
-
-Turns a :class:`~surrogate.raw_model_output.RawModelOutput` prediction plus
-the real base-run response into the two canonical types every downstream
-consumer (``Economics``, ``ProductionLedger``, ``EspStateMachine``) expects:
-``StateAtDate`` (371 dates) and ``IntervalResponse`` (224 intervals), "той же
-формы, что выдаёт ``ResponseLoader``" (docs/context/08_contracts.md §5.1).
-
-Historical part of ``StateAtDate`` (deck_date_index 0…146) is spliced in
-verbatim from the base run, never from the model (§5.1's axis table). The
-predicted part (147…370 / control_step 0…223) comes from ``raw``, with two
-derived fields the model never emits directly:
-
-- ``oil_rate`` — §5.1.1 forbids predicting oil rate as a channel (the
-  achievability trap); derived as ``oil_mass_delta / interval_days``.
-- ``active_control_mode`` — diagnostic-only (§4.1.1); there is no ``WMCTL``
-  analogue for a neural model, so this always goes through the same
-  fact/target fallback rule ``bridge.response_loader`` uses when OPM's
-  ``WMCTL`` itself is unavailable — imported directly rather than
-  reimplemented, to avoid a second copy of its threshold constants drifting
-  out of sync.
-
-``thp``/``well_efficiency`` have no consumer anywhere in the pipeline today
-(``Economics``/``ProductionLedger``/``EspStateMachine`` read only
-``liquid_rate``/``injection_rate``/``bhp``) — held forward from the last
-historical value (deck_date_index 146) rather than modeled.
-
-Returns bare tuples, not a ``contracts.ResponseArtifact``: that type's
-``source_run_id`` documents a real OPM run (§6a), and wrapping a surrogate
-prediction in it would create exactly the kind of surrogate-as-source-of-NPV
-risk task 62 exists to rule out.
-"""
 
 from __future__ import annotations
 
@@ -62,8 +30,6 @@ _HISTORY_HORIZON = HORIZON.history_offset + 1
 
 
 class ResponseAdapter:
-    """RawModelOutput + Schedule + базовый ResponseArtifact → StateAtDate + IntervalResponse."""
-
     def adapt(
         self,
         raw: RawModelOutput,

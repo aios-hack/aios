@@ -27,7 +27,6 @@ from backend.core.contracts import (
 
 @dataclass(frozen=True, slots=True)
 class SearchOutcome:
-
     schedule: Schedule
     theta: Theta
     predicted_npv: float

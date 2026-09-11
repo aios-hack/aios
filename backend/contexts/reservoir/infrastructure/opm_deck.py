@@ -536,8 +536,6 @@ def render_control_period_include(
 ) -> EmittedSchedule:
     full = render_schedule_include(schedule, model_dir)
     parsed = parse_schedule(full.raw)
-    # The organizer appends this include to their history. No WELSPECS,
-    # historical controls or synthetic pre-t0 date belong in the submission.
     raw = full.raw[_control_period_offset(parsed) :]
     return EmittedSchedule(
         raw=raw,
@@ -548,7 +546,6 @@ def render_control_period_include(
 
 
 def render_submission_history(schedule: Schedule, model_dir: Path | str) -> bytes:
-    """Local validation context; never part of well_schedule.inc."""
     full = render_schedule_include(schedule, model_dir)
     return full.raw[:_control_period_offset(parse_schedule(full.raw))]
 

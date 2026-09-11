@@ -1,4 +1,3 @@
-"""Scenario-level PCA/kNN input-density guard for direct NPV features."""
 
 from __future__ import annotations
 

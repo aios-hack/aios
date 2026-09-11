@@ -35,8 +35,6 @@ class _NodeNetwork(nn.Module):
         width = numeric_width + config.well_embedding_dim
         self.residual = config.residual
         if self.residual:
-            # Остаточные блоки одинаковой ширины: градиент доходит до первых
-            # слоёв без затухания, поэтому глубина перестаёт мешать обучению.
             self.stem = nn.Linear(width, config.hidden_width)
             self.blocks = nn.ModuleList(
                 nn.Sequential(

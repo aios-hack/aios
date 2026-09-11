@@ -1,16 +1,10 @@
-"""Выгрузка найденного плана G5 в витрину отдельным сценарием.
-
-θ* берётся из `cmaes.json` — поиск заново не гоняется, расписание
-восстанавливается за секунды. Отклик здесь **предсказан суррогатом**, не
-измерен: в метаданных это сказано явным полем `prediction`, потому что на
-экране «наш план» рядом с базовым прогоном OPM выглядит равноправным, а
-равноправным не является. Когда G7 отдаст настоящий отклик, сценарий
-перевыгружается на нём, и пометка снимается.
-"""
 
 from __future__ import annotations
 
-import json
+from backend.contexts.showcase.application.notices import (
+    notice_fields,
+)
+
 import sys
 from pathlib import Path
 
@@ -140,15 +134,10 @@ def main() -> int:
         "ood_score": prediction.ood_score,
         "ood_threshold": env.ood_threshold,
         "policy_stable": result.self_consistent,
-        "notice_ru": (
-            "Наш план: θ* найдена CMA-ES; отклик предсказан ансамблем из трёх "
-            "суррогатов, ЧДД — отдельной economic head. OPM ещё не подтверждён"
-            + ("" if result.self_consistent else "; policy fixed point нестабилен")
-        ),
-        "notice_en": (
-            "Our plan: θ* found by CMA-ES; response predicted by a three-member "
-            "surrogate ensemble and NPV by a separate economic head. Not OPM-confirmed"
-            + ("" if result.self_consistent else "; policy fixed point is unstable")
+        **notice_fields(
+            "showcase.notice.plan"
+            if result.self_consistent
+            else "showcase.notice.plan_unstable"
         ),
     }
     written = export_scenario(

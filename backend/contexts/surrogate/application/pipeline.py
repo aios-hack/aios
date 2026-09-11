@@ -1,6 +1,7 @@
-"""Durable two-stage Model_Z cycle: freeze 200, add 500, train on 700."""
 
 from __future__ import annotations
+
+import logging
 
 from backend.contexts.surrogate.domain.errors import (
     CycleError,
@@ -30,6 +31,8 @@ from backend.core.contracts import canonical_bytes
 from backend.contexts.surrogate.application.model import ModelConfig, TrajectorySurrogate
 from backend.contexts.surrogate.infrastructure.model_z_context import build_model_z_context
 from backend.contexts.surrogate.application.train import _examples, evaluate, split_samples
+
+logger = logging.getLogger(__name__)
 
 
 PILOT_CONFIG = PlanConfig(
@@ -122,7 +125,7 @@ class CycleState:
         row = {"at": _now(), **payload}
         with self.events_path.open("a", encoding="utf-8") as stream:
             stream.write(json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n")
-        print(json.dumps(row, ensure_ascii=False, allow_nan=False), flush=True)
+        logger.info(json.dumps(row, ensure_ascii=False, allow_nan=False))
 
     def save(self) -> None:
         temporary = self.path.with_suffix(".json.tmp")
@@ -470,13 +473,6 @@ def run(args: argparse.Namespace) -> None:
 
 
 def resume_extra(args: argparse.Namespace) -> None:
-    """Resume the live 500-stage first, without retaining pilot data in RAM.
-
-    This path is used when increasing OPM parallelism mid-stage.  It reloads
-    the already compacted pilot only after all Flow containers have exited,
-    leaving the maximum possible RAM headroom for the simulation workers.
-    """
-
     state = CycleState(args.data_root)
     if state.payload.get("phase") == "complete":
         state.event({"phase": "complete", "message": "cycle already complete"})

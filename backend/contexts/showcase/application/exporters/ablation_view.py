@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from backend.contexts.showcase.application.notices import (
+    notice_fields,
+)
+
 import json
 from pathlib import Path
 from typing import Any
@@ -31,8 +35,7 @@ def ablation_meta() -> dict[str, Any]:
         "kind": "ablation",
         "uplift_measured": False,
         "uplift_reason": ABLATION_NOT_RUN,
-        "notice_ru": ABLATION_NOTICE_RU,
-        "notice_en": ABLATION_NOTICE_EN,
+        **notice_fields("showcase.notice.ablation_absent"),
     }
 
 

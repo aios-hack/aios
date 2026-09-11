@@ -87,8 +87,6 @@ class HierarchyResult:
         )
 
 
-
-
 __all__ = [
     "FIELD_AGENT",
     "FieldAllocation",

@@ -49,7 +49,6 @@ def deck_well_axis(raw: bytes) -> tuple[str, ...]:
     wells = [well.decode("ascii") for well in _WELSPECS_WELL_RE.findall(match.group(1))]
     if not wells:
         raise ScheduleBuildError("WELSPECS не содержит ни одной скважины")
-    # Лексикографический порядок — канон `bridge.OpmDeckEmitter.source_wells` (G2).
     unique = sorted(set(wells))
     if len(unique) != len(wells):
         raise ScheduleBuildError("WELSPECS содержит повторяющиеся скважины")

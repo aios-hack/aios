@@ -7,15 +7,6 @@ from contextlib import contextmanager
 
 @contextmanager
 def _legacy_checkpoint_modules():
-    """Map pre-refactor pickle names to the current package during loading.
-
-    Production checkpoints persist :class:`TrainingDomain` as
-    ``surrogate.ood.TrainingDomain``.  Importing that old package in the new
-    backend can accidentally execute an unrelated editable checkout.  The
-    mapping is deliberately narrow and restored immediately after
-    ``torch.load``.
-    """
-
     from backend.ml.surrogate import ood as current_ood
 
     names = ("surrogate", "surrogate.ood")

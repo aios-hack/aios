@@ -292,21 +292,6 @@ class SystemMap:
         return lines
 
 
-_CACHED: SystemMap | None = None
-
-
-def shared_system_map() -> SystemMap:
-    global _CACHED
-    if _CACHED is None:
-        _CACHED = SystemMap()
-    return _CACHED
-
-
-def reset_shared_system_map() -> None:
-    global _CACHED
-    _CACHED = None
-
-
 __all__ = [
     "DEFAULT_LANG",
     "KINDS",
@@ -319,6 +304,4 @@ __all__ = [
     "SystemMap",
     "SystemMapError",
     "default_system_path",
-    "reset_shared_system_map",
-    "shared_system_map",
 ]

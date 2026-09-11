@@ -1,12 +1,3 @@
-"""Versioned affine calibration for surrogate-predicted NPV.
-
-The trajectory surrogate is trained partly with a scale-invariant ranking
-objective.  Its scenario ordering can therefore be useful while the absolute
-NPV level remains shifted or compressed.  This artifact records the monotone
-``intercept + slope * raw_npv`` correction fitted strictly on validation
-scenarios.  It is deliberately separate from the physical checkpoint: the
-calibration changes only the economic score, never well trajectories.
-"""
 
 from __future__ import annotations
 
@@ -88,8 +79,6 @@ def fit_npv_calibration(
     *,
     model_version: str,
 ) -> NpvCalibration:
-    """Fit least-squares affine calibration without touching test data."""
-
     if len(actual_npv_rub) != len(predicted_npv_rub) or len(actual_npv_rub) < 2:
         raise NpvCalibrationError("калибровка требует хотя бы две пары ЧДД")
     actual = tuple(float(value) for value in actual_npv_rub)
@@ -117,8 +106,6 @@ def calibration_metrics(
     predicted_npv_rub: Sequence[float],
     calibration: NpvCalibration,
 ) -> dict[str, float]:
-    """Absolute-score diagnostics before and after a fixed calibration."""
-
     if len(actual_npv_rub) != len(predicted_npv_rub) or not actual_npv_rub:
         raise NpvCalibrationError("метрики калибровки требуют парные непустые ЧДД")
     actual = tuple(float(value) for value in actual_npv_rub)
